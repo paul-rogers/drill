@@ -123,6 +123,7 @@ public class SimpleListShim implements UnionShim {
 
     Preconditions.checkState(this.colWriter == null);
     this.colWriter = colWriter;
+    writer.addMember(colWriter);
   }
 
   @Override

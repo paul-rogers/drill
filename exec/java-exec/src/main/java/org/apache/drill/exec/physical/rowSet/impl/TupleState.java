@@ -23,11 +23,14 @@ import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
@@ -47,10 +50,106 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
  * a variety of values. So, the "tuple" here is structural, not a specific
  * set of values, but rather the collection of vectors that hold tuple
  * values.
+ *
+ * Drill vector containers and maps are both tuples, but they irritatingly
+ * have completely different APIs for working with their child vectors.
+ * These classes are a proxy to wrap the two APIs to provide a common
+ * view for the use the result set builder and its internals.
+ *
+ * <h4>Output Container</h4>
+ *
+ * Builds the harvest vector container that includes only the columns that
+ * are included in the harvest schema version. That is, it excludes columns
+ * added while writing an overflow row.
+ * <p>
+ * Because a Drill row is actually a hierarchy, walks the internal hierarchy
+ * and builds a corresponding output hierarchy.
+ * <ul>
+ * <li>The root node is the row itself (vector container),</li>
+ * <li>Internal nodes are maps (structures),</li>
+ * <li>Leaf notes are primitive vectors (which may be arrays).</li>
+ * </ul>
+ * The basic algorithm is to identify the version of the output schema,
+ * then add any new columns added up to that version. This object maintains
+ * the output container across batches, meaning that updates are incremental:
+ * we need only add columns that are new since the last update. And, those new
+ * columns will always appear directly after all existing columns in the row
+ * or in a map.
+ * <p>
+ * As special case occurs when columns are added in the overflow row. These
+ * columns <i>do not</i> appear in the output container for the main part
+ * of the batch; instead they appear in the <i>next</i> output container
+ * that includes the overflow row.
+ * <p>
+ * Since the container here may contain a subset of the internal columns, an
+ * interesting case occurs for maps. The maps in the output container are
+ * <b>not</b> the same as those used internally. Since a map column can contain
+ * either one list of columns or another, the internal and external maps must
+ * differ. The set of child vectors (except for child maps) are shared.
  */
 
 public abstract class TupleState extends ContainerState
   implements TupleWriterListener {
+
+  /**
+   * State for a map vector. If the map is repeated, it will have an offset
+   * vector. The map vector itself is a pseudo-vector that is simply a
+   * container for other vectors, and so needs no management itself.
+   */
+
+  public static class MapVectorState implements VectorState {
+
+    private final AbstractMapVector mapVector;
+    private final VectorState offsets;
+
+    public MapVectorState(AbstractMapVector mapVector, VectorState offsets) {
+      this.mapVector = mapVector;
+      this.offsets = offsets;
+    }
+
+    @Override
+    public int allocate(int cardinality) {
+      // The mapVector is a pseudo-vector; nothing to allocate.
+
+      return offsets.allocate(cardinality);
+    }
+
+    @Override
+    public void rollover(int cardinality) {
+      offsets.rollover(cardinality);
+    }
+
+    @Override
+    public void harvestWithLookAhead() {
+      offsets.harvestWithLookAhead();
+    }
+
+    @Override
+    public void startBatchWithLookAhead() {
+      offsets.harvestWithLookAhead();
+    }
+
+    @Override
+    public void close() {
+      offsets.close();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public AbstractMapVector vector() { return mapVector; }
+
+    public VectorState offsetVectorState() { return offsets; }
+
+    @Override
+    public boolean isProjected() {
+      return offsets.isProjected();
+    }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      // TODO Auto-generated method stub
+    }
+  }
 
   /**
    * Handles the details of the top-level tuple, the data row itself.
@@ -67,10 +166,20 @@ public abstract class TupleState extends ContainerState
 
     private final RowSetLoaderImpl writer;
 
+    /**
+     * The projected set of columns presented to the consumer of the
+     * row set loader. Excludes non-projected columns presented to the
+     * consumer of the writers. Also excludes columns if added during
+     * an overflow row.
+     */
+
+    private final VectorContainer outputContainer;
+
     public RowState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache) {
       super(rsLoader, vectorCache, rsLoader.projectionSet);
       writer = new RowSetLoaderImpl(rsLoader, schema);
       writer.bindListener(this);
+      outputContainer = new VectorContainer(rsLoader.allocator());
     }
 
     public RowSetLoaderImpl rootWriter() { return writer; }
@@ -81,8 +190,30 @@ public abstract class TupleState extends ContainerState
     @Override
     public int innerCardinality() { return loader.targetRowCount();}
 
+    /**
+     * The row as a whole is versioned.
+     *
+     * @return <tt>true</tt>
+     */
+
     @Override
-    protected boolean isWithinUnion() { return false; }
+    protected boolean isVersioned() { return true; }
+
+    @Override
+    protected void updateOutput(int curSchemaVersion) {
+      super.updateOutput(curSchemaVersion);
+      outputContainer.buildSchema(SelectionVectorMode.NONE);
+    }
+
+    @Override
+    public int addOutputColumn(ValueVector vector, ColumnMetadata colSchema) {
+      outputContainer.add(vector);
+      int index = outputSchema.addColumn(colSchema);
+      assert outputContainer.getNumberOfColumns() == outputSchema.size();
+      return index;
+    }
+
+    public VectorContainer outputContainer() { return outputContainer; }
   }
 
   /**
@@ -91,12 +222,12 @@ public abstract class TupleState extends ContainerState
    * a batch. This design supports the obscure case in which a new column
    * is added during an overflow row, so exists within this abstraction,
    * but is not published to the map that makes up the output.
+   * <p>
+   * The map state is associated with a map vector. This vector is built
+   * either during harvest time (normal maps) or on the fly (union maps.)
    */
 
   public static abstract class MapState extends TupleState {
-
-    protected MapColumnState mapColumnState;
-    protected int outerCardinality;
 
     public MapState(LoaderInternals events,
         ResultVectorCache vectorCache,
@@ -105,30 +236,34 @@ public abstract class TupleState extends ContainerState
     }
 
     public void bindColumnState(MapColumnState colState) {
-      mapColumnState = colState;
+      super.bindColumnState(colState);
       writer().bindListener(this);
     }
 
-    /**
-     * In order to allocate the correct-sized vectors, the map must know
-     * its member cardinality: the number of elements in each row. This
-     * is 1 for a single map, but may be any number for a map array. Then,
-     * this value is recursively pushed downward to compute the cardinality
-     * of lists of maps that contains lists of maps, and so on.
-     */
+    @SuppressWarnings("resource")
+    @Override
+    public int addOutputColumn(ValueVector vector, ColumnMetadata colSchema) {
+      AbstractMapVector mapVector = parentColumn.vector();
+      if (isVersioned()) {
+        mapVector.putChild(colSchema.name(), vector);
+      }
+      int index = outputSchema.addColumn(colSchema);
+      assert mapVector.getChildCount() == outputSchema.size();
+      assert mapVector.getField().getChildren().size() == outputSchema.size();
+      return index;
+    }
 
     @Override
-    public void updateCardinality(int outerCardinality) {
-      this.outerCardinality = outerCardinality;
-      super.updateCardinality(outerCardinality);
+    public int innerCardinality() {
+      return parentColumn.innerCardinality();
     }
 
     @Override
     public void dump(HierarchicalFormatter format) {
       format
         .startObject(this)
-        .attribute("column", mapColumnState.schema().name())
-        .attribute("cardinality", outerCardinality)
+        .attribute("column", parentColumn.schema().name())
+        .attribute("cardinality", innerCardinality())
         .endObject();
     }
   }
@@ -149,12 +284,7 @@ public abstract class TupleState extends ContainerState
 
     @Override
     public AbstractTupleWriter writer() {
-      return (AbstractTupleWriter) mapColumnState.writer().tuple();
-    }
-
-    @Override
-    public int innerCardinality() {
-      return outerCardinality;
+      return (AbstractTupleWriter) parentColumn.writer().tuple();
     }
 
     @Override
@@ -170,8 +300,8 @@ public abstract class TupleState extends ContainerState
       // columns must be nullable, so back-filling of nulls is possible.
 
       @SuppressWarnings("resource")
-      AbstractMapVector mapVector = mapColumnState.vector();
-       if (mapVector != null) {
+      AbstractMapVector mapVector = parentColumn.vector();
+      if (! isVersioned()) {
          mapVector.putChild(colState.schema().name(), colState.vector());
       }
     }
@@ -185,7 +315,9 @@ public abstract class TupleState extends ContainerState
      */
 
     @Override
-    protected boolean isWithinUnion() { return mapColumnState.vector() != null; }
+    protected boolean isVersioned() {
+      return ((MapColumnState) parentColumn).isVersioned();
+    }
   }
 
   public static class MapArrayState extends MapState {
@@ -204,21 +336,45 @@ public abstract class TupleState extends ContainerState
 
     @Override
     public AbstractTupleWriter writer() {
-      return (AbstractTupleWriter) mapColumnState.writer().array().tuple();
+      return (AbstractTupleWriter) parentColumn.writer().array().tuple();
     }
 
     @Override
-    public int innerCardinality() {
-      return outerCardinality * mapColumnState.schema().expectedElementCount();
-    }
-
-    @Override
-    protected boolean isWithinUnion() { return false; }
+    protected boolean isVersioned() { return true; }
   }
 
+  /**
+   * The set of columns added via the writers: includes both projected
+   * and unprojected columns. (The writer is free to add columns that the
+   * query does not project; the result set loader creates a dummy column
+   * and dummy writer, then does not project the column to the output.)
+   */
 
   protected final List<ColumnState> columns = new ArrayList<>();
+
+  /**
+   * Internal writer schema that matches the column list.
+   */
+
   protected final TupleSchema schema = new TupleSchema();
+
+  /**
+   * Metadata description of the output container (for the row) or map
+   * (for map or repeated map.)
+   * <p>
+   * Rows and maps have an output schema which may differ from the internal schema.
+   * The output schema excludes unprojected columns. It also excludes
+   * columns added in an overflow row.
+   * <p>
+   * The output schema is built slightly differently for maps inside a
+   * union vs. normal top-level (or nested) maps. Maps inside a union do
+   * not defer columns because of the muddy semantics (and infrequent use)
+   * of unions.
+   */
+
+  protected final TupleMetadata outputSchema = new TupleSchema();
+
+  private int prevHarvestIndex = -1;
 
   protected TupleState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
     super(events, vectorCache, projectionSet);
@@ -269,11 +425,6 @@ public abstract class TupleState extends ContainerState
     columns.add(colState);
   }
 
-  public void updateCardinality(int cardinality) {
-    for (ColumnState colState : columns) {
-      colState.updateCardinality(cardinality);
-    }
-  }
   public boolean hasProjections() {
     for (ColumnState colState : columns) {
       if (colState.isProjected()) {
@@ -287,6 +438,51 @@ public abstract class TupleState extends ContainerState
   protected Collection<ColumnState> columnStates() {
     return columns;
   }
+
+  protected void updateOutput(int curSchemaVersion) {
+
+    // Scan all columns
+
+    for (int i = 0; i < columns.size(); i++) {
+      ColumnState colState = columns.get(i);
+
+      // Ignore unprojected columns
+
+      if (! colState.schema().isProjected()) {
+        continue;
+      }
+
+      // If this is a new column added since the last
+      // output, then we may have to add the column to this output.
+      // For the row itself, and for maps outside of unions, If the column was
+      // added after the output schema version cutoff, skip that column for now.
+      // But, if this tuple is within a union,
+      // then we always add all columns because union semantics are too
+      // muddy to play the deferred column game. Further, all columns in
+      // a map within a union must be nullable, so we know we can fill
+      // the column with nulls. (Something that is not true for normal
+      // maps.)
+
+      if (i > prevHarvestIndex && (! isVersioned() || colState.addVersion <= curSchemaVersion)) {
+        colState.buildOutput(this);
+        prevHarvestIndex = i;
+      }
+
+      // If the column is a map, then we have to recurse into the map
+      // itself. If the map is inside a union, then the map's vectors
+      // already appear in the map vector, but we still must update the
+      // output schema.
+
+      if (colState.schema().isMap()) {
+        MapState childMap = ((MapColumnState) colState).mapState();
+        childMap.updateOutput(curSchemaVersion);
+      }
+    }
+  }
+
+  public abstract int addOutputColumn(ValueVector vector, ColumnMetadata colSchema);
+
+  public TupleMetadata outputSchema() { return outputSchema; }
 
   public void dump(HierarchicalFormatter format) {
     format

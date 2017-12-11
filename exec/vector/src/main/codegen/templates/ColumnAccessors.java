@@ -68,6 +68,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.fn.impl.DateUtility;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseVarWidthReader;
@@ -147,8 +148,8 @@ public class ColumnAccessors {
     </#if>
     <#if decimal>
     @Override
-    public void bindVector(VectorAccessor va) {
-      super.bindVector(va);
+    public void bindVector(ColumnMetadata schema, VectorAccessor va) {
+      super.bindVector(schema, va);
       <#if decimal>
       type = va.type();
       </#if>

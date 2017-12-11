@@ -43,9 +43,17 @@ public class BuildFromSchema {
   public void buildTuple(TupleWriter writer, TupleMetadata schema) {
     for (int i = 0; i < schema.size(); i++) {
       ColumnMetadata colSchema = schema.metadata(i);
-      int index = writer.addColumn(colSchema.cloneEmpty());
-      assert index == i;
-      expandColumn(writer.column(i), colSchema);
+
+      // Single-type lists are special and require the type information at
+      // creation time, as is the case with repeated types.
+
+      if (isSingleList(colSchema)) {
+        writer.addColumn(colSchema);
+      } else {
+        int index = writer.addColumn(colSchema.cloneEmpty());
+        assert index == i;
+        expandColumn(writer.column(i), colSchema);
+      }
     }
   }
 
@@ -63,8 +71,13 @@ public class BuildFromSchema {
 
   public void buildUnion(VariantWriter writer, VariantMetadata schema) {
     for (ColumnMetadata member : schema.members()) {
-      ObjectWriter memberWriter = writer.addMember(member.cloneEmpty());
+      ObjectWriter memberWriter = writer.addMember(
+          isSingleList(member) ? member : member.cloneEmpty());
       expandColumn(memberWriter, member);
     }
+  }
+
+  private boolean isSingleList(ColumnMetadata colSchema) {
+    return colSchema.isVariant() && colSchema.isArray() && colSchema.variantSchema().isSingleType();
   }
 }

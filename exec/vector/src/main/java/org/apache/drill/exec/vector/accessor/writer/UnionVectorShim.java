@@ -64,6 +64,13 @@ public class UnionVectorShim implements UnionShim {
   private final UnionVector vector;
   private final AbstractObjectWriter variants[];
   private UnionWriterImpl writer;
+
+  /**
+   * Writer for the type vector associated with the union. The type vector
+   * says which union member holds the value for each row. The type vector
+   * can also indicate if the value is null.
+   */
+
   private final BaseScalarWriter typeWriter;
 
   public UnionVectorShim(UnionVector vector) {
@@ -117,7 +124,8 @@ public class UnionVectorShim implements UnionShim {
     return variants[type.ordinal()] != null;
   }
 
-  private ObjectWriter writerFor(MinorType type) {
+  @Override
+  public ObjectWriter member(MinorType type) {
     AbstractObjectWriter colWriter = variants[type.ordinal()];
     if (colWriter != null) {
       return colWriter;
@@ -126,12 +134,6 @@ public class UnionVectorShim implements UnionShim {
       writer.bindListener(new DefaultListener(this));
     }
     return addMember(type);
-  }
-
-  @Override
-  public ObjectWriter member(MinorType type) {
-    setType(type);
-    return writerFor(type);
   }
 
   @Override
@@ -163,9 +165,25 @@ public class UnionVectorShim implements UnionShim {
 
   @Override
   public void addMember(AbstractObjectWriter colWriter) {
+    addMemberWriter(colWriter);
+    writer.addMember(colWriter);
+  }
+
+  /**
+   * Performs just the work of adding a vector to the list of exising
+   * variants. Called when adding a type via the writer, but also when
+   * the result set loader promotes a list from single type to a union,
+   * and provides this shim with the writer from the single-list shim.
+   * In the latter case, the writer is already initialized and is already
+   * part of the metadata for this list; so we dont' want to call the
+   * list's <tt>addMember()</tt> and repeat those operations.
+   *
+   * @param colWriter the column (type) writer to add
+   */
+
+  public void addMemberWriter(AbstractObjectWriter colWriter) {
     MinorType type = colWriter.schema().type();
     assert variants[type.ordinal()] == null;
-    assert writer.variantSchema().hasType(type);
     variants[type.ordinal()] = colWriter;
   }
 

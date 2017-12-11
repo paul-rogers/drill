@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyArrayWriter;
@@ -87,6 +86,8 @@ public abstract class MapWriter extends AbstractTupleWriter {
     public void endWrite() {
       super.endWrite();
 
+      // A non repeated map has a field that holds the value count.
+      // Update it. (A repeated map uses the offset vector's value count.)
       // Special form of set value count: used only for
       // this class to avoid setting the value count of children.
       // Setting these counts was already done. Doing it again
@@ -94,13 +95,14 @@ public abstract class MapWriter extends AbstractTupleWriter {
       // set the "lastSet" field of nullable vector accessors,
       // and the initial value of -1 will cause all values to
       // be overwritten.
-      //
-      // Note that the map vector can be null if there is no actual
-      // map vector represented by this writer.
 
-      if (mapVector != null) {
-        mapVector.setMapValueCount(vectorIndex.vectorIndex());
-      }
+      mapVector.setMapValueCount(vectorIndex.vectorIndex());
+    }
+
+    @Override
+    public void preRollover() {
+      super.preRollover();
+      mapVector.setMapValueCount(vectorIndex.rowStartIndex());
     }
   }
 
@@ -129,12 +131,6 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
       bindIndex(index, new MemberWriterIndex(index));
     }
-
-    // In endWrite(), do not call setValueCount on the map vector.
-    // Doing so will zero-fill the composite vectors because
-    // the internal map state does not track the writer state.
-    // Instead, the code in this structure has set the value
-    // count for each composite vector individually.
   }
 
   protected static class DummyMapWriter extends MapWriter {
@@ -183,21 +179,21 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   public static ArrayObjectWriter buildMapArray(ColumnMetadata schema,
-      UInt4Vector offsetVector,
+      RepeatedMapVector mapVector,
       List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
     if (schema.isProjected()) {
-      assert offsetVector != null;
+      assert mapVector != null;
       mapWriter = new ArrayMapWriter(schema, writers);
     } else {
-      assert offsetVector == null;
+      assert mapVector == null;
       mapWriter = new DummyArrayMapWriter(schema, writers);
     }
     TupleObjectWriter mapArray = new TupleObjectWriter(mapWriter);
     AbstractArrayWriter arrayWriter;
     if (schema.isProjected()) {
       arrayWriter = new ObjectArrayWriter(schema,
-          offsetVector,
+          mapVector.getOffsetVector(),
           mapArray);
     } else  {
       arrayWriter = new DummyArrayWriter(schema, mapArray);
@@ -209,11 +205,8 @@ public abstract class MapWriter extends AbstractTupleWriter {
       AbstractMapVector vector,
       List<AbstractObjectWriter> writers) {
     if (schema.isArray()) {
-      UInt4Vector offsetVector = vector == null ? null :
-            ((RepeatedMapVector) vector).getOffsetVector();
       return MapWriter.buildMapArray(schema,
-          offsetVector,
-          writers);
+          (RepeatedMapVector) vector, writers);
     } else {
       return MapWriter.buildMap(schema, (MapVector) vector, writers);
     }

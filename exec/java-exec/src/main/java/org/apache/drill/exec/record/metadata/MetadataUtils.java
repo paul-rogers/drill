@@ -121,9 +121,9 @@ public class MetadataUtils {
   public static VariantColumnMetadata newVariant(String name, DataMode cardinality) {
     switch (cardinality) {
     case OPTIONAL:
-      return new VariantColumnMetadata(name, MinorType.UNION, null);
+      return new VariantColumnMetadata(name, MinorType.UNION, new VariantSchema());
     case REPEATED:
-      return new VariantColumnMetadata(name, MinorType.LIST, null);
+      return new VariantColumnMetadata(name, MinorType.LIST, new VariantSchema());
     default:
       throw new IllegalArgumentException();
     }

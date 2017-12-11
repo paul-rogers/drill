@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.ListColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
@@ -32,6 +31,7 @@ import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
+import org.apache.drill.exec.vector.accessor.WriterPosition;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.SimpleListShim;
@@ -122,6 +122,14 @@ public class ListState extends ContainerState
       memberVectorState = new NullVectorState();
     }
 
+    public ListVectorState(ListWriterImpl writer, WriterPosition elementWriter, ListVector vector) {
+      this.schema = writer.schema();
+      this.vector = vector;
+      bitsVectorState = new FixedWidthVectorState(writer, vector.getBitsVector());
+      offsetVectorState = new OffsetVectorState(writer, vector.getOffsetVector(), elementWriter);
+      memberVectorState = new NullVectorState();
+    }
+
     private void replaceMember(VectorState memberState) {
       memberVectorState = memberState;
     }
@@ -161,10 +169,10 @@ public class ListState extends ContainerState
     }
 
     @Override
-    public void reset() {
-      bitsVectorState.reset();
-      offsetVectorState.reset();
-      memberVectorState.reset();
+    public void close() {
+      bitsVectorState.close();
+      offsetVectorState.close();
+      memberVectorState.close();
     }
 
     @SuppressWarnings("unchecked")
@@ -185,14 +193,6 @@ public class ListState extends ContainerState
   }
 
   /**
-   * Reference to the column state for this list column. The column is
-   * the reference to the union from some parent. The class here manages
-   * the contents of the union.
-   */
-
-  private ListColumnState columnState;
-
-  /**
    * Map of types to member columns, used to track the set of child
    * column states for this list. This map mimics the actual set of
    * vectors in the union (or list, before a list becomes a union),
@@ -206,17 +206,12 @@ public class ListState extends ContainerState
     super(loader, vectorCache, projectionSet);
   }
 
-  public void bindColumnState(ListColumnState columnState) {
-    this.columnState = columnState;
-    unionWriter().bindListener(this);
-  }
-
   public VariantMetadata variantSchema() {
-    return columnState.schema().variantSchema();
+    return parentColumn.schema().variantSchema();
   }
 
   public ListWriterImpl listWriter() {
-    return (ListWriterImpl) columnState.writer.array();
+    return (ListWriterImpl) parentColumn.writer.array();
   }
 
   private UnionWriterImpl unionWriter() {
@@ -224,7 +219,7 @@ public class ListState extends ContainerState
   }
 
   private ListVector listVector() {
-    return columnState.vector();
+    return parentColumn.vector();
   }
 
   private UnionVector unionVector() {
@@ -232,7 +227,7 @@ public class ListState extends ContainerState
   }
 
   private ListVectorState listVectorState() {
-    return (ListVectorState) columnState.vectorState();
+    return (ListVectorState) parentColumn.vectorState();
   }
 
   private boolean isSingleType() {
@@ -276,7 +271,6 @@ public class ListState extends ContainerState
    * </ul>
    */
 
-  @SuppressWarnings("resource")
   @Override
   protected void addColumn(ColumnState colState) {
     MinorType type = colState.schema().type();
@@ -286,7 +280,6 @@ public class ListState extends ContainerState
 
     int prevColCount = columns.size();
     columns.put(type, colState);
-    variantSchema().addType(colState.schema());
 
     if (prevColCount == 0) {
       addFirstType(colState);
@@ -331,6 +324,39 @@ public class ListState extends ContainerState
 
     unionWriter().bindShim(new SimpleListShim());
   }
+  
+  /**
+   * Perform the delicate dance of promoting a list vector from a single type to
+   * a union, while leaving the writer client blissfully ignorant that the underlying
+   * vector representation just did a radical change. Key tasks:
+   * <ul>
+   * <li>Create the new column (type member) requested by the client.</li>
+   * <li>The List vector currently has a single type. Promote the list to
+   * a union, adding the existing type (column) as the first union member.</li>
+   * <li>Initialize the union's type vector with either the type of the existing
+   * column, or null, depending on the setting of the is-set bits in the existing
+   * column vector.</li>
+   * <li>Since we've written values into the union's type vector, mark the
+   * last-write position in the union vector's type vector writer to reflect
+   * these writes. (Otherwise, the writer will helpfully zero-fill the previous
+   * positions as part of it's back-fill handling.</li>
+   * <li>Replace the single-type shim in the union vector with a full union
+   * shim.</li>
+   * <li>Move the existing column writer or the member column across from the
+   * single-writer shim to the new union shim.</li>
+   * <li>Augment the list vector's vector state to include a vector state for
+   * the newly created union vector.</li>
+   * </ul>
+   * <p>
+   * Here, yet again, an editorial comment might be useful. List vectors are
+   * very strange and not at all well designed for high-speed writing. They are
+   * too complex; too much can go wrong and there are too many states to handle.
+   * Not only that, variant types don't play well with a relational model like
+   * SQL. This code works, but the overall list concept really needs rethinking.
+   * 
+   * @param colState the column state for the newly added type column; the
+   * one causing the list to change from single-type to a union
+   */
 
   @SuppressWarnings("resource")
   private void addSecondType(ColumnState colState) {
@@ -353,7 +379,7 @@ public class ListState extends ContainerState
     SimpleListShim oldShim = (SimpleListShim) unionWriter.shim();
     UnionVectorShim newShim = new UnionVectorShim(unionVector);
     unionWriter.bindShim(newShim);
-    newShim.addMember(oldShim.memberWriter());
+    newShim.addMemberWriter(oldShim.memberWriter());
     newShim.initTypeIndex(typeFillCount);
 
     // The union vector will be managed within the list vector state.
@@ -363,6 +389,17 @@ public class ListState extends ContainerState
     listVectorState().replaceMember(new UnionVectorState(unionVector, unionWriter));
   }
 
+  /**
+   * Set the one and only type when building a single-type list.
+   *
+   * @param memberState the column state for the list elements
+   */
+
+  public void setSubColumn(ColumnState memberState) {
+    assert columns.isEmpty();
+    columns.put(memberState.schema().type(), memberState);
+  }
+
   @Override
   protected Collection<ColumnState> columnStates() {
     return columns.values();
@@ -370,9 +407,9 @@ public class ListState extends ContainerState
 
   @Override
   public int innerCardinality() {
-    return columnState.outerCardinality * columnState.schema().expectedElementCount();
+    return parentColumn.innerCardinality();
   }
 
   @Override
-  protected boolean isWithinUnion() { return true; }
+  protected boolean isVersioned() { return false; }
 }

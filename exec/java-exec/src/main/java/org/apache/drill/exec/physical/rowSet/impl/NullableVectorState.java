@@ -69,9 +69,9 @@ public class NullableVectorState implements VectorState {
   }
 
   @Override
-  public void reset() {
-    bitsState.reset();
-    valuesState.reset();
+  public void close() {
+    bitsState.close();
+    valuesState.close();
   }
 
   @SuppressWarnings("unchecked")

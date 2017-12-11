@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -89,8 +88,8 @@ public class UnionState extends ContainerState
     }
 
     @Override
-    public void reset() {
-      typesVectorState.reset();
+    public void close() {
+      typesVectorState.close();
     }
 
     @SuppressWarnings("unchecked")
@@ -107,14 +106,6 @@ public class UnionState extends ContainerState
   }
 
   /**
-   * Reference to the column state for this union column. The column is
-   * the reference to the union from some parent. The class here manages
-   * the contents of the union.
-   */
-
-  private UnionColumnState columnState;
-
-  /**
    * Map of types to member columns, used to track the set of child
    * column states for this union. This map mimics the actual set of
    * vectors in the union,
@@ -127,13 +118,8 @@ public class UnionState extends ContainerState
     super(events, vectorCache, projectionSet);
   }
 
-  public void bindColumnState(UnionColumnState columnState) {
-    this.columnState = columnState;
-    writer().bindListener(this);
-  }
-
   public UnionWriterImpl writer() {
-    return (UnionWriterImpl) columnState.writer.variant();
+    return (UnionWriterImpl) parentColumn.writer.variant();
   }
 
   public VariantMetadata variantSchema() {
@@ -141,7 +127,7 @@ public class UnionState extends ContainerState
   }
 
   public UnionVector vector() {
-    return columnState.vector();
+    return parentColumn.vector();
   }
 
   @Override
@@ -162,7 +148,6 @@ public class UnionState extends ContainerState
     assert ! columns.containsKey(colState.schema().type());
     columns.put(colState.schema().type(), colState);
     vector().addType(colState.vector());
-    variantSchema().addType(colState.schema());
   }
 
   @Override
@@ -172,9 +157,9 @@ public class UnionState extends ContainerState
 
   @Override
   public int innerCardinality() {
-    return columnState.outerCardinality;
+    return parentColumn.innerCardinality();
   }
 
   @Override
-  protected boolean isWithinUnion() { return true; }
+  protected boolean isVersioned() { return false; }
 }

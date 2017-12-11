@@ -278,7 +278,7 @@ public abstract class SingleVectorState implements VectorState {
   }
 
   @Override
-  public void reset() {
+  public void close() {
     mainVector.clear();
     if (backupVector != null) {
       backupVector.clear();

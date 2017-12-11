@@ -43,6 +43,7 @@ public abstract class ContainerState {
 
   protected final LoaderInternals loader;
   protected final ProjectionSet projectionSet;
+  protected ColumnState parentColumn;
 
   /**
    * Vector cache for this loader.
@@ -57,10 +58,23 @@ public abstract class ContainerState {
     this.projectionSet = projectionSet;
   }
 
+  public void bindColumnState(ColumnState parentState) {
+    this.parentColumn = parentState;
+  }
+
   public abstract int innerCardinality();
   protected abstract void addColumn(ColumnState colState);
-  protected abstract boolean isWithinUnion();
   protected abstract Collection<ColumnState> columnStates();
+
+  /**
+   * Reports whether this container is subject to version management. Version
+   * management adds columns to the output container at harvest time based on
+   * whether they should appear in the output batch.
+   *
+   * @return <tt>true</tt> if versioned
+   */
+
+  protected abstract boolean isVersioned();
 
   protected LoaderInternals loader() { return loader; }
   public ResultVectorCache vectorCache() { return vectorCache; }
@@ -74,11 +88,50 @@ public abstract class ContainerState {
 
     // Create the vector, writer and column state
 
-    ColumnState colState = ColumnBuilder.addColumn(this, columnSchema);
+    ColumnState colState = ColumnBuilder.buildColumn(this, columnSchema);
 
     // Add the column to this container
+
     addColumn(colState);
+
+    // Set initial cardinality
+
+    colState.updateCardinality(innerCardinality());
+
+    // Allocate vectors if a batch is in progress.
+
+    if (loader().writeable()) {
+      colState.allocateVectors();
+    }
     return colState;
+  }
+
+  /**
+   * In order to allocate the correct-sized vectors, the container must know
+   * its member cardinality: the number of elements in each row. This
+   * is 1 for a single map or union, but may be any number for a map array
+   * or a list. Then,
+   * this value is recursively pushed downward to compute the cardinality
+   * of lists of maps that contains lists of maps, and so on.
+   */
+
+  public void updateCardinality() {
+    int innerCardinality = innerCardinality();
+    assert innerCardinality > 0;
+    for (ColumnState colState : columnStates()) {
+      colState.updateCardinality(innerCardinality);
+    }
+  }
+
+  /**
+   * Start a new batch by shifting the overflow buffers back into the main
+   * write vectors and updating the writers.
+   */
+
+  public void startBatch(boolean schemaOnly) {
+    for (ColumnState colState : columnStates()) {
+      colState.startBatch(schemaOnly);
+    }
   }
 
   /**
@@ -104,17 +157,6 @@ public abstract class ContainerState {
   public void harvestWithLookAhead() {
     for (ColumnState colState : columnStates()) {
       colState.harvestWithLookAhead();
-    }
-  }
-
-  /**
-   * Start a new batch by shifting the overflow buffers back into the main
-   * write vectors and updating the writers.
-   */
-
-  public void startBatch(boolean schemaOnly) {
-    for (ColumnState colState : columnStates()) {
-      colState.startBatch(schemaOnly);
     }
   }
 

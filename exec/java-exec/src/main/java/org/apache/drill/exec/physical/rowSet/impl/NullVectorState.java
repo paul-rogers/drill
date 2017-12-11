@@ -49,7 +49,7 @@ public class NullVectorState implements VectorState {
   @Override public void rollover(int cardinality) { }
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }
-  @Override public void reset() { }
+  @Override public void close() { }
   @Override public <T extends ValueVector> T vector() { return null; }
   @Override public boolean isProjected() { return false; }
 

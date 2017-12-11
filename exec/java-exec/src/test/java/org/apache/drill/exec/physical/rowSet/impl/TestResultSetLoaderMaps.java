@@ -659,6 +659,16 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
+
+    // Ensure the odd map vector value count variable is set correctly.
+
+    @SuppressWarnings("resource")
+    MapVector m1Vector = (MapVector) result.container().getValueVector(1).getValueVector();
+    assertEquals(expectedCount, m1Vector.getAccessor().getValueCount());
+    @SuppressWarnings("resource")
+    MapVector m2Vector = (MapVector) m1Vector.getChildByOrdinal(1);
+    assertEquals(expectedCount, m2Vector.getAccessor().getValueCount());
+
     result.clear();
 
     // Next batch should start with the overflow row

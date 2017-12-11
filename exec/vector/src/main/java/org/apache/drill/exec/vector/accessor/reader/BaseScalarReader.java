@@ -145,4 +145,7 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
     super.bindIndex(rowIndex);
     vectorAccessor.bind(rowIndex);
   }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 }

@@ -162,10 +162,10 @@ public class BuildVectorsFromMetadata {
     if (variantSchema.size() == 0) {
       return;
     } else if (variantSchema.size() == 1) {
-      MinorType childType = variantSchema.types().iterator().next();
+      ColumnMetadata subtype = variantSchema.listSubtype();
       @SuppressWarnings("resource")
       ValueVector childVector = TypeHelper.getNewVector(
-          variantSchema.member(childType).schema(), allocator, null);
+          variantSchema.member(subtype.type()).schema(), allocator, null);
       vector.setChildVector(childVector);
     } else {
       populateUnion(vector.promoteToUnion(), variantSchema);

@@ -144,9 +144,9 @@ public class RepeatedVectorState implements VectorState {
   }
 
   @Override
-  public void reset() {
-    offsetsState.reset();
-    valuesState.reset();
+  public void close() {
+    offsetsState.close();
+    valuesState.close();
   }
 
   @Override

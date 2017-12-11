@@ -152,6 +152,10 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     return true;
   }
 
+  public int getChildCount() {
+    return vectors.size();
+  }
+
   /**
    * Returns a {@link org.apache.drill.exec.vector.ValueVector} corresponding to the given ordinal identifier.
    */

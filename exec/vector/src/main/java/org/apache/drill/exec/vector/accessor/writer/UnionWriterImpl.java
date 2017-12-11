@@ -44,6 +44,15 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     void bindWriter(UnionWriterImpl writer);
     void setNull();
     boolean hasType(MinorType type);
+
+    /**
+     * Return an existing writer for the given type, or create a new one
+     * if needed.
+     *
+     * @param type desired variant type
+     * @return a writer for that type
+     */
+
     ObjectWriter member(MinorType type);
     void setType(MinorType type);
     int lastWriteIndex();
@@ -192,27 +201,27 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   @Override
   public ObjectWriter addMember(ColumnMetadata colSchema) {
-    AbstractObjectWriter writer = shim.addMember(colSchema);
-    addMember(writer);
-    return writer;
+    return shim.addMember(colSchema);
   }
 
   @Override
   public ObjectWriter addMember(MinorType type) {
-    AbstractObjectWriter writer = shim.addMember(type);
-    addMember(writer);
-    return writer;
+    return shim.addMember(type);
   }
 
   /**
    * Add a column writer to an existing union writer. Used for implementations
    * that support "live" schema evolution: column discovery while writing.
    * The corresponding metadata must already have been added to the schema.
+   * Called by the shim's <tt>addMember</tt> to do writer-level tasks.
    *
    * @param colWriter the column writer to add
    */
 
-  private void addMember(AbstractObjectWriter writer) {
+  protected void addMember(AbstractObjectWriter writer) {
+    MinorType type = writer.schema().type();
+    assert ! variantSchema().hasType(type);
+    variantSchema().addType(type);
     writer.events().bindIndex(index);
     if (state != State.IDLE) {
       writer.events().startWrite();

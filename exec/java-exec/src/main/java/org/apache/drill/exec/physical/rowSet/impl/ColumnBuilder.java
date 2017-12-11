@@ -19,15 +19,14 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
 
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.ListColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.PrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.SingleMapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
@@ -47,9 +46,9 @@ import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
@@ -80,7 +79,7 @@ public class ColumnBuilder {
    * @return writer for the new column
    */
 
-  public static ColumnState addColumn(ContainerState parent, ColumnMetadata columnSchema) {
+  public static ColumnState buildColumn(ContainerState parent, ColumnMetadata columnSchema) {
 
     // Indicate projection in the metadata.
 
@@ -89,23 +88,17 @@ public class ColumnBuilder {
 
     // Build the column
 
-    ColumnState colState;
     if (columnSchema.isMap()) {
-      colState = buildMap(parent, columnSchema);
+      return buildMap(parent, columnSchema);
     } else if (columnSchema.isVariant()) {
       if (columnSchema.isArray()) {
-        colState = buildList(parent, columnSchema);
+        return buildList(parent, columnSchema);
       } else {
-        colState = buildUnion(parent, columnSchema);
+        return buildUnion(parent, columnSchema);
       }
     } else {
-      colState = buildPrimitive(parent, columnSchema);
+      return buildPrimitive(parent, columnSchema);
     }
-    colState.updateCardinality(parent.innerCardinality());
-    if (parent.loader().writeable()) {
-      colState.allocateVectors();
-    }
-    return colState;
   }
 
   /**
@@ -197,18 +190,25 @@ public class ColumnBuilder {
   @SuppressWarnings("resource")
   private static ColumnState buildSingleMap(ContainerState parent, ColumnMetadata columnSchema) {
     MapVector vector;
-    if (parent.isWithinUnion()) {
+    VectorState vectorState;
+    if (columnSchema.isProjected()) {
+
+      // Don't get the map vector from the vector cache. Map vectors may
+      // have content that varies from batch to batch. Only the leaf
+      // vectors can be cached.
+
       vector = new MapVector(columnSchema.schema(), parent.loader().allocator(), null);
+      vectorState = new MapVectorState(vector, new NullVectorState());
     } else {
       vector = null;
+      vectorState = new NullVectorState();
     }
     TupleObjectWriter mapWriter = MapWriter.buildMap(columnSchema,
         vector, new ArrayList<AbstractObjectWriter>());
     SingleMapState mapState = new SingleMapState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
         parent.projectionSet().mapProjection(columnSchema.name()));
-    return new MapColumnState(mapState,
-        mapWriter, new UnmanagedVectorState(vector));
+    return new MapColumnState(mapState, mapWriter, vectorState, parent.isVersioned());
   }
 
   @SuppressWarnings("resource")
@@ -216,39 +216,52 @@ public class ColumnBuilder {
 
     // Create the map's offset vector.
 
+    RepeatedMapVector mapVector;
     UInt4Vector offsetVector;
     if (columnSchema.isProjected()) {
-      offsetVector = new UInt4Vector(
-        BaseRepeatedValueVector.OFFSETS_FIELD,
-        parent.loader().allocator());
+      // Creating the map vector will create its contained vectors if we
+      // give it a materialized field with children. So, instead pass a clone
+      // without children so we can add them.
+
+      ColumnMetadata mapColSchema = columnSchema.cloneEmpty();
+
+      // Don't get the map vector from the vector cache. Map vectors may
+      // have content that varies from batch to batch. Only the leaf
+      // vectors can be cached.
+
+      mapVector = new RepeatedMapVector(mapColSchema.schema(),
+          parent.loader().allocator(), null);
+      offsetVector = mapVector.getOffsetVector();
     } else {
+      mapVector = null;
       offsetVector = null;
     }
 
     // Create the writer using the offset vector
 
     AbstractObjectWriter writer = MapWriter.buildMapArray(
-        columnSchema, offsetVector,
+        columnSchema, mapVector,
         new ArrayList<AbstractObjectWriter>());
 
     // Wrap the offset vector in a vector state
 
-    VectorState vectorState;
+    VectorState offsetVectorState;
     if (columnSchema.isProjected()) {
-      vectorState = new OffsetVectorState(
+      offsetVectorState = new OffsetVectorState(
           (((AbstractArrayWriter) writer.array()).offsetWriter()),
           offsetVector,
           writer.array().entry());
     } else {
-      vectorState = new NullVectorState();
+      offsetVectorState = new NullVectorState();
     }
+    VectorState mapVectorState = new MapVectorState(mapVector, offsetVectorState);
 
     // Assemble it all into the column state.
 
     MapArrayState mapState = new MapArrayState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
         parent.projectionSet().mapProjection(columnSchema.name()));
-    return new MapColumnState(mapState, writer, vectorState);
+    return new MapColumnState(mapState, writer, mapVectorState, parent.isVersioned());
   }
 
   @SuppressWarnings("resource")
@@ -261,6 +274,9 @@ public class ColumnBuilder {
     }
 
     // Create the union vector.
+    // Don't get the union vector from the vector cache. Union vectors may
+    // have content that varies from batch to batch. Only the leaf
+    // vectors can be cached.
 
     UnionVector vector = new UnionVector(columnSchema.schema(), parent.loader().allocator(), null);
 
@@ -278,10 +294,13 @@ public class ColumnBuilder {
     UnionState unionState = new UnionState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()), new NullProjectionSet(true));
 
+    // Bind the union state to the union writer to handle column additions.
+
+    unionWriter.bindListener(unionState);
+
     // Assemble it all into a union column state.
 
-    return new UnionColumnState(parent.loader(),
-        writer, vectorState, unionState);
+    return new UnionColumnState(parent.loader(), writer, vectorState, unionState);
   }
 
   private static ColumnState buildList(ContainerState parent, ColumnMetadata columnSchema) {
@@ -302,10 +321,71 @@ public class ColumnBuilder {
     return buildUnionList(parent, columnSchema);
   }
 
+  /**
+   * Create a list that is promised to only ever contain a single type (at least
+   * during this write session). The list acts as a repeated vector in which each
+   * element can be null. The writer is presented as an array of the single type.
+   *
+   * @param parent the parent (tuple, union or list) that holds this list
+   * @param columnSchema metadata description of the list which must contain
+   * exactly one subtype
+   * @return the column state for the list
+   */
+
+  @SuppressWarnings("resource")
   private static ColumnState buildSimpleList(ContainerState parent, ColumnMetadata columnSchema) {
-    // TODO Auto-generated method stub
-    return null;
+
+    // The variant must have the one and only type.
+
+    assert columnSchema.variantSchema().size() == 1;
+    assert columnSchema.variantSchema().isSimple();
+
+    // Create the manager for the one and only column within the list.
+
+    ListState listState = new ListState(parent.loader(),
+        parent.vectorCache().childCache(columnSchema.name()),
+        new NullProjectionSet(true));
+
+    // Create the child vector, writer and state.
+
+    ColumnMetadata memberSchema = columnSchema.variantSchema().listSubtype();
+    ColumnState memberState = buildColumn(listState, memberSchema);
+    listState.setSubColumn(memberState);
+
+    // Create the list vector. Contains a single type.
+
+    ListVector listVector = new ListVector(columnSchema.schema(),
+        parent.loader().allocator(), null);
+    listVector.setChildVector(memberState.vector());
+
+    // Create the list writer: an array of the one type.
+
+    ListWriterImpl listWriter = new ListWriterImpl(columnSchema,
+        listVector, memberState.writer());
+    AbstractObjectWriter listObjWriter = new ArrayObjectWriter(listWriter);
+
+    // Create the list vector state that tracks the list vector lifecycle.
+
+    ListVectorState vectorState = new ListVectorState(listWriter, memberState.writer(), listVector);
+
+    // Assemble it all into a union column state.
+
+    return new UnionColumnState(parent.loader(),
+        listObjWriter, vectorState, listState);
   }
+
+  /**
+   * Create a list based on a (possible) union. The list starts empty here. The client
+   * can then add types as they are discovered. The list itself will transition from a
+   * list of nulls (no child type), to a list of a single type, to a list of unions.
+   * The writer interface will consistently present the list as a list of unions, even
+   * when the list itself has no subtype or a single subtype.
+   *
+   * @param parent the parent (tuple, union or list) that holds this list
+   * @param columnSchema metadata description of the list (must be empty of
+   * subtypes)
+   * @return the column state for the list
+   */
 
   @SuppressWarnings("resource")
   private static ColumnState buildUnionList(ContainerState parent, ColumnMetadata columnSchema) {
@@ -322,6 +402,9 @@ public class ColumnBuilder {
 
     // Create the list vector. Starts with the default (dummy) data
     // vector which corresponds to the empty union shim above.
+    // Don't get the list vector from the vector cache. List vectors may
+    // have content that varies from batch to batch. Only the leaf
+    // vectors can be cached.
 
     ListVector listVector = new ListVector(columnSchema.schema(),
         parent.loader().allocator(), null);
@@ -333,8 +416,7 @@ public class ColumnBuilder {
     // Create the list writer: an array of unions.
 
     AbstractObjectWriter listWriter = new ArrayObjectWriter(
-        new ListWriterImpl(columnSchema,
-            listVector, unionObjWriter));
+        new ListWriterImpl(columnSchema, listVector, unionObjWriter));
 
     // Create the manager for the columns within the list (which may or
     // may not be grouped into a union.)
@@ -343,9 +425,13 @@ public class ColumnBuilder {
         parent.vectorCache().childCache(columnSchema.name()),
         new NullProjectionSet(true));
 
+    // Bind the union state to the union writer to handle column additions.
+
+    unionWriter.bindListener(listState);
+
     // Assemble it all into a union column state.
 
-    return new ListColumnState(parent.loader(),
+    return new UnionColumnState(parent.loader(),
         listWriter, vectorState, listState);
   }
 }

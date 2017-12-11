@@ -228,14 +228,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   private int harvestSchemaVersion;
 
   /**
-   * Builds the harvest vector container that includes only the columns that
-   * are included in the harvest schema version. That is, it excludes columns
-   * added while writing the overflow row.
-   */
-
-  private VectorContainerBuilder containerBuilder;
-
-  /**
    * Counts the batches harvested (sent downstream) from this loader. Does
    * not include the current, in-flight batch.
    */
@@ -310,12 +302,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
       logger.debug("Schema: " + options.schema.toString());
       new BuildFromSchema().buildTuple(rootWriter, options.schema);
-//      rootState.buildSchema(options.schema);
     }
   }
 
   private void updateCardinality() {
-    rootState.updateCardinality(targetRowCount());
+    rootState.updateCardinality();
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
@@ -629,8 +620,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
     updateCardinality();
 
-//    rootWriter.dump(new HierarchicalPrinter());
-
     // Wrap up the completed rows into a batch. Sets
     // vector value counts. The rollover data still exists so
     // it can be moved, but it is now past the recorded
@@ -645,7 +634,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     rootState.rollover();
 
     // Adjust writer state to match the new vector values. This is
-    // surprisingly easy if we not that the current row is shifted to
+    // surprisingly easy if we note that the current row is shifted to
     // the 0 position in the new vector, so we just shift all offsets
     // downward by the current row position at each repeat level.
 
@@ -692,13 +681,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
-    // Build the output container
-
-    if (containerBuilder == null) {
-      containerBuilder = new VectorContainerBuilder(this);
-    }
-    containerBuilder.update(harvestSchemaVersion);
-    VectorContainer container = containerBuilder.container();
+    rootState.updateOutput(harvestSchemaVersion);
+    VectorContainer container = rootState.outputContainer();
     container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
@@ -726,7 +710,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   @Override
   public TupleMetadata harvestSchema() {
-    return containerBuilder.schema();
+    return rootState.outputSchema();
   }
 
   @Override

@@ -89,7 +89,7 @@ public interface VectorState {
    * Clear the vector(s) associated with this state.
    */
 
-  void reset();
+  void close();
 
   /**
    * Underlying vector: the one presented to the consumer of the
