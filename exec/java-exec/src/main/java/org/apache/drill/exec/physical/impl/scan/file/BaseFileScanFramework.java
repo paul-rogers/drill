@@ -104,7 +104,7 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
   protected void configure() {
     super.configure();
 
-    // And the Drill file system.
+    // Create the Drill file system.
 
     try {
       dfs = context.newFileSystem(fsConfig);

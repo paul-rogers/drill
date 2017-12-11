@@ -57,6 +57,16 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   }
 
   @Override
+  public RowSetLoader addSingleCol(Object value) {
+    if (! start()) {
+      throw new IllegalStateException("Batch is full.");
+    }
+    set(0, value);
+    save();
+    return this;
+  }
+
+  @Override
   public int rowIndex() { return rsLoader.writerIndex().vectorIndex(); }
 
   @Override

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.common.expression.PathSegment.NameSegment;
+
 /**
  * Represents the set of columns projected for a tuple (row or map.)
  * The projected columns might themselves be columns, so returns a
@@ -45,4 +47,5 @@ package org.apache.drill.exec.physical.rowSet.impl;
 public interface ProjectionSet {
   boolean isProjected(String colName);
   ProjectionSet mapProjection(String colName);
+  void addSegment(NameSegment child);
 }

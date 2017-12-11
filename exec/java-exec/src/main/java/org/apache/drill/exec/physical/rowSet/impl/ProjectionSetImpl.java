@@ -73,7 +73,7 @@ import org.apache.drill.common.map.CaseInsensitiveMap;
 public class ProjectionSetImpl implements ProjectionSet {
 
   protected Set<String> projection = new HashSet<>();
-  protected Map<String, ProjectionSetImpl> mapProjections =
+  protected Map<String, ProjectionSet> mapProjections =
       CaseInsensitiveMap.newHashMap();
 
   @Override
@@ -120,18 +120,43 @@ public class ProjectionSetImpl implements ProjectionSet {
     return projSet;
   }
 
-  private void addSegment(NameSegment rootSegment) {
+  @Override
+  public void addSegment(NameSegment rootSegment) {
     String rootKey = rootSegment.getPath().toLowerCase();
-    projection.add(rootKey);
     PathSegment child = rootSegment.getChild();
+    boolean isNew = ! projection.contains(rootKey);
+    if (isNew) {
+      projection.add(rootKey);
+    }
+    if (child != null && child.isArray()) {
+      // Ignore the [x] array suffix.
+      child = null;
+    }
+    ProjectionSet map = mapProjections.get(rootKey);
+
+    // If this is an existing projection, then deal with map projection
+    // promotions.
+    // Existing a.{b, c}, new is just a, project all of a.
+    // Existing a (not a map), new is a.b, project all of a.
+    // Either case, insert a null projection to handle the full map
+    // projection and to act as a memento that we have a map and are
+    // projecting the whole map.
+
+    if (! isNew &&
+        ((child == null && map != null && map instanceof ProjectionSetImpl) ||
+         (child != null && map == null))) {
+      mapProjections.put(rootKey, new NullProjectionSet(true));
+      return;
+    }
+
+    // If no child, do nothing more.
+
     if (child == null) {
       return;
     }
-    if (child.isArray()) {
-      // Ignore the [x] array suffix.
-      return;
-    }
-    ProjectionSetImpl map = mapProjections.get(rootKey);
+
+    // Build the map if needed, and add the child.
+
     if (map == null) {
       map = new ProjectionSetImpl();
       mapProjections.put(rootKey, map);

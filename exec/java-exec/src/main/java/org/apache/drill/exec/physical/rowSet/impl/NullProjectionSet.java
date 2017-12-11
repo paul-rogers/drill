@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.common.expression.PathSegment.NameSegment;
+
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
  * When used with maps, means selection of all map columns, either
@@ -38,4 +40,7 @@ public class NullProjectionSet implements ProjectionSet {
   public ProjectionSet mapProjection(String colName) {
     return new NullProjectionSet(allProjected);
   }
+
+  @Override
+  public void addSegment(NameSegment child) { }
 }
