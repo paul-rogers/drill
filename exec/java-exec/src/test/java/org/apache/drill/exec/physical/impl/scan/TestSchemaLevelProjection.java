@@ -18,15 +18,22 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.NullProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -247,4 +254,76 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     assertEquals(0, columns.get(0).projection().destIndex());
     assertSame(nullSource, columns.get(0).projection().source());
   }
+
+  @Test
+  public void testOmittedMap() {
+
+    // Simulate SELECT a, b.c.d ...
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectList("a", "b.c.d"),
+        ScanTestUtils.parsers());
+    assertEquals(2, scanProj.columns().size());
+    {
+      assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(1).nodeType());
+      UnresolvedColumn bCol = (UnresolvedColumn) (scanProj.columns().get(1));
+      assertTrue(bCol.element().isTuple());
+    }
+
+    // Simulate a data source, with early schema, of (a)
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .buildSchema();
+
+    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
+    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
+    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
+        scanProj, tableSchema, fileSource, nullSource,
+        ScanTestUtils.resolvers());
+    assertEquals(2, schemaProj.columns().size());
+
+    // Should have resolved a to a table column, b to a missing map.
+
+    {
+      List<ResolvedColumn> columns = schemaProj.columns();
+
+      // A is projected
+
+      ResolvedColumn aCol = columns.get(0);
+      assertEquals("a", aCol.name());
+      assertEquals(ResolvedTableColumn.ID, aCol.nodeType());
+      assertEquals(MinorType.VARCHAR, aCol.schema().getType().getMinorType());
+
+      // B is not projected, is implicitly a map
+
+      ResolvedColumn bCol = columns.get(1);
+      assertEquals("b", bCol.name());
+      assertEquals(NullProjectedColumn.ID, bCol.nodeType());
+
+      NullColumnSpec bMap = (NullColumnSpec) bCol;
+      assertNotNull(bMap.type());
+      assertEquals(MinorType.MAP, bMap.type().getMinorType());
+      List<NullColumnSpec> bMembers = bMap.members();
+      assertNotNull(bMembers);
+      assertEquals(1, bMembers.size());
+
+      // C is a map within b
+
+      NullColumnSpec cMap = bMembers.get(0);
+      assertNotNull(cMap.type());
+      assertEquals(MinorType.MAP, cMap.type().getMinorType());
+      List<NullColumnSpec> cMembers = cMap.members();
+      assertNotNull(cMembers);
+      assertEquals(1, cMembers.size());
+
+      // D is an unknown column type (not a map)
+
+      NullColumnSpec dNull = cMembers.get(0);
+      assertNull(dNull.type());
+      assertNull(dNull.members());
+    }
+  }
+
+  // Test table of (a{b, c}), project a.b, a.d, a.e.f
 }

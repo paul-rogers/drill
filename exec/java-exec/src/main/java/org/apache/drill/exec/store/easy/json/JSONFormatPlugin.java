@@ -24,6 +24,8 @@ import java.util.Map;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
@@ -141,6 +143,12 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
       // position in wildcard queries.
 
       framework.useDrill1_12MetadataPosition(true);
+
+      // Project missing columns as Varchar, which is at least
+      // compatible with all-text mode. (JSON never returns a nullable
+      // int, so don't use the default.)
+
+      framework.setNullType(Types.optional(MinorType.VARCHAR));
 
       return framework;
     }

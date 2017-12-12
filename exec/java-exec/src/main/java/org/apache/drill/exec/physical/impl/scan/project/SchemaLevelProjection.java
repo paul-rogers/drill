@@ -21,11 +21,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -186,12 +189,28 @@ public class SchemaLevelProjection {
     private final String name;
     private final MajorType type;
     private final Projection projection;
+    private final List<NullColumnSpec> members;
 
     public NullProjectedColumn(String name, MajorType type, Projection projection) {
       this.name = name;
       this.type = type;
       this.projection = projection;
-     }
+      members = null;
+    }
+
+    public NullProjectedColumn(String name, Projection projection, List<NullColumnSpec> members) {
+      this.name = name;
+      this.type = Types.required(MinorType.MAP);
+      this.projection = projection;
+      this.members = members;
+    }
+
+    public NullProjectedColumn(String name) {
+      this.name = name;
+      this.type = null;
+      this.projection = null;
+      this.members = null;
+    }
 
     @Override
     public MajorType type() { return type; }
@@ -212,6 +231,9 @@ public class SchemaLevelProjection {
 
     @Override
     public boolean isTableProjection() { return false; }
+
+    @Override
+    public List<NullColumnSpec> members() { return members; }
   }
 
   /**
@@ -229,8 +251,8 @@ public class SchemaLevelProjection {
 
   public static class ExplicitSchemaProjection extends SchemaLevelProjection {
 
-    protected List<NullColumnSpec> nullCols = new ArrayList<>();
-    protected VectorSource nullSource;
+    protected final List<NullColumnSpec> nullCols = new ArrayList<>();
+    protected final VectorSource nullSource;
 
     public ExplicitSchemaProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
@@ -242,14 +264,14 @@ public class SchemaLevelProjection {
 
       for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
-          resolveColumn(col);
+          resolveColumn((UnresolvedColumn) col);
         } else {
           resolveSpecial(col);
         }
       }
     }
 
-    private void resolveColumn(ColumnProjection col) {
+    private void resolveColumn(UnresolvedColumn col) {
       int tableColIndex = tableSchema.index(col.name());
       if (tableColIndex == -1) {
         resolveNullColumn(col);
@@ -258,21 +280,65 @@ public class SchemaLevelProjection {
       }
     }
 
-    private void resolveNullColumn(ColumnProjection col) {
-      NullProjectedColumn nullCol = new NullProjectedColumn(col.name(), null,
-          new Projection(nullSource, true, nullCols.size(), outputIndex()));
+    /**
+     * Resolve a null column. This is a projected column which does not match
+     * an implicit or table column. We consider two cases: a simple top-level
+     * column reference ("a", say) and an implied map reference ("a.b", say.)
+     * If the column appears to be a map, determine the set of children, which
+     * map appear to any depth, that were requested.
+     *
+     * @param col
+     */
+
+    private void resolveNullColumn(UnresolvedColumn col) {
+      NullProjectedColumn nullCol;
+      if (col.element().isTuple()) {
+        nullCol = new NullProjectedColumn(col.name(), null,
+            resolveMapMembers(col.element()));
+      } else {
+        nullCol = new NullProjectedColumn(col.name(), null, nextNullProjection());
+        nullCols.add(nullCol);
+      }
       addOutputColumn(nullCol);
-      nullCols.add(nullCol);
+    }
+
+    /**
+     * A child column of a map is not projected. Recurse to determine the full
+     * set of nullable child columns.
+     *
+     * @param projectedColumn the map column which was projected
+     * @return a list of null markers for the requested children
+     */
+
+    private List<NullColumnSpec> resolveMapMembers(ProjectedColumn projectedColumn) {
+      List<NullColumnSpec> members = new ArrayList<>();
+      for (ProjectedColumn child : projectedColumn.mapProjection().projections()) {
+        if (child.isTuple()) {
+          members.add(new NullProjectedColumn(child.name(),
+              null, resolveMapMembers(child)));
+        } else {
+          NullProjectedColumn nullCol =
+              new NullProjectedColumn(child.name(), null, nextNullProjection());
+          members.add(nullCol);
+          nullCols.add(nullCol);
+        }
+      }
+      return members;
+    }
+
+    private Projection nextNullProjection() {
+      return new Projection(nullSource, true,
+          nullCols.size(), outputIndex());
     }
 
     @Override
     public List<NullColumnSpec> nullColumns() { return nullCols; }
   }
 
-  protected TupleMetadata tableSchema;
-  protected VectorSource tableSource;
-  protected List<ResolvedColumn> output = new ArrayList<>();
-  protected List<SchemaProjectionResolver> resolvers;
+  protected final TupleMetadata tableSchema;
+  protected final VectorSource tableSource;
+  protected final List<ResolvedColumn> output = new ArrayList<>();
+  protected final List<SchemaProjectionResolver> resolvers;
 
   protected SchemaLevelProjection(
         TupleMetadata tableSchema,

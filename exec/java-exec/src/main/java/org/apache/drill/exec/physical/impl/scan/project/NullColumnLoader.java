@@ -61,6 +61,7 @@ public class NullColumnLoader extends StaticColumnLoader {
   public interface NullColumnSpec {
     String name();
     MajorType type();
+    List<NullColumnSpec> members();
   }
 
   public static final MajorType DEFAULT_NULL_TYPE = MajorType.newBuilder()

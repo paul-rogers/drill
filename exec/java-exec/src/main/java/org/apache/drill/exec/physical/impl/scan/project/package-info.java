@@ -39,6 +39,45 @@
  * from incoming data to output container. This step fills in missing
  * columns, expands wildcards, etc.</li>
  * </ul>
+ * The following outlines the steps from scan plan to per-file data
+ * loading to producing the output batch. The center path is the
+ * projection metadata which turns into an actual output batch.
+ * <pre>
+ *                   Scan Plan
+ *                       |
+ *                       v
+ *               +--------------+
+ *               | Project List |
+ *               |    Parser    |
+ *               +--------------+
+ *                       |
+ *                       v
+ *                +------------+
+ *                | Scan Level |
+ *                | Projection | -----------+
+ *                +------------+            |
+ *                       |                  |
+ *                       v                  v
+ *  +------+      +------------+     +------------+      +-----------+
+ *  | File | ---> | File Level |     | Result Set | ---> | Data File |
+ *  | Data |      | Projection |     |   Loader   | <--- |  Reader   |
+ *  +------+      +------------+     +------------+      +-----------+
+ *                       |                  |
+ *                       v                  |
+ *               +--------------+   Table   |
+ *               | Schema Level |   Schema  |
+ *               |  Projection  | <---------+
+ *               +--------------+           |
+ *                       |                  |
+ *                       v                  |
+ *                 +---------+   Loaded     |
+ *                 |  Output |   Vectors    |
+ *                 |  Mapper | <------------+
+ *                 +---------+
+ *                       |
+ *                       v
+ *                 Output Batch
+ * </pre>
  */
 
 package org.apache.drill.exec.physical.impl.scan.project;

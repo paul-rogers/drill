@@ -175,6 +175,10 @@ public class RowSetUtilities {
     return members;
   }
 
+  public static Object[] singleMap(Object member) {
+    return new Object[] { member };
+  }
+
   public static byte[] byteArray(Integer... elements) {
     byte array[] = new byte[elements.length];
     for (int i = 0; i < elements.length; i++) {
