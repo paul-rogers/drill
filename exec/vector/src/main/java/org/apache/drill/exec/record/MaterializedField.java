@@ -26,6 +26,7 @@ import java.util.Objects;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
@@ -213,16 +214,7 @@ public class MaterializedField {
     // But, unset fields are equivalent to 0. Can't use the protobuf-provided
     // isEquals(), that treats set and unset fields as different.
 
-    if (type.getMinorType() != other.type.getMinorType()) {
-      return false;
-    }
-    if (type.getMode() != other.type.getMode()) {
-      return false;
-    }
-    if (type.getScale() != other.type.getScale()) {
-      return false;
-    }
-    if (type.getPrecision() != other.type.getPrecision()) {
+    if (! Types.isEquivalent(type, other.type)) {
       return false;
     }
 

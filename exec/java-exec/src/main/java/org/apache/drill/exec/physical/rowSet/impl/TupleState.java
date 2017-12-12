@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
@@ -231,7 +232,7 @@ public abstract class TupleState extends ContainerState
 
     public MapState(LoaderInternals events,
         ResultVectorCache vectorCache,
-        ProjectionSet projectionSet) {
+        ProjectedTuple projectionSet) {
       super(events, vectorCache, projectionSet);
     }
 
@@ -272,7 +273,7 @@ public abstract class TupleState extends ContainerState
 
     public SingleMapState(LoaderInternals events,
         ResultVectorCache vectorCache,
-        ProjectionSet projectionSet) {
+        ProjectedTuple projectionSet) {
       super(events, vectorCache, projectionSet);
      }
 
@@ -324,7 +325,7 @@ public abstract class TupleState extends ContainerState
 
     public MapArrayState(LoaderInternals events,
         ResultVectorCache vectorCache,
-        ProjectionSet projectionSet) {
+        ProjectedTuple projectionSet) {
       super(events, vectorCache, projectionSet);
     }
 
@@ -376,7 +377,7 @@ public abstract class TupleState extends ContainerState
 
   private int prevHarvestIndex = -1;
 
-  protected TupleState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
+  protected TupleState(LoaderInternals events, ResultVectorCache vectorCache, ProjectedTuple projectionSet) {
     super(events, vectorCache, projectionSet);
   }
 

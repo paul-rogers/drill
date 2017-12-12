@@ -199,7 +199,7 @@ public class ScanSchemaOrchestrator {
       // adds a column later.
 
       if (! scanProj.projectAll()) {
-        options.setProjectionSet(scanProj.tableLoaderProjection());
+        options.setProjectionSet(scanProj.rootProjection());
       }
       options.setSchema(tableSchema);
 

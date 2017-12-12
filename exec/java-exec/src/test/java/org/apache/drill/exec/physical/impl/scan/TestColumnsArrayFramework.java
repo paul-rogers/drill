@@ -38,6 +38,7 @@ import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.Col
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.FileReaderCreator;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.test.SubOperatorTest;
@@ -155,7 +156,7 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     // Create the scan operator
 
     ColumnsScanOpFixture scanFixture = new ColumnsScanOpFixture();
-    scanFixture.setProjection(ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
+    scanFixture.setProjection(RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
 

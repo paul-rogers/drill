@@ -19,11 +19,12 @@ package org.apache.drill.exec.physical.impl.scan.columns;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager.UnresolvedColumnsArrayColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedColumnImpl;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 import org.apache.drill.exec.store.easy.text.compliant.TextReader;
 
 /**
@@ -81,7 +82,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(NameElement inCol) {
+  public boolean parse(ProjectedColumn inCol) {
     if (requireColumnsArray && inCol.isWildcard()) {
       expandWildcard();
       return true;
@@ -133,7 +134,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
         .build(logger);
     }
     columnsArrayCol = new UnresolvedColumnsArrayColumn(
-        new NameElement(ColumnsArrayManager.COLUMNS_COL));
+        new ProjectedColumnImpl(builder.rootProjection(), ColumnsArrayManager.COLUMNS_COL));
     builder.addTableColumn(columnsArrayCol);
   }
 

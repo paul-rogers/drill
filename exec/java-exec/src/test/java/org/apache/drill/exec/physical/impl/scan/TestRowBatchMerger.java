@@ -69,7 +69,6 @@ public class TestRowBatchMerger extends SubOperatorTest {
     }
   }
 
-
   private RowSetSource makeFirst() {
     BatchSchema firstSchema = new SchemaBuilder()
         .add("d", MinorType.VARCHAR)

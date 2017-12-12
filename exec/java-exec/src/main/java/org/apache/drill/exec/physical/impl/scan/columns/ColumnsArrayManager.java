@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan.columns;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
@@ -28,6 +27,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -86,7 +86,7 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
     public static final int ID = 20;
 
-    public UnresolvedColumnsArrayColumn(NameElement inCol) {
+    public UnresolvedColumnsArrayColumn(ProjectedColumn inCol) {
       super(inCol, ID);
     }
 
@@ -100,7 +100,7 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
     public static final int ID = 21;
 
-    private final NameElement inCol;
+    private final ProjectedColumn inCol;
 
     public ResolvedColumnsArrayColumn(UnresolvedColumnsArrayColumn unresolved,
         MaterializedField schema,

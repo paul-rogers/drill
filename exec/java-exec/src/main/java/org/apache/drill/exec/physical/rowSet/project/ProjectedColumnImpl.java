@@ -15,17 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project;
+package org.apache.drill.exec.physical.rowSet.project;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
-import org.apache.drill.exec.physical.rowSet.impl.NullProjectionSet;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
-import org.apache.drill.exec.record.metadata.TupleNameSpace;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this
@@ -33,7 +30,7 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
  * then one name segment exists for a, and contains segments for both b and c.
  */
 
-public class NameElement implements ProjectionSet {
+public class ProjectedColumnImpl implements ProjectedColumn {
 
   /**
    * Special marker to indicate that that a) the item is an
@@ -41,37 +38,39 @@ public class NameElement implements ProjectionSet {
    * Used when seeing both a and a[x].
    */
 
-  private final Set<Integer> ALL_INDEXES = new HashSet<>();
+  private static final Set<Integer> ALL_INDEXES = new HashSet<>();
 
+  private final ProjectedTuple parent;
   private final String name;
-  TupleNameSpace<NameElement> members;
+  private ProjectedTuple members;
   private Set<Integer> indexes;
-  private NameElement parent;
 
-  public NameElement(String name) {
+  public ProjectedColumnImpl(ProjectedTuple parent, String name) {
+    this.parent = parent;
     this.name = name;
   }
 
+  @Override
   public String name() { return name; }
+  @Override
   public boolean isWildcard() { return name.equals(SchemaPath.WILDCARD); }
+  @Override
   public boolean isSimple() { return ! isTuple() && ! isArray(); }
+  @Override
   public boolean isArray() { return indexes != null; }
+  @Override
   public boolean isTuple() { return members != null; }
 
-  public void addMember(NameElement member) {
+  public ProjectedTuple asTuple() {
     if (members == null) {
-      members = new TupleNameSpace<>();
+      members = new ProjectedTupleImpl(this);
     }
-    members.add(member.name(), member);
-    member.parent = this;
+    return members;
   }
 
-  public NameElement member(String name) {
-    return members == null ? null : members.get(name);
-  }
-
-  public List<NameElement> members() {
-    return members == null ? null : members.entries();
+  public ProjectedTuple projectAllMembers(boolean projectAll) {
+    members = projectAll ? NullProjectedTuple.ALL_MEMBERS : NullProjectedTuple.NO_MEMBERS;
+    return members;
   }
 
   public void addIndex(int index) {
@@ -83,18 +82,21 @@ public class NameElement implements ProjectionSet {
     }
   }
 
-  public void projectAll() {
+  public void projectAllElements() {
     indexes = ALL_INDEXES;
   }
 
+  @Override
   public boolean hasIndexes() {
     return indexes != null && indexes != ALL_INDEXES;
   }
 
+  @Override
   public boolean hasIndex(int index) {
     return hasIndexes() ? indexes.contains(index) : false;
   }
 
+  @Override
   public int maxIndex() {
     if (! hasIndexes()) {
       return 0;
@@ -106,6 +108,7 @@ public class NameElement implements ProjectionSet {
     return max;
   }
 
+  @Override
   public boolean[] indexes() {
     if (! hasIndexes()) {
       return null;
@@ -118,6 +121,7 @@ public class NameElement implements ProjectionSet {
     return map;
   }
 
+  @Override
   public String fullName() {
     StringBuilder buf = new StringBuilder();
     buildName(buf);
@@ -126,11 +130,7 @@ public class NameElement implements ProjectionSet {
 
   public boolean isRoot() { return parent == null; }
 
-  private void buildName(StringBuilder buf) {
-    if (isRoot()) {
-      // Omit hidden root
-      return;
-    }
+  protected void buildName(StringBuilder buf) {
     parent.buildName(buf);
     buf.append('`')
        .append(name)
@@ -138,23 +138,6 @@ public class NameElement implements ProjectionSet {
   }
 
   @Override
-  public boolean isProjected(String colName) {
-    return members == null || member(colName) != null;
-  }
-
-  @Override
-  public ProjectionSet mapProjection(String colName) {
-    ProjectionSet mapProj = member(colName);
-    if (mapProj != null) {
-      return mapProj;
-    }
-
-    // No explicit information for the map. Members inherit the
-    // same projection as the map itself.
-
-    return new NullProjectionSet(isProjected(colName));
-  }
-
   public String summary() {
     if (isArray() && isTuple()) {
       return "repeated map";
@@ -168,6 +151,7 @@ public class NameElement implements ProjectionSet {
     return "column";
   }
 
+  @Override
   public boolean nameEquals(String target) {
     return name.equalsIgnoreCase(target);
   }
@@ -195,4 +179,7 @@ public class NameElement implements ProjectionSet {
     buf.append("]");
     return buf.toString();
   }
+
+  @Override
+  public ProjectedTuple mapProjection() { return members; }
 }

@@ -27,6 +27,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -58,7 +59,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // SELECT * ...
 
-    scanner.build(ScanTestUtils.projectAll());
+    scanner.build(RowSetTestUtils.projectAll());
 
     // ... FROM file
 
@@ -115,7 +116,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // SELECT c ...
 
-    scanner.build(ScanTestUtils.projectList("c"));
+    scanner.build(RowSetTestUtils.projectList("c"));
 
     // ... FROM file
 
@@ -196,7 +197,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // SELECT a, b, dir0, suffix ...
 
-    scanner.build(ScanTestUtils.projectList("a", "b", "dir0", "suffix"));
+    scanner.build(RowSetTestUtils.projectList("a", "b", "dir0", "suffix"));
 
     // ... FROM file
 
@@ -271,7 +272,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // SELECT dir0, b, suffix, c ...
 
-    scanner.build(ScanTestUtils.projectList("dir0", "b", "suffix", "c"));
+    scanner.build(RowSetTestUtils.projectList("dir0", "b", "suffix", "c"));
 
     // ... FROM file
 
@@ -348,7 +349,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // SELECT dir0, dir1, filename, b ...
 
-    scanner.build(ScanTestUtils.projectList(
+    scanner.build(RowSetTestUtils.projectList(
         ScanTestUtils.partitionColName(0),
         ScanTestUtils.partitionColName(1),
         ScanTestUtils.FILE_NAME_COL,

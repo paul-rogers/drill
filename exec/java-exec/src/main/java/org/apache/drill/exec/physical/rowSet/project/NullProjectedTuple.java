@@ -15,9 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.impl;
+package org.apache.drill.exec.physical.rowSet.project;
 
-import org.apache.drill.common.expression.PathSegment.NameSegment;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.drill.common.expression.PathSegment;
 
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
@@ -25,11 +28,17 @@ import org.apache.drill.common.expression.PathSegment.NameSegment;
  * implicitly, or because the map itself is selected.
  */
 
-public class NullProjectionSet implements ProjectionSet {
+public class NullProjectedTuple implements ProjectedTuple {
+
+  public static final ProjectedTuple ALL_MEMBERS =
+      new NullProjectedTuple(true);
+  public static final ProjectedTuple NO_MEMBERS =
+      new NullProjectedTuple(false);
+  public static final List<ProjectedColumn> EMPTY_COLS = new ArrayList<>();
 
   private boolean allProjected;
 
-  public NullProjectionSet(boolean allProjected) {
+  public NullProjectedTuple(boolean allProjected) {
     this.allProjected = allProjected;
   }
 
@@ -37,10 +46,19 @@ public class NullProjectionSet implements ProjectionSet {
   public boolean isProjected(String colName) { return allProjected; }
 
   @Override
-  public ProjectionSet mapProjection(String colName) {
-    return new NullProjectionSet(allProjected);
+  public ProjectedTuple mapProjection(String colName) {
+    return ALL_MEMBERS;
   }
 
   @Override
-  public void addSegment(NameSegment child) { }
+  public void parseSegment(PathSegment child) { }
+
+  @Override
+  public ProjectedColumn get(String colName) { return null; }
+
+  @Override
+  public List<ProjectedColumn> projections() { return EMPTY_COLS; }
+
+  @Override
+  public void buildName(StringBuilder buf) { }
 }

@@ -20,13 +20,10 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.PathSegment;
-import org.apache.drill.common.expression.PathSegment.ArraySegment;
-import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
-import org.apache.drill.exec.record.metadata.TupleNameSpace;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTupleImpl;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The
@@ -90,93 +87,6 @@ public class ScanLevelProjection {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
 
-  public static class ProjectionColumnParser {
-
-    private NameElement root = new NameElement("<root>");
-
-    public List<NameElement> parse(List<SchemaPath> projection) {
-      root.members = new TupleNameSpace<>();
-      for (SchemaPath col : projection) {
-        parse(root, col.getRootSegment());
-      }
-      return root.members.entries();
-    }
-
-    private void parse(NameElement parent, PathSegment pathSeg) {
-      if (pathSeg.isLastPath()) {
-        parseLeaf(parent, (NameSegment) pathSeg);
-      } else if (pathSeg.getChild().isArray()) {
-        parseArray(parent, (NameSegment) pathSeg);
-      } else {
-        parseInternal(parent, (NameSegment) pathSeg);
-      }
-    }
-
-    private void parseLeaf(NameElement parent, NameSegment nameSeg) {
-      String name = nameSeg.getPath();
-      NameElement member = parent.member(name);
-      if (member == null) {
-        parent.addMember(new NameElement(name));
-        return;
-      }
-      if (member.isSimple()) {
-        throw UserException
-          .validationError()
-          .message("Duplicate column in project list: %s",
-              member.fullName())
-          .build(logger);
-      }
-      if (member.isArray()) {
-
-        // Saw both a and a[x]. Occurs in project list.
-        // Project all elements.
-
-        member.projectAll();
-        return;
-      }
-
-      // Allow both a.b (existing) and a (this column)
-
-      assert parent.isTuple();
-    }
-
-    private void parseInternal(NameElement parent, NameSegment nameSeg) {
-      String name = nameSeg.getPath();
-      NameElement member = parent.member(name);
-      if (member == null) {
-        member = new NameElement(name);
-        parent.addMember(member);
-      }
-      parse(member, nameSeg.getChild());
-    }
-
-    private void parseArray(NameElement parent, NameSegment arraySeg) {
-      String name = arraySeg.getPath();
-      int index = ((ArraySegment) arraySeg.getChild()).getIndex();
-      NameElement member = parent.member(name);
-      if (member == null) {
-        member = new NameElement(name);
-        parent.addMember(member);
-      } else if (member.isSimple()) {
-
-        // Saw both a and a[x]. Occurs in project list.
-        // Project all elements.
-
-        member.projectAll();
-        return;
-      } else if (member.hasIndex(index)) {
-        throw UserException
-          .validationError()
-          .message("Duplicate array index in project list: %s[%d]",
-              member.fullName(), index)
-          .build(logger);
-      }
-      member.addIndex(index);
-    }
-
-    public ProjectionSet projectionSet() { return root; }
-  }
-
   public interface ColumnProjection {
     String name();
     int nodeType();
@@ -193,7 +103,7 @@ public class ScanLevelProjection {
 
   public interface ScanProjectionParser {
     void bind(ScanLevelProjection builder);
-    boolean parse(NameElement inCol);
+    boolean parse(ProjectedColumn inCol);
     void validate();
     void validateColumn(ColumnProjection col);
     void build();
@@ -210,10 +120,10 @@ public class ScanLevelProjection {
      * same "input" (to the projection process) column.
      */
 
-    protected final NameElement inCol;
+    protected final ProjectedColumn inCol;
     private final int id;
 
-    public UnresolvedColumn(NameElement inCol, int id) {
+    public UnresolvedColumn(ProjectedColumn inCol, int id) {
       this.inCol = inCol;
       this.id = id;
     }
@@ -224,7 +134,7 @@ public class ScanLevelProjection {
     @Override
     public String name() { return inCol.name(); }
 
-    public NameElement element() { return inCol; }
+    public ProjectedColumn element() { return inCol; }
 
     @Override
     public boolean isTableProjection() {
@@ -264,7 +174,7 @@ public class ScanLevelProjection {
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
-  protected ProjectionSet tableLoaderProjection;
+  protected ProjectedTuple tableLoaderProjection;
   protected boolean hasWildcard;
   protected boolean emptyProjection = true;
 
@@ -286,14 +196,12 @@ public class ScanLevelProjection {
   }
 
   private void doParse() {
-    ProjectionColumnParser colParser = new ProjectionColumnParser();
-    List<NameElement> cols = colParser.parse(projectionList);
-    tableLoaderProjection = colParser.projectionSet();
+    tableLoaderProjection = ProjectedTupleImpl.parse(projectionList);
 
     for (ScanProjectionParser parser : parsers) {
       parser.bind(this);
     }
-    for (NameElement inCol : cols) {
+    for (ProjectedColumn inCol : tableLoaderProjection.projections()) {
       if (inCol.isWildcard()) {
         mapWildcard(inCol);
       } else {
@@ -317,7 +225,7 @@ public class ScanLevelProjection {
    * columns to follow table columns.
    */
 
-  private void mapWildcard(NameElement inCol) {
+  private void mapWildcard(ProjectedColumn inCol) {
 
     // Wildcard column: this is a SELECT * query.
 
@@ -390,7 +298,7 @@ public class ScanLevelProjection {
    * @param inCol the SELECT column
    */
 
-  private void mapColumn(NameElement inCol) {
+  private void mapColumn(ProjectedColumn inCol) {
 
     // Give the extensions first crack at each column.
     // Some may want to "sniff" a column, even if they
@@ -481,7 +389,7 @@ public class ScanLevelProjection {
 
   public boolean projectNone() { return emptyProjection; }
 
-  public ProjectionSet tableLoaderProjection() { return tableLoaderProjection; }
+  public ProjectedTuple rootProjection() { return tableLoaderProjection; }
 
   @Override
   public String toString() {

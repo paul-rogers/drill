@@ -25,6 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.VariantSchema;
@@ -114,7 +115,7 @@ public class UnionState extends ContainerState
 
   private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
-  public UnionState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
+  public UnionState(LoaderInternals events, ResultVectorCache vectorCache, ProjectedTuple projectionSet) {
     super(events, vectorCache, projectionSet);
   }
 

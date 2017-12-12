@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 
 import java.util.List;
 
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
@@ -30,6 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -71,7 +71,7 @@ public class TestColumnsArray extends SubOperatorTest {
 
     // SELECT filename, columns, dir0 ...
 
-    scanner.build(ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
+    scanner.build(RowSetTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
         ColumnsArrayManager.COLUMNS_COL,
         ScanTestUtils.partitionColName(0)));
 
@@ -151,7 +151,7 @@ public class TestColumnsArray extends SubOperatorTest {
   @Test
   public void testMissingColumnsColumn() {
     ScanSchemaOrchestrator scanner = buildScan(
-        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
+        RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -171,7 +171,7 @@ public class TestColumnsArray extends SubOperatorTest {
   @Test
   public void testNotRepeated() {
     ScanSchemaOrchestrator scanner = buildScan(
-        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
+        RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add(ColumnsArrayManager.COLUMNS_COL, MinorType.VARCHAR)
@@ -187,18 +187,4 @@ public class TestColumnsArray extends SubOperatorTest {
 
     scanner.close();
   }
-
-  @Test
-  public void testElementsAndArray() {
-    try {
-    buildScan(
-        Lists.newArrayList(
-          SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL),
-          SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
-
 }

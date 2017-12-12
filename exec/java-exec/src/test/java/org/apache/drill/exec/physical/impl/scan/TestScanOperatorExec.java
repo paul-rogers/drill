@@ -41,6 +41,7 @@ import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
@@ -263,7 +264,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     public void setProjection(String... projCols) {
-      projection = ScanTestUtils.projectList(projCols);
+      projection = RowSetTestUtils.projectList(projCols);
     }
 
     public void setProjection(List<SchemaPath> cols) {

@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -48,7 +49,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testColumnsArray() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
+        RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
         ScanTestUtils.parsers(new ColumnsArrayParser(false)));
 
     assertFalse(scanProj.projectAll());
@@ -65,7 +66,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testRequiredColumnsArray() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
+        RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
         ScanTestUtils.parsers(new ColumnsArrayParser(true)));
 
     assertFalse(scanProj.projectAll());
@@ -82,7 +83,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testRequiredWildcard() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(new ColumnsArrayParser(true)));
 
     assertFalse(scanProj.projectAll());
@@ -102,7 +103,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     // Sic: case variation of standard name
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("Columns"),
+        RowSetTestUtils.projectList("Columns"),
         ScanTestUtils.parsers(new ColumnsArrayParser(false)));
 
     assertFalse(scanProj.projectAll());
@@ -120,7 +121,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testColumnsElements() {
 
    ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(
+        RowSetTestUtils.projectList(
             ColumnsArrayManager.COLUMNS_COL + "[3]",
             ColumnsArrayManager.COLUMNS_COL + "[1]"),
         ScanTestUtils.parsers(new ColumnsArrayParser(false)));
@@ -155,7 +156,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testErrorColumnsArrayAndColumn() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, "a"),
+          RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, "a"),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
     } catch (UserException e) {
@@ -171,7 +172,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testErrorColumnAndColumnsArray() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList("a", ColumnsArrayManager.COLUMNS_COL),
+          RowSetTestUtils.projectList("a", ColumnsArrayManager.COLUMNS_COL),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
     } catch (UserException e) {
@@ -187,21 +188,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testErrorTwoColumnsArray() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, ColumnsArrayManager.COLUMNS_COL),
-          ScanTestUtils.parsers(new ColumnsArrayParser(false)));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
-
-  @Test
-  public void testErrorSimpleAndIndex() {
-    try {
-      new ScanLevelProjection(
-          Lists.newArrayList(
-            SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL),
-            SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")),
+          RowSetTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, ColumnsArrayManager.COLUMNS_COL),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
     } catch (UserException e) {
@@ -213,7 +200,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testErrorRequiredAndExtra() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList("a"),
+          RowSetTestUtils.projectList("a"),
           ScanTestUtils.parsers(new ColumnsArrayParser(true)));
       fail();
     } catch (UserException e) {
@@ -225,7 +212,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testColumnsIndexTooLarge() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectCols(SchemaPath.parseFromString("columns[70000]")),
+          RowSetTestUtils.projectCols(SchemaPath.parseFromString("columns[70000]")),
           ScanTestUtils.parsers(new ColumnsArrayParser(true)));
       fail();
     } catch (UserException e) {
@@ -247,7 +234,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
         Lists.newArrayList(filePath));
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
+        RowSetTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
             ColumnsArrayManager.COLUMNS_COL,
             ScanTestUtils.SUFFIX_COL),
         ScanTestUtils.parsers(new ColumnsArrayParser(false),

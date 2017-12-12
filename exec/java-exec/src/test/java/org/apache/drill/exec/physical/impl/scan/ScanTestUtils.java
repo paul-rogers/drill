@@ -17,10 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -95,34 +93,6 @@ public class ScanTestUtils {
           PartitionColumn.dataType()));
     }
     return metadataSchema;
-  }
-
-  public static List<SchemaPath> projectList(String... names) {
-    List<SchemaPath> selected = new ArrayList<>();
-    for (String name: names) {
-
-      // Parse from string does not handle wildcards.
-
-      if (name.equals(SchemaPath.WILDCARD)) {
-        selected.add(SchemaPath.STAR_COLUMN);
-      } else {
-        selected.add(SchemaPath.parseFromString(name));
-      }
-    }
-    return selected;
-  }
-
-  static List<SchemaPath> projectCols(SchemaPath... cols) {
-    List<SchemaPath> selected = new ArrayList<>();
-    for (SchemaPath col: cols) {
-      selected.add(col);
-    }
-    return selected;
-  }
-
-  public static List<SchemaPath> projectAll() {
-    return Lists.newArrayList(
-        new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)});
   }
 
   public static String partitionColName(int partition) {

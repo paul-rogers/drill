@@ -19,20 +19,15 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.List;
-
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionColumnParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -42,191 +37,6 @@ import org.junit.Test;
  */
 
 public class TestScanLevelProjection extends SubOperatorTest {
-
-  @Test
-  public void testColumnParserWildcard() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList(SchemaPath.WILDCARD));
-    assertEquals(1, cols.size());
-
-    NameElement wildcard = cols.get(0);
-    assertEquals(SchemaPath.WILDCARD, wildcard.name());
-    assertTrue(wildcard.isSimple());
-    assertTrue(wildcard.isWildcard());
-    assertNull(wildcard.members());
-    assertNull(wildcard.indexes());
-  }
-
-  @Test
-  public void testColumnParserSimple() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("a", "b", "c"));
-    assertEquals(3, cols.size());
-
-    NameElement a = cols.get(0);
-    assertEquals("a", a.name());
-    assertTrue(a.isSimple());
-    assertFalse(a.isWildcard());
-    assertNull(a.members());
-    assertNull(a.indexes());
-
-    assertEquals("b", cols.get(1).name());
-    assertTrue(cols.get(1).isSimple());
-
-    assertEquals("c", cols.get(2).name());
-    assertTrue(cols.get(2).isSimple());
-  }
-
-  @Test
-  public void testColumnParserSimpleDups() {
-    try {
-      new ProjectionColumnParser()
-          .parse(ScanTestUtils.projectList("a", "b", "a"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
-
-  @Test
-  public void testColumnParserMap() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("a", "a.b", "a.c", "a.b.c", "d"));
-    assertEquals(2, cols.size());
-
-    NameElement a = cols.get(0);
-    assertEquals("a", a.name());
-    assertFalse(a.isSimple());
-    assertFalse(a.isArray());
-    assertTrue(a.isTuple());
-
-    {
-      List<NameElement> aMembers = a.members();
-      assertEquals(2, aMembers.size());
-
-      NameElement a_b = aMembers.get(0);
-      assertEquals("b", a_b.name());
-      assertTrue(a_b.isTuple());
-
-      {
-        List<NameElement> a_bMembers = a_b.members();
-        assertEquals(1, a_bMembers.size());
-        assertEquals("c", a_bMembers.get(0).name());
-        assertTrue(a_bMembers.get(0).isSimple());
-      }
-
-      assertEquals("c", aMembers.get(1).name());
-      assertTrue(aMembers.get(1).isSimple());
-    }
-
-    assertEquals("d", cols.get(1).name());
-    assertTrue(cols.get(1).isSimple());
-  }
-
-  /**
-   * The columns projected via the projection column parser
-   * act as projection sets.
-   */
-
-  @Test
-  public void testColumnParserMapProjection() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("m1", "m2.m3"));
-    assertEquals(2, cols.size());
-
-    NameElement m1 = cols.get(0);
-    assertEquals("m1", m1.name());
-
-    // Discover a new column under m1
-
-    assertTrue(m1.isProjected("x"));
-    ProjectionSet xProj = m1.mapProjection("x");
-
-    // Discover a new column under m1.x
-
-    assertTrue(xProj.isProjected("y"));
-
-    NameElement m2 = cols.get(1);
-    assertEquals("m1", m1.name());
-
-    assertFalse(m2.isProjected("p"));
-
-    // Discover m3, which is projected
-
-    assertTrue(m2.isProjected("m3"));
-    ProjectionSet m3Proj = m2.mapProjection("m3");
-
-    assertTrue(m3Proj.isProjected("q"));
-
-    ProjectionSet qProj = m3Proj.mapProjection("q");
-    assertTrue(qProj.isProjected("r"));
-  }
-
-  @Test
-  public void testColumnParserMapDups() {
-    try {
-      new ProjectionColumnParser()
-          .parse(ScanTestUtils.projectList("a", "a.b", "a.c", "a.b"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
-
-  @Test
-  public void testColumnParserArray() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("a[1]", "a[3]"));
-    assertEquals(1, cols.size());
-
-    NameElement a = cols.get(0);
-    assertEquals("a", a.name());
-    assertTrue(a.isArray());
-    assertFalse(a.isSimple());
-    assertFalse(a.isTuple());
-    boolean indexes[] = a.indexes();
-    assertNotNull(indexes);
-    assertEquals(4, indexes.length);
-    assertFalse(indexes[0]);
-    assertTrue(indexes[1]);
-    assertFalse(indexes[2]);
-    assertTrue(indexes[3]);
-  }
-
-  @Test
-  public void testColumnParserArrayDups() {
-    try {
-      new ProjectionColumnParser()
-          .parse(ScanTestUtils.projectList("a[1]", "a[3]", "a[1]"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
-
-  @Test
-  public void testColumnParserArrayAndSimple() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("a[1]", "a"));
-    assertEquals(1, cols.size());
-
-    NameElement a = cols.get(0);
-    assertEquals("a", a.name());
-    assertTrue(a.isArray());
-    assertNull(a.indexes());
-  }
-
-  @Test
-  public void testColumnParserSimpleAndArray() {
-    List<NameElement> cols = new ProjectionColumnParser()
-        .parse(ScanTestUtils.projectList("a", "a[1]"));
-    assertEquals(1, cols.size());
-
-    NameElement a = cols.get(0);
-    assertEquals("a", a.name());
-    assertTrue(a.isArray());
-    assertNull(a.indexes());
-  }
 
   /**
    * Basic test: select a set of columns (a, b, c) when the
@@ -241,7 +51,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // Build the projection plan and verify
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("a", "b", "c"),
+        RowSetTestUtils.projectList("a", "b", "c"),
         ScanTestUtils.parsers());
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
@@ -264,7 +74,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   @Test
   public void testMap() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
+        RowSetTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
         ScanTestUtils.parsers());
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
@@ -280,19 +90,20 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Map structure
 
-    NameElement a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    ProjectedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
-    assertTrue(a.isProjected("x"));
-    assertTrue(a.isProjected("y"));
+    assertTrue(a.mapProjection().isProjected("x"));
+    assertTrue(a.mapProjection().isProjected("y"));
+    assertFalse(a.mapProjection().isProjected("z"));
 
-    NameElement c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
+    ProjectedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());
   }
 
   @Test
   public void testArray() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("a[1]", "a[3]"),
+        RowSetTestUtils.projectList("a[1]", "a[3]"),
         ScanTestUtils.parsers());
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
@@ -306,7 +117,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Map structure
 
-    NameElement a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    ProjectedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isArray());
     assertFalse(a.hasIndex(0));
     assertTrue(a.hasIndex(1));
@@ -321,7 +132,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   @Test
   public void testWildcard() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
@@ -349,7 +160,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   @Test
   public void testEmptyProjection() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(),
+        RowSetTestUtils.projectList(),
         ScanTestUtils.parsers());
 
     assertFalse(scanProj.projectAll());
@@ -365,7 +176,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorWildcardAndColumns() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList(SchemaPath.WILDCARD, "a"),
+          RowSetTestUtils.projectList(SchemaPath.WILDCARD, "a"),
           ScanTestUtils.parsers());
       fail();
     } catch (IllegalArgumentException e) {
@@ -380,7 +191,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorColumnAndWildcard() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList("a", SchemaPath.WILDCARD),
+          RowSetTestUtils.projectList("a", SchemaPath.WILDCARD),
           ScanTestUtils.parsers());
       fail();
     } catch (IllegalArgumentException e) {
@@ -398,7 +209,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorTwoWildcards() {
     try {
       new ScanLevelProjection(
-          ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD),
+          RowSetTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD),
           ScanTestUtils.parsers());
       fail();
     } catch (UserException e) {

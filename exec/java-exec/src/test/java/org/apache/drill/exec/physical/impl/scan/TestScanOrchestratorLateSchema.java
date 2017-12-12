@@ -25,6 +25,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -55,7 +56,7 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
 
     // SELECT * ...
 
-    orchestrator.build(ScanTestUtils.projectAll());
+    orchestrator.build(RowSetTestUtils.projectAll());
 
     // ... FROM table
 
@@ -110,7 +111,7 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
 
     // SELECT a, c ...
 
-    orchestrator.build(ScanTestUtils.projectList("a", "c"));
+    orchestrator.build(RowSetTestUtils.projectList("a", "c"));
 
     // ... FROM file
 

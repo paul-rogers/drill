@@ -24,6 +24,7 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -98,7 +99,8 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
       if (permissive) {
         return colSchema.isPromotableTo(vectorSchema, true);
       } else {
-        return vectorSchema.getType().equals(colSchema.getType());
+        return Types.isEquivalent(vectorSchema.getType(),
+            colSchema.getType());
       }
     }
   }

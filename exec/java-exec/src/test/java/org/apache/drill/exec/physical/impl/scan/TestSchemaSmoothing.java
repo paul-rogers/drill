@@ -42,6 +42,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.SmoothingProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -61,6 +62,14 @@ import com.google.common.collect.Lists;
  * detect missing columns.
  * <p>
  * Focuses on the <tt>SmoothingProjection</tt> class itself.
+ * <p>
+ * Note that, at present, schema smoothing does not work for entire
+ * maps. That is, if file 1 has, say <tt>{a: {b: 10, c: "foo"}}</tt>
+ * and file 2 has, say, <tt>{a: null}</tt>, then schema smoothing does
+ * not currently know how to recreate the map. The same is true of
+ * lists and unions. Handling such cases is complex and is probably
+ * better handled via a system that allows the user to specify their
+ * intent by providing a schema to apply to the two files.
  */
 
 public class TestSchemaSmoothing extends SubOperatorTest {
@@ -86,7 +95,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL, "a", "b"),
+        RowSetTestUtils.projectList(ScanTestUtils.FILE_NAME_COL, "a", "b"),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -169,7 +178,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testSmoothingProjection() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -277,7 +286,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testSmaller() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -312,7 +321,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testDisjoint() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -339,7 +348,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testDifferentTypes() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -370,7 +379,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testSameSchemas() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -402,7 +411,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testDifferentCase() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -432,7 +441,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testRequired() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -461,7 +470,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testMissingNullableColumns() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -491,7 +500,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testReordering() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -534,7 +543,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -584,7 +593,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -634,7 +643,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -670,7 +679,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   @Test
   public void testSmoothableSchemaBatches() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
 
     ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
@@ -772,7 +781,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   public void testWildcardSmoothing() {
     ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator());
     projector.enableSchemaSmoothing(true);
-    projector.build(ScanTestUtils.projectAll());
+    projector.build(RowSetTestUtils.projectAll());
 
     TupleMetadata firstSchema = new SchemaBuilder()
         .add("a", MinorType.INT)

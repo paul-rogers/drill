@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -38,7 +39,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
   @Test
   public void testWildcard() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers());
     assertEquals(1, scanProj.columns().size());
 
@@ -79,7 +80,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, b, a ...
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("c", "b", "a"),
+        RowSetTestUtils.projectList("c", "b", "a"),
         ScanTestUtils.parsers());
     assertEquals(3, scanProj.columns().size());
 
@@ -125,7 +126,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, v, b, w ...
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("c", "v", "b", "w"),
+        RowSetTestUtils.projectList("c", "v", "b", "w"),
         ScanTestUtils.parsers());
     assertEquals(4, scanProj.columns().size());
 
@@ -180,7 +181,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, a ...
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("c", "a"),
+        RowSetTestUtils.projectList("c", "a"),
         ScanTestUtils.parsers());
     assertEquals(2, scanProj.columns().size());
 
@@ -223,7 +224,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, a ...
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("b"),
+        RowSetTestUtils.projectList("b"),
         ScanTestUtils.parsers());
     assertEquals(1, scanProj.columns().size());
 

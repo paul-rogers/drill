@@ -15,9 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.impl;
+package org.apache.drill.exec.physical.rowSet.project;
 
-import org.apache.drill.common.expression.PathSegment.NameSegment;
+import java.util.List;
+
+import org.apache.drill.common.expression.PathSegment;
 
 /**
  * Represents the set of columns projected for a tuple (row or map.)
@@ -26,13 +28,13 @@ import org.apache.drill.common.expression.PathSegment.NameSegment;
  * <p>
  * Three implementations exist:
  * <ul>
- * <li>Project all ({@link NullProjectionSet): used for a tuple when
+ * <li>Project all ({@link NullProjectedTuple#ALL_MEMBERS}): used for a tuple when
  * all columns are projected. Example: the root tuple (the row) in
  * a <tt>SELECT *</tt> query.</li>
- * <li>Project none  (also {@link NullProjectionSet): used when no
+ * <li>Project none  (also {@link NullProjectedTuple#NO_MEMBERS}): used when no
  * columns are projected from a tuple, such as when a map itself is
  * not projected, so none of its member columns are projected.</li>
- * <li>Project some ({@link ProjectionSetImpl}: used in the
+ * <li>Project some ({@link ProjectedTupleImpl}: used in the
  * <tt>SELECT a, c, e</tt> case in which the query identifies which
  * columns to project (implicitly leaving out others, such as b and
  * d in our example.)</li>
@@ -44,8 +46,28 @@ import org.apache.drill.common.expression.PathSegment.NameSegment;
  * is unwanted (and can just receive a dummy writer.)
  */
 
-public interface ProjectionSet {
+public interface ProjectedTuple {
+
+  public interface ProjectedColumn {
+    String name();
+    boolean isWildcard();
+    boolean isSimple();
+    boolean isArray();
+    boolean isTuple();
+    String fullName();
+    ProjectedTuple mapProjection();
+    boolean nameEquals(String target);
+    int maxIndex();
+    boolean[] indexes();
+    boolean hasIndexes();
+    boolean hasIndex(int index);
+    String summary();
+  }
+
+  void parseSegment(PathSegment child);
+  ProjectedColumn get(String colName);
   boolean isProjected(String colName);
-  ProjectionSet mapProjection(String colName);
-  void addSegment(NameSegment child);
+  ProjectedTuple mapProjection(String colName);
+  List<ProjectedColumn> projections();
+  void buildName(StringBuilder buf);
 }

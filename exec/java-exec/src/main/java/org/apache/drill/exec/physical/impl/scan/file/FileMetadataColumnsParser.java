@@ -22,10 +22,10 @@ import java.util.regex.Pattern;
 
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 
 public class FileMetadataColumnsParser implements ScanProjectionParser {
 
@@ -52,7 +52,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(NameElement inCol) {
+  public boolean parse(ProjectedColumn inCol) {
     Matcher m = partitionPattern.matcher(inCol.name());
     if (m.matches()) {
       return buildPartitionColumn(m, inCol);
@@ -70,7 +70,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     return false;
   }
 
-  private boolean buildPartitionColumn(Matcher m, NameElement inCol) {
+  private boolean buildPartitionColumn(Matcher m, ProjectedColumn inCol) {
 
     // If the projected column is a map or array, then it shadows the
     // partition column. Example: dir0.x, dir0[2].
@@ -95,7 +95,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   }
 
   private boolean buildMetadataColumn(FileMetadataColumnDefn defn,
-      NameElement inCol) {
+      ProjectedColumn inCol) {
 
     // If the projected column is a map or array, then it shadows the
     // metadata column. Example: filename.x, filename[2].

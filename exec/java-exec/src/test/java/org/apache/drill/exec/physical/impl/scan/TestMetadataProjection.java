@@ -38,6 +38,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -162,7 +163,7 @@ public class TestMetadataProjection extends SubOperatorTest {
         Lists.newArrayList(filePath));
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(
+        RowSetTestUtils.projectList(
             ScanTestUtils.FILE_NAME_COL,
             "a",
             ScanTestUtils.partitionColName(0)),
@@ -249,7 +250,7 @@ public class TestMetadataProjection extends SubOperatorTest {
     // Scan level projection
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(),
+        RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
     assertEquals(7, scanProj.columns().size());
 
@@ -292,7 +293,7 @@ public class TestMetadataProjection extends SubOperatorTest {
         Lists.newArrayList(filePath));
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList(
+        RowSetTestUtils.projectList(
           "a",
           ScanTestUtils.FULLY_QUALIFIED_NAME_COL,
           "filEPath", // Sic, to test case sensitivity
@@ -339,7 +340,7 @@ public class TestMetadataProjection extends SubOperatorTest {
         Lists.newArrayList(filePath));
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectList("dir11"),
+        RowSetTestUtils.projectList("dir11"),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     TupleMetadata tableSchema = new SchemaBuilder()
