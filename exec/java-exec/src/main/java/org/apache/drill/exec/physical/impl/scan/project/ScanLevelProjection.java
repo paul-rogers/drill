@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTupleImpl;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The
@@ -87,12 +87,6 @@ public class ScanLevelProjection {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
 
-  public interface ColumnProjection {
-    String name();
-    int nodeType();
-    boolean isTableProjection();
-  }
-
   /**
    * Interface for add-on parsers, avoids the need to create
    * a single, tightly-coupled parser for all types of columns.
@@ -103,59 +97,10 @@ public class ScanLevelProjection {
 
   public interface ScanProjectionParser {
     void bind(ScanLevelProjection builder);
-    boolean parse(ProjectedColumn inCol);
+    boolean parse(RequestedColumn inCol);
     void validate();
     void validateColumn(ColumnProjection col);
     void build();
-  }
-
-  public static class UnresolvedColumn implements ColumnProjection {
-
-    public static final int WILDCARD = 1;
-    public static final int UNRESOLVED = 2;
-
-    /**
-     * The original physical plan column to which this output column
-     * maps. In some cases, multiple output columns map map the to the
-     * same "input" (to the projection process) column.
-     */
-
-    protected final ProjectedColumn inCol;
-    private final int id;
-
-    public UnresolvedColumn(ProjectedColumn inCol, int id) {
-      this.inCol = inCol;
-      this.id = id;
-    }
-
-    @Override
-    public int nodeType() { return id; }
-
-    @Override
-    public String name() { return inCol.name(); }
-
-    public ProjectedColumn element() { return inCol; }
-
-    @Override
-    public boolean isTableProjection() {
-      return id == UNRESOLVED;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder buf = new StringBuilder();
-      buf
-        .append("[")
-        .append(getClass().getSimpleName())
-        .append(" type=")
-        .append(id == WILDCARD ? "wildcard" : "column");
-      if (isTableProjection()) {
-        buf
-          .append(", column=")
-          .append(inCol.toString());
-      }
-      return buf.append("]").toString();
-    }
   }
 
   // Input
@@ -174,7 +119,7 @@ public class ScanLevelProjection {
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
-  protected ProjectedTuple tableLoaderProjection;
+  protected RequestedTuple tableLoaderProjection;
   protected boolean hasWildcard;
   protected boolean emptyProjection = true;
 
@@ -196,12 +141,12 @@ public class ScanLevelProjection {
   }
 
   private void doParse() {
-    tableLoaderProjection = ProjectedTupleImpl.parse(projectionList);
+    tableLoaderProjection = RequestedTupleImpl.parse(projectionList);
 
     for (ScanProjectionParser parser : parsers) {
       parser.bind(this);
     }
-    for (ProjectedColumn inCol : tableLoaderProjection.projections()) {
+    for (RequestedColumn inCol : tableLoaderProjection.projections()) {
       if (inCol.isWildcard()) {
         mapWildcard(inCol);
       } else {
@@ -225,7 +170,7 @@ public class ScanLevelProjection {
    * columns to follow table columns.
    */
 
-  private void mapWildcard(ProjectedColumn inCol) {
+  private void mapWildcard(RequestedColumn inCol) {
 
     // Wildcard column: this is a SELECT * query.
 
@@ -298,7 +243,7 @@ public class ScanLevelProjection {
    * @param inCol the SELECT column
    */
 
-  private void mapColumn(ProjectedColumn inCol) {
+  private void mapColumn(RequestedColumn inCol) {
 
     // Give the extensions first crack at each column.
     // Some may want to "sniff" a column, even if they
@@ -389,7 +334,7 @@ public class ScanLevelProjection {
 
   public boolean projectNone() { return emptyProjection; }
 
-  public ProjectedTuple rootProjection() { return tableLoaderProjection; }
+  public RequestedTuple rootProjection() { return tableLoaderProjection; }
 
   @Override
   public String toString() {

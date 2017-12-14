@@ -28,17 +28,17 @@ import org.apache.drill.common.expression.PathSegment;
  * implicitly, or because the map itself is selected.
  */
 
-public class NullProjectedTuple implements ProjectedTuple {
+public class ImpliedTupleRequest implements RequestedTuple {
 
-  public static final ProjectedTuple ALL_MEMBERS =
-      new NullProjectedTuple(true);
-  public static final ProjectedTuple NO_MEMBERS =
-      new NullProjectedTuple(false);
-  public static final List<ProjectedColumn> EMPTY_COLS = new ArrayList<>();
+  public static final RequestedTuple ALL_MEMBERS =
+      new ImpliedTupleRequest(true);
+  public static final RequestedTuple NO_MEMBERS =
+      new ImpliedTupleRequest(false);
+  public static final List<RequestedColumn> EMPTY_COLS = new ArrayList<>();
 
   private boolean allProjected;
 
-  public NullProjectedTuple(boolean allProjected) {
+  public ImpliedTupleRequest(boolean allProjected) {
     this.allProjected = allProjected;
   }
 
@@ -46,18 +46,18 @@ public class NullProjectedTuple implements ProjectedTuple {
   public boolean isProjected(String colName) { return allProjected; }
 
   @Override
-  public ProjectedTuple mapProjection(String colName) {
-    return ALL_MEMBERS;
+  public RequestedTuple mapProjection(String colName) {
+    return allProjected ? ALL_MEMBERS : NO_MEMBERS;
   }
 
   @Override
   public void parseSegment(PathSegment child) { }
 
   @Override
-  public ProjectedColumn get(String colName) { return null; }
+  public RequestedColumn get(String colName) { return null; }
 
   @Override
-  public List<ProjectedColumn> projections() { return EMPTY_COLS; }
+  public List<RequestedColumn> projections() { return EMPTY_COLS; }
 
   @Override
   public void buildName(StringBuilder buf) { }

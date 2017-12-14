@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.SingleMapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
-import org.apache.drill.exec.physical.rowSet.project.NullProjectedTuple;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
@@ -293,7 +293,7 @@ public class ColumnBuilder {
     // Create the manager for the columns within the union.
 
     UnionState unionState = new UnionState(parent.loader(),
-        parent.vectorCache().childCache(columnSchema.name()), new NullProjectedTuple(true));
+        parent.vectorCache().childCache(columnSchema.name()), new ImpliedTupleRequest(true));
 
     // Bind the union state to the union writer to handle column additions.
 
@@ -345,7 +345,7 @@ public class ColumnBuilder {
 
     ListState listState = new ListState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        new NullProjectedTuple(true));
+        new ImpliedTupleRequest(true));
 
     // Create the child vector, writer and state.
 
@@ -424,7 +424,7 @@ public class ColumnBuilder {
 
     ListState listState = new ListState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        new NullProjectedTuple(true));
+        new ImpliedTupleRequest(true));
 
     // Bind the union state to the union writer to handle column additions.
 

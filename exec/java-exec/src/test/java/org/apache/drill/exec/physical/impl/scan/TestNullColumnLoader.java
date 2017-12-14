@@ -25,8 +25,10 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.NullProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedNullColumn;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
@@ -41,15 +43,15 @@ import org.junit.Test;
 
 public class TestNullColumnLoader extends SubOperatorTest {
 
-  private NullProjectedColumn makeNullCol(String name, MajorType nullType) {
+  private ResolvedNullColumn makeNullCol(String name, MajorType nullType) {
 
     // For this test, we don't need the projection, so just
     // set it to null.
 
-    return new NullProjectedColumn(name, nullType, null);
+    return new ResolvedNullColumn(name, nullType, null, 0);
   }
 
-  private NullProjectedColumn makeNullCol(String name) {
+  private ResolvedNullColumn makeNullCol(String name) {
     return makeNullCol(name, null);
   }
 
@@ -62,24 +64,12 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testBasics() {
 
-    List<NullProjectedColumn> defns = new ArrayList<>();
+    List<ResolvedNullColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("unspecified", null));
-    defns.add(makeNullCol("nullType", MajorType.newBuilder()
-        .setMinorType(MinorType.NULL)
-        .setMode(DataMode.OPTIONAL)
-        .build()));
-    defns.add(makeNullCol("specifiedOpt", MajorType.newBuilder()
-        .setMinorType(MinorType.VARCHAR)
-        .setMode(DataMode.OPTIONAL)
-        .build()));
-    defns.add(makeNullCol("specifiedReq", MajorType.newBuilder()
-        .setMinorType(MinorType.VARCHAR)
-        .setMode(DataMode.REQUIRED)
-        .build()));
-    defns.add(makeNullCol("specifiedArray", MajorType.newBuilder()
-        .setMinorType(MinorType.VARCHAR)
-        .setMode(DataMode.REPEATED)
-        .build()));
+    defns.add(makeNullCol("nullType", Types.optional(MinorType.NULL)));
+    defns.add(makeNullCol("specifiedOpt", Types.optional(MinorType.VARCHAR)));
+    defns.add(makeNullCol("specifiedReq", Types.required(MinorType.VARCHAR)));
+    defns.add(makeNullCol("specifiedArray", Types.repeated(MinorType.VARCHAR)));
 
     ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
     NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, null, false);
@@ -110,7 +100,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testCustomNullType() {
 
-    List<NullProjectedColumn> defns = new ArrayList<>();
+    List<ResolvedNullColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("unspecified", null));
     defns.add(makeNullCol("nullType", MajorType.newBuilder()
         .setMinorType(MinorType.NULL)
@@ -155,7 +145,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testCachedTypesMapToNullable() {
 
-    List<NullProjectedColumn> defns = new ArrayList<>();
+    List<ResolvedNullColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("req"));
     defns.add(makeNullCol("opt"));
     defns.add(makeNullCol("rep"));
@@ -207,7 +197,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testCachedTypesAllowRequired() {
 
-    List<NullProjectedColumn> defns = new ArrayList<>();
+    List<ResolvedNullColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("req"));
     defns.add(makeNullCol("opt"));
     defns.add(makeNullCol("rep"));
@@ -253,5 +243,41 @@ public class TestNullColumnLoader extends SubOperatorTest {
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(output));
     staticLoader.close();
+  }
+
+  @Test
+  public void testNullColumnBuilder() {
+
+    ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+
+    builder.add("unspecified");
+    builder.add("nullType", Types.optional(MinorType.NULL));
+    builder.add("specifiedOpt", Types.optional(MinorType.VARCHAR));
+    builder.add("specifiedReq", Types.required(MinorType.VARCHAR));
+    builder.add("specifiedArray", Types.repeated(MinorType.VARCHAR));
+    builder.build(cache);
+
+    // Create a batch
+
+    builder.load(2);
+
+    // Verify values and types
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("unspecified", NullColumnLoader.DEFAULT_NULL_TYPE)
+        .add("nullType", NullColumnLoader.DEFAULT_NULL_TYPE)
+        .addNullable("specifiedOpt", MinorType.VARCHAR)
+        .addNullable("specifiedReq", MinorType.VARCHAR)
+        .addArray("specifiedArray", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(null, null, null, null, new String[] {})
+        .addRow(null, null, null, null, new String[] {})
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(builder.output()));
+    builder.close();
   }
 }

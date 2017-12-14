@@ -25,9 +25,9 @@ import static org.junit.Assert.fail;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -90,13 +90,13 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Map structure
 
-    ProjectedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
     assertTrue(a.mapProjection().isProjected("x"));
     assertTrue(a.mapProjection().isProjected("y"));
     assertFalse(a.mapProjection().isProjected("z"));
 
-    ProjectedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
+    RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());
   }
 
@@ -117,7 +117,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Map structure
 
-    ProjectedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isArray());
     assertFalse(a.hasIndex(0));
     assertTrue(a.hasIndex(1));

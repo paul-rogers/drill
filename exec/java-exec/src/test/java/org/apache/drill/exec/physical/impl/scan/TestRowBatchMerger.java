@@ -17,18 +17,20 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.util.List;
-
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.NullMapColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.VectorSource;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -36,7 +38,9 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleMap;
+
 
 /**
  * Test the row batch merger by merging two batches. Tests both the
@@ -57,15 +61,15 @@ public class TestRowBatchMerger extends SubOperatorTest {
       this.rowSet = rowSet;
     }
 
-    @Override
-    public VectorContainer container() {
-      return rowSet.container();
-    }
-
     public RowSet rowSet() { return rowSet; }
 
     public void clear() {
       rowSet.clear();
+    }
+
+    @Override
+    public ValueVector vector(int index) {
+      return rowSet.container().getValueVector(index).getValueVector();
     }
   }
 
@@ -93,13 +97,24 @@ public class TestRowBatchMerger extends SubOperatorTest {
           .build());
   }
 
-  /**
-   * Test the row batch merger by merging two batches:
-   * (d, a) and (b, c) to produce (a, b, c, d).
-   */
+  public static class TestProjection extends ResolvedColumn {
+
+    public TestProjection(VectorSource source, int sourceIndex) {
+      super(source, sourceIndex);
+    }
+
+    @Override
+    public String name() { return null; }
+
+    @Override
+    public int nodeType() { return -1; }
+
+    @Override
+    public MaterializedField schema() { return null; }
+  }
 
   @Test
-  public void testExchange() {
+  public void testSimpleFlat() {
 
     // Create the first batch
 
@@ -109,39 +124,21 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     RowSetSource second = makeSecond();
 
-    VectorContainer output = new VectorContainer(fixture.allocator());
-
-    List<Projection> projections = Lists.newArrayList(
-      new Projection(first, false, 0, 3),
-      new Projection(first, false, 1, 0),
-      new Projection(second, false, 0, 1),
-      new Projection(second, false, 1, 2)
-      );
-    RowBatchMerger merger = new RowBatchMerger(output, projections);
-    merger.buildOutput(new NullResultVectorCacheImpl(fixture.allocator()));
+    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(null);
+    resolvedTuple.add(new TestProjection(first, 1));
+    resolvedTuple.add(new TestProjection(second, 0));
+    resolvedTuple.add(new TestProjection(second, 1));
+    resolvedTuple.add(new TestProjection(first, 0));
 
     // Do the merge
 
-    merger.project(first.rowSet().rowCount());
-    RowSet result = fixture.wrap(merger.getOutput());
-
-    // Since the merge was an exchange, source columns
-    // should have been cleared.
-
-    VectorContainer firstContainer = first.rowSet().container();
-    assertEquals(0, firstContainer.getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, firstContainer.getValueVector(1).getValueVector().getValueCapacity());
-
-    VectorContainer secondContainer = first.rowSet().container();
-    assertEquals(0, secondContainer.getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, secondContainer.getValueVector(1).getValueVector().getValueCapacity());
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(null, output);
+    output.setRecordCount(first.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
 
     // Verify
 
-    verify(result);
-  }
-
-  private void verify(RowSet result) {
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.INT)
@@ -158,7 +155,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
   }
 
   @Test
-  public void testDirect() {
+  public void testImplicitFlat() {
 
     // Create the first batch
 
@@ -168,37 +165,148 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     RowSetSource second = makeSecond();
 
-    VectorContainer output = new VectorContainer(fixture.allocator());
-
-    // Merge: direct for first batch, exchange for second
-
-    List<Projection> projections = Lists.newArrayList(
-      new Projection(first, true, 0, 3),
-      new Projection(first, true, 1, 0),
-      new Projection(second, false, 0, 1),
-      new Projection(second, false, 1, 2)
-      );
-    RowBatchMerger merger = new RowBatchMerger(output, projections);
-    merger.buildOutput(new NullResultVectorCacheImpl(fixture.allocator()));
+    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(null);
+    resolvedTuple.add(new TestProjection(resolvedTuple, 1));
+    resolvedTuple.add(new TestProjection(second, 0));
+    resolvedTuple.add(new TestProjection(second, 1));
+    resolvedTuple.add(new TestProjection(resolvedTuple, 0));
 
     // Do the merge
 
-    merger.project(first.rowSet().rowCount());
-    RowSet result = fixture.wrap(merger.getOutput());
-
-    // The direct columns should be the same in input and output,
-    // exchange columns should be cleared.
-
-    VectorContainer firstContainer = first.rowSet().container();
-    assertTrue(0 < firstContainer.getValueVector(0).getValueVector().getValueCapacity());
-    assertTrue(0 < firstContainer.getValueVector(1).getValueVector().getValueCapacity());
-
-    VectorContainer secondContainer = second.rowSet().container();
-    assertEquals(0, secondContainer.getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, secondContainer.getValueVector(1).getValueVector().getValueCapacity());
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(first.rowSet().container(), output);
+    output.setRecordCount(first.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
 
     // Verify
 
-    verify(result);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.INT)
+        .add("c", MinorType.VARCHAR)
+        .add("d", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(10, 1, "foo.csv", "barney")
+        .addRow(20, 2, "foo.csv", "wilma")
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
   }
+
+  @Test
+  public void testFlatWithNulls() {
+
+    // Create the first batch
+
+    RowSetSource first = makeFirst();
+
+    // Create null columns
+
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+
+    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(builder);
+    resolvedTuple.add(new TestProjection(resolvedTuple, 1));
+    resolvedTuple.add(resolvedTuple.nullBuilder().add("null1"));
+    resolvedTuple.add(resolvedTuple.nullBuilder().add("null2", Types.optional(MinorType.VARCHAR)));
+    resolvedTuple.add(new TestProjection(resolvedTuple, 0));
+
+    // Build the null values
+
+    ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
+    builder.build(cache);
+    builder.load(first.rowSet().rowCount());
+
+    // Do the merge
+
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(first.rowSet().container(), output);
+    output.setRecordCount(first.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("null1", MinorType.INT)
+        .addNullable("null2", MinorType.VARCHAR)
+        .add("d", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(10, null, null, "barney")
+        .addRow(20, null, null, "wilma")
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
+    builder.close();
+  }
+
+  @Test
+  public void testNullMaps() {
+
+    // Create the first batch
+
+    RowSetSource first = makeFirst();
+
+    // Create null columns
+
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(builder);
+
+    resolvedTuple.add(new TestProjection(resolvedTuple, 1));
+
+    NullMapColumn nullMapCol = new NullMapColumn("map1", resolvedTuple);
+    ResolvedTuple nullMap = nullMapCol.members();
+    nullMap.add(nullMap.nullBuilder().add("null1"));
+    nullMap.add(nullMap.nullBuilder().add("null2", Types.optional(MinorType.VARCHAR)));
+
+    NullMapColumn nullMapCol2 = new NullMapColumn("map2", nullMap);
+    ResolvedTuple nullMap2 = nullMapCol2.members();
+    nullMap2.add(nullMap2.nullBuilder().add("null3"));
+    nullMap.add(nullMapCol2);
+
+    resolvedTuple.add(nullMapCol);
+    resolvedTuple.add(new TestProjection(resolvedTuple, 0));
+
+    // Build the null values
+
+    ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
+    resolvedTuple.buildNulls(cache);
+
+    // LoadNulls
+
+    resolvedTuple.loadNulls(first.rowSet().rowCount());
+
+    // Do the merge
+
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(first.rowSet().container(), output);
+    resolvedTuple.setRowCount(first.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMap("map1")
+          .addNullable("null1", MinorType.INT)
+          .addNullable("null2", MinorType.VARCHAR)
+          .addMap("map2")
+            .addNullable("null3", MinorType.INT)
+            .buildMap()
+          .buildMap()
+        .add("d", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(10, mapValue(null, null, singleMap(null)), "barney")
+        .addRow(20, mapValue(null, null, singleMap(null)), "wilma")
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
+    resolvedTuple.close();
+  }
+
 }

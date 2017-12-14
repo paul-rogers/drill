@@ -24,17 +24,18 @@ import org.apache.drill.common.expression.PathSegment;
 /**
  * Represents the set of columns projected for a tuple (row or map.)
  * The projected columns might themselves be columns, so returns a
- * projection set for such columns.
+ * projection set for such columns. Represents the set of requested
+ * columns and tuples as expressed in the physical plan.
  * <p>
- * Three implementations exist:
+ * Three variations exist:
  * <ul>
- * <li>Project all ({@link NullProjectedTuple#ALL_MEMBERS}): used for a tuple when
+ * <li>Project all ({@link ImpliedTupleRequest#ALL_MEMBERS}): used for a tuple when
  * all columns are projected. Example: the root tuple (the row) in
  * a <tt>SELECT *</tt> query.</li>
- * <li>Project none  (also {@link NullProjectedTuple#NO_MEMBERS}): used when no
+ * <li>Project none  (also {@link ImpliedTupleRequest#NO_MEMBERS}): used when no
  * columns are projected from a tuple, such as when a map itself is
  * not projected, so none of its member columns are projected.</li>
- * <li>Project some ({@link ProjectedTupleImpl}: used in the
+ * <li>Project some ({@link RequestedTupleImpl}: used in the
  * <tt>SELECT a, c, e</tt> case in which the query identifies which
  * columns to project (implicitly leaving out others, such as b and
  * d in our example.)</li>
@@ -46,16 +47,34 @@ import org.apache.drill.common.expression.PathSegment;
  * is unwanted (and can just receive a dummy writer.)
  */
 
-public interface ProjectedTuple {
+public interface RequestedTuple {
 
-  public interface ProjectedColumn {
+  /**
+   * Plan-time properties of a requested column. Represents
+   * a consolidated view of the set of references to a column.
+   * For example, the project list might contain:<br>
+   * <tt>SELECT columns[4], columns[8]</tt><br>
+   * <tt>SELECT a.b, a.c</tt><br>
+   * <tt>SELECT columns, columns[1]</tt><br>
+   * <tt>SELECT a, a.b</tt><br>
+   * In each case, the same column is referenced in different
+   * forms which are consolidated in to this abstraction.
+   * <p>
+   * Depending on the syntax, we can infer if a column must
+   * be an array or map. This is definitive: though we know that
+   * columns of the form above must be an array or a map,
+   * we cannot know if a simple column reference might refer
+   * to an array or map.
+   */
+
+  public interface RequestedColumn {
     String name();
     boolean isWildcard();
     boolean isSimple();
     boolean isArray();
     boolean isTuple();
     String fullName();
-    ProjectedTuple mapProjection();
+    RequestedTuple mapProjection();
     boolean nameEquals(String target);
     int maxIndex();
     boolean[] indexes();
@@ -65,9 +84,9 @@ public interface ProjectedTuple {
   }
 
   void parseSegment(PathSegment child);
-  ProjectedColumn get(String colName);
+  RequestedColumn get(String colName);
   boolean isProjected(String colName);
-  ProjectedTuple mapProjection(String colName);
-  List<ProjectedColumn> projections();
+  RequestedTuple mapProjection(String colName);
+  List<RequestedColumn> projections();
   void buildName(StringBuilder buf);
 }

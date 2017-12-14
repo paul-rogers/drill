@@ -21,10 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.record.MaterializedField;
@@ -90,24 +86,22 @@ public class SchemaSmoother {
 
   public static class SmoothingProjection extends SchemaLevelProjection {
 
-    protected final List<NullColumnSpec> nullCols = new ArrayList<>();
     protected final List<MaterializedField> rewrittenFields = new ArrayList<>();
-    protected final VectorSource nullSource;
 
     public SmoothingProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
-        VectorSource tableSource,
-        VectorSource nullSource,
-        List<SchemaProjectionResolver> resolvers,
-        List<ResolvedColumn> priorSchema) throws IncompatibleSchemaException {
+        ResolvedTuple priorSchema,
+        ResolvedTuple outputTuple,
+        List<SchemaProjectionResolver> resolvers) throws IncompatibleSchemaException {
 
-      super(tableSchema, tableSource, resolvers);
-      this.nullSource = nullSource;
+      super(tableSchema, outputTuple, resolvers);
 
-      for (ResolvedColumn priorCol : priorSchema) {
+      for (ResolvedColumn priorCol : priorSchema.columns()) {
         switch (priorCol.nodeType()) {
         case ResolvedTableColumn.ID:
-        case NullProjectedColumn.ID:
+        case ResolvedNullColumn.ID:
+          // TODO: To fix this, the null column loader must declare
+          // the column type somehow.
           resolveColumn(priorCol);
           break;
         default:
@@ -146,7 +140,8 @@ public class SchemaSmoother {
       if (! tableCol.isPromotableTo(priorField, false)) {
         throw new IncompatibleSchemaException();
       }
-      resolveTableColumn(priorCol.name(), priorField, tableColIndex);
+      rootOutputTuple.add(
+          new ResolvedTableColumn(priorCol.name(), priorField, rootOutputTuple, tableColIndex));
       rewrittenFields.add(priorField);
     }
 
@@ -164,36 +159,27 @@ public class SchemaSmoother {
       if (priorCol.schema().getType().getMode() == DataMode.REQUIRED) {
         throw new IncompatibleSchemaException();
       }
-      NullProjectedColumn nullCol = new NullProjectedColumn(priorCol.name(),
-          priorCol.schema().getType(),
-          new Projection(nullSource, true, nullCols.size(), outputIndex()));
-      output.add(nullCol);
-      nullCols.add(nullCol);
+      rootOutputTuple.add(rootOutputTuple.nullBuilder().add(priorCol.name(),
+          priorCol.schema().getType()));
     }
-
-    @Override
-    public List<NullColumnSpec> nullColumns() { return nullCols; }
 
     public List<MaterializedField> revisedTableSchema() { return rewrittenFields; }
   }
 
   private final ScanLevelProjection scanProj;
-  private final VectorSource nullSource;
   private final List<SchemaProjectionResolver> resolvers;
-  private List<ResolvedColumn> priorSchema;
+  private ResolvedTuple priorSchema;
   private int schemaVersion = 0;
 
   public SchemaSmoother(ScanLevelProjection scanProj,
-      VectorSource nullSource,
       List<SchemaProjectionResolver> resolvers) {
     this.scanProj = scanProj;
-    this.nullSource = nullSource;
     this.resolvers = resolvers;
   }
 
   public SchemaLevelProjection resolve(
       TupleMetadata tableSchema,
-      VectorSource tableSource) {
+      ResolvedTuple outputTuple) {
 
     // If a prior schema exists, try resolving the new table using the
     // prior schema. If this works, use the projection. Else, start
@@ -202,10 +188,11 @@ public class SchemaSmoother {
     if (priorSchema != null) {
       try {
         SmoothingProjection smoother = new SmoothingProjection(scanProj, tableSchema,
-            tableSource, nullSource, resolvers, priorSchema);
-        priorSchema = smoother.columns();
+            priorSchema, outputTuple, resolvers);
+        priorSchema = outputTuple;
         return smoother;
       } catch (IncompatibleSchemaException e) {
+        outputTuple.reset();
         // Fall through
       }
     }
@@ -216,8 +203,8 @@ public class SchemaSmoother {
     // (Or, this is the first schema.)
 
     SchemaLevelProjection schemaProj = new WildcardSchemaProjection(scanProj,
-        tableSchema, tableSource, resolvers);
-    priorSchema = schemaProj.columns();
+        tableSchema, outputTuple, resolvers);
+    priorSchema = outputTuple;
     schemaVersion++;
     return schemaProj;
   }

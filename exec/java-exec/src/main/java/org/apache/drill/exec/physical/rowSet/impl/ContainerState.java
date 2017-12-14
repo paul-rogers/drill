@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.Collection;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
@@ -43,7 +43,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 public abstract class ContainerState {
 
   protected final LoaderInternals loader;
-  protected final ProjectedTuple projectionSet;
+  protected final RequestedTuple projectionSet;
   protected ColumnState parentColumn;
 
   /**
@@ -53,7 +53,7 @@ public abstract class ContainerState {
 
   protected final ResultVectorCache vectorCache;
 
-  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache, ProjectedTuple projectionSet) {
+  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache, RequestedTuple projectionSet) {
     this.loader = loader;
     this.vectorCache = vectorCache;
     this.projectionSet = projectionSet;
@@ -79,7 +79,7 @@ public abstract class ContainerState {
 
   protected LoaderInternals loader() { return loader; }
   public ResultVectorCache vectorCache() { return vectorCache; }
-  public ProjectedTuple projectionSet() { return projectionSet; }
+  public RequestedTuple projectionSet() { return projectionSet; }
 
   public boolean isProjected(String columnName) {
     return projectionSet.isProjected(columnName);

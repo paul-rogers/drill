@@ -19,22 +19,19 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
-
 import com.google.common.collect.Lists;
 
 public class ScanTestUtils {
@@ -46,15 +43,6 @@ public class ScanTestUtils {
   public static final String FILE_PATH_COL = "filepath";
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
-
-  public static class DummySource implements VectorSource {
-
-    @Override
-    public VectorContainer container() {
-      // Not a real source!
-      throw new UnsupportedOperationException();
-    }
-  }
 
   /**
    * Type-safe way to define a list of parsers.
@@ -99,9 +87,9 @@ public class ScanTestUtils {
     return PARTITION_COL + partition;
   }
 
-  public static TupleMetadata schema(List<ResolvedColumn> output) {
+  public static TupleMetadata schema(ResolvedTuple output) {
     TupleMetadata schema = new TupleSchema();
-    for (ResolvedColumn col : output) {
+    for (ResolvedColumn col : output.columns()) {
       MaterializedField field = col.schema();
       if (field.getType() == null) {
 
@@ -109,10 +97,7 @@ public class ScanTestUtils {
         // to a usable form (explicit minor type of NULL.)
 
         field = MaterializedField.create(field.getName(),
-            MajorType.newBuilder()
-              .setMinorType(MinorType.NULL)
-              .setMode(DataMode.OPTIONAL)
-              .build());
+            Types.optional(MinorType.NULL));
       }
       schema.add(field);
     }

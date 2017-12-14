@@ -18,16 +18,13 @@
 package org.apache.drill.exec.physical.impl.scan.columns;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -82,39 +79,6 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 public class ColumnsArrayManager implements SchemaProjectionResolver {
 
-  public static class UnresolvedColumnsArrayColumn extends UnresolvedColumn {
-
-    public static final int ID = 20;
-
-    public UnresolvedColumnsArrayColumn(ProjectedColumn inCol) {
-      super(inCol, ID);
-    }
-
-    public boolean[] selectedIndexes() { return inCol.indexes(); }
-
-    @Override
-    public boolean isTableProjection() { return true; }
-  }
-
-  public static class ResolvedColumnsArrayColumn extends ResolvedTableColumn {
-
-    public static final int ID = 21;
-
-    private final ProjectedColumn inCol;
-
-    public ResolvedColumnsArrayColumn(UnresolvedColumnsArrayColumn unresolved,
-        MaterializedField schema,
-        Projection projection) {
-      super(unresolved.name(), schema, projection);
-      inCol = unresolved.element();
-    }
-
-    @Override
-    public int nodeType() { return ID; }
-
-    public boolean[] selectedIndexes() { return inCol.indexes(); }
-  }
-
   // Internal
 
   private final ColumnsArrayParser parser;
@@ -146,7 +110,7 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
   }
 
   @Override
-  public boolean resolveColumn(ColumnProjection col) {
+  public boolean resolveColumn(ColumnProjection col, ResolvedTuple outputTuple) {
     if (col.nodeType() != UnresolvedColumnsArrayColumn.ID) {
       return false;
     }
@@ -165,9 +129,8 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
     // Turn the columns array column into a routine table column.
 
-    schemaProj.addOutputColumn(new ResolvedColumnsArrayColumn((UnresolvedColumnsArrayColumn) col,
-        tableCol,
-        schemaProj.tableProjection(tabColIndex)));
+    outputTuple.add(new ResolvedColumnsArrayColumn((UnresolvedColumnsArrayColumn) col,
+        tableCol, outputTuple, tabColIndex));
     return true;
   }
 

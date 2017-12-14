@@ -78,6 +78,18 @@
  *                       v
  *                 Output Batch
  * </pre>
+ * <p>
+ * The output mapper includes mechanisms to populate implicit columns, create
+ * null columns, and to merge implicit, null and data columns, omitting
+ * unprojected data columns.
+ * <p>
+ * In all cases, projection must handle maps, which are a recursive structure
+ * much like a row. That is, Drill consists of nested tuples (the row and maps),
+ * each of which contains columns which can be maps. Thus, there is a set of
+ * alternating layers of tuples, columns, tuples, and so on until we get to leaf
+ * (non-map) columns. As a result, most of the above structures are in the form
+ * of tuple trees, requiring recursive algorithms to apply rules down through the
+ * nested layers of tuples.
  */
 
 package org.apache.drill.exec.physical.impl.scan.project;

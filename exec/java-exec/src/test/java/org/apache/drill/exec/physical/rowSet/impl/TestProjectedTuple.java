@@ -24,10 +24,10 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.rowSet.project.NullProjectedTuple;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTupleImpl;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.junit.Test;
 
 public class TestProjectedTuple {
@@ -37,8 +37,8 @@ public class TestProjectedTuple {
 
     // Null map means everything is projected
 
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(null);
-    assertTrue(projSet instanceof NullProjectedTuple);
+    RequestedTuple projSet = RequestedTupleImpl.parse(null);
+    assertTrue(projSet instanceof ImpliedTupleRequest);
     assertTrue(projSet.isProjected("foo"));
   }
 
@@ -53,9 +53,9 @@ public class TestProjectedTuple {
 
     // Empty list means nothing is projected
 
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(new ArrayList<SchemaPath>());
-    assertTrue(projSet instanceof NullProjectedTuple);
-    List<ProjectedColumn> cols = projSet.projections();
+    RequestedTuple projSet = RequestedTupleImpl.parse(new ArrayList<SchemaPath>());
+    assertTrue(projSet instanceof ImpliedTupleRequest);
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(0, cols.size());
     assertFalse(projSet.isProjected("foo"));
   }
@@ -65,17 +65,17 @@ public class TestProjectedTuple {
 
     // Simple non-map columns
 
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a", "b", "c"));
-    assertTrue(projSet instanceof ProjectedTupleImpl);
+    assertTrue(projSet instanceof RequestedTupleImpl);
     assertTrue(projSet.isProjected("a"));
     assertTrue(projSet.isProjected("b"));
     assertFalse(projSet.isProjected("d"));
 
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(3, cols.size());
 
-    ProjectedColumn a = cols.get(0);
+    RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertTrue(a.isSimple());
     assertFalse(a.isWildcard());
@@ -98,13 +98,13 @@ public class TestProjectedTuple {
 
     List<SchemaPath> projCols = new ArrayList<>();
     projCols.add(SchemaPath.getSimplePath("map"));
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(projCols);
-    assertTrue(projSet instanceof ProjectedTupleImpl);
+    RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
+    assertTrue(projSet instanceof RequestedTupleImpl);
     assertTrue(projSet.isProjected("map"));
     assertFalse(projSet.isProjected("another"));
-    ProjectedTuple mapProj = projSet.mapProjection("map");
+    RequestedTuple mapProj = projSet.mapProjection("map");
     assertNotNull(mapProj);
-    assertTrue(mapProj instanceof NullProjectedTuple);
+    assertTrue(mapProj instanceof ImpliedTupleRequest);
     assertTrue(mapProj.isProjected("foo"));
     assertNotNull(projSet.mapProjection("another"));
     assertFalse(projSet.mapProjection("another").isProjected("anyCol"));
@@ -120,14 +120,14 @@ public class TestProjectedTuple {
     projCols.add(SchemaPath.getCompoundPath("map", "a"));
     projCols.add(SchemaPath.getCompoundPath("map", "b"));
     projCols.add(SchemaPath.getCompoundPath("map", "map2", "x"));
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(projCols);
-    assertTrue(projSet instanceof ProjectedTupleImpl);
+    RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
+    assertTrue(projSet instanceof RequestedTupleImpl);
     assertTrue(projSet.isProjected("map"));
 
     // Map: an explicit map at top level
 
-    ProjectedTuple mapProj = projSet.mapProjection("map");
-    assertTrue(mapProj instanceof ProjectedTupleImpl);
+    RequestedTuple mapProj = projSet.mapProjection("map");
+    assertTrue(mapProj instanceof RequestedTupleImpl);
     assertTrue(mapProj.isProjected("a"));
     assertTrue(mapProj.isProjected("b"));
     assertTrue(mapProj.isProjected("map2"));
@@ -135,16 +135,16 @@ public class TestProjectedTuple {
 
     // Map b: an implied nested map
 
-    ProjectedTuple bMapProj = mapProj.mapProjection("b");
+    RequestedTuple bMapProj = mapProj.mapProjection("b");
     assertNotNull(bMapProj);
-    assertTrue(bMapProj instanceof NullProjectedTuple);
+    assertTrue(bMapProj instanceof ImpliedTupleRequest);
     assertTrue(bMapProj.isProjected("foo"));
 
     // Map2, an nested map, has an explicit projection
 
-    ProjectedTuple map2Proj = mapProj.mapProjection("map2");
+    RequestedTuple map2Proj = mapProj.mapProjection("map2");
     assertNotNull(map2Proj);
-    assertTrue(map2Proj instanceof ProjectedTupleImpl);
+    assertTrue(map2Proj instanceof RequestedTupleImpl);
     assertTrue(map2Proj.isProjected("x"));
     assertFalse(map2Proj.isProjected("bogus"));
   }
@@ -159,12 +159,12 @@ public class TestProjectedTuple {
       projCols.add(SchemaPath.getCompoundPath("map", "a"));
       projCols.add(SchemaPath.getCompoundPath("map"));
 
-      ProjectedTuple projSet = ProjectedTupleImpl.parse(projCols);
-      assertTrue(projSet instanceof ProjectedTupleImpl);
+      RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
+      assertTrue(projSet instanceof RequestedTupleImpl);
       assertTrue(projSet.isProjected("map"));
 
-      ProjectedTuple mapProj = projSet.mapProjection("map");
-      assertTrue(mapProj instanceof NullProjectedTuple);
+      RequestedTuple mapProj = projSet.mapProjection("map");
+      assertTrue(mapProj instanceof ImpliedTupleRequest);
       assertTrue(mapProj.isProjected("a"));
 
       // Didn't ask for b, but did ask for whole map.
@@ -179,12 +179,12 @@ public class TestProjectedTuple {
       projCols.add(SchemaPath.getCompoundPath("map"));
       projCols.add(SchemaPath.getCompoundPath("map", "a"));
 
-      ProjectedTuple projSet = ProjectedTupleImpl.parse(projCols);
-      assertTrue(projSet instanceof ProjectedTupleImpl);
+      RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
+      assertTrue(projSet instanceof RequestedTupleImpl);
       assertTrue(projSet.isProjected("map"));
 
-      ProjectedTuple mapProj = projSet.mapProjection("map");
-      assertTrue(mapProj instanceof NullProjectedTuple);
+      RequestedTuple mapProj = projSet.mapProjection("map");
+      assertTrue(mapProj instanceof ImpliedTupleRequest);
       assertTrue(mapProj.isProjected("a"));
       assertTrue(mapProj.isProjected("b"));
     }
@@ -192,12 +192,12 @@ public class TestProjectedTuple {
 
   @Test
   public void testMapDetails() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a.b.c", "a.c", "d"));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(2, cols.size());
 
-    ProjectedColumn a = cols.get(0);
+    RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertFalse(a.isSimple());
     assertFalse(a.isArray());
@@ -205,16 +205,16 @@ public class TestProjectedTuple {
 
     {
       assertNotNull(a.mapProjection());
-      List<ProjectedColumn> aMembers = a.mapProjection().projections();
+      List<RequestedColumn> aMembers = a.mapProjection().projections();
       assertEquals(2, aMembers.size());
 
-      ProjectedColumn a_b = aMembers.get(0);
+      RequestedColumn a_b = aMembers.get(0);
       assertEquals("b", a_b.name());
       assertTrue(a_b.isTuple());
 
       {
         assertNotNull(a_b.mapProjection());
-        List<ProjectedColumn> a_bMembers = a_b.mapProjection().projections();
+        List<RequestedColumn> a_bMembers = a_b.mapProjection().projections();
         assertEquals(1, a_bMembers.size());
         assertEquals("c", a_bMembers.get(0).name());
         assertTrue(a_bMembers.get(0).isSimple());
@@ -231,7 +231,7 @@ public class TestProjectedTuple {
   @Test
   public void testMapDups() {
     try {
-      ProjectedTupleImpl.parse(
+      RequestedTupleImpl.parse(
           RowSetTestUtils.projectList("a.b", "a.c", "a.b"));
       fail();
     } catch (UserException e) {
@@ -247,20 +247,20 @@ public class TestProjectedTuple {
 
   @Test
   public void testMapDupsIgnored() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
           RowSetTestUtils.projectList("a", "a.b", "a.c", "a.b"));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
   }
 
   @Test
   public void testWildcard() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList(SchemaPath.WILDCARD));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
 
-    ProjectedColumn wildcard = cols.get(0);
+    RequestedColumn wildcard = cols.get(0);
     assertEquals(SchemaPath.WILDCARD, wildcard.name());
     assertTrue(wildcard.isSimple());
     assertTrue(wildcard.isWildcard());
@@ -271,7 +271,7 @@ public class TestProjectedTuple {
   @Test
   public void testSimpleDups() {
     try {
-      ProjectedTupleImpl.parse(RowSetTestUtils.projectList("a", "b", "a"));
+      RequestedTupleImpl.parse(RowSetTestUtils.projectList("a", "b", "a"));
       fail();
     } catch (UserException e) {
       // Expected
@@ -280,12 +280,12 @@ public class TestProjectedTuple {
 
   @Test
   public void testArray() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a[1]", "a[3]"));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
 
-    ProjectedColumn a = cols.get(0);
+    RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertTrue(a.isArray());
     assertFalse(a.isSimple());
@@ -302,7 +302,7 @@ public class TestProjectedTuple {
   @Test
   public void testArrayDups() {
     try {
-      ProjectedTupleImpl.parse(
+      RequestedTupleImpl.parse(
           RowSetTestUtils.projectList("a[1]", "a[3]", "a[1]"));
       fail();
     } catch (UserException e) {
@@ -312,12 +312,12 @@ public class TestProjectedTuple {
 
   @Test
   public void testArrayAndSimple() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a[1]", "a"));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
 
-    ProjectedColumn a = cols.get(0);
+    RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertTrue(a.isArray());
     assertNull(a.indexes());
@@ -325,12 +325,12 @@ public class TestProjectedTuple {
 
   @Test
   public void testSimpleAndArray() {
-    ProjectedTuple projSet = ProjectedTupleImpl.parse(
+    RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a", "a[1]"));
-    List<ProjectedColumn> cols = projSet.projections();
+    List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
 
-    ProjectedColumn a = cols.get(0);
+    RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertTrue(a.isArray());
     assertNull(a.indexes());

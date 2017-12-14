@@ -24,20 +24,23 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -199,26 +202,29 @@ public class TestMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, fileSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
-    assertEquals(3, schemaProj.columns().size());
+
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(3, columns.size());
 
     {
-      assertTrue(schemaProj.columns().get(0) instanceof FileMetadataColumn);
-      FileMetadataColumn col0 = (FileMetadataColumn) schemaProj.columns().get(0);
+      assertTrue(columns.get(0) instanceof FileMetadataColumn);
+      FileMetadataColumn col0 = (FileMetadataColumn) columns.get(0);
       assertEquals(FileMetadataColumn.ID, col0.nodeType());
       assertEquals(ScanTestUtils.FILE_NAME_COL, col0.name());
       assertEquals("z.csv", col0.value());
       assertEquals(MinorType.VARCHAR, col0.schema().getType().getMinorType());
       assertEquals(DataMode.REQUIRED, col0.schema().getType().getMode());
 
-      ResolvedColumn col1 = schemaProj.columns().get(1);
+      ResolvedColumn col1 = columns.get(1);
       assertEquals("a", col1.name());
 
-      assertTrue(schemaProj.columns().get(2) instanceof PartitionColumn);
-      PartitionColumn col2 = (PartitionColumn) schemaProj.columns().get(2);
+      assertTrue(columns.get(2) instanceof PartitionColumn);
+      PartitionColumn col2 = (PartitionColumn) columns.get(2);
       assertEquals(PartitionColumn.ID, col2.nodeType());
       assertEquals(ScanTestUtils.partitionColName(0), col2.name());
       assertEquals("x", col2.value());
@@ -229,8 +235,8 @@ public class TestMetadataProjection extends SubOperatorTest {
     // Verify that the file metadata columns were picked out
 
     assertEquals(2, metadataManager.metadataColumns().size());
-    assertSame(schemaProj.columns().get(0), metadataManager.metadataColumns().get(0));
-    assertSame(schemaProj.columns().get(2), metadataManager.metadataColumns().get(1));
+    assertSame(columns.get(0), metadataManager.metadataColumns().get(0));
+    assertSame(columns.get(2), metadataManager.metadataColumns().get(1));
   }
 
   /**
@@ -260,24 +266,23 @@ public class TestMetadataProjection extends SubOperatorTest {
         .add("a", MinorType.VARCHAR)
         .buildSchema();
     metadataManager.startFile(filePath);
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new WildcardSchemaProjection(
-        scanProj, tableSchema, fileSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new WildcardSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
 
-    // Verify resulting schema
-
-    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
-    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(7, columns.size());
 
     // Verify constant values
 
-    assertEquals("/w/x/y/z.csv", ((MetadataColumn) schemaProj.columns().get(1)).value());
-    assertEquals("/w/x/y", ((MetadataColumn) schemaProj.columns().get(2)).value());
-    assertEquals("z.csv", ((MetadataColumn) schemaProj.columns().get(3)).value());
-    assertEquals("csv", ((MetadataColumn) schemaProj.columns().get(4)).value());
-    assertEquals("x", ((MetadataColumn) schemaProj.columns().get(5)).value());
-    assertEquals("y", ((MetadataColumn) schemaProj.columns().get(6)).value());
+    assertEquals("/w/x/y/z.csv", ((MetadataColumn) columns.get(1)).value());
+    assertEquals("/w/x/y", ((MetadataColumn) columns.get(2)).value());
+    assertEquals("z.csv", ((MetadataColumn) columns.get(3)).value());
+    assertEquals("csv", ((MetadataColumn) columns.get(4)).value());
+    assertEquals("x", ((MetadataColumn) columns.get(5)).value());
+    assertEquals("y", ((MetadataColumn) columns.get(6)).value());
   }
 
   /**
@@ -314,15 +319,19 @@ public class TestMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, fileSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
 
-    assertEquals("/w/x/y/z.csv", ((MetadataColumn) schemaProj.columns().get(1)).value());
-    assertEquals("/w/x/y", ((MetadataColumn) schemaProj.columns().get(2)).value());
-    assertEquals("z.csv", ((MetadataColumn) schemaProj.columns().get(3)).value());
-    assertEquals("csv", ((MetadataColumn) schemaProj.columns().get(4)).value());
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(5, columns.size());
+
+    assertEquals("/w/x/y/z.csv", ((MetadataColumn) columns.get(1)).value());
+    assertEquals("/w/x/y", ((MetadataColumn) columns.get(2)).value());
+    assertEquals("z.csv", ((MetadataColumn) columns.get(3)).value());
+    assertEquals("csv", ((MetadataColumn) columns.get(4)).value());
   }
 
   /**
@@ -348,12 +357,16 @@ public class TestMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, fileSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
 
-    assertEquals("d11", ((MetadataColumn) schemaProj.columns().get(0)).value());
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(1, columns.size());
+
+    assertEquals("d11", ((MetadataColumn) columns.get(0)).value());
   }
 
   // TODO: Test more partition cols in select than are available dirs

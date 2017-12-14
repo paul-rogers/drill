@@ -26,7 +26,7 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.VariantSchema;
@@ -203,7 +203,7 @@ public class ListState extends ContainerState
   private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
   public ListState(LoaderInternals loader, ResultVectorCache vectorCache,
-      ProjectedTuple projectionSet) {
+      RequestedTuple projectionSet) {
     super(loader, vectorCache, projectionSet);
   }
 

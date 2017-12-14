@@ -23,11 +23,9 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -158,12 +156,17 @@ public class ScanSchemaOrchestrator {
   public static final int DEFAULT_BATCH_BYTE_COUNT = ValueVector.MAX_BUFFER_SIZE;
   public static final int MAX_BATCH_ROW_COUNT = ValueVector.MAX_ROW_COUNT;
 
+  /**
+   * Orchestrates projection tasks for a single reader with the set that the
+   * scan operator manages. Vectors are reused across readers, but via a vector
+   * cache. All other state is distinct between readers.
+   */
+
   public class ReaderSchemaOrchestrator implements VectorSource {
 
     private int readerBatchSize;
     private ResultSetLoaderImpl tableLoader;
     private int prevTableSchemaVersion = -1;
-    private SchemaLevelProjection tableProjection;
 
     /**
      * Assembles the table, metadata and null columns into the final output
@@ -172,11 +175,11 @@ public class ScanSchemaOrchestrator {
      * that occur across readers.
      */
 
-    private RowBatchMerger batchMerger;
+    private ResolvedRowTuple rootTuple;
     private VectorContainer tableContainer;
 
-    public ReaderSchemaOrchestrator(ScanSchemaOrchestrator scanOrchestrator) {
-      readerBatchSize = scanOrchestrator.scanBatchRecordLimit;
+    public ReaderSchemaOrchestrator() {
+      readerBatchSize = scanBatchRecordLimit;
     }
 
     public void setBatchSize(int size) {
@@ -218,6 +221,10 @@ public class ScanSchemaOrchestrator {
       return tableLoader;
     }
 
+    public boolean hasSchema() {
+      return prevTableSchemaVersion >= 0;
+    }
+
     public void startBatch() {
       tableLoader.startBatch();
     }
@@ -239,52 +246,19 @@ public class ScanSchemaOrchestrator {
 
       if (prevTableSchemaVersion < tableLoader.schemaVersion()) {
         reviseOutputProjection();
+      } else {
+
+        // Fill in the null and metadata columns.
+
+        populateNonDataColumns();
       }
-
-      // Fill in the null and metadata columns.
-
-      int rowCount = tableContainer.getRecordCount();
-      metadataManager.load(rowCount);
-      if (nullColumnManager != null) {
-        nullColumnManager.load(rowCount);
-      }
-
-      // Once all vectors are available, the batch merger
-      // can be created if it does not yet exist.
-
-      prepareMerger();
-
-      // Combine metadata, nulls and batch data to form the final
-      // output container.
-
-      batchMerger.project(rowCount);
+      rootTuple.setRowCount(tableContainer.getRecordCount());
     }
 
-    private void prepareMerger() {
-      if (batchMerger != null) {
-        return;
-      }
-
-      // All columns are now mapped to a vector source (table data, nulls
-      // or metadata). Set up the mapping from the vector source to the output
-      // schema.
-
-      List<Projection> vectorProj = new ArrayList<>();
-      for (ResolvedColumn col : tableProjection.output) {
-        vectorProj.add(col.projection());
-      }
-
-      // Build the output container.
-
-      outputContainer = new VectorContainer(allocator);
-
-      // Initialize the projection mechanism.
-
-      batchMerger = new RowBatchMerger(outputContainer, vectorProj);
-
-      // Build the output vectors for the final output schema.
-
-      batchMerger.buildOutput(vectorCache);
+    private void populateNonDataColumns() {
+      int rowCount = tableContainer.getRecordCount();
+      metadataManager.load(rowCount);
+      rootTuple.loadNulls(rowCount);
     }
 
     /**
@@ -311,13 +285,21 @@ public class ScanSchemaOrchestrator {
         doExplicitProjection(tableSchema);
       }
 
+      // Combine metadata, nulls and batch data to form the final
+      // output container. Columns are created by the metadata and null
+      // loaders only in response to a batch, so create the first batch.
+
+      rootTuple.buildNulls(vectorCache);
       metadataManager.define();
+      populateNonDataColumns();
+      rootTuple.project(tableContainer, outputContainer);
       prevTableSchemaVersion = tableLoader.schemaVersion();
     }
 
     private void doSmoothedProjection(TupleMetadata tableSchema) {
-      tableProjection = schemaSmoother.resolve(tableSchema, this);
-      nullColumnManager.define(tableProjection.nullColumns());
+      rootTuple = new ResolvedRowTuple(
+          new NullColumnBuilder(nullType, allowRequiredNullColumns));
+      schemaSmoother.resolve(tableSchema, rootTuple);
     }
 
     /**
@@ -326,8 +308,9 @@ public class ScanSchemaOrchestrator {
      */
 
     private void doWildcardProjection(TupleMetadata tableSchema) {
-      tableProjection = new WildcardSchemaProjection(scanProj,
-          tableSchema, this, schemaResolvers);
+      rootTuple = new ResolvedRowTuple(null);
+      new WildcardSchemaProjection(scanProj,
+          tableSchema, rootTuple, schemaResolvers);
     }
 
     /**
@@ -340,16 +323,16 @@ public class ScanSchemaOrchestrator {
      */
 
     private void doExplicitProjection(TupleMetadata tableSchema) {
-      tableProjection =
-          new ExplicitSchemaProjection(scanProj,
-              tableSchema, this,
-              nullColumnManager, schemaResolvers);
-      nullColumnManager.define(tableProjection.nullColumns());
+      rootTuple = new ResolvedRowTuple(
+          new NullColumnBuilder(nullType, allowRequiredNullColumns));
+      new ExplicitSchemaProjection(scanProj,
+              tableSchema, rootTuple,
+              schemaResolvers);
     }
 
     @Override
-    public VectorContainer container() {
-      return tableContainer;
+    public ValueVector vector(int index) {
+      return tableContainer.getValueVector(index).getValueVector();
     }
 
     public void close() {
@@ -364,9 +347,9 @@ public class ScanSchemaOrchestrator {
         ex = e;
       }
       try {
-        if (batchMerger != null) {
-          batchMerger.close();
-          batchMerger = null;
+        if (rootTuple != null) {
+          rootTuple.close();
+          rootTuple = null;
         }
       }
       catch (RuntimeException e) {
@@ -427,12 +410,6 @@ public class ScanSchemaOrchestrator {
   private ReaderSchemaOrchestrator currentReader;
   private SchemaSmoother schemaSmoother;
 
-  /**
-   * Creates null columns if needed.
-   */
-
-  private NullColumnManager nullColumnManager;
-
   // Output
 
   private VectorContainer outputContainer;
@@ -483,9 +460,6 @@ public class ScanSchemaOrchestrator {
    */
 
   public void setNullType(MajorType nullType) {
-    if (nullColumnManager != null) {
-      throw new IllegalStateException("Too late to set the null type.");
-    }
     this.nullType = nullType;
   }
 
@@ -544,15 +518,13 @@ public class ScanSchemaOrchestrator {
 
     scanProj = new ScanLevelProjection(projection, parsers, v1_12MetadataLocation);
 
-    // If this is a wildcard query, we'll need a null column manager
-    // to fill in missing columns.
-
-    if (! scanProj.hasWildcard() || useSchemaSmoothing) {
-      nullColumnManager = new NullColumnManager(vectorCache, nullType, allowRequiredNullColumns);
-    }
     if (scanProj.hasWildcard() && useSchemaSmoothing) {
-      schemaSmoother = new SchemaSmoother(scanProj, nullColumnManager, schemaResolvers);
+      schemaSmoother = new SchemaSmoother(scanProj, schemaResolvers);
     }
+
+    // Build the output container.
+
+    outputContainer = new VectorContainer(allocator);
   }
 
   public void addParser(ScanProjectionParser parser) {
@@ -565,12 +537,16 @@ public class ScanSchemaOrchestrator {
 
   public ReaderSchemaOrchestrator startReader() {
     closeReader();
-    currentReader = new ReaderSchemaOrchestrator(this);
+    currentReader = new ReaderSchemaOrchestrator();
     return currentReader;
   }
 
   public boolean isProjectNone() {
     return scanProj.projectNone();
+  }
+
+  public boolean hasSchema() {
+    return currentReader != null && currentReader.hasSchema();
   }
 
   public VectorContainer output() {
@@ -587,14 +563,10 @@ public class ScanSchemaOrchestrator {
   public void close() {
     closeReader();
     if (outputContainer != null) {
-      outputContainer.zeroVectors();
+      outputContainer.clear();
       outputContainer = null;
     }
     vectorCache.close();
-    if (nullColumnManager != null) {
-      nullColumnManager.close();
-      nullColumnManager = null;
-    }
     metadataManager.close();
   }
 }

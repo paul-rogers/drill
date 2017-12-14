@@ -106,7 +106,15 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
 
   @Override
   public VectorContainer output() {
-    return manager.scanOrchestrator().output();
+
+    // Output should be defined only if vector schema has
+    // been defined.
+
+    if (manager.scanOrchestrator().hasSchema()) {
+      return manager.scanOrchestrator().output();
+    } else {
+      return null;
+    }
   }
 
   @Override

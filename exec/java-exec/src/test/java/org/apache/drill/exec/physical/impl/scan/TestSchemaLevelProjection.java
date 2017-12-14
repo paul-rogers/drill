@@ -19,22 +19,24 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
+import org.apache.drill.exec.physical.impl.scan.project.NullMapColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedNullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.NullProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.VectorSource;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -56,26 +58,26 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .addArray("d", MinorType.FLOAT8)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new WildcardSchemaProjection(
-        scanProj, tableSchema, fileSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new WildcardSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(3, schemaProj.columns().size());
 
-    List<ResolvedColumn> columns = schemaProj.columns();
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(3, columns.size());
+
     assertEquals("a", columns.get(0).name());
-    assertEquals(0, columns.get(0).projection().sourceIndex());
-    assertEquals(0, columns.get(0).projection().destIndex());
-    assertSame(fileSource, columns.get(0).projection().source());
+    assertEquals(0, columns.get(0).sourceIndex());
+    assertSame(rootTuple, columns.get(0).source());
     assertEquals("c", columns.get(1).name());
-    assertEquals(1, columns.get(1).projection().sourceIndex());
-    assertEquals(1, columns.get(1).projection().destIndex());
-    assertSame(fileSource, columns.get(1).projection().source());
+    assertEquals(1, columns.get(1).sourceIndex());
+    assertSame(rootTuple, columns.get(1).source());
     assertEquals("d", columns.get(2).name());
-    assertEquals(2, columns.get(2).projection().sourceIndex());
-    assertEquals(2, columns.get(2).projection().destIndex());
-    assertSame(fileSource, columns.get(2).projection().source());
+    assertEquals(2, columns.get(2).sourceIndex());
+    assertSame(rootTuple, columns.get(2).source());
   }
+
   /**
    * Test SELECT list with columns defined in a order and with
    * name case different than the early-schema table.
@@ -99,28 +101,26 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(3, schemaProj.columns().size());
 
-    List<ResolvedColumn> columns = schemaProj.columns();
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(3, columns.size());
+
     assertEquals("c", columns.get(0).name());
-    assertEquals(2, columns.get(0).projection().sourceIndex());
-    assertEquals(0, columns.get(0).projection().destIndex());
-    assertSame(fileSource, columns.get(0).projection().source());
+    assertEquals(2, columns.get(0).sourceIndex());
+    assertSame(rootTuple, columns.get(0).source());
 
     assertEquals("b", columns.get(1).name());
-    assertEquals(1, columns.get(1).projection().sourceIndex());
-    assertEquals(1, columns.get(1).projection().destIndex());
-    assertSame(fileSource, columns.get(1).projection().source());
+    assertEquals(1, columns.get(1).sourceIndex());
+    assertSame(rootTuple, columns.get(1).source());
 
     assertEquals("a", columns.get(2).name());
-    assertEquals(0, columns.get(2).projection().sourceIndex());
-    assertEquals(2, columns.get(2).projection().destIndex());
-    assertSame(fileSource, columns.get(2).projection().source());
+    assertEquals(0, columns.get(2).sourceIndex());
+    assertSame(rootTuple, columns.get(2).source());
   }
 
   /**
@@ -145,41 +145,31 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(4, schemaProj.columns().size());
 
-    @SuppressWarnings("unused")
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("c", MinorType.VARCHAR)
-        .addNullable("v", MinorType.NULL)
-        .add("b", MinorType.VARCHAR)
-        .addNullable("w", MinorType.NULL)
-        .buildSchema();
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(4, columns.size());
+    VectorSource nullBuilder = rootTuple.nullBuilder();
 
-    List<ResolvedColumn> columns = schemaProj.columns();
     assertEquals("c", columns.get(0).name());
-    assertEquals(2, columns.get(0).projection().sourceIndex());
-    assertEquals(0, columns.get(0).projection().destIndex());
-    assertSame(fileSource, columns.get(0).projection().source());
+    assertEquals(2, columns.get(0).sourceIndex());
+    assertSame(rootTuple, columns.get(0).source());
 
     assertEquals("v", columns.get(1).name());
-    assertEquals(0, columns.get(1).projection().sourceIndex());
-    assertEquals(1, columns.get(1).projection().destIndex());
-    assertSame(nullSource, columns.get(1).projection().source());
+    assertEquals(0, columns.get(1).sourceIndex());
+    assertSame(nullBuilder, columns.get(1).source());
 
     assertEquals("b", columns.get(2).name());
-    assertEquals(1, columns.get(2).projection().sourceIndex());
-    assertEquals(2, columns.get(2).projection().destIndex());
-    assertSame(fileSource, columns.get(2).projection().source());
+    assertEquals(1, columns.get(2).sourceIndex());
+    assertSame(rootTuple, columns.get(2).source());
 
     assertEquals("w", columns.get(3).name());
-    assertEquals(1, columns.get(3).projection().sourceIndex());
-    assertEquals(3, columns.get(3).projection().destIndex());
-    assertSame(nullSource, columns.get(3).projection().source());
+    assertEquals(1, columns.get(3).sourceIndex());
+    assertSame(nullBuilder, columns.get(3).source());
   }
 
   @Test
@@ -200,29 +190,22 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(2, schemaProj.columns().size());
 
-    @SuppressWarnings("unused")
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("c", MinorType.VARCHAR)
-        .add("a", MinorType.VARCHAR)
-        .buildSchema();
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(2, columns.size());
 
-    List<ResolvedColumn> columns = schemaProj.columns();
     assertEquals("c", columns.get(0).name());
-    assertEquals(2, columns.get(0).projection().sourceIndex());
-    assertEquals(0, columns.get(0).projection().destIndex());
-    assertSame(fileSource, columns.get(0).projection().source());
+    assertEquals(2, columns.get(0).sourceIndex());
+    assertSame(rootTuple, columns.get(0).source());
 
     assertEquals("a", columns.get(1).name());
-    assertEquals(0, columns.get(1).projection().sourceIndex());
-    assertEquals(1, columns.get(1).projection().destIndex());
-    assertSame(fileSource, columns.get(1).projection().source());
+    assertEquals(0, columns.get(1).sourceIndex());
+    assertSame(rootTuple, columns.get(1).source());
   }
 
   @Test
@@ -241,18 +224,19 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .add("A", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(1, schemaProj.columns().size());
 
-    List<ResolvedColumn> columns = schemaProj.columns();
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(1, columns.size());
+    VectorSource nullBuilder = rootTuple.nullBuilder();
+
     assertEquals("b", columns.get(0).name());
-    assertEquals(0, columns.get(0).projection().sourceIndex());
-    assertEquals(0, columns.get(0).projection().destIndex());
-    assertSame(nullSource, columns.get(0).projection().source());
+    assertEquals(0, columns.get(0).sourceIndex());
+    assertSame(nullBuilder, columns.get(0).source());
   }
 
   @Test
@@ -276,53 +260,48 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .add("a", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
-    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
-    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource,
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    new ExplicitSchemaProjection(
+        scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
-    assertEquals(2, schemaProj.columns().size());
+
+    List<ResolvedColumn> columns = rootTuple.columns();
+    assertEquals(2, columns.size());
 
     // Should have resolved a to a table column, b to a missing map.
 
-    {
-      List<ResolvedColumn> columns = schemaProj.columns();
+    // A is projected
 
-      // A is projected
+    ResolvedColumn aCol = columns.get(0);
+    assertEquals("a", aCol.name());
+    assertEquals(ResolvedTableColumn.ID, aCol.nodeType());
 
-      ResolvedColumn aCol = columns.get(0);
-      assertEquals("a", aCol.name());
-      assertEquals(ResolvedTableColumn.ID, aCol.nodeType());
-      assertEquals(MinorType.VARCHAR, aCol.schema().getType().getMinorType());
+    // B is not projected, is implicitly a map
 
-      // B is not projected, is implicitly a map
+    ResolvedColumn bCol = columns.get(1);
+    assertEquals("b", bCol.name());
+    assertEquals(NullMapColumn.ID, bCol.nodeType());
 
-      ResolvedColumn bCol = columns.get(1);
-      assertEquals("b", bCol.name());
-      assertEquals(NullProjectedColumn.ID, bCol.nodeType());
+    NullMapColumn bMap = (NullMapColumn) bCol;
+    ResolvedTuple bMembers = bMap.members();
+    assertNotNull(bMembers);
+    assertEquals(1, bMembers.columns().size());
 
-      NullColumnSpec bMap = (NullColumnSpec) bCol;
-      assertNotNull(bMap.type());
-      assertEquals(MinorType.MAP, bMap.type().getMinorType());
-      List<NullColumnSpec> bMembers = bMap.members();
-      assertNotNull(bMembers);
-      assertEquals(1, bMembers.size());
+    // C is a map within b
 
-      // C is a map within b
+    ResolvedColumn cCol = bMembers.columns().get(0);
+    assertEquals(NullMapColumn.ID, cCol.nodeType());
 
-      NullColumnSpec cMap = bMembers.get(0);
-      assertNotNull(cMap.type());
-      assertEquals(MinorType.MAP, cMap.type().getMinorType());
-      List<NullColumnSpec> cMembers = cMap.members();
-      assertNotNull(cMembers);
-      assertEquals(1, cMembers.size());
+    NullMapColumn cMap = (NullMapColumn) cCol;
+    ResolvedTuple cMembers = cMap.members();
+    assertNotNull(cMembers);
+    assertEquals(1, cMembers.columns().size());
 
-      // D is an unknown column type (not a map)
+    // D is an unknown column type (not a map)
 
-      NullColumnSpec dNull = cMembers.get(0);
-      assertNull(dNull.type());
-      assertNull(dNull.members());
-    }
+    ResolvedColumn dCol = cMembers.columns().get(0);
+    assertEquals(ResolvedNullColumn.ID, dCol.nodeType());
   }
 
   // Test table of (a{b, c}), project a.b, a.d, a.e.f

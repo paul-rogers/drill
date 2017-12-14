@@ -17,13 +17,16 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.ValueVector;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Manages null columns by creating a null column loader for each
@@ -31,14 +34,14 @@ import org.apache.drill.exec.record.VectorContainer;
  * facade around the per-schema null column loader.
  */
 
-public class NullColumnManager implements VectorSource {
+public class NullColumnBuilder implements VectorSource {
 
   /**
    * Creates null columns if needed.
    */
 
+  protected final List<NullColumnSpec> nullCols = new ArrayList<>();
   private NullColumnLoader nullColumnLoader;
-  private final ResultVectorCacheImpl vectorCache;
   private VectorContainer outputContainer;
 
   /**
@@ -48,29 +51,56 @@ public class NullColumnManager implements VectorSource {
   private final MajorType nullType;
   private final boolean allowRequiredNullColumns;
 
-  public NullColumnManager(ResultVectorCacheImpl vectorCache,
+  public NullColumnBuilder(
       MajorType nullType, boolean allowRequiredNullColumns) {
-    this.vectorCache = vectorCache;
     this.nullType = nullType;
     this.allowRequiredNullColumns = allowRequiredNullColumns;
   }
 
-  public void define(List<NullColumnSpec> nullCols) {
+  public NullColumnBuilder newChild() {
+    return new NullColumnBuilder(nullType, allowRequiredNullColumns);
+  }
+
+  public ResolvedNullColumn add(String name) {
+    return add(name, null);
+  }
+
+  public ResolvedNullColumn add(String name, MajorType type) {
+    ResolvedNullColumn col = new ResolvedNullColumn(name, type, this, nullCols.size());
+    nullCols.add(col);
+    return col;
+  }
+
+  public void build(ResultVectorCache vectorCache) {
     close();
 
     // If no null columns for this schema, no need to create
     // the loader.
 
-    if (nullCols != null && ! nullCols.isEmpty()) {
+    if (hasColumns()) {
       nullColumnLoader = new NullColumnLoader(vectorCache, nullCols, nullType, allowRequiredNullColumns);
+      outputContainer = nullColumnLoader.output();
     }
+  }
+
+  public boolean hasColumns() {
+    return nullCols != null && ! nullCols.isEmpty();
   }
 
   public void load(int rowCount) {
     if (nullColumnLoader != null) {
-      outputContainer = nullColumnLoader.load(rowCount);
+      VectorContainer output = nullColumnLoader.load(rowCount);
+      assert output == outputContainer;
     }
   }
+
+  @Override
+  public ValueVector vector(int index) {
+    return outputContainer.getValueVector(index).getValueVector();
+  }
+
+  @VisibleForTesting
+  public VectorContainer output() { return outputContainer; }
 
   public void close() {
     if (nullColumnLoader != null) {
@@ -78,13 +108,8 @@ public class NullColumnManager implements VectorSource {
       nullColumnLoader = null;
     }
     if (outputContainer != null) {
-      outputContainer.zeroVectors();
+      outputContainer.clear();
       outputContainer = null;
     }
-  }
-
-  @Override
-  public VectorContainer container() {
-    return outputContainer;
   }
 }

@@ -61,7 +61,7 @@ public class NullColumnLoader extends StaticColumnLoader {
   public interface NullColumnSpec {
     String name();
     MajorType type();
-    List<NullColumnSpec> members();
+    void setType(MajorType type);
   }
 
   public static final MajorType DEFAULT_NULL_TYPE = MajorType.newBuilder()
@@ -153,9 +153,13 @@ public class NullColumnLoader extends StaticColumnLoader {
     if (type.getMinorType() == MinorType.NULL) {
       type = nullType;
     }
+    defn.setType(type);
     return MaterializedField.create(defn.name(), type);
   }
 
+  public VectorContainer output() {
+    return loader.outputContainer();
+  }
 
   @Override
   public VectorContainer load(int rowCount) {

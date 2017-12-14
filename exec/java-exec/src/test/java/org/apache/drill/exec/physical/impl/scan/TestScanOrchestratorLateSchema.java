@@ -17,8 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertNull;
-
+import static org.junit.Assert.assertFalse;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
@@ -68,7 +67,7 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
 
     // Late schema: no batch provided up front.
 
-    assertNull(reader.container());
+    assertFalse(reader.hasSchema());
 
     // Start a batch and discover a schema: (a, b)
 

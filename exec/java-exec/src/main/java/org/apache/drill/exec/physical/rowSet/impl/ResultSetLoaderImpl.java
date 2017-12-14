@@ -23,9 +23,9 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
-import org.apache.drill.exec.physical.rowSet.project.NullProjectedTuple;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTupleImpl;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -48,14 +48,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final ResultVectorCache vectorCache;
-    public final ProjectedTuple projectionSet;
+    public final RequestedTuple projectionSet;
     public final TupleMetadata schema;
     public final long maxBatchSize;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = DEFAULT_ROW_COUNT;
-      projectionSet = new NullProjectedTuple(true);
+      projectionSet = new ImpliedTupleRequest(true);
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
@@ -75,7 +75,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       if (builder.projectionSet != null) {
         projectionSet = builder.projectionSet;
       } else {
-        projectionSet = ProjectedTupleImpl.parse(builder.projection);
+        projectionSet = RequestedTupleImpl.parse(builder.projection);
       }
     }
 
@@ -268,7 +268,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   protected int accumulatedBatchSize;
 
-  protected final ProjectedTuple projectionSet;
+  protected final RequestedTuple projectionSet;
 
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
@@ -666,6 +666,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   @Override
   public boolean hasOverflow() { return state == State.OVERFLOW; }
+
+  @Override
+  public VectorContainer outputContainer() {
+    return rootState.outputContainer();
+  }
 
   @Override
   public VectorContainer harvest() {

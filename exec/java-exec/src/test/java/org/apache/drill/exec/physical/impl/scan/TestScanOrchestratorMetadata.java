@@ -73,7 +73,6 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
     ResultSetLoader loader = reader.makeTableLoader(tableSchema);
-    reader.container().zeroVectors();
 
     // Create a batch of data.
 

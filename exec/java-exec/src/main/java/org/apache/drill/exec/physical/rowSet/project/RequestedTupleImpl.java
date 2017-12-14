@@ -69,28 +69,28 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
  * the name `columns`, for example.
  */
 
-public class ProjectedTupleImpl implements ProjectedTuple {
+public class RequestedTupleImpl implements RequestedTuple {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ProjectedTupleImpl.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RequestedTupleImpl.class);
 
-  private final ProjectedColumnImpl parent;
-  private final TupleNameSpace<ProjectedColumn> projection = new TupleNameSpace<>();
+  private final RequestedColumnImpl parent;
+  private final TupleNameSpace<RequestedColumn> projection = new TupleNameSpace<>();
 
-  public ProjectedTupleImpl() {
+  public RequestedTupleImpl() {
     parent = null;
   }
 
-  public ProjectedTupleImpl(ProjectedColumnImpl parent) {
+  public RequestedTupleImpl(RequestedColumnImpl parent) {
     this.parent = parent;
   }
 
   @Override
-  public ProjectedColumn get(String colName) {
+  public RequestedColumn get(String colName) {
     return projection.get(colName.toLowerCase());
   }
 
-  private ProjectedColumnImpl getImpl(String colName) {
-    return (ProjectedColumnImpl) get(colName);
+  private RequestedColumnImpl getImpl(String colName) {
+    return (RequestedColumnImpl) get(colName);
   }
 
   @Override
@@ -99,9 +99,9 @@ public class ProjectedTupleImpl implements ProjectedTuple {
   }
 
   @Override
-  public ProjectedTuple mapProjection(String colName) {
-    ProjectedColumnImpl col = getImpl(colName);
-    ProjectedTuple mapProj = (col == null) ? null : col.mapProjection();
+  public RequestedTuple mapProjection(String colName) {
+    RequestedColumnImpl col = getImpl(colName);
+    RequestedTuple mapProj = (col == null) ? null : col.mapProjection();
     if (mapProj != null) {
       return mapProj;
     }
@@ -112,7 +112,7 @@ public class ProjectedTupleImpl implements ProjectedTuple {
     if (col != null) {
       return col.projectAllMembers(true);
     }
-    return NullProjectedTuple.NO_MEMBERS;
+    return ImpliedTupleRequest.NO_MEMBERS;
   }
 
   /**
@@ -127,14 +127,14 @@ public class ProjectedTupleImpl implements ProjectedTuple {
    * @return a projection set that implements the specified projection
    */
 
-  public static ProjectedTuple parse(Collection<SchemaPath> projList) {
+  public static RequestedTuple parse(Collection<SchemaPath> projList) {
     if (projList == null) {
-      return new NullProjectedTuple(true);
+      return new ImpliedTupleRequest(true);
     }
     if (projList.isEmpty()) {
-      return new NullProjectedTuple(false);
+      return new ImpliedTupleRequest(false);
     }
-    ProjectedTupleImpl projSet = new ProjectedTupleImpl();
+    RequestedTupleImpl projSet = new RequestedTupleImpl();
     for (SchemaPath col : projList) {
       projSet.parseSegment(col.getRootSegment());
     }
@@ -154,9 +154,9 @@ public class ProjectedTupleImpl implements ProjectedTuple {
 
   private void parseLeaf(NameSegment nameSeg) {
     String name = nameSeg.getPath();
-    ProjectedColumnImpl member = getImpl(name);
+    RequestedColumnImpl member = getImpl(name);
     if (member == null) {
-      projection.add(name, new ProjectedColumnImpl(this, name));
+      projection.add(name, new RequestedColumnImpl(this, name));
       return;
     }
     if (member.isSimple()) {
@@ -189,13 +189,13 @@ public class ProjectedTupleImpl implements ProjectedTuple {
 
   private void parseInternal(NameSegment nameSeg) {
     String name = nameSeg.getPath();
-    ProjectedColumnImpl member = getImpl(name);
-    ProjectedTuple map;
+    RequestedColumnImpl member = getImpl(name);
+    RequestedTuple map;
     if (member == null) {
       // New member. Since this is internal, this new member
       // must be a map.
 
-      member = new ProjectedColumnImpl(this, name);
+      member = new RequestedColumnImpl(this, name);
       projection.add(name, member);
       map = member.asTuple();
     } else if (member.isTuple()) {
@@ -217,9 +217,9 @@ public class ProjectedTupleImpl implements ProjectedTuple {
   private void parseArray(NameSegment arraySeg) {
     String name = arraySeg.getPath();
     int index = ((ArraySegment) arraySeg.getChild()).getIndex();
-    ProjectedColumnImpl member = getImpl(name);
+    RequestedColumnImpl member = getImpl(name);
     if (member == null) {
-      member = new ProjectedColumnImpl(this, name);
+      member = new RequestedColumnImpl(this, name);
       projection.add(name, member);
     } else if (member.isSimple()) {
 
@@ -239,7 +239,7 @@ public class ProjectedTupleImpl implements ProjectedTuple {
   }
 
   @Override
-  public List<ProjectedColumn> projections() {
+  public List<RequestedColumn> projections() {
     return projection.entries();
   }
 

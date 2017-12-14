@@ -142,7 +142,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
             .setWidth(10)
             .build();
         rowSet.addColumn(b);
-        if ( ! returnDataOnFirst) {
+        if (! returnDataOnFirst) {
           return true;
         }
       }

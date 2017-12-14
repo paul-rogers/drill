@@ -24,9 +24,9 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
@@ -121,11 +121,11 @@ public class TestConstantColumnLoader extends SubOperatorTest {
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
         ScanTestUtils.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
     FileMetadataColumn iCol = new FileMetadataColumn(ScanTestUtils.SUFFIX_COL,
-        iDefn, fileInfo, null);
+        iDefn, fileInfo, null, 0);
     defns.add(iCol);
 
     String partColName = ScanTestUtils.partitionColName(1);
-    PartitionColumn pCol = new PartitionColumn(partColName, 1, fileInfo, null);
+    PartitionColumn pCol = new PartitionColumn(partColName, 1, fileInfo, null, 0);
     defns.add(pCol);
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());

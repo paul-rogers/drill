@@ -185,6 +185,18 @@ public interface ResultSetLoader {
   boolean isProjectionEmpty();
 
   /**
+   * Returns the output container which holds (or will hold) batches
+   * from this loader. For use when the container is needed prior
+   * to "harvesting" a batch. The data is not valid until
+   * {@link #harvest()} is called, and is no longer valid once
+   * {@link #startBatch()} is called.
+   *
+   * @return container used to publish results from this loader
+   */
+
+  VectorContainer outputContainer();
+
+  /**
    * Harvest the current row batch, and reset the mutator
    * to the start of the next row batch (which may already contain
    * an overflow row.

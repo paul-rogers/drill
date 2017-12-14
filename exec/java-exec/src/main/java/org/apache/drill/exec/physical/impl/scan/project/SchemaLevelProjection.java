@@ -20,15 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -81,74 +73,8 @@ public class SchemaLevelProjection {
 
   public interface SchemaProjectionResolver {
     void bind(SchemaLevelProjection projection);
-    boolean resolveColumn(ColumnProjection col);
+    boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple);
   }
-
-  /**
-   * A resolved column has a name, and a specification for how to project
-   * data from a source vector to a vector in the final output container.
-   */
-
-  public interface ResolvedColumn extends ColumnProjection {
-    Projection projection();
-    MaterializedField schema();
-  }
-
-  /**
-   * Column that matches one provided by the table. Provides the data type
-   * of that column and information to project from the result set loader
-   * output container to the scan output container. (Note that the result
-   * set loader container is, itself, a projection from the actual table
-   * schema to the desired set of columns; but in the order specified
-   * by the table.)
-   */
-
-  public static class ResolvedTableColumn implements ResolvedColumn {
-
-    public static final int ID = 3;
-
-    public final String projectedName;
-    public final MaterializedField schema;
-    public final Projection projection;
-
-    public ResolvedTableColumn(String projectedName,
-        MaterializedField schema,
-        Projection projection) {
-      this.projectedName = projectedName;
-      this.schema = schema;
-      this.projection = projection;
-    }
-
-    @Override
-    public String name() { return projectedName; }
-
-    @Override
-    public Projection projection() { return projection; }
-
-    @Override
-    public MaterializedField schema() { return schema; }
-
-    @Override
-    public int nodeType() { return ID; }
-
-    @Override
-    public boolean isTableProjection() { return true; }
-
-    @Override
-    public String toString() {
-      StringBuilder buf = new StringBuilder();
-      buf
-        .append("[")
-        .append(getClass().getSimpleName())
-        .append(" name=")
-        .append(name())
-        .append(", projection=")
-        .append(projection == null ? "null" : projection.toString())
-        .append("]");
-      return buf.toString();
-    }
-  }
-
   /**
    * Perform a wildcard projection. In this case, the query wants all
    * columns in the source table, so the table drives the final projection.
@@ -160,14 +86,16 @@ public class SchemaLevelProjection {
 
     public WildcardSchemaProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
-        VectorSource tableSource,
+        ResolvedTuple rootTuple,
         List<SchemaProjectionResolver> resolvers) {
-      super(tableSchema, tableSource, resolvers);
+      super(tableSchema, rootTuple, resolvers);
       for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
           for (int i = 0; i < tableSchema.size(); i++) {
             MaterializedField colSchema = tableSchema.column(i);
-            resolveTableColumn(colSchema.getName(), colSchema, i);
+            rootOutputTuple.add(
+                new ResolvedTableColumn(colSchema.getName(),
+                    colSchema, rootOutputTuple, i));
           }
         } else {
           resolveSpecial(col);
@@ -175,67 +103,6 @@ public class SchemaLevelProjection {
       }
     }
   }
-
-  /**
-   * Projected column that serves as both a resolved column (provides projection
-   * mapping) and a null column spec (provides the information needed to create
-   * the required null vectors.)
-   */
-
-  public static class NullProjectedColumn implements ResolvedColumn, NullColumnSpec {
-
-    public static final int ID = 4;
-
-    private final String name;
-    private final MajorType type;
-    private final Projection projection;
-    private final List<NullColumnSpec> members;
-
-    public NullProjectedColumn(String name, MajorType type, Projection projection) {
-      this.name = name;
-      this.type = type;
-      this.projection = projection;
-      members = null;
-    }
-
-    public NullProjectedColumn(String name, Projection projection, List<NullColumnSpec> members) {
-      this.name = name;
-      this.type = Types.required(MinorType.MAP);
-      this.projection = projection;
-      this.members = members;
-    }
-
-    public NullProjectedColumn(String name) {
-      this.name = name;
-      this.type = null;
-      this.projection = null;
-      this.members = null;
-    }
-
-    @Override
-    public MajorType type() { return type; }
-
-    @Override
-    public String name() { return name; }
-
-    @Override
-    public Projection projection() { return projection; }
-
-    @Override
-    public MaterializedField schema() {
-      return MaterializedField.create(name, type);
-    }
-
-    @Override
-    public int nodeType() { return ID; }
-
-    @Override
-    public boolean isTableProjection() { return false; }
-
-    @Override
-    public List<NullColumnSpec> members() { return members; }
-  }
-
   /**
    * Perform a schema projection for the case of an explicit list of
    * projected columns. Example: SELECT a, b, c.
@@ -251,16 +118,11 @@ public class SchemaLevelProjection {
 
   public static class ExplicitSchemaProjection extends SchemaLevelProjection {
 
-    protected final List<NullColumnSpec> nullCols = new ArrayList<>();
-    protected final VectorSource nullSource;
-
     public ExplicitSchemaProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
-        VectorSource tableSource,
-        VectorSource nullSource,
+        ResolvedTuple rootTuple,
         List<SchemaProjectionResolver> resolvers) {
-      super(tableSchema, tableSource, resolvers);
-      this.nullSource = nullSource;
+      super(tableSchema, rootTuple, resolvers);
 
       for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
@@ -276,7 +138,10 @@ public class SchemaLevelProjection {
       if (tableColIndex == -1) {
         resolveNullColumn(col);
       } else {
-        resolveTableColumn(col.name(), tableSchema.column(tableColIndex), tableColIndex);
+        rootOutputTuple.add(
+            new ResolvedTableColumn(col.name(),
+                tableSchema.column(tableColIndex),
+                rootOutputTuple, tableColIndex));
       }
     }
 
@@ -291,15 +156,13 @@ public class SchemaLevelProjection {
      */
 
     private void resolveNullColumn(UnresolvedColumn col) {
-      NullProjectedColumn nullCol;
+      ResolvedColumn nullCol;
       if (col.element().isTuple()) {
-        nullCol = new NullProjectedColumn(col.name(), null,
-            resolveMapMembers(col.element()));
+        nullCol = resolveMapMembers(col.element());
       } else {
-        nullCol = new NullProjectedColumn(col.name(), null, nextNullProjection());
-        nullCols.add(nullCol);
+        nullCol = rootOutputTuple.nullBuilder.add(col.name());
       }
-      addOutputColumn(nullCol);
+      rootOutputTuple.add(nullCol);
     }
 
     /**
@@ -310,75 +173,48 @@ public class SchemaLevelProjection {
      * @return a list of null markers for the requested children
      */
 
-    private List<NullColumnSpec> resolveMapMembers(ProjectedColumn projectedColumn) {
-      List<NullColumnSpec> members = new ArrayList<>();
-      for (ProjectedColumn child : projectedColumn.mapProjection().projections()) {
+    private ResolvedColumn resolveMapMembers(RequestedColumn col) {
+      NullMapColumn mapCol = new NullMapColumn(col.name(), rootOutputTuple);
+      ResolvedTuple members = mapCol.members();
+      for (RequestedColumn child : col.mapProjection().projections()) {
         if (child.isTuple()) {
-          members.add(new NullProjectedColumn(child.name(),
-              null, resolveMapMembers(child)));
+          members.add(resolveMapMembers(child));
         } else {
-          NullProjectedColumn nullCol =
-              new NullProjectedColumn(child.name(), null, nextNullProjection());
-          members.add(nullCol);
-          nullCols.add(nullCol);
+          members.add(rootOutputTuple.nullBuilder.add(child.name()));
         }
       }
-      return members;
+      return mapCol;
     }
-
-    private Projection nextNullProjection() {
-      return new Projection(nullSource, true,
-          nullCols.size(), outputIndex());
-    }
-
-    @Override
-    public List<NullColumnSpec> nullColumns() { return nullCols; }
   }
 
   protected final TupleMetadata tableSchema;
-  protected final VectorSource tableSource;
-  protected final List<ResolvedColumn> output = new ArrayList<>();
+  protected final ResolvedTuple rootOutputTuple;
   protected final List<SchemaProjectionResolver> resolvers;
 
   protected SchemaLevelProjection(
         TupleMetadata tableSchema,
-        VectorSource tableSource,
+        ResolvedTuple rootTuple,
         List<SchemaProjectionResolver> resolvers) {
     if (resolvers == null) {
       resolvers = new ArrayList<>();
     }
+    rootOutputTuple = rootTuple;
     this.tableSchema = tableSchema;
-    this.tableSource = tableSource;
     this.resolvers = resolvers;
     for (SchemaProjectionResolver resolver : resolvers) {
       resolver.bind(this);
     }
   }
 
-  protected void resolveTableColumn(String colName, MaterializedField col, int tableColIndex) {
-    addOutputColumn(new ResolvedTableColumn(colName, col,
-        tableProjection(tableColIndex)));
-  }
-
-  public void addOutputColumn(ResolvedColumn col) {
-    output.add(col);
-  }
-
-  public Projection tableProjection(int tableColIndex) {
-    return new Projection(tableSource, true, tableColIndex, outputIndex());
-  }
-
   protected void resolveSpecial(ColumnProjection col) {
     for (SchemaProjectionResolver resolver : resolvers) {
-      if (resolver.resolveColumn(col)) {
+      if (resolver.resolveColumn(col, rootOutputTuple)) {
         return;
       }
     }
     throw new IllegalStateException("No resolver for column: " + col.nodeType());
   }
 
-  public int outputIndex() { return output.size(); }
   public TupleMetadata tableSchema() { return tableSchema; }
-  public List<ResolvedColumn> columns() { return output; }
-  public List<NullColumnSpec> nullColumns() { return null; }
+  public ResolvedTuple output() { return rootOutputTuple; }
 }

@@ -22,7 +22,7 @@ import java.util.Set;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
-import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this
@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.rowSet.project.ProjectedTuple.ProjectedCol
  * then one name segment exists for a, and contains segments for both b and c.
  */
 
-public class ProjectedColumnImpl implements ProjectedColumn {
+public class RequestedColumnImpl implements RequestedColumn {
 
   /**
    * Special marker to indicate that that a) the item is an
@@ -40,12 +40,12 @@ public class ProjectedColumnImpl implements ProjectedColumn {
 
   private static final Set<Integer> ALL_INDEXES = new HashSet<>();
 
-  private final ProjectedTuple parent;
+  private final RequestedTuple parent;
   private final String name;
-  private ProjectedTuple members;
+  private RequestedTuple members;
   private Set<Integer> indexes;
 
-  public ProjectedColumnImpl(ProjectedTuple parent, String name) {
+  public RequestedColumnImpl(RequestedTuple parent, String name) {
     this.parent = parent;
     this.name = name;
   }
@@ -61,15 +61,15 @@ public class ProjectedColumnImpl implements ProjectedColumn {
   @Override
   public boolean isTuple() { return members != null; }
 
-  public ProjectedTuple asTuple() {
+  public RequestedTuple asTuple() {
     if (members == null) {
-      members = new ProjectedTupleImpl(this);
+      members = new RequestedTupleImpl(this);
     }
     return members;
   }
 
-  public ProjectedTuple projectAllMembers(boolean projectAll) {
-    members = projectAll ? NullProjectedTuple.ALL_MEMBERS : NullProjectedTuple.NO_MEMBERS;
+  public RequestedTuple projectAllMembers(boolean projectAll) {
+    members = projectAll ? ImpliedTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
     return members;
   }
 
@@ -181,5 +181,5 @@ public class ProjectedColumnImpl implements ProjectedColumn {
   }
 
   @Override
-  public ProjectedTuple mapProjection() { return members; }
+  public RequestedTuple mapProjection() { return members; }
 }
