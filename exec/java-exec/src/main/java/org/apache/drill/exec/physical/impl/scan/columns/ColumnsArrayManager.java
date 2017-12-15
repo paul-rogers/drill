@@ -22,7 +22,6 @@ import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
@@ -79,13 +78,11 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 public class ColumnsArrayManager implements SchemaProjectionResolver {
 
+  public static final String COLUMNS_COL = "columns";
+
   // Internal
 
   private final ColumnsArrayParser parser;
-
-  private SchemaLevelProjection schemaProj;
-
-  public static final String COLUMNS_COL = "columns";
 
   public ColumnsArrayManager(boolean requireColumnsArray) {
     parser = new ColumnsArrayParser(requireColumnsArray);
@@ -96,26 +93,23 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
   public SchemaProjectionResolver resolver() { return this; }
 
   @Override
-  public void bind(SchemaLevelProjection schemaProj) {
-
-    this.schemaProj = schemaProj;
-
-    // Verify that the reader fulfilled its obligation to return just
-    // one column of the proper name and type.
-
-    TupleMetadata tableSchema = schemaProj.tableSchema();
-    if (hasColumnsArrayColumn() && tableSchema.size() != 1) {
-      throw new IllegalStateException("Table schema must have exactly one column.");
-    }
+  public void startResolution() {
   }
 
   @Override
-  public boolean resolveColumn(ColumnProjection col, ResolvedTuple outputTuple) {
+  public boolean resolveColumn(ColumnProjection col, ResolvedTuple outputTuple,
+      TupleMetadata tableSchema) {
     if (col.nodeType() != UnresolvedColumnsArrayColumn.ID) {
       return false;
     }
 
-    TupleMetadata tableSchema = schemaProj.tableSchema();
+    // Verify that the reader fulfilled its obligation to return just
+    // one column of the proper name and type.
+
+    if (hasColumnsArrayColumn() && tableSchema.size() != 1) {
+      throw new IllegalStateException("Table schema must have exactly one column.");
+    }
+
     int tabColIndex = tableSchema.index(COLUMNS_COL);
     if (tabColIndex == -1) {
       throw new IllegalStateException("Table schema must include only one column named `" + COLUMNS_COL + "`");

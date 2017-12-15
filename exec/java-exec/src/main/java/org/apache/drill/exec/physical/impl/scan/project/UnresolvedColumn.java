@@ -46,11 +46,6 @@ public class UnresolvedColumn implements ColumnProjection {
 
   public RequestedColumn element() { return inCol; }
 
-//  @Override
-//  public boolean isTableProjection() {
-//    return id == UNRESOLVED;
-//  }
-
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder();
@@ -59,11 +54,11 @@ public class UnresolvedColumn implements ColumnProjection {
       .append(getClass().getSimpleName())
       .append(" type=")
       .append(id == WILDCARD ? "wildcard" : "column");
-//    if (isTableProjection()) {
-//      buf
-//        .append(", column=")
-//        .append(inCol.toString());
-//    }
+    if (inCol != null) {
+      buf
+        .append(", incol=")
+        .append(inCol.toString());
+    }
     return buf.append("]").toString();
   }
 }

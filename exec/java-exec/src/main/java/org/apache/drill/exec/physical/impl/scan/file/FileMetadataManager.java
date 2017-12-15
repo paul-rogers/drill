@@ -29,11 +29,11 @@ import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.VectorSource;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.vector.ValueVector;
@@ -185,7 +185,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   }
 
   @Override
-  public void bind(SchemaLevelProjection schemaProj) {
+  public void startResolution() {
     close();
   }
 
@@ -195,7 +195,8 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   }
 
   @Override
-  public boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple) {
+  public boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple,
+      TupleMetadata tableSchema) {
     switch (col.nodeType()) {
 
     case PartitionColumn.ID:

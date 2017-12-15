@@ -20,8 +20,6 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
@@ -63,6 +61,8 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 public class SchemaLevelProjection {
 
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SchemaLevelProjection.class);
+
   /**
    * Schema-level projection is customizable. Implement this interface, and
    * add an instance to the scan orchestrator, to perform custom mappings
@@ -72,149 +72,31 @@ public class SchemaLevelProjection {
    */
 
   public interface SchemaProjectionResolver {
-    void bind(SchemaLevelProjection projection);
-    boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple);
-  }
-  /**
-   * Perform a wildcard projection. In this case, the query wants all
-   * columns in the source table, so the table drives the final projection.
-   * Since we include only those columns in the table, there is no need
-   * to create null columns. Example: SELECT *
-   */
-
-  public static class WildcardSchemaProjection extends SchemaLevelProjection {
-
-    public WildcardSchemaProjection(ScanLevelProjection scanProj,
-        TupleMetadata tableSchema,
-        ResolvedTuple rootTuple,
-        List<SchemaProjectionResolver> resolvers) {
-      super(tableSchema, rootTuple, resolvers);
-      for (ColumnProjection col : scanProj.columns()) {
-        if (col.nodeType() == UnresolvedColumn.WILDCARD) {
-          for (int i = 0; i < tableSchema.size(); i++) {
-            MaterializedField colSchema = tableSchema.column(i);
-            rootOutputTuple.add(
-                new ResolvedTableColumn(colSchema.getName(),
-                    colSchema, rootOutputTuple, i));
-          }
-        } else {
-          resolveSpecial(col);
-        }
-      }
-    }
-  }
-  /**
-   * Perform a schema projection for the case of an explicit list of
-   * projected columns. Example: SELECT a, b, c.
-   * <p>
-   * An explicit projection starts with the requested set of columns,
-   * then looks in the table schema to find matches. That is, it is
-   * driven by the query itself.
-   * <p>
-   * An explicit projection may include columns that do not exist in
-   * the source schema. In this case, we fill in null columns for
-   * unmatched projections.
-   */
-
-  public static class ExplicitSchemaProjection extends SchemaLevelProjection {
-
-    public ExplicitSchemaProjection(ScanLevelProjection scanProj,
-        TupleMetadata tableSchema,
-        ResolvedTuple rootTuple,
-        List<SchemaProjectionResolver> resolvers) {
-      super(tableSchema, rootTuple, resolvers);
-
-      for (ColumnProjection col : scanProj.columns()) {
-        if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
-          resolveColumn((UnresolvedColumn) col);
-        } else {
-          resolveSpecial(col);
-        }
-      }
-    }
-
-    private void resolveColumn(UnresolvedColumn col) {
-      int tableColIndex = tableSchema.index(col.name());
-      if (tableColIndex == -1) {
-        resolveNullColumn(col);
-      } else {
-        rootOutputTuple.add(
-            new ResolvedTableColumn(col.name(),
-                tableSchema.column(tableColIndex),
-                rootOutputTuple, tableColIndex));
-      }
-    }
-
-    /**
-     * Resolve a null column. This is a projected column which does not match
-     * an implicit or table column. We consider two cases: a simple top-level
-     * column reference ("a", say) and an implied map reference ("a.b", say.)
-     * If the column appears to be a map, determine the set of children, which
-     * map appear to any depth, that were requested.
-     *
-     * @param col
-     */
-
-    private void resolveNullColumn(UnresolvedColumn col) {
-      ResolvedColumn nullCol;
-      if (col.element().isTuple()) {
-        nullCol = resolveMapMembers(col.element());
-      } else {
-        nullCol = rootOutputTuple.nullBuilder.add(col.name());
-      }
-      rootOutputTuple.add(nullCol);
-    }
-
-    /**
-     * A child column of a map is not projected. Recurse to determine the full
-     * set of nullable child columns.
-     *
-     * @param projectedColumn the map column which was projected
-     * @return a list of null markers for the requested children
-     */
-
-    private ResolvedColumn resolveMapMembers(RequestedColumn col) {
-      NullMapColumn mapCol = new NullMapColumn(col.name(), rootOutputTuple);
-      ResolvedTuple members = mapCol.members();
-      for (RequestedColumn child : col.mapProjection().projections()) {
-        if (child.isTuple()) {
-          members.add(resolveMapMembers(child));
-        } else {
-          members.add(rootOutputTuple.nullBuilder.add(child.name()));
-        }
-      }
-      return mapCol;
-    }
+    void startResolution();
+    boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple,
+        TupleMetadata tableSchema);
   }
 
-  protected final TupleMetadata tableSchema;
-  protected final ResolvedTuple rootOutputTuple;
   protected final List<SchemaProjectionResolver> resolvers;
 
   protected SchemaLevelProjection(
-        TupleMetadata tableSchema,
-        ResolvedTuple rootTuple,
         List<SchemaProjectionResolver> resolvers) {
     if (resolvers == null) {
       resolvers = new ArrayList<>();
     }
-    rootOutputTuple = rootTuple;
-    this.tableSchema = tableSchema;
     this.resolvers = resolvers;
     for (SchemaProjectionResolver resolver : resolvers) {
-      resolver.bind(this);
+      resolver.startResolution();
     }
   }
 
-  protected void resolveSpecial(ColumnProjection col) {
+  protected void resolveSpecial(ResolvedTuple rootOutputTuple, ColumnProjection col,
+      TupleMetadata tableSchema) {
     for (SchemaProjectionResolver resolver : resolvers) {
-      if (resolver.resolveColumn(col, rootOutputTuple)) {
+      if (resolver.resolveColumn(col, rootOutputTuple, tableSchema)) {
         return;
       }
     }
     throw new IllegalStateException("No resolver for column: " + col.nodeType());
   }
-
-  public TupleMetadata tableSchema() { return tableSchema; }
-  public ResolvedTuple output() { return rootOutputTuple; }
 }

@@ -166,56 +166,20 @@ public abstract class ResolvedTuple implements VectorSource {
     public VectorContainer output() { return output; }
   }
 
-  public static class ResolvedMapTuple extends ResolvedTuple {
-
-    public ResolvedMapTuple(ResolvedTuple parentTuple) {
-      super(parentTuple.nullBuilder == null ? null : parentTuple.nullBuilder.newChild());
-    }
-
-    @Override
-    public void addVector(ValueVector vector) {
-      // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public ValueVector vector(int index) {
-      // TODO Auto-generated method stub
-      return null;
-    }
-
-    @Override
-    public void setRowCount(int rowCount) {
-      // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public BufferAllocator allocator() {
-      // TODO Auto-generated method stub
-      return null;
-    }
-
-    @Override
-    public String name() {
-      // TODO Auto-generated method stub
-      return null;
-    }
-  }
-
   /**
-   * Represents a map implied by the project list, but which does not appear
-   * in the table schema. The column is implied to be a map because it contains
+   * Represents a map implied by the project list, whether or not the map
+   * actually appears in the table schema.
+   * The column is implied to be a map because it contains
    * children. This implementation builds the map and its children.
    */
 
-  public static class NullMapTuple extends ResolvedTuple {
+  public static class ResolvedMapTuple extends ResolvedTuple {
 
     private final String name;
     private final ResolvedTuple parentTuple;
     private MapVector mapVector;
 
-    public NullMapTuple(String name, ResolvedTuple parentTuple) {
+    public ResolvedMapTuple(String name, ResolvedTuple parentTuple) {
       super(parentTuple.nullBuilder == null ? null : parentTuple.nullBuilder.newChild());
       this.name = name;
       this.parentTuple = parentTuple;
@@ -278,6 +242,18 @@ public abstract class ResolvedTuple implements VectorSource {
       children = new ArrayList<>();
     }
     children.add(child);
+  }
+
+  public boolean isSimpleProjection() {
+    if (children != null && ! children.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < members.size(); i++) {
+      if (members.get(i).nodeType() == ResolvedNullColumn.ID) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @VisibleForTesting

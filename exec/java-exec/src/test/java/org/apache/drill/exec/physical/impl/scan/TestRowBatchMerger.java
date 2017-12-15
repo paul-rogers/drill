@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl.scan;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.NullMapColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedMapColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
@@ -257,12 +257,12 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     resolvedTuple.add(new TestProjection(resolvedTuple, 1));
 
-    NullMapColumn nullMapCol = new NullMapColumn("map1", resolvedTuple);
+    ResolvedMapColumn nullMapCol = new ResolvedMapColumn("map1", resolvedTuple);
     ResolvedTuple nullMap = nullMapCol.members();
     nullMap.add(nullMap.nullBuilder().add("null1"));
     nullMap.add(nullMap.nullBuilder().add("null2", Types.optional(MinorType.VARCHAR)));
 
-    NullMapColumn nullMapCol2 = new NullMapColumn("map2", nullMap);
+    ResolvedMapColumn nullMapCol2 = new ResolvedMapColumn("map2", nullMap);
     ResolvedTuple nullMap2 = nullMapCol2.members();
     nullMap2.add(nullMap2.nullBuilder().add("null3"));
     nullMap.add(nullMapCol2);

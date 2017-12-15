@@ -17,13 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
@@ -77,94 +73,6 @@ public class SchemaSmoother {
    */
   @SuppressWarnings("serial")
   public static class IncompatibleSchemaException extends Exception { }
-
-  /**
-   * Resolve a table schema against the prior schema. This works only if the
-   * types match and if all columns in the table schema already appear in the
-   * prior schema.
-   */
-
-  public static class SmoothingProjection extends SchemaLevelProjection {
-
-    protected final List<MaterializedField> rewrittenFields = new ArrayList<>();
-
-    public SmoothingProjection(ScanLevelProjection scanProj,
-        TupleMetadata tableSchema,
-        ResolvedTuple priorSchema,
-        ResolvedTuple outputTuple,
-        List<SchemaProjectionResolver> resolvers) throws IncompatibleSchemaException {
-
-      super(tableSchema, outputTuple, resolvers);
-
-      for (ResolvedColumn priorCol : priorSchema.columns()) {
-        switch (priorCol.nodeType()) {
-        case ResolvedTableColumn.ID:
-        case ResolvedNullColumn.ID:
-          // TODO: To fix this, the null column loader must declare
-          // the column type somehow.
-          resolveColumn(priorCol);
-          break;
-        default:
-          resolveSpecial(priorCol);
-        }
-      }
-
-      // Check if all table columns were matched. Since names are unique,
-      // each column can be matched at most once. If the number of matches is
-      // less than the total number of columns, then some columns were not
-      // matched and we must start over.
-
-      if (rewrittenFields.size() < tableSchema.size()) {
-        throw new IncompatibleSchemaException();
-      }
-    }
-
-    /**
-     * Resolve a prior column against the current table schema. Resolves to
-     * a table column, a null column, or throws an exception if the
-     * schemas are incompatible
-     *
-     * @param priorCol a column from the prior schema
-     * @throws IncompatibleSchemaException if the prior column exists in
-     * the current table schema, but with an incompatible type
-     */
-
-    private void resolveColumn(ResolvedColumn priorCol) throws IncompatibleSchemaException {
-      int tableColIndex = tableSchema.index(priorCol.name());
-      if (tableColIndex == -1) {
-        resolveNullColumn(priorCol);
-        return;
-      }
-      MaterializedField tableCol = tableSchema.column(tableColIndex);
-      MaterializedField priorField = priorCol.schema();
-      if (! tableCol.isPromotableTo(priorField, false)) {
-        throw new IncompatibleSchemaException();
-      }
-      rootOutputTuple.add(
-          new ResolvedTableColumn(priorCol.name(), priorField, rootOutputTuple, tableColIndex));
-      rewrittenFields.add(priorField);
-    }
-
-    /**
-     * A prior schema column does not exist in the present table column schema.
-     * Create a null column with the same type as the prior column, as long as
-     * the prior column was not required.
-     *
-     * @param priorCol the prior column to project to a null column
-     * @throws IncompatibleSchemaException if the prior column was required
-     * and thus cannot be null-filled
-     */
-
-    private void resolveNullColumn(ResolvedColumn priorCol) throws IncompatibleSchemaException {
-      if (priorCol.schema().getType().getMode() == DataMode.REQUIRED) {
-        throw new IncompatibleSchemaException();
-      }
-      rootOutputTuple.add(rootOutputTuple.nullBuilder().add(priorCol.name(),
-          priorCol.schema().getType()));
-    }
-
-    public List<MaterializedField> revisedTableSchema() { return rewrittenFields; }
-  }
 
   private final ScanLevelProjection scanProj;
   private final List<SchemaProjectionResolver> resolvers;

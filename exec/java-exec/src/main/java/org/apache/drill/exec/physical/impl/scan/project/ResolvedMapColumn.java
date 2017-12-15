@@ -19,7 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.NullMapTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedMapTuple;
 import org.apache.drill.exec.record.MaterializedField;
 
 /**
@@ -28,17 +28,17 @@ import org.apache.drill.exec.record.MaterializedField;
  * This kind of column gives rise to a map of null columns in the output.
  */
 
-public class NullMapColumn extends ResolvedColumn {
+public class ResolvedMapColumn extends ResolvedColumn {
 
   public static final int ID = 17;
 
   private final String name;
-  private final NullMapTuple members;
+  private final ResolvedMapTuple members;
 
-  public NullMapColumn(String name, ResolvedTuple parent) {
+  public ResolvedMapColumn(String name, ResolvedTuple parent) {
     super(null, -1);
     this.name = name;
-    this.members = new NullMapTuple(name, parent);
+    this.members = new ResolvedMapTuple(name, parent);
   }
 
   @Override
