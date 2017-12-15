@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.json;
 
 import static org.junit.Assert.*;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -29,21 +30,28 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.BasicScanOpFixture;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.TypeNegotiator;
+import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -54,6 +62,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.doubleArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleMap;
 
 import com.google.common.base.Joiner;
 
@@ -66,6 +75,7 @@ import com.google.common.base.Joiner;
 public class TestJsonLoader extends SubOperatorTest {
 
   private class JsonTester {
+    public OptionBuilder loaderOptions = new OptionBuilder();
     private final JsonOptions options;
     private ResultSetLoader tableLoader;
 
@@ -77,8 +87,17 @@ public class TestJsonLoader extends SubOperatorTest {
       this(new JsonOptions());
     }
 
+    public RowSet parseFile(String resourcePath) {
+      try {
+        return parse(ClusterFixture.getResource(resourcePath));
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
     public RowSet parse(String json) {
-      tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+      tableLoader = new ResultSetLoaderImpl(fixture.allocator(),
+          loaderOptions.build());
       InputStream inStream = new
           ReaderInputStream(new StringReader(json));
       options.context = "test Json";
@@ -431,13 +450,13 @@ public class TestJsonLoader extends SubOperatorTest {
     options.allTextMode = true;
     JsonTester tester = new JsonTester(options);
     String json =
-        "{a: [\"foo\", true, false, 10, 20.0] }";
+        "{a: [\"foo\", true, false, 10, null, 20.0] }";
     RowSet results = tester.parse(json);
     BatchSchema expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.VARCHAR)
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
-        .addSingleCol(strArray("foo", "true", "false", "10", "20.0"))
+        .addSingleCol(strArray("foo", "true", "false", "10", "", "20.0"))
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(results);
@@ -1014,7 +1033,7 @@ public class TestJsonLoader extends SubOperatorTest {
         "{a: 80, b: [\"foo\", [{}, {x: {}}]]}\n" +
         "{a: 90, b: 55.5} {a: 100, b: 10} {a: 110, b: \"foo\"}";
     ResultSetOptions rsOptions = new OptionBuilder()
-        .setProjection(ScanTestUtils.projectList("a"))
+        .setProjection(RowSetTestUtils.projectList("a"))
         .build();
     ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
     InputStream inStream = new
@@ -1096,7 +1115,6 @@ public class TestJsonLoader extends SubOperatorTest {
     loader.close();
     tableLoader.close();
   }
-
 
   /**
    * Drill supports 1-D arrays using repeated types. Drill does not
@@ -1200,6 +1218,289 @@ public class TestJsonLoader extends SubOperatorTest {
     options.skipMalformedRecords = true;
     JsonTester tester = new JsonTester(options);
     expectError(tester, "{a: }\n{a: 20}\n{a: 30}");
+  }
+
+  /**
+   * Test based on TestJsonReader.testAllTextMode
+   * Verifies the complex case of an array of maps that contains an array of
+   * strings (from all text mode). Also verifies projection.
+   */
+
+  @Test
+  public void testMapSelect() {
+    JsonOptions options = new JsonOptions();
+    options.allTextMode = true;
+    JsonTester tester = new JsonTester(options);
+    tester.loaderOptions.setProjection(RowSetTestUtils.projectList("field_5"));
+    RowSet results = tester.parseFile("store/json/schema_change_int_to_string.json");
+//    results.print();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addMapArray("field_5")
+          .addArray("inner_list", MinorType.VARCHAR)
+          .addArray("inner_list_2", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(mapArray())
+        .addSingleCol(mapArray(
+            mapValue(strArray("1", "", "6"), strArray()),
+            mapValue(strArray("3", "8"), strArray()),
+            mapValue(strArray("12", "", "4", "null", "5"), strArray())))
+        .addSingleCol(mapArray(
+            mapValue(strArray("5", "", "6.0", "1234"), strArray()),
+            mapValue(strArray("7", "8.0", "12341324"), strArray("1", "2", "2323.443e10", "hello there")),
+            mapValue(strArray("3", "4", "5"), strArray("10", "11", "12"))))
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  private static class TestJsonReader implements ManagedReader<SchemaNegotiator> {
+
+    private ResultSetLoader tableLoader;
+    private String filePath;
+    private InputStream stream;
+    private JsonLoader jsonLoader;
+    private JsonOptions options;
+
+    public TestJsonReader(String filePath, JsonOptions options) {
+      this.filePath = filePath;
+      this.options = options;
+    }
+
+    @Override
+    public boolean open(SchemaNegotiator negotiator) {
+      stream = new BufferedInputStream(getClass().getResourceAsStream(filePath));
+      tableLoader = negotiator.build();
+      jsonLoader = new JsonLoaderImpl(stream, tableLoader.writer(), options);
+      return true;
+    }
+
+    @Override
+    public boolean next() {
+      boolean more = true;
+      while (! tableLoader.writer().isFull()) {
+        if (! jsonLoader.next()) {
+          more = false;
+          break;
+        }
+      }
+      jsonLoader.endBatch();
+      return more;
+    }
+
+    @Override
+    public void close() {
+      try {
+        stream.close();
+      } catch (IOException e) {
+        // Ignore;
+      }
+    }
+
+  }
+
+  /**
+   * Test the case where the reader does not play the "first batch contains
+   * only schema" game, and instead returns data. The Scan operator will
+   * split the first batch into two: one with schema only, another with
+   * data.
+   */
+
+  @Test
+  public void testScanOperator() {
+
+    BasicScanOpFixture opFixture = new BasicScanOpFixture();
+    JsonOptions options = new JsonOptions();
+    options.allTextMode = true;
+    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
+    opFixture.setProjection("field_3", "field_5");
+    ScanOperatorExec scanOp = opFixture.build();
+
+    assertTrue(scanOp.buildSchema());
+    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//  result.print();
+    result.clear();
+    assertTrue(scanOp.next());
+    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMap("field_3")
+          .addNullable("inner_1", MinorType.VARCHAR)
+          .addNullable("inner_2", MinorType.VARCHAR)
+          .addMapArray("inner_3")
+            .addNullable("inner_object_field_1", MinorType.VARCHAR)
+            .buildMap()
+          .buildMap()
+        .addMapArray("field_5")
+          .addArray("inner_list", MinorType.VARCHAR)
+          .addArray("inner_list_2", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+
+    RowSetUtilities.strArray();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(mapValue(null, null, mapArray()),
+                mapArray())
+        .addRow(mapValue("2", null, mapArray()),
+                mapArray(
+                  mapValue(strArray("1", "", "6"), strArray()),
+                  mapValue(strArray("3", "8"), strArray()),
+                  mapValue(strArray("12", "", "4", "null", "5"), strArray())))
+        .addRow(mapValue("5", "3", mapArray(singleMap(null), singleMap("10"))),
+            mapArray(
+                mapValue(strArray("5", "", "6.0", "1234"), strArray()),
+                mapValue(strArray("7", "8.0", "12341324"),
+                         strArray("1", "2", "2323.443e10", "hello there")),
+                mapValue(strArray("3", "4", "5"), strArray("10", "11", "12"))))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
+    scanOp.close();
+  }
+
+  @Test
+  public void testScanProject1() {
+
+    BasicScanOpFixture opFixture = new BasicScanOpFixture();
+    JsonOptions options = new JsonOptions();
+    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
+    opFixture.setProjection("field_3.inner_1", "field_3.inner_2");
+    ScanOperatorExec scanOp = opFixture.build();
+
+    assertTrue(scanOp.buildSchema());
+    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+    assertTrue(scanOp.next());
+    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+    result.print();
+    result.clear();
+    opFixture.close();
+  }
+
+  @Test
+  public void testScanProjectMapSubset() {
+
+    BasicScanOpFixture opFixture = new BasicScanOpFixture();
+    JsonOptions options = new JsonOptions();
+    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
+    opFixture.setProjection("field_3.inner_1", "field_3.inner_2");
+    ScanOperatorExec scanOp = opFixture.build();
+
+    assertTrue(scanOp.buildSchema());
+    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+    assertTrue(scanOp.next());
+    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+
+    BatchSchema schema = new SchemaBuilder()
+        .addMap("field_3")
+          .addNullable("inner_1", MinorType.BIGINT)
+          .addNullable("inner_2", MinorType.BIGINT)
+          .buildMap()
+        .build();
+
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .addSingleCol(mapValue(null, null))
+        .addSingleCol(mapValue(2L, null))
+        .addSingleCol(mapValue(5L, 3L))
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(result);
+    scanOp.close();
+  }
+
+  @Test
+  public void testScanProjectMapArraySubsetAndNull() {
+
+    BasicScanOpFixture opFixture = new BasicScanOpFixture();
+    JsonOptions options = new JsonOptions();
+    options.allTextMode = true;
+    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
+    opFixture.setProjection("field_5.inner_list", "field_5.dummy");
+    opFixture.setNullType(Types.optional(MinorType.VARCHAR));
+    ScanOperatorExec scanOp = opFixture.build();
+
+    assertTrue(scanOp.buildSchema());
+    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+    assertTrue(scanOp.next());
+    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+
+    BatchSchema schema = new SchemaBuilder()
+        .addMapArray("field_5")
+          .addArray("inner_list", MinorType.VARCHAR)
+          .addNullable("dummy", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .addSingleCol(mapArray())
+        .addSingleCol(mapArray(
+            mapValue(strArray("1", "", "6"), null),
+            mapValue(strArray("3", "8"), null),
+            mapValue(strArray("12", "", "4", "null", "5"), null)))
+        .addSingleCol(mapArray(
+            mapValue(strArray("5", "", "6.0", "1234"), null),
+            mapValue(strArray("7" ,"8.0", "12341324"), null),
+            mapValue(strArray("3", "4", "5"), null)))
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(result);
+    scanOp.close();
+  }
+
+  @Test
+  public void testScanProject() {
+
+    BasicScanOpFixture opFixture = new BasicScanOpFixture();
+    JsonOptions options = new JsonOptions();
+    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
+    opFixture.setProjection("field_1", "field_3.inner_1", "field_3.inner_2", "field_4.inner_1",
+        "non_existent_at_root", "non_existent.nested.field");
+    opFixture.setNullType(Types.optional(MinorType.VARCHAR));
+    ScanOperatorExec scanOp = opFixture.build();
+
+    assertTrue(scanOp.buildSchema());
+    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+    assertTrue(scanOp.next());
+    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
+//    result.print();
+
+    // Projects all columns (since the revised scan operator handles missing-column
+    // projection.) Note that the result includes two batches, including the first empty
+    // batch.
+
+    BatchSchema schema = new SchemaBuilder()
+        .addArray("field_1", MinorType.BIGINT)
+        .addMap("field_3")
+          .addNullable("inner_1", MinorType.BIGINT)
+          .addNullable("inner_2", MinorType.BIGINT)
+          .buildMap()
+        .addMap("field_4")
+          .addArray("inner_1", MinorType.BIGINT)
+          .buildMap()
+        .addNullable("non_existent_at_root", MinorType.VARCHAR)
+        .addMap("non_existent")
+          .addMap("nested")
+            .addNullable("field", MinorType.VARCHAR)
+            .buildMap()
+          .buildMap()
+        .build();
+
+    Object nullMap = singleMap(singleMap(null));
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(longArray(1L), mapValue(null, null), mapValue(longArray()), null, nullMap )
+        .addRow(longArray(5L), mapValue(2L, null), mapValue(longArray(1L, 2L, 3L)), null, nullMap)
+        .addRow(longArray(5L, 10L, 15L), mapValue(5L, 3L), mapValue(longArray(4L, 5L, 6L)), null, nullMap)
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(result);
+    scanOp.close();
   }
 
   // TODO: Lists
