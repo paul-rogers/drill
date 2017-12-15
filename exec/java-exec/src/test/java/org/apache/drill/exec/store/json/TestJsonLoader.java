@@ -1360,7 +1360,7 @@ public class TestJsonLoader extends SubOperatorTest {
 
     new RowSetComparison(expected)
       .verifyAndClearAll(result);
-    scanOp.close();
+    opFixture.close();
   }
 
   @Test
