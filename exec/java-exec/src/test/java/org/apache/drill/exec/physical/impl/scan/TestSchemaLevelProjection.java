@@ -29,7 +29,7 @@ import java.util.List;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedMapColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
@@ -62,7 +62,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new WildcardSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -105,7 +105,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -149,7 +149,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -194,7 +194,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -228,7 +228,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -264,7 +264,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -334,7 +334,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -433,7 +433,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers());
@@ -475,7 +475,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     try {
       new ExplicitSchemaProjection(
           scanProj, tableSchema, rootTuple,
@@ -508,7 +508,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
           scanProj, tableSchema, rootTuple,
           ScanTestUtils.resolvers());
@@ -544,7 +544,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     try {
       new ExplicitSchemaProjection(
           scanProj, tableSchema, rootTuple,

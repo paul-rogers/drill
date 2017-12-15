@@ -20,15 +20,16 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -117,12 +118,12 @@ public abstract class ResolvedTuple implements VectorSource {
    * vector container.
    */
 
-  public static class ResolvedRowTuple extends ResolvedTuple {
+  public static class ResolvedRow extends ResolvedTuple {
 
     private VectorContainer input;
     private VectorContainer output;
 
-    public ResolvedRowTuple(NullColumnBuilder nullBuilder) {
+    public ResolvedRow(NullColumnBuilder nullBuilder) {
       super(nullBuilder);
     }
 
@@ -164,6 +165,9 @@ public abstract class ResolvedTuple implements VectorSource {
     }
 
     public VectorContainer output() { return output; }
+
+    @Override
+    public int innerCardinality(int rowCount) { return rowCount; }
   }
 
   /**
@@ -173,51 +177,120 @@ public abstract class ResolvedTuple implements VectorSource {
    * children. This implementation builds the map and its children.
    */
 
-  public static class ResolvedMapTuple extends ResolvedTuple {
+  public static abstract class ResolvedMap extends ResolvedTuple {
 
-    private final String name;
-    private final ResolvedTuple parentTuple;
-    private MapVector mapVector;
+    protected final ResolvedMapColumn parentColumn;
+    protected AbstractMapVector inputMap;
+    protected AbstractMapVector outputMap;
 
-    public ResolvedMapTuple(String name, ResolvedTuple parentTuple) {
-      super(parentTuple.nullBuilder == null ? null : parentTuple.nullBuilder.newChild());
-      this.name = name;
-      this.parentTuple = parentTuple;
-      parentTuple.addChild(this);
-    }
-
-    public MapVector buildMap(String name) {
-      mapVector = new MapVector(
-          MaterializedField.create(name,
-              Types.required(MinorType.MAP)),
-          parentTuple.allocator(), null);
-      buildColumns();
-      return mapVector;
+    public ResolvedMap(ResolvedMapColumn parentColumn) {
+      super(parentColumn.parent().nullBuilder == null ? null : parentColumn.parent().nullBuilder.newChild());
+      this.parentColumn = parentColumn;
     }
 
     @Override
     public void addVector(ValueVector vector) {
-      mapVector.putChild(vector.getField().getName(), vector);
+      outputMap.putChild(vector.getField().getName(), vector);
     }
 
     @Override
     public ValueVector vector(int index) {
-      throw new UnsupportedOperationException();
+      assert inputMap != null;
+      return inputMap.getChildByOrdinal(index);
+    }
+
+    public AbstractMapVector buildMap() {
+      if (parentColumn.sourceIndex() != -1) {
+        ResolvedTuple parentTuple = parentColumn.parent();
+        inputMap = (AbstractMapVector) parentTuple.vector(parentColumn.sourceIndex());
+      }
+      MaterializedField colSchema = parentColumn.schema();
+      outputMap = createMap(inputMap,
+          MaterializedField.create(
+              colSchema.getName(), colSchema.getType()),
+          parentColumn.parent().allocator());
+      buildColumns();
+      return outputMap;
+    }
+
+    protected abstract AbstractMapVector createMap(AbstractMapVector inputMap,
+        MaterializedField create, BufferAllocator allocator);
+
+    @Override
+    public BufferAllocator allocator() {
+      return outputMap.getAllocator();
+    }
+
+    @Override
+    public String name() { return parentColumn.name(); }
+  }
+
+  public static class ResolvedSingleMap extends ResolvedMap {
+
+    public ResolvedSingleMap(ResolvedMapColumn parentColumn) {
+      super(parentColumn);
+    }
+
+    @Override
+    protected AbstractMapVector createMap(AbstractMapVector inputMap,
+        MaterializedField schema, BufferAllocator allocator) {
+      return new MapVector(schema,
+          allocator, null);
     }
 
     @Override
     public void setRowCount(int rowCount) {
-      mapVector.setMapValueCount(rowCount);
+      ((MapVector) outputMap).setMapValueCount(rowCount);
       cascadeRowCount(rowCount);
     }
 
     @Override
-    public BufferAllocator allocator() {
-      return mapVector.getAllocator();
+    public int innerCardinality(int outerCardinality) {
+      return outerCardinality;
+    }
+  }
+
+  /**
+   * Represents a map tuple (not the map column, rather the value of the
+   * map column.) When projecting, we create a new repeated map vector,
+   * but share the offsets vector from input to output. The size of the
+   * offset vector reveals the number of elements in the "inner" array,
+   * which is the number of null values to create if null columns are
+   * added.
+   */
+
+  public static class ResolvedMapArray extends ResolvedMap {
+
+    private int valueCount;
+
+    public ResolvedMapArray(ResolvedMapColumn parentColumn) {
+      super(parentColumn);
+    }
+
+    @SuppressWarnings("resource")
+    @Override
+    protected AbstractMapVector createMap(AbstractMapVector inputMap,
+        MaterializedField schema, BufferAllocator allocator) {
+
+      // Create a new map array, reusing the offset vector from
+      // the original input map.
+
+      RepeatedMapVector source = (RepeatedMapVector) inputMap;
+      UInt4Vector offsets = source.getOffsetVector();
+      valueCount = offsets.getAccessor().getValueCount();
+      return new RepeatedMapVector(schema,
+          offsets, null);
     }
 
     @Override
-    public String name() { return name; }
+    public int innerCardinality(int outerCardinality) {
+      return valueCount;
+    }
+
+    @Override
+    public void setRowCount(int rowCount) {
+      cascadeRowCount(valueCount);
+    }
   }
 
   protected final List<ResolvedColumn> members = new ArrayList<>();
@@ -242,6 +315,11 @@ public abstract class ResolvedTuple implements VectorSource {
       children = new ArrayList<>();
     }
     children.add(child);
+  }
+
+  public void removeChild(ResolvedTuple child) {
+    assert ! children.isEmpty() && children.get(children.size()-1) == child;
+    children.remove(children.size()-1);
   }
 
   public boolean isSimpleProjection() {
@@ -275,15 +353,13 @@ public abstract class ResolvedTuple implements VectorSource {
       nullBuilder.load(rowCount);
     }
     if (children != null) {
-
-      // Just cascade the row count. This mechanism does not
-      // yet support adding nulls to a repeated map vector.
-
       for (ResolvedTuple child : children) {
-        child.loadNulls(rowCount);
+        child.loadNulls(innerCardinality(rowCount));
       }
     }
   }
+
+  public abstract int innerCardinality(int outerCardinality);
 
   /**
    * Merge two or more batches to produce an output batch. For example, consider

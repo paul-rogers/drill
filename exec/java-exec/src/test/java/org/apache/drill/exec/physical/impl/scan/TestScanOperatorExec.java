@@ -30,6 +30,7 @@ import java.util.List;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
@@ -257,6 +258,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public ScanOperatorExec scanOp;
     private int batchByteCount;
     private int maxRowCount;
+    private MajorType nullType;
 
     public void projectAll() {
       projection = new ArrayList<>();
@@ -279,9 +281,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
       maxRowCount = rowCount;
     }
 
+    public void setNullType(MajorType type) {
+      nullType = type;
+    }
+
     protected void configure(AbstractScanFramework<?> framework) {
       framework.setMaxBatchByteCount(batchByteCount);
       framework.setMaxRowCount(maxRowCount);
+      framework.setNullType(nullType);
     }
 
     protected ScanOperatorExec buildScanOp(ScanOperatorEvents framework) {

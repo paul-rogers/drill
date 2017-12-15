@@ -40,7 +40,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.WildcardSchemaProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -203,7 +203,7 @@ public class TestMetadataProjection extends SubOperatorTest {
 
     metadataManager.startFile(filePath);
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
@@ -267,7 +267,7 @@ public class TestMetadataProjection extends SubOperatorTest {
         .buildSchema();
     metadataManager.startFile(filePath);
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new WildcardSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
@@ -320,7 +320,7 @@ public class TestMetadataProjection extends SubOperatorTest {
 
     metadataManager.startFile(filePath);
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));
@@ -358,7 +358,7 @@ public class TestMetadataProjection extends SubOperatorTest {
 
     metadataManager.startFile(filePath);
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
         ScanTestUtils.resolvers(metadataManager));

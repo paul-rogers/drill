@@ -23,7 +23,7 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -173,7 +173,7 @@ public class ScanSchemaOrchestrator {
      * that occur across readers.
      */
 
-    private ResolvedRowTuple rootTuple;
+    private ResolvedRow rootTuple;
     private VectorContainer tableContainer;
 
     public ReaderSchemaOrchestrator() {
@@ -295,7 +295,7 @@ public class ScanSchemaOrchestrator {
     }
 
     private void doSmoothedProjection(TupleMetadata tableSchema) {
-      rootTuple = new ResolvedRowTuple(
+      rootTuple = new ResolvedRow(
           new NullColumnBuilder(nullType, allowRequiredNullColumns));
       schemaSmoother.resolve(tableSchema, rootTuple);
     }
@@ -306,7 +306,7 @@ public class ScanSchemaOrchestrator {
      */
 
     private void doWildcardProjection(TupleMetadata tableSchema) {
-      rootTuple = new ResolvedRowTuple(null);
+      rootTuple = new ResolvedRow(null);
       new WildcardSchemaProjection(scanProj,
           tableSchema, rootTuple, schemaResolvers);
     }
@@ -321,7 +321,7 @@ public class ScanSchemaOrchestrator {
      */
 
     private void doExplicitProjection(TupleMetadata tableSchema) {
-      rootTuple = new ResolvedRowTuple(
+      rootTuple = new ResolvedRow(
           new NullColumnBuilder(nullType, allowRequiredNullColumns));
       new ExplicitSchemaProjection(scanProj,
               tableSchema, rootTuple,

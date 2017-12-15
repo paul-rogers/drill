@@ -23,7 +23,7 @@ import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedMapColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.VectorSource;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
@@ -40,6 +40,7 @@ import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.singleMap;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 
 
 /**
@@ -124,7 +125,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     RowSetSource second = makeSecond();
 
-    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(null);
+    ResolvedRow resolvedTuple = new ResolvedRow(null);
     resolvedTuple.add(new TestProjection(first, 1));
     resolvedTuple.add(new TestProjection(second, 0));
     resolvedTuple.add(new TestProjection(second, 1));
@@ -165,7 +166,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     RowSetSource second = makeSecond();
 
-    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(null);
+    ResolvedRow resolvedTuple = new ResolvedRow(null);
     resolvedTuple.add(new TestProjection(resolvedTuple, 1));
     resolvedTuple.add(new TestProjection(second, 0));
     resolvedTuple.add(new TestProjection(second, 1));
@@ -206,7 +207,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
 
-    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(builder);
+    ResolvedRow resolvedTuple = new ResolvedRow(builder);
     resolvedTuple.add(new TestProjection(resolvedTuple, 1));
     resolvedTuple.add(resolvedTuple.nullBuilder().add("null1"));
     resolvedTuple.add(resolvedTuple.nullBuilder().add("null2", Types.optional(MinorType.VARCHAR)));
@@ -243,6 +244,12 @@ public class TestRowBatchMerger extends SubOperatorTest {
     builder.close();
   }
 
+  /**
+   * Test the ability to create maps from whole cloth if requested in
+   * the projection list, and the map is not available from the data
+   * source.
+   */
+
   @Test
   public void testNullMaps() {
 
@@ -253,16 +260,16 @@ public class TestRowBatchMerger extends SubOperatorTest {
     // Create null columns
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple resolvedTuple = new ResolvedRowTuple(builder);
+    ResolvedRow resolvedTuple = new ResolvedRow(builder);
 
     resolvedTuple.add(new TestProjection(resolvedTuple, 1));
 
-    ResolvedMapColumn nullMapCol = new ResolvedMapColumn("map1", resolvedTuple);
+    ResolvedMapColumn nullMapCol = new ResolvedMapColumn(resolvedTuple, "map1");
     ResolvedTuple nullMap = nullMapCol.members();
     nullMap.add(nullMap.nullBuilder().add("null1"));
     nullMap.add(nullMap.nullBuilder().add("null2", Types.optional(MinorType.VARCHAR)));
 
-    ResolvedMapColumn nullMapCol2 = new ResolvedMapColumn("map2", nullMap);
+    ResolvedMapColumn nullMapCol2 = new ResolvedMapColumn(nullMap, "map2");
     ResolvedTuple nullMap2 = nullMapCol2.members();
     nullMap2.add(nullMap2.nullBuilder().add("null3"));
     nullMap.add(nullMapCol2);
@@ -307,6 +314,146 @@ public class TestRowBatchMerger extends SubOperatorTest {
     new RowSetComparison(expected)
       .verifyAndClearAll(result);
     resolvedTuple.close();
+  }
+
+  /**
+   * Test that the merger mechanism can rewrite a map to include
+   * projected null columns.
+   */
+
+  @Test
+  public void testMapRevision() {
+
+    // Create the first batch
+
+    BatchSchema inputSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addMap("a")
+          .add("c", MinorType.INT)
+          .buildMap()
+        .build();
+    RowSetSource input = new RowSetSource(
+        fixture.rowSetBuilder(inputSchema)
+          .addRow("barney", singleMap(10))
+          .addRow("wilma", singleMap(20))
+          .build());
+
+    // Create mappings
+
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRow resolvedTuple = new ResolvedRow(builder);
+
+    resolvedTuple.add(new TestProjection(resolvedTuple, 0));
+    ResolvedMapColumn mapCol = new ResolvedMapColumn(resolvedTuple,
+        inputSchema.getColumn(1), 1);
+    resolvedTuple.add(mapCol);
+    ResolvedTuple map = mapCol.members();
+    map.add(new TestProjection(map, 0));
+    map.add(map.nullBuilder().add("null1"));
+
+    // Build the null values
+
+    ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
+    resolvedTuple.buildNulls(cache);
+
+    // LoadNulls
+
+    resolvedTuple.loadNulls(input.rowSet().rowCount());
+
+    // Do the merge
+
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(input.rowSet().container(), output);
+    output.setRecordCount(input.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addMap("a")
+          .add("c", MinorType.INT)
+          .addNullable("null1", MinorType.INT)
+          .buildMap()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("barney", mapValue(10, null))
+        .addRow("wilma", mapValue(20, null))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
+  }
+
+  /**
+   * Test that the merger mechanism can rewrite a map array to include
+   * projected null columns.
+   */
+
+  @Test
+  public void testMapArrayRevision() {
+
+    // Create the first batch
+
+    BatchSchema inputSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addMapArray("a")
+          .add("c", MinorType.INT)
+          .buildMap()
+        .build();
+    RowSetSource input = new RowSetSource(
+        fixture.rowSetBuilder(inputSchema)
+          .addRow("barney", mapArray(singleMap(10), singleMap(11), singleMap(12)))
+          .addRow("wilma", mapArray(singleMap(20), singleMap(21)))
+          .build());
+
+    // Create mappings
+
+    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    ResolvedRow resolvedTuple = new ResolvedRow(builder);
+
+    resolvedTuple.add(new TestProjection(resolvedTuple, 0));
+    ResolvedMapColumn mapCol = new ResolvedMapColumn(resolvedTuple,
+        inputSchema.getColumn(1), 1);
+    resolvedTuple.add(mapCol);
+    ResolvedTuple map = mapCol.members();
+    map.add(new TestProjection(map, 0));
+    map.add(map.nullBuilder().add("null1"));
+
+    // Build the null values
+
+    ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
+    resolvedTuple.buildNulls(cache);
+
+    // LoadNulls
+
+    resolvedTuple.loadNulls(input.rowSet().rowCount());
+
+    // Do the merge
+
+    VectorContainer output = new VectorContainer(fixture.allocator());
+    resolvedTuple.project(input.rowSet().container(), output);
+    output.setRecordCount(input.rowSet().rowCount());
+    RowSet result = fixture.wrap(output);
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addMapArray("a")
+          .add("c", MinorType.INT)
+          .addNullable("null1", MinorType.INT)
+          .buildMap()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("barney", mapArray(
+            mapValue(10, null), mapValue(11, null), mapValue(12, null)))
+        .addRow("wilma", mapArray(
+            mapValue(20, null), mapValue(21, null)))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
   }
 
 }

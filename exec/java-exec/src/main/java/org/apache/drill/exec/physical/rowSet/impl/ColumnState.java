@@ -179,6 +179,7 @@ public abstract class ColumnState {
       } else {
         outputSchema = schema();
       }
+      mapState.bindOutputSchema(outputSchema.mapSchema());
     }
 
     public MapState mapState() { return mapState; }

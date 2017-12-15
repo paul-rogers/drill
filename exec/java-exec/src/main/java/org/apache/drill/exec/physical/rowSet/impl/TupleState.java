@@ -181,6 +181,7 @@ public abstract class TupleState extends ContainerState
       writer = new RowSetLoaderImpl(rsLoader, schema);
       writer.bindListener(this);
       outputContainer = new VectorContainer(rsLoader.allocator());
+      outputSchema = new TupleSchema();
     }
 
     public RowSetLoaderImpl rootWriter() { return writer; }
@@ -373,12 +374,18 @@ public abstract class TupleState extends ContainerState
    * of unions.
    */
 
-  protected final TupleMetadata outputSchema = new TupleSchema();
+  protected TupleMetadata outputSchema;
 
   private int prevHarvestIndex = -1;
 
-  protected TupleState(LoaderInternals events, ResultVectorCache vectorCache, RequestedTuple projectionSet) {
+  protected TupleState(LoaderInternals events,
+      ResultVectorCache vectorCache,
+      RequestedTuple projectionSet) {
     super(events, vectorCache, projectionSet);
+  }
+
+  protected void bindOutputSchema(TupleMetadata outputSchema) {
+    this.outputSchema = outputSchema;
   }
 
   /**
@@ -414,11 +421,6 @@ public abstract class TupleState extends ContainerState
     }
 
     return addColumn(columnSchema).writer();
-  }
-
-  @Override
-  public boolean isProjected(String columnName) {
-    return super.isProjected(columnName);
   }
 
   @Override

@@ -18,8 +18,11 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.types.Types;
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedMapTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedMap;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedMapArray;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedSingleMap;
 import org.apache.drill.exec.record.MaterializedField;
 
 /**
@@ -32,17 +35,43 @@ public class ResolvedMapColumn extends ResolvedColumn {
 
   public static final int ID = 17;
 
-  private final String name;
-  private final ResolvedMapTuple members;
+  private final MaterializedField schema;
+  private final ResolvedTuple parent;
+  private final ResolvedMap members;
 
-  public ResolvedMapColumn(String name, ResolvedTuple parent) {
-    super(null, -1);
-    this.name = name;
-    this.members = new ResolvedMapTuple(name, parent);
+  public ResolvedMapColumn(ResolvedTuple parent, String name) {
+    super(parent, -1);
+    schema = MaterializedField.create(name,
+        Types.required(MinorType.MAP));
+    this.parent = parent;
+    members = new ResolvedSingleMap(this);
+    parent.addChild(members);
   }
 
+  public ResolvedMapColumn(ResolvedTuple parent,
+      MaterializedField schema, int sourceIndex) {
+    super(parent, sourceIndex);
+    this.schema = schema;
+    this.parent = parent;
+
+    // This column corresponds to an input map.
+    // We may have to create a matching new output
+    // map. Determine whether it is a single map or
+    // an array.
+
+    assert schema.getType().getMinorType() == MinorType.MAP;
+    if (schema.getType().getMode() == DataMode.REPEATED) {
+      members = new ResolvedMapArray(this);
+    } else {
+      members = new ResolvedSingleMap(this);
+    }
+    parent.addChild(members);
+  }
+
+  public ResolvedTuple parent() { return parent; }
+
   @Override
-  public String name() { return name; }
+  public String name() { return schema.getName(); }
 
   @Override
   public int nodeType() { return ID; }
@@ -51,11 +80,9 @@ public class ResolvedMapColumn extends ResolvedColumn {
 
   @Override
   public void project(ResolvedTuple dest) {
-    dest.addVector(members.buildMap(name));
+    dest.addVector(members.buildMap());
   }
 
   @Override
-  public MaterializedField schema() {
-    return MaterializedField.create(name, Types.required(MinorType.MAP));
-  }
+  public MaterializedField schema() { return schema; }
 }

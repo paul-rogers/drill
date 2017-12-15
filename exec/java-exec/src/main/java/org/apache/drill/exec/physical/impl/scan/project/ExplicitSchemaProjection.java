@@ -123,7 +123,8 @@ public class ExplicitSchemaProjection extends SchemaLevelProjection {
     // The requested column is implied to be a map because it lists
     // members to project. Project these.
 
-    ResolvedMapColumn mapCol = new ResolvedMapColumn(requestedCol.name(), outputTuple);
+    ResolvedMapColumn mapCol = new ResolvedMapColumn(outputTuple,
+        column.schema(), sourceIndex);
     resolveTuple(mapCol.members(), requestedCol.mapProjection(),
         column.mapSchema());
 
@@ -138,6 +139,7 @@ public class ExplicitSchemaProjection extends SchemaLevelProjection {
     // since we ended up not needing it.
 
     if (mapCol.members().isSimpleProjection()) {
+      outputTuple.removeChild(mapCol.members());
       projectTableColumn(outputTuple, requestedCol, column, sourceIndex);
     }
 
@@ -237,7 +239,7 @@ public class ExplicitSchemaProjection extends SchemaLevelProjection {
    */
 
   private ResolvedColumn resolveMapMembers(ResolvedTuple outputTuple, RequestedColumn col) {
-    ResolvedMapColumn mapCol = new ResolvedMapColumn(col.name(), outputTuple);
+    ResolvedMapColumn mapCol = new ResolvedMapColumn(outputTuple, col.name());
     ResolvedTuple members = mapCol.members();
     for (RequestedColumn child : col.mapProjection().projections()) {
       if (child.isTuple()) {

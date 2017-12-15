@@ -37,7 +37,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRowTuple;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
 import org.apache.drill.exec.physical.impl.scan.project.SmoothingProjection;
 import org.apache.drill.exec.physical.impl.scan.project.WildcardSchemaProjection;
@@ -110,7 +110,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new ExplicitSchemaProjection(
           scanProj, twoColSchema, rootTuple,
           ScanTestUtils.resolvers(metadataManager));
@@ -143,7 +143,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
           .add("a", MinorType.INT)
           .buildSchema();
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new ExplicitSchemaProjection(
           scanProj, oneColSchema, rootTuple,
           ScanTestUtils.resolvers(metadataManager));
@@ -191,10 +191,10 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .add("c", MinorType.FLOAT8)
         .buildSchema();
-    ResolvedRowTuple priorSchema;
+    ResolvedRow priorSchema;
     {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new WildcardSchemaProjection(
           scanProj, schema1, rootTuple,
           ScanTestUtils.resolvers());
@@ -209,7 +209,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
     try {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema2, priorSchema, rootTuple,
           ScanTestUtils.resolvers());
@@ -229,7 +229,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
     try {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema3, priorSchema, rootTuple,
           ScanTestUtils.resolvers());
@@ -247,7 +247,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
     try {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema4, priorSchema, rootTuple,
           ScanTestUtils.resolvers());
@@ -279,7 +279,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
     try {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema6, priorSchema, rootTuple,
           ScanTestUtils.resolvers());
@@ -314,14 +314,14 @@ public class TestSchemaSmoothing extends SubOperatorTest {
 
     {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       smoother.resolve(priorSchema, rootTuple);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(priorSchema));
     }
     {
       NullColumnBuilder builder = new NullColumnBuilder(null, false);
-      ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+      ResolvedRow rootTuple = new ResolvedRow(builder);
       smoother.resolve(tableSchema, rootTuple);
       assertEquals(2, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(tableSchema));
@@ -353,15 +353,15 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(2, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(tableSchema));
     }
   }
 
-  private ResolvedRowTuple doResolve(SchemaSmoother smoother, TupleMetadata schema) {
+  private ResolvedRow doResolve(SchemaSmoother smoother, TupleMetadata schema) {
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
-    ResolvedRowTuple rootTuple = new ResolvedRowTuple(builder);
+    ResolvedRow rootTuple = new ResolvedRow(builder);
     smoother.resolve(schema, rootTuple);
     return rootTuple;
   }
@@ -392,7 +392,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(2, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(tableSchema));
     }
@@ -426,7 +426,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       TupleMetadata actualSchema = ScanTestUtils.schema(rootTuple);
       assertTrue(actualSchema.isEquivalent(tableSchema));
@@ -461,7 +461,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(priorSchema));
       List<ResolvedColumn> columns = rootTuple.columns();
@@ -495,7 +495,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(2, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(tableSchema));
     }
@@ -528,7 +528,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(priorSchema));
     }
@@ -562,7 +562,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       doResolve(smoother, priorSchema);
     }
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(priorSchema));
     }
@@ -604,12 +604,12 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
     {
       metadataManager.startFile(filePathB);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
@@ -652,12 +652,12 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
     {
       metadataManager.startFile(filePathB);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
@@ -700,12 +700,12 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
     {
       metadataManager.startFile(filePathB);
-      ResolvedRowTuple rootTuple = doResolve(smoother, tableSchema);
+      ResolvedRow rootTuple = doResolve(smoother, tableSchema);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(expectedSchema));
     }
@@ -732,7 +732,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("c", MinorType.FLOAT8)
         .buildSchema();
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, schema1);
+      ResolvedRow rootTuple = doResolve(smoother, schema1);
 
       // Just use the original schema.
 
@@ -747,7 +747,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("c", MinorType.FLOAT8)
         .buildSchema();
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, schema2);
+      ResolvedRow rootTuple = doResolve(smoother, schema2);
       assertTrue(schema1.isEquivalent(ScanTestUtils.schema(rootTuple)));
       assertEquals(1, smoother.schemaVersion());
     }
@@ -761,7 +761,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("d", MinorType.INT)
         .buildSchema();
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, schema3);
+      ResolvedRow rootTuple = doResolve(smoother, schema3);
       assertTrue(schema3.isEquivalent(ScanTestUtils.schema(rootTuple)));
       assertEquals(2, smoother.schemaVersion());
     }
@@ -773,7 +773,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, schema4);
+      ResolvedRow rootTuple = doResolve(smoother, schema4);
       assertTrue(schema4.isEquivalent(ScanTestUtils.schema(rootTuple)));
       assertEquals(3, smoother.schemaVersion());
     }
@@ -785,7 +785,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
     {
-      ResolvedRowTuple rootTuple = doResolve(smoother, schema5);
+      ResolvedRow rootTuple = doResolve(smoother, schema5);
       assertTrue(schema5.isEquivalent(ScanTestUtils.schema(rootTuple)));
        assertEquals(4, smoother.schemaVersion());
     }
