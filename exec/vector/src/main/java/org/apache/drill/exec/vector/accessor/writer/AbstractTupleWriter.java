@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -186,8 +187,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public boolean isProjected(String columnName) {
-    return listener == null ? true : listener.isProjected(columnName);
+  public ProjectionType projectionType(String columnName) {
+    return listener == null ? ProjectionType.UNSPECIFIED
+        : listener.projectionType(columnName);
   }
 
   @Override

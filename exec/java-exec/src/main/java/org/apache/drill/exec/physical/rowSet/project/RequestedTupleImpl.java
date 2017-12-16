@@ -24,6 +24,7 @@ import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 /**
@@ -94,8 +95,9 @@ public class RequestedTupleImpl implements RequestedTuple {
   }
 
   @Override
-  public boolean isProjected(String colName) {
-    return get(colName) != null;
+  public ProjectionType projectionType(String colName) {
+    RequestedColumn col = get(colName);
+    return col == null ? ProjectionType.UNPROJECTED : col.type();
   }
 
   @Override

@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
@@ -203,42 +204,42 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void setNull() {
-    throw new UnsupportedOperationException("Vector is not nullable");
+    throw UnsupportedConversionError.nullError(schema());
   }
 
   @Override
   public void setInt(int value) {
-    throw new UnsupportedOperationException("setInt");
+    throw conversionError("int");
   }
 
   @Override
   public void setLong(long value) {
-    throw new UnsupportedOperationException("setLong");
+    throw conversionError("long");
   }
 
   @Override
   public void setDouble(double value) {
-    throw new UnsupportedOperationException("setDouble");
+    throw conversionError("double");
   }
 
   @Override
   public void setString(String value) {
-    throw new UnsupportedOperationException("setString");
+    throw conversionError("String");
   }
 
   @Override
   public void setBytes(byte[] value, int len) {
-    throw new UnsupportedOperationException("setBytes");
+    throw conversionError("bytes");
   }
 
   @Override
   public void setDecimal(BigDecimal value) {
-    throw new UnsupportedOperationException("setDecimal");
+    throw conversionError("Decimal");
   }
 
   @Override
   public void setPeriod(Period value) {
-    throw new UnsupportedOperationException("setPeriod");
+    throw conversionError("Period");
   }
 
   @Override

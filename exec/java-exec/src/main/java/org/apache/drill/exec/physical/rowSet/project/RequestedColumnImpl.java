@@ -23,6 +23,7 @@ import java.util.Set;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this
@@ -44,32 +45,44 @@ public class RequestedColumnImpl implements RequestedColumn {
   private final String name;
   private RequestedTuple members;
   private Set<Integer> indexes;
+  private ProjectionType type;
 
   public RequestedColumnImpl(RequestedTuple parent, String name) {
     this.parent = parent;
     this.name = name;
+    setType();
   }
 
   @Override
   public String name() { return name; }
   @Override
-  public boolean isWildcard() { return name.equals(SchemaPath.WILDCARD); }
+  public ProjectionType type() { return type; }
   @Override
-  public boolean isSimple() { return ! isTuple() && ! isArray(); }
+  public boolean isWildcard() { return type == ProjectionType.WILDCARD; }
   @Override
-  public boolean isArray() { return indexes != null; }
+  public boolean isSimple() { return type == ProjectionType.UNSPECIFIED; }
+
   @Override
-  public boolean isTuple() { return members != null; }
+  public boolean isArray() {
+    return type == ProjectionType.ARRAY || type == ProjectionType.TUPLE_ARRAY;
+  }
+
+  @Override
+  public boolean isTuple() {
+    return type == ProjectionType.TUPLE || type == ProjectionType.TUPLE_ARRAY;
+  }
 
   public RequestedTuple asTuple() {
     if (members == null) {
       members = new RequestedTupleImpl(this);
+      setType();
     }
     return members;
   }
 
   public RequestedTuple projectAllMembers(boolean projectAll) {
     members = projectAll ? ImpliedTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
+    setType();
     return members;
   }
 
@@ -80,10 +93,12 @@ public class RequestedColumnImpl implements RequestedColumn {
     if (indexes != ALL_INDEXES) {
       indexes.add(index);
     }
+    setType();
   }
 
   public void projectAllElements() {
     indexes = ALL_INDEXES;
+    setType();
   }
 
   @Override
@@ -130,6 +145,21 @@ public class RequestedColumnImpl implements RequestedColumn {
 
   public boolean isRoot() { return parent == null; }
 
+  private void setType() {
+    if (name.equals(SchemaPath.WILDCARD)) {
+      type = ProjectionType.WILDCARD;
+    } else if (indexes != null && members != null) {
+      type = ProjectionType.TUPLE_ARRAY;
+    }
+    else if (indexes != null) {
+      type = ProjectionType.ARRAY;
+    } else if (members != null) {
+      type = ProjectionType.TUPLE;
+    } else {
+      type = ProjectionType.UNSPECIFIED;
+    }
+  }
+
   protected void buildName(StringBuilder buf) {
     parent.buildName(buf);
     buf.append('`')
@@ -139,16 +169,18 @@ public class RequestedColumnImpl implements RequestedColumn {
 
   @Override
   public String summary() {
-    if (isArray() && isTuple()) {
-      return "repeated map";
-    }
-    if (isArray()) {
+    switch (type) {
+    case ARRAY:
       return "array column";
-    }
-    if (isTuple()) {
+    case TUPLE:
       return "map column";
+    case TUPLE_ARRAY:
+      return "repeated map";
+    case WILDCARD:
+      return "wildcard";
+    default:
+      return "column";
     }
-    return "column";
   }
 
   @Override

@@ -22,6 +22,7 @@ import java.util.Collection;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Abstract representation of a container of vectors: a row, a map, a
@@ -81,8 +82,8 @@ public abstract class ContainerState {
   public ResultVectorCache vectorCache() { return vectorCache; }
   public RequestedTuple projectionSet() { return projectionSet; }
 
-  public boolean isProjected(String columnName) {
-    return projectionSet.isProjected(columnName);
+  public ProjectionType projectionType(String columnName) {
+    return projectionSet.projectionType(columnName);
   }
 
   public ColumnState addColumn(ColumnMetadata columnSchema) {

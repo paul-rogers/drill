@@ -33,6 +33,7 @@ import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.UInt4Vector;
@@ -85,7 +86,7 @@ public class ColumnBuilder {
     // Indicate projection in the metadata.
 
     ((AbstractColumnMetadata) columnSchema).setProjected(
-        parent.isProjected(columnSchema.name()));
+        parent.projectionType(columnSchema.name()) != ProjectionType.UNPROJECTED);
 
     // Build the column
 

@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.project;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Represents the set of columns projected for a tuple (row or map.)
@@ -68,7 +69,9 @@ public interface RequestedTuple {
    */
 
   public interface RequestedColumn {
+
     String name();
+    ProjectionType type();
     boolean isWildcard();
     boolean isSimple();
     boolean isArray();
@@ -85,7 +88,7 @@ public interface RequestedTuple {
 
   void parseSegment(PathSegment child);
   RequestedColumn get(String colName);
-  boolean isProjected(String colName);
+  ProjectionType projectionType(String colName);
   RequestedTuple mapProjection(String colName);
   List<RequestedColumn> projections();
   void buildName(StringBuilder buf);

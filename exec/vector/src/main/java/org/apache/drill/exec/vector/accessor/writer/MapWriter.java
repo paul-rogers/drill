@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyArrayWriter;
@@ -141,7 +142,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public boolean isProjected(String columnName) { return false; }
+    public ProjectionType projectionType(String columnName) { return ProjectionType.UNPROJECTED; }
   }
 
   protected static class DummyArrayMapWriter extends MapWriter {
@@ -152,7 +153,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public boolean isProjected(String columnName) { return false; }
+    public ProjectionType projectionType(String columnName) { return ProjectionType.UNPROJECTED; }
   }
 
   protected final ColumnMetadata mapColumnSchema;

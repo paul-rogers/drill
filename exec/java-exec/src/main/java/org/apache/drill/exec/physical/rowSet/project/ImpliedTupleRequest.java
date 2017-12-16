@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
@@ -43,7 +44,11 @@ public class ImpliedTupleRequest implements RequestedTuple {
   }
 
   @Override
-  public boolean isProjected(String colName) { return allProjected; }
+  public ProjectionType projectionType(String colName) {
+    return allProjected
+      ? ProjectionType.UNSPECIFIED
+      : ProjectionType.UNPROJECTED;
+  }
 
   @Override
   public RequestedTuple mapProjection(String colName) {

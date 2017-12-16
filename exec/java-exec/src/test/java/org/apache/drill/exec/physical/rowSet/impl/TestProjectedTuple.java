@@ -28,6 +28,8 @@ import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
+import org.apache.drill.exec.record.metadata.ProjectionType;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class TestProjectedTuple {
@@ -39,7 +41,7 @@ public class TestProjectedTuple {
 
     RequestedTuple projSet = RequestedTupleImpl.parse(null);
     assertTrue(projSet instanceof ImpliedTupleRequest);
-    assertTrue(projSet.isProjected("foo"));
+    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("foo"));
   }
 
 
@@ -57,7 +59,7 @@ public class TestProjectedTuple {
     assertTrue(projSet instanceof ImpliedTupleRequest);
     List<RequestedColumn> cols = projSet.projections();
     assertEquals(0, cols.size());
-    assertFalse(projSet.isProjected("foo"));
+    assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("foo"));
   }
 
   @Test
@@ -68,24 +70,27 @@ public class TestProjectedTuple {
     RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a", "b", "c"));
     assertTrue(projSet instanceof RequestedTupleImpl);
-    assertTrue(projSet.isProjected("a"));
-    assertTrue(projSet.isProjected("b"));
-    assertFalse(projSet.isProjected("d"));
+    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("a"));
+    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("b"));
+    assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("d"));
 
     List<RequestedColumn> cols = projSet.projections();
     assertEquals(3, cols.size());
 
     RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
+    assertEquals(ProjectionType.UNSPECIFIED, a.type());
     assertTrue(a.isSimple());
     assertFalse(a.isWildcard());
     assertNull(a.mapProjection());
     assertNull(a.indexes());
 
     assertEquals("b", cols.get(1).name());
+    assertEquals(ProjectionType.UNSPECIFIED, cols.get(1).type());
     assertTrue(cols.get(1).isSimple());
 
     assertEquals("c", cols.get(2).name());
+    assertEquals(ProjectionType.UNSPECIFIED, cols.get(2).type());
     assertTrue(cols.get(2).isSimple());
   }
 
@@ -99,15 +104,16 @@ public class TestProjectedTuple {
     List<SchemaPath> projCols = new ArrayList<>();
     projCols.add(SchemaPath.getSimplePath("map"));
     RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
+
     assertTrue(projSet instanceof RequestedTupleImpl);
-    assertTrue(projSet.isProjected("map"));
-    assertFalse(projSet.isProjected("another"));
+    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("map"));
+    assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("another"));
     RequestedTuple mapProj = projSet.mapProjection("map");
     assertNotNull(mapProj);
     assertTrue(mapProj instanceof ImpliedTupleRequest);
-    assertTrue(mapProj.isProjected("foo"));
+    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("foo"));
     assertNotNull(projSet.mapProjection("another"));
-    assertFalse(projSet.mapProjection("another").isProjected("anyCol"));
+    assertEquals(ProjectionType.UNPROJECTED, projSet.mapProjection("another").projectionType("anyCol"));
   }
 
   @Test
@@ -122,31 +128,31 @@ public class TestProjectedTuple {
     projCols.add(SchemaPath.getCompoundPath("map", "map2", "x"));
     RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
     assertTrue(projSet instanceof RequestedTupleImpl);
-    assertTrue(projSet.isProjected("map"));
+    assertEquals(ProjectionType.TUPLE, projSet.projectionType("map"));
 
     // Map: an explicit map at top level
 
     RequestedTuple mapProj = projSet.mapProjection("map");
     assertTrue(mapProj instanceof RequestedTupleImpl);
-    assertTrue(mapProj.isProjected("a"));
-    assertTrue(mapProj.isProjected("b"));
-    assertTrue(mapProj.isProjected("map2"));
-    assertFalse(projSet.isProjected("bogus"));
+    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
+    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
+    assertEquals(ProjectionType.TUPLE, mapProj.projectionType("map2"));
+    assertEquals(ProjectionType.UNPROJECTED, mapProj.projectionType("bogus"));
 
     // Map b: an implied nested map
 
     RequestedTuple bMapProj = mapProj.mapProjection("b");
     assertNotNull(bMapProj);
     assertTrue(bMapProj instanceof ImpliedTupleRequest);
-    assertTrue(bMapProj.isProjected("foo"));
+    assertEquals(ProjectionType.UNSPECIFIED, bMapProj.projectionType("foo"));
 
     // Map2, an nested map, has an explicit projection
 
     RequestedTuple map2Proj = mapProj.mapProjection("map2");
     assertNotNull(map2Proj);
     assertTrue(map2Proj instanceof RequestedTupleImpl);
-    assertTrue(map2Proj.isProjected("x"));
-    assertFalse(map2Proj.isProjected("bogus"));
+    assertEquals(ProjectionType.UNSPECIFIED, map2Proj.projectionType("x"));
+    assertEquals(ProjectionType.UNPROJECTED, map2Proj.projectionType("bogus"));
   }
 
   @Test
@@ -161,15 +167,15 @@ public class TestProjectedTuple {
 
       RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
       assertTrue(projSet instanceof RequestedTupleImpl);
-      assertTrue(projSet.isProjected("map"));
+      assertEquals(ProjectionType.TUPLE, projSet.projectionType("map"));
 
       RequestedTuple mapProj = projSet.mapProjection("map");
       assertTrue(mapProj instanceof ImpliedTupleRequest);
-      assertTrue(mapProj.isProjected("a"));
+      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
 
       // Didn't ask for b, but did ask for whole map.
 
-      assertTrue(mapProj.isProjected("b"));
+      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
     }
 
     // Now the other way around.
@@ -181,12 +187,12 @@ public class TestProjectedTuple {
 
       RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
       assertTrue(projSet instanceof RequestedTupleImpl);
-      assertTrue(projSet.isProjected("map"));
+      assertEquals(ProjectionType.TUPLE, projSet.projectionType("map"));
 
       RequestedTuple mapProj = projSet.mapProjection("map");
       assertTrue(mapProj instanceof ImpliedTupleRequest);
-      assertTrue(mapProj.isProjected("a"));
-      assertTrue(mapProj.isProjected("b"));
+      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
+      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
     }
   }
 
@@ -261,8 +267,9 @@ public class TestProjectedTuple {
     assertEquals(1, cols.size());
 
     RequestedColumn wildcard = cols.get(0);
+    assertEquals(ProjectionType.WILDCARD, wildcard.type());
     assertEquals(SchemaPath.WILDCARD, wildcard.name());
-    assertTrue(wildcard.isSimple());
+    assertTrue(! wildcard.isSimple());
     assertTrue(wildcard.isWildcard());
     assertNull(wildcard.mapProjection());
     assertNull(wildcard.indexes());
@@ -285,6 +292,7 @@ public class TestProjectedTuple {
     List<RequestedColumn> cols = projSet.projections();
     assertEquals(1, cols.size());
 
+    assertEquals(ProjectionType.ARRAY, projSet.projectionType("a"));
     RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
     assertTrue(a.isArray());
@@ -334,7 +342,19 @@ public class TestProjectedTuple {
     assertEquals("a", a.name());
     assertTrue(a.isArray());
     assertNull(a.indexes());
-    assertTrue(projSet.isProjected("a"));
-    assertFalse(projSet.isProjected("foo"));
+    assertEquals(ProjectionType.ARRAY, projSet.projectionType("a"));
+    assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("foo"));
+  }
+
+  @Test
+  @Ignore("Drill syntax does not support map arrays")
+  public void testMapArray() {
+    RequestedTuple projSet = RequestedTupleImpl.parse(
+        RowSetTestUtils.projectList("a[1].x"));
+    List<RequestedColumn> cols = projSet.projections();
+    assertEquals(1, cols.size());
+
+    assertEquals(ProjectionType.TUPLE_ARRAY, cols.get(0).type());
+    assertEquals(ProjectionType.TUPLE_ARRAY, projSet.projectionType("a"));
   }
 }

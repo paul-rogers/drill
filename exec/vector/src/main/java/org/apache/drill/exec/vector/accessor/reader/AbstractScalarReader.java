@@ -24,6 +24,7 @@ import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.joda.time.Period;
@@ -113,39 +114,43 @@ public abstract class AbstractScalarReader implements ScalarReader, ReaderEvents
     return nullStateReader.isNull();
   }
 
+  protected UnsupportedConversionError conversionError(String javaType) {
+    return UnsupportedConversionError.writeError(schema(), javaType);
+  }
+
   @Override
   public int getInt() {
-    throw new UnsupportedOperationException();
+    throw conversionError("int");
   }
 
   @Override
   public long getLong() {
-    throw new UnsupportedOperationException();
+    throw conversionError("long");
   }
 
   @Override
   public double getDouble() {
-    throw new UnsupportedOperationException();
+    throw conversionError("double");
   }
 
   @Override
   public String getString() {
-    throw new UnsupportedOperationException();
+    throw conversionError("String");
   }
 
   @Override
   public byte[] getBytes() {
-    throw new UnsupportedOperationException();
+    throw conversionError("bytes");
   }
 
   @Override
   public BigDecimal getDecimal() {
-    throw new UnsupportedOperationException();
+    throw conversionError("Decimal");
   }
 
   @Override
   public Period getPeriod() {
-    throw new UnsupportedOperationException();
+    throw conversionError("Period");
   }
 
   @Override

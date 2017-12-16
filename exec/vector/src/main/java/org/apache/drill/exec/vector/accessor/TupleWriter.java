@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriter.TupleListenable;
 
@@ -66,7 +67,7 @@ public interface TupleWriter extends ColumnWriter, TupleListenable {
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
 
-    boolean isProjected(String columnName);
+    ProjectionType projectionType(String columnName);
   }
 
   /**
@@ -93,11 +94,11 @@ public interface TupleWriter extends ColumnWriter, TupleListenable {
    * projected.
    *
    * @param columnName name of an existing or new column
-   * @return <tt>true</tt> if the column is (or would be) projected,
-   * <tt>false</tt> if the column is not (or would not be) projected
+   * @return whether the column is projected, and, if so, the implied
+   * type of the projected column
    */
 
-  boolean isProjected(String columnName);
+  ProjectionType projectionType(String columnName);
 
   /**
    * Add a column to the tuple (row or map) that backs this writer. Support for

@@ -223,4 +223,8 @@ public class RowSetUtilities {
     return elements;
   }
 
+  public static void verify(RowSet expected, RowSet actual) {
+    new RowSetComparison(expected).verifyAndClearAll(actual);
+  }
+
 }

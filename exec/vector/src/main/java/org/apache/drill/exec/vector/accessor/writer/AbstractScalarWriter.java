@@ -24,6 +24,7 @@ import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
@@ -110,6 +111,10 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   @Override
   public void saveRow() { }
 
+  protected UnsupportedConversionError conversionError(String javaType) {
+    return UnsupportedConversionError.writeError(schema(), javaType);
+  }
+
   @Override
   public void setObject(Object value) {
     if (value == null) {
@@ -136,8 +141,7 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
     } else if (value instanceof Float) {
       setDouble((Float) value);
     } else {
-      throw new IllegalArgumentException("Unsupported type " +
-                value.getClass().getSimpleName());
+      throw conversionError(value.getClass().getSimpleName());
     }
   }
 
