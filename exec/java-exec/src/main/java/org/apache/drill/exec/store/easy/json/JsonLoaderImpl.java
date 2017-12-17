@@ -37,6 +37,7 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
+import org.apache.drill.exec.vector.accessor.VariantWriter;
 
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -131,6 +132,7 @@ public class JsonLoaderImpl implements JsonLoader {
     public boolean unionEnabled;
 
     public TypeNegotiator typeNegotiator;
+    public boolean useArrayTypes;
   }
 
   @SuppressWarnings("serial")
@@ -177,31 +179,23 @@ public class JsonLoaderImpl implements JsonLoader {
     @SuppressWarnings("unused")
     private final ArrayWriter writer;
     private final JsonElementParser scalarState;
-    private final boolean isTextArray;
 
     public ScalarArrayParser(JsonElementParser parent, String fieldName,
         ArrayWriter writer,
         JsonElementParser scalarState) {
-      this(parent, fieldName, writer, scalarState, false);
-    }
-
-    public ScalarArrayParser(JsonElementParser parent, String fieldName,
-        ArrayWriter writer,
-        JsonElementParser scalarState,
-        boolean isTextArray) {
       super(parent, fieldName);
       this.writer = writer;
       this.scalarState = scalarState;
-      this.isTextArray = isTextArray;
     }
 
-     @Override
+    @Override
     public boolean parse() {
       JsonToken token = tokenizer.requireNext();
       switch (token) {
       case VALUE_NULL:
         return true;
       case START_ARRAY:
+        writer.setNull(false);
         break;
       default:
         throw syntaxError(token);
@@ -213,19 +207,10 @@ public class JsonLoaderImpl implements JsonLoader {
         case END_ARRAY:
           return true;
 
-        case VALUE_NULL:
-          if (! isTextArray) {
-            throw UserException
-              .unsupportedError()
-              .message("Drill does not support nulls in a JSON scalar array")
-              .addContext("Location", tokenizer.context())
-              .build(logger);
-          }
-          // Else fall through
-
         default:
           tokenizer.unget(token);
           scalarState.parse();
+          writer.save();
           break;
         }
       }
@@ -386,7 +371,7 @@ public class JsonLoaderImpl implements JsonLoader {
         return true;
       }
       tokenizer.unget(valueToken);
-      JsonElementParser newState = tupleState.detectArrayState(fieldName(), 1);
+      JsonElementParser newState = tupleState.detectArrayType(fieldName(), 1);
       tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
       tokenizer.unget(startToken);
@@ -400,13 +385,42 @@ public class JsonLoaderImpl implements JsonLoader {
           fieldName());
       ArrayWriter arrayWriter = tupleState.newWriter(fieldName(), MinorType.VARCHAR, DataMode.REPEATED).array();
       JsonElementParser elementState = new TextParser(tupleState, fieldName(), arrayWriter.scalar());
-      JsonElementParser newState = new ScalarArrayParser(tupleState, fieldName(), arrayWriter, elementState, true);
+      JsonElementParser newState = new ScalarArrayParser(tupleState, fieldName(), arrayWriter, elementState);
       tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
     }
 
     @Override
     public boolean isEmptyArray() { return true; }
+  }
+
+  protected class NullListParser extends AbstractParser implements NullTypeMarker {
+
+    private final ObjectParser tupleState;
+
+    public NullListParser(ObjectParser parentState, String fieldName) {
+      super(parentState, fieldName);
+      this.tupleState = parentState;
+      nullStates.add(this);
+      assert false;
+    }
+
+    @Override
+    public boolean parse() {
+      assert false;
+      return false;
+    }
+
+    @Override
+    public boolean isEmptyArray() {
+      assert false;
+      return false;
+    }
+
+    @Override
+    public void realizeAsText() {
+      assert false;
+    }
   }
 
   /**
@@ -515,7 +529,7 @@ public class JsonLoaderImpl implements JsonLoader {
       JsonElementParser state;
       switch (token) {
       case START_ARRAY:
-        state = detectArrayState(key, 1);
+        state = detectArrayType(key, 1);
         break;
 
       case START_OBJECT:
@@ -613,7 +627,7 @@ public class JsonLoaderImpl implements JsonLoader {
      * @return the parse state for this array
      */
 
-    private JsonElementParser detectArrayState(String key, int depth) {
+    private JsonElementParser detectArrayType(String key, int depth) {
       if (depth > 1) {
         // TODO: Handle via nested lists.
         throw syntaxError(JsonToken.START_ARRAY);
@@ -622,54 +636,109 @@ public class JsonLoaderImpl implements JsonLoader {
       JsonElementParser arrayState = null;
       switch (token) {
       case START_ARRAY:
-        arrayState = detectArrayState(key, depth + 1);
+        arrayState = detectArrayType(key, depth + 1);
         break;
 
       case START_OBJECT:
-        arrayState = objectArrayParser(key);
+        if (useList(depth)) {
+          arrayState = objectListParser(key);
+        } else {
+          arrayState = objectArrayParser(key);
+        }
         break;
 
       case END_ARRAY:
-        arrayState = new NullArrayParser(this, key);
+        if (useList(depth)) {
+          arrayState = new NullListParser(this, key);
+        } else {
+          arrayState = new NullArrayParser(this, key);
+        }
         break;
 
       default:
-        arrayState = scalarElementParser(token, key);
+        if (useList(depth)) {
+          arrayState = scalarListParser(token, key);
+        } else {
+          arrayState = scalarArrayParser(token, key);
+        }
       }
       tokenizer.unget(token);
       return arrayState;
     }
 
-    private JsonElementParser scalarElementParser(JsonToken token, String fieldName) {
+    private boolean useList(int depth) {
+      return ! options.useArrayTypes || depth > 1;
+    }
+
+    private JsonElementParser objectListParser(String key) {
+      assert false;
+      return null;
+    }
+
+    private JsonElementParser scalarArrayParser(JsonToken token, String fieldName) {
       ArrayWriter arrayWriter = null;
       JsonElementParser elementState = null;
       if (options.allTextMode) {
         arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-        elementState = new TextParser(this, fieldName,arrayWriter.scalar());
-        return new ScalarArrayParser(this, fieldName, arrayWriter, elementState, true);
+        elementState = new TextParser(this, fieldName, arrayWriter.scalar());
+        return new ScalarArrayParser(this, fieldName, arrayWriter, elementState);
       }
       switch (token) {
       case VALUE_FALSE:
       case VALUE_TRUE:
         arrayWriter = newWriter(fieldName, MinorType.TINYINT, DataMode.REPEATED).array();
-        elementState = new BooleanParser(this, fieldName,arrayWriter.scalar());
+        elementState = new BooleanParser(this, fieldName, arrayWriter.scalar());
         break;
 
       case VALUE_NUMBER_INT:
         if (! options.readNumbersAsDouble) {
           arrayWriter = newWriter(fieldName, MinorType.BIGINT, DataMode.REPEATED).array();
-          elementState = new IntParser(this, fieldName,arrayWriter.scalar());
+          elementState = new IntParser(this, fieldName, arrayWriter.scalar());
           break;
         } // else fall through
 
       case VALUE_NUMBER_FLOAT:
         arrayWriter = newWriter(fieldName, MinorType.FLOAT8, DataMode.REPEATED).array();
-        elementState = new FloatParser(this, fieldName,arrayWriter.scalar());
+        elementState = new FloatParser(this, fieldName, arrayWriter.scalar());
         break;
 
       case VALUE_STRING:
         arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-        elementState = new StringParser(this, fieldName,arrayWriter.scalar());
+        elementState = new StringParser(this, fieldName, arrayWriter.scalar());
+        break;
+
+      default:
+        throw syntaxError(token);
+      }
+      return new ScalarArrayParser(this, fieldName, arrayWriter, elementState);
+    }
+
+    private JsonElementParser scalarListParser(JsonToken token, String fieldName) {
+      ArrayWriter arrayWriter = newWriter(fieldName, MinorType.LIST, DataMode.OPTIONAL).array();
+      VariantWriter bodyWriter = arrayWriter.variant();
+      JsonElementParser elementState = null;
+      if (options.allTextMode) {
+        elementState = new TextParser(this, fieldName, bodyWriter.scalar(MinorType.VARCHAR));
+        return new ScalarArrayParser(this, fieldName, arrayWriter, elementState);
+      }
+      switch (token) {
+      case VALUE_FALSE:
+      case VALUE_TRUE:
+        elementState = new BooleanParser(this, fieldName, bodyWriter.scalar(MinorType.TINYINT));
+        break;
+
+      case VALUE_NUMBER_INT:
+        if (! options.readNumbersAsDouble) {
+          elementState = new IntParser(this, fieldName, bodyWriter.scalar(MinorType.BIGINT));
+          break;
+        } // else fall through
+
+      case VALUE_NUMBER_FLOAT:
+        elementState = new FloatParser(this, fieldName, bodyWriter.scalar(MinorType.FLOAT8));
+        break;
+
+      case VALUE_STRING:
+        elementState = new StringParser(this, fieldName, bodyWriter.scalar(MinorType.VARCHAR));
         break;
 
       default:

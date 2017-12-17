@@ -73,6 +73,7 @@ public class TestJsonLoader extends SubOperatorTest {
 
     public JsonTester(JsonOptions options) {
       this.options = options;
+      options.useArrayTypes = true;
     }
 
     public JsonTester() {
@@ -1412,6 +1413,41 @@ public class TestJsonLoader extends SubOperatorTest {
         .build();
     RowSetUtilities.verify(expected, results);
   }
+
+  /**
+   * Test scalar list support.
+   */
+
+  @Test
+  public void testScalarList() {
+
+    // Read the one and only record into a batch. When we saw the
+    // null value for b, we should have used the knowledge that b must
+    // be a map (based on the projection of a.b), to make it an map
+    // (which contains no columns.)
+
+    String json =
+        "{a: 1, b: [10, null, 20]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = new JsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+    results.print();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .addList("b")
+          .addType(MinorType.BIGINT)
+          .build()
+        .build();
+
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1L, longArray(10L, null, 20L))
+        .build();
+    expected.print();
+    RowSetUtilities.verify(expected, results);
+  }
+
 
   // TODO: Lists
   // TODO: Union support

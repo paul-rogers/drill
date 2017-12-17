@@ -84,6 +84,8 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   @Override
   public void save() {
     // No-op: done when writing each scalar value
+    // May be called, however, by code that also supports
+    // lists as a list does require an explicit save.
   }
 
   @Override
@@ -120,38 +122,44 @@ public class ScalarArrayWriter extends BaseArrayWriter {
       }
       break;
     case  'B':
-      setByteArray((byte[]) array );
+      setByteArray((byte[]) array);
       break;
     case  'S':
-      setShortArray((short[]) array );
+      setShortArray((short[]) array);
       break;
     case  'I':
-      setIntArray((int[]) array );
+      setIntArray((int[]) array);
       break;
     case  'J':
-      setLongArray((long[]) array );
+      setLongArray((long[]) array);
       break;
     case  'F':
-      setFloatArray((float[]) array );
+      setFloatArray((float[]) array);
       break;
     case  'D':
-      setDoubleArray((double[]) array );
+      setDoubleArray((double[]) array);
       break;
     case  'Z':
-      setBooleanArray((boolean[]) array );
+      setBooleanArray((boolean[]) array);
       break;
     case 'L':
       int posn = objClass.indexOf(';');
 
       // If the array is of type Object, then we have no type info.
 
-      String memberClassName = objClass.substring( 2, posn );
+      String memberClassName = objClass.substring(2, posn);
       if (memberClassName.equals(String.class.getName())) {
-        setStringArray((String[]) array );
+        setStringArray((String[]) array);
       } else if (memberClassName.equals(Period.class.getName())) {
-        setPeriodArray((Period[]) array );
+        setPeriodArray((Period[]) array);
       } else if (memberClassName.equals(BigDecimal.class.getName())) {
-        setBigDecimalArray((BigDecimal[]) array );
+        setBigDecimalArray((BigDecimal[]) array);
+      } else if (memberClassName.equals(Integer.class.getName())) {
+        setIntObjectArray((Integer[]) array);
+      } else if (memberClassName.equals(Long.class.getName())) {
+        setLongObjectArray((Long[]) array);
+      } else if (memberClassName.equals(Double.class.getName())) {
+        setDoubleObjectArray((Double[]) array);
       } else {
         throw new IllegalArgumentException( "Unknown Java array type: " + memberClassName );
       }
@@ -191,9 +199,31 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     }
   }
 
+  public void setIntObjectArray(Integer[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Integer element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setInt(element);
+      }
+    }
+  }
+
   public void setLongArray(long[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setLong(value[i]);
+    }
+  }
+
+  public void setLongObjectArray(Long[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Long element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setLong(element);
+      }
     }
   }
 
@@ -206,6 +236,17 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   public void setDoubleArray(double[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setDouble(value[i]);
+    }
+  }
+
+  public void setDoubleObjectArray(Double[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Double element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setDouble(element);
+      }
     }
   }
 

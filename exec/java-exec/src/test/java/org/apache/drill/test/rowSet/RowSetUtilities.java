@@ -187,12 +187,8 @@ public class RowSetUtilities {
     return array;
   }
 
-  public static long[] longArray(Long... elements) {
-    long array[] = new long[elements.length];
-    for (int i = 0; i < elements.length; i++) {
-      array[i] = elements[i];
-    }
-    return array;
+  public static Long[] longArray(Long... elements) {
+    return elements;
   }
 
   public static double[] doubleArray(Double... elements) {
