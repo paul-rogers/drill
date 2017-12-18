@@ -324,7 +324,9 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   @Override
   public void setNull(boolean isNull) {
-    throw new UnsupportedOperationException();
+    if (isNull == true) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**

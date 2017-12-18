@@ -32,8 +32,9 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
-import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.TypeNegotiator;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.TypeNegotiator;
 import org.apache.hadoop.mapred.FileSplit;
 
 public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {

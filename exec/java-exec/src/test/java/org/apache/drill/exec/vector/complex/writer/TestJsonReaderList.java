@@ -24,33 +24,36 @@ import org.junit.Test;
 
 public class TestJsonReaderList extends ClusterTest {
 
-
   @Test
-  public void testSplitAndTransferFailure() throws Exception {
-    final String testVal = "a string";
+  public void testSplitAndTransferFailureArray() throws Exception {
     testBuilder()
         .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list.json`")
         .ordered()
         .baselineColumns("flat")
         .baselineValues(listOf())
-        .baselineValues(listOf(testVal))
+        .baselineValues(listOf("a string"))
         .go();
+  }
 
-    test("select flatten(config) as flat from cp.`store/json/null_list_v2.json`");
+  @Test
+  public void testSplitAndTransferFailureMap() throws Exception {
     testBuilder()
         .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v2.json`")
         .ordered()
         .baselineColumns("flat")
         .baselineValues(mapOf("repeated_varchar", listOf()))
-        .baselineValues(mapOf("repeated_varchar", listOf(testVal)))
+        .baselineValues(mapOf("repeated_varchar", listOf("a string")))
         .go();
+  }
 
+  @Test
+  public void testSplitAndTransferFailureMapArray() throws Exception {
     testBuilder()
         .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v3.json`")
         .ordered()
         .baselineColumns("flat")
         .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf()))))
-        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf(testVal)))))
+        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf("a string")))))
         .go();
   }
 }

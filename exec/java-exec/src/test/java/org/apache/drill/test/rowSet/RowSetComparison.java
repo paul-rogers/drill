@@ -282,8 +282,8 @@ public class RowSetComparison {
 
   private void verifyArray(String label, ArrayReader ea,
       ArrayReader aa) {
-    assertEquals(label, ea.entryType(), aa.entryType());
-    assertEquals(label, ea.size(), aa.size());
+    assertEquals(label + " - array element type", ea.entryType(), aa.entryType());
+    assertEquals(label + " - array length", ea.size(), aa.size());
     int i = 0;
     while (ea.next()) {
       assertTrue(aa.next());

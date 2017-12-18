@@ -36,9 +36,9 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetO
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
-import org.apache.drill.exec.store.easy.json.JsonLoaderImpl;
-import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
-import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.TypeNegotiator;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.TypeNegotiator;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
@@ -364,9 +364,9 @@ public class TestJsonLoader extends SubOperatorTest {
         .addArray("a", MinorType.BIGINT)
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
-        .addRow(longArray(1L, 100L))
-        .addRow(longArray())
-        .addRow(longArray())
+        .addSingleCol(longArray(1L, 100L))
+        .addSingleCol(longArray())
+        .addSingleCol(longArray())
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(results);
@@ -778,7 +778,7 @@ public class TestJsonLoader extends SubOperatorTest {
         case "a.d": return Types.repeated(MinorType.FLOAT8);
         case "e": return null;
         default:
-          fail();
+          fail("Unexpected path: " + name);
           return null;
         }
       }
@@ -856,6 +856,7 @@ public class TestJsonLoader extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
+    options.useArrayTypes = true;
     options.context = "test Json";
     JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
@@ -913,6 +914,7 @@ public class TestJsonLoader extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
+    options.useArrayTypes = true;
     options.context = "test Json";
     options.typeNegotiator = new TypeNegotiator() {
       @Override
@@ -1131,6 +1133,7 @@ public class TestJsonLoader extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
+    options.useArrayTypes = true;
     options.context = "test Json";
     JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
@@ -1174,6 +1177,7 @@ public class TestJsonLoader extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
+    options.useArrayTypes = true;
     options.context = "test Json";
     JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
@@ -1235,6 +1239,7 @@ public class TestJsonLoader extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
+    options.useArrayTypes = true;
     options.context = "test Json";
     JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
@@ -1432,7 +1437,7 @@ public class TestJsonLoader extends SubOperatorTest {
     JsonTester tester = new JsonTester(options);
     options.useArrayTypes = false;
     RowSet results = tester.parse(json);
-    results.print();
+//    results.print();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
@@ -1448,6 +1453,112 @@ public class TestJsonLoader extends SubOperatorTest {
     RowSetUtilities.verify(expected, results);
   }
 
+  @Test
+  public void testScalarListLeadingNull() {
+    String json =
+        "{a: 1, b: [null, 10, 20]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = new JsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+//    results.print();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .addList("b")
+          .addType(MinorType.BIGINT)
+          .build()
+        .build();
+
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1L, longArray(null, 10L, 20L))
+        .build();
+    expected.print();
+    RowSetUtilities.verify(expected, results);
+  }
+
+  @Test
+  public void testScalarListAllNull() {
+    String json =
+        "{a: 1, b: [null, null, null]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = new JsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+//    results.print();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .addList("b")
+          .addType(MinorType.BIGINT)
+          .build()
+        .build();
+
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1L, strArray(null, null, null))
+        .build();
+    expected.print();
+    RowSetUtilities.verify(expected, results);
+  }
+
+
+  @Test
+  public void testDeferredListAsText() {
+    String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
+    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+    InputStream inStream = new
+        ReaderInputStream(new StringReader(json));
+    JsonOptions options = new JsonOptions();
+    options.useArrayTypes = false;
+    options.context = "test Json";
+    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+
+    // Read first two records into a batch. Since we've not yet seen
+    // a type, the null field will be realized as a text field.
+
+    tableLoader.startBatch();
+    for (int i = 0; i < 2; i++) {
+      assertTrue(loader.next());
+    }
+    loader.endBatch();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addList("a")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+
+    // Second batch, read remaining records as text mode.
+
+    tableLoader.startBatch();
+    while (loader.next()) {
+      // No op
+    }
+    expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray("10", "20"))
+        .addSingleCol(strArray("foo", "bar"))
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+
+    try {
+      inStream.close();
+    } catch (IOException e) {
+      fail();
+    }
+    loader.close();
+    tableLoader.close();
+  }
+
+  // TODO: Null list (list type enabled)
+  // TODO: Null first entry in list
 
   // TODO: Lists
   // TODO: Union support
