@@ -758,7 +758,6 @@ public class TestJsonLoader extends SubOperatorTest {
         "{a: {b: null, c: null, d: null}, e: null}\n" +
         "{a: {b: null, c: null, d: null}, e: null}\n" +
         "{a: {b: null, c: null, d: null}, e: null}\n" +
-//        "{a: {b: 10, c: \"fred\", d: [1.5, 2.5]}, e: {f: 30}}\n";
         "{a: {b: 10, c: \"fred\", d: [1.5, 2.5]}, e: 10.25}\n";
     ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
     InputStream inStream = new
@@ -921,12 +920,15 @@ public class TestJsonLoader extends SubOperatorTest {
       public MajorType typeOf(List<String> path) {
         assertEquals(1, path.size());
         switch (path.get(0)) {
-        case "a": return Types.repeated(MinorType.BIGINT);
 
         // Note: type for b is optional, not compatible with
-        // an array, so is ignored and text model will be used.
+        // an array, so is ignored but the type will be used.
 
-        case "b": return Types.optional(MinorType.BIGINT);
+        case "a": return Types.optional(MinorType.BIGINT);
+
+        // No hint for b, text mode will be used.
+
+        case "b": return null;
         default:
           fail();
           return null;
@@ -1437,7 +1439,6 @@ public class TestJsonLoader extends SubOperatorTest {
     JsonTester tester = new JsonTester(options);
     options.useArrayTypes = false;
     RowSet results = tester.parse(json);
-//    results.print();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
@@ -1449,7 +1450,6 @@ public class TestJsonLoader extends SubOperatorTest {
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, longArray(10L, null, 20L))
         .build();
-    expected.print();
     RowSetUtilities.verify(expected, results);
   }
 
@@ -1461,7 +1461,6 @@ public class TestJsonLoader extends SubOperatorTest {
     JsonTester tester = new JsonTester(options);
     options.useArrayTypes = false;
     RowSet results = tester.parse(json);
-//    results.print();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
@@ -1473,7 +1472,6 @@ public class TestJsonLoader extends SubOperatorTest {
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, longArray(null, 10L, 20L))
         .build();
-    expected.print();
     RowSetUtilities.verify(expected, results);
   }
 
@@ -1485,19 +1483,17 @@ public class TestJsonLoader extends SubOperatorTest {
     JsonTester tester = new JsonTester(options);
     options.useArrayTypes = false;
     RowSet results = tester.parse(json);
-//    results.print();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
-          .addType(MinorType.BIGINT)
+          .addType(MinorType.VARCHAR)
           .build()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, strArray(null, null, null))
         .build();
-    expected.print();
     RowSetUtilities.verify(expected, results);
   }
 
@@ -1559,6 +1555,7 @@ public class TestJsonLoader extends SubOperatorTest {
 
   // TODO: Null list (list type enabled)
   // TODO: Null first entry in list
+  // TODO: Field as null, then empty list, then typed list
 
   // TODO: Lists
   // TODO: Union support

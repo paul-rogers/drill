@@ -83,6 +83,21 @@ public abstract class ContainerParser extends AbstractParser {
     }
   }
 
+  protected ScalarParser scalarParserForType(MinorType type, String key, ScalarWriter scalarWriter) {
+    switch (type) {
+    case BIGINT:
+      return new ScalarParser.IntParser(this, key, scalarWriter);
+    case FLOAT8:
+      return new ScalarParser.FloatParser(this, key, scalarWriter);
+    case TINYINT:
+      return new ScalarParser.BooleanParser(this, key, scalarWriter);
+    case VARCHAR:
+      return new ScalarParser.StringParser(this, key, scalarWriter);
+    default:
+      throw loader.syntaxError("Unsupported Drill type " + type.toString());
+    }
+  }
+
   protected void replaceChild(String key, JsonElementParser newParser) {
     throw new UnsupportedOperationException();
   }

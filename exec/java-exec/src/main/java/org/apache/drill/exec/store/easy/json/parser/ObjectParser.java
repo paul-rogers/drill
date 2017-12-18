@@ -17,11 +17,14 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -64,14 +67,14 @@ class ObjectParser extends ContainerParser {
    * on that basis.
    */
 
-  protected static class NullTypeParser extends AbstractParser.LeafParser implements NullValueHandler.NullTypeMarker {
+  protected static class NullTypeParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
 
     private final ObjectParser objectParser;
 
     public NullTypeParser(ObjectParser parentState, String fieldName) {
       super(parentState, fieldName);
       this.objectParser = parentState;
-      loader.nullHandler.add(this);
+      loader.addNullMarker(this);
     }
 
     @Override
@@ -84,28 +87,37 @@ class ObjectParser extends ContainerParser {
         return true;
       }
 
-      // Replace ourself with a typed reader.
+      // Replace this parser with a typed parser.
 
       loader.tokenizer.unget(token);
-      JsonLoaderImpl.JsonElementParser newState = objectParser.detectValueParser(key());
-      objectParser.replaceChild(key(), newState);
-      loader.nullHandler.remove(this);
-      return newState.parse();
+      return resolve(objectParser.detectValueParser(key())).parse();
     }
 
     @Override
-    public void realizeAsText() {
-      JsonLoaderImpl.logger.warn("Ambiguous type! JSON field {}" +
-          " contains all nulls. Assuming text mode.",
-          key());
-      JsonLoaderImpl.JsonElementParser newState = new ScalarParser.TextParser(parent(), key(),
-          objectParser.newWriter(key(), MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
-      objectParser.replaceChild(key(), newState);
-      loader.nullHandler.remove(this);
+    public void forceResolution() {
+      JsonElementParser newParser = objectParser.inferMemberFromHint(makePath());
+      if (newParser != null) {
+        JsonLoaderImpl.logger.info("Using hints to determine type of JSON field {}. " +
+            " Found type {}",
+            fullName(), newParser.schema().type().name());
+      } else {
+        JsonLoaderImpl.logger.warn("Ambiguous type! JSON field {}" +
+            " contains all nulls. Assuming text mode.",
+            fullName());
+        newParser = new ScalarParser.TextParser(parent(), key(),
+            objectParser.newWriter(key(), MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
+      }
+      resolve(newParser);
+    }
+
+    private JsonElementParser resolve(JsonElementParser newParser) {
+      objectParser.replaceChild(key(), newParser);
+      loader.removeNullMarker(this);
+      return newParser;
     }
 
     @Override
-    public boolean isEmptyArray() { return false; }
+    public ColumnMetadata schema() { return null; }
   }
 
   /**
@@ -121,14 +133,14 @@ class ObjectParser extends ContainerParser {
    * a text array (as in all-text mode.)
    */
 
-  protected static class NullArrayParser extends AbstractParser.LeafParser implements NullValueHandler.NullTypeMarker {
+  protected static class NullArrayParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
 
-    private final ObjectParser tupleState;
+    private final ObjectParser objectParser;
 
-    public NullArrayParser(ObjectParser parentState, String fieldName) {
-      super(parentState, fieldName);
-      this.tupleState = parentState;
-      loader.nullHandler.add(this);
+    public NullArrayParser(ObjectParser parentState, String key) {
+      super(parentState, key);
+      this.objectParser = parentState;
+      loader.addNullMarker(this);
     }
 
     /**
@@ -149,27 +161,37 @@ class ObjectParser extends ContainerParser {
         return true;
       }
       loader.tokenizer.unget(valueToken);
-      JsonLoaderImpl.JsonElementParser newState = tupleState.detectArrayParser(key());
-      tupleState.replaceChild(key(), newState);
-      loader.nullHandler.remove(this);
+      JsonElementParser newState = resolve(objectParser.detectArrayParser(key()));
       loader.tokenizer.unget(startToken);
       return newState.parse();
     }
 
     @Override
-    public void realizeAsText() {
-      JsonLoaderImpl.logger.warn("Ambiguous type! JSON array {}" +
-          " contains all empty arrays. Assuming text mode elements.",
-          key());
-      ArrayWriter arrayWriter = tupleState.newWriter(key(), MinorType.VARCHAR, DataMode.REPEATED).array();
-      JsonLoaderImpl.JsonElementParser elementState = new ScalarParser.TextParser(tupleState, key(), arrayWriter.scalar());
-      JsonLoaderImpl.JsonElementParser newState = new ArrayParser.ScalarArrayParser(tupleState, key(), arrayWriter, elementState);
-      tupleState.replaceChild(key(), newState);
-      loader.nullHandler.remove(this);
+    public void forceResolution() {
+      ArrayParser newParser = objectParser.inferScalarArrayFromHint(makePath());
+      if (newParser != null) {
+        JsonLoaderImpl.logger.info("Using hints to determine type of JSON array {}. " +
+            " Found type {}",
+            fullName(), newParser.writer.scalar().schema().type().name());
+      } else {
+        JsonLoaderImpl.logger.warn("Ambiguous type! JSON array {}" +
+            " contains all nulls. Assuming text mode.",
+            fullName());
+        ArrayWriter arrayWriter = objectParser.newWriter(key(), MinorType.VARCHAR, DataMode.REPEATED).array();
+        JsonElementParser elementParser = new ScalarParser.TextParser(objectParser, key(), arrayWriter.scalar());
+        newParser = new ArrayParser.ScalarArrayParser(objectParser, key(), arrayWriter, elementParser);
+      }
+      resolve(newParser);
+    }
+
+    private JsonElementParser resolve(JsonElementParser newParser) {
+      objectParser.replaceChild(key(), newParser);
+      loader.removeNullMarker(this);
+      return newParser;
     }
 
     @Override
-    public boolean isEmptyArray() { return true; }
+    public ColumnMetadata schema() { return null; }
   }
 
   private final TupleWriter writer;
@@ -270,10 +292,11 @@ class ObjectParser extends ContainerParser {
       break;
 
     case START_OBJECT:
-      valueParser = objectParser(key, DataMode.REQUIRED);
+      valueParser = objectParser(key);
       break;
 
     case VALUE_NULL:
+      valueParser = inferParser(key, projType);
 
       // Use the projection type as a hint. Note that this is not a panacea,
       // and may even lead to seemingly-random behavior. In one query, we can
@@ -283,26 +306,6 @@ class ObjectParser extends ContainerParser {
       // because the projection list differed.) It is not clear if such behavior
       // is a bug or feature...
 
-      switch (projType) {
-      case ARRAY:
-        valueParser = new ObjectParser.NullArrayParser(this, key);
-        break;
-
-      case TUPLE:
-        valueParser = objectParser(key, DataMode.REQUIRED);
-        break;
-
-      case TUPLE_ARRAY:
-
-        // Note: Drill syntax does not support this
-        // case yet.
-
-        valueParser = objectArrayParser(key);
-        break;
-
-      default:
-        valueParser = new ObjectParser.NullTypeParser(this, key);
-      }
       break;
 
     default:
@@ -312,9 +315,9 @@ class ObjectParser extends ContainerParser {
     return valueParser;
   }
 
-  private ObjectParser objectParser(String key, DataMode mode) {
+  private ObjectParser objectParser(String key) {
     return new ObjectParser(this, key,
-        newWriter(key, MinorType.MAP, mode).tuple());
+        newWriter(key, MinorType.MAP, DataMode.REQUIRED).tuple());
   }
 
   private JsonElementParser typedScalar(JsonToken token, String key) {
@@ -423,4 +426,128 @@ class ObjectParser extends ContainerParser {
     assert members.containsKey(key);
     members.put(key, newParser);
   }
+
+  /**
+   * The JSON itself provides a null value, so we can't determine the column
+   * type. Use some additional inference methods. (These are experimental. What
+   * is really needed is an up-front schema.)
+   *
+   * @param key
+   * @param projType
+   * @return
+   */
+
+  private JsonElementParser inferParser(String key, ProjectionType projType) {
+    JsonElementParser valueParser = inferFromType(key);
+    if (valueParser == null) {
+      valueParser = inferFromProjection(key, projType);
+    }
+    if (valueParser == null) {
+      valueParser = new ObjectParser.NullTypeParser(this, key);
+    }
+    return valueParser;
+  }
+
+  private JsonElementParser inferFromProjection(String key, ProjectionType projType) {
+    switch (projType) {
+    case ARRAY:
+      return new ObjectParser.NullArrayParser(this, key);
+
+    case TUPLE:
+      return objectParser(key);
+
+    case TUPLE_ARRAY:
+
+      // Note: Drill syntax does not support this
+      // case yet.
+
+      return objectArrayParser(key);
+
+    default:
+      return null;
+    }
+  }
+
+  /**
+   * Experimental feature. If a type hint mechanism is provided, use that
+   * to resolve the type of null columns. Really, this should be done earlier,
+   * and we should ensure that the suggested type matches the actual JSON
+   * type. But, for now, we consult the hint only if we'd otherwise not know
+   * the type.
+   *
+   * @param key
+   * @return
+   */
+
+  private JsonElementParser inferFromType(String key) {
+    if (! loader.options.detectTypeEarly) {
+      return null;
+    }
+    List<String> path = makePath();
+    path.add(key);
+    return inferMemberFromHint(path);
+  }
+
+  private JsonElementParser inferMemberFromHint(List<String> path) {
+    if (loader.options.typeNegotiator == null) {
+      return null;
+    }
+    MajorType type = loader.options.typeNegotiator.typeOf(path);
+    if (type == null) {
+      return null;
+    }
+    DataMode mode = type.getMode();
+    String key = path.get(path.size() - 1);
+    MinorType dataType = type.getMinorType();
+    switch (dataType) {
+    case MAP:
+      if (mode == DataMode.REPEATED) {
+        return objectArrayParser(key);
+      } else {
+        return objectParser(key);
+      }
+    case LIST:
+      return listParser(key);
+
+    default:
+    }
+    if (mode == DataMode.REQUIRED) {
+      JsonLoaderImpl.logger.warn("Cardinality conflict! JSON source {}, column {} " +
+          "has a hint of cardinality {}, but JSON requires OPTIONAL. " +
+          "Hint ignored.",
+          loader.options.context, fullName(), mode.name());
+      mode = DataMode.OPTIONAL;
+    }
+    ObjectWriter memberWriter = newWriter(key, dataType, mode);
+    if (mode == DataMode.OPTIONAL) {
+      return scalarParserForType(dataType, key, memberWriter.scalar());
+    } else {
+      ArrayWriter arrayWriter = memberWriter.array();
+      JsonElementParser elementParser = scalarParserForType(type.getMinorType(), key, arrayWriter.scalar());
+      return new ArrayParser.ScalarArrayParser(this, key, arrayWriter, elementParser);
+    }
+  }
+
+  private ArrayParser inferScalarArrayFromHint(List<String> path) {
+    if (loader.options.typeNegotiator == null) {
+      return null;
+    }
+    MajorType type = loader.options.typeNegotiator.typeOf(path);
+    if (type == null) {
+      return null;
+    }
+    if (type.getMode() != DataMode.REPEATED) {
+      JsonLoaderImpl.logger.warn("Cardinality conflict! JSON source {}, array {} " +
+          "has a hint of cardinality {}, but JSON requires REPEATED. " +
+          "Hint ignored.",
+          loader.options.context, fullName(), type.getMode().name());
+    }
+    String key = path.get(path.size() - 1);
+    ArrayWriter arrayWriter = newWriter(key, type.getMinorType(), DataMode.REPEATED).array();
+    JsonElementParser elementState = scalarParserForType(type.getMinorType(), key, arrayWriter.scalar());
+    return new ArrayParser.ScalarArrayParser(this, key, arrayWriter, elementState);
+  }
+
+  @Override
+  public ColumnMetadata schema() { return writer.schema(); }
 }

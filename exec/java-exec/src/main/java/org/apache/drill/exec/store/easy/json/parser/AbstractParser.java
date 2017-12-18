@@ -17,10 +17,15 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 
@@ -94,6 +99,9 @@ abstract class AbstractParser implements JsonElementParser {
         }
       }
     }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
   }
 
   protected final JsonLoaderImpl loader;
@@ -131,5 +139,47 @@ abstract class AbstractParser implements JsonElementParser {
           .setMinorType(type)
           .setMode(mode)
           .build());
+  }
+
+  protected List<String> makePath() {
+    JsonElementParser parser = this;
+    List<String> path = new ArrayList<>();
+    while (parser != null) {
+      if (! parser.isAnonymous()) {
+        path.add(parser.key());
+      }
+      parser = parser.parent();
+    }
+    Collections.reverse(path);
+    return path;
+  }
+
+  public String fullName() {
+    StringBuilder buf = new StringBuilder();
+    int count = 0;
+    for (String seg : makePath()) {
+      if (count > 0) {
+        buf.append(".");
+      }
+      buf.append("`");
+      buf.append(seg);
+      buf.append("`");
+      count++;
+    }
+    return buf.toString();
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder buf = new StringBuilder()
+      .append("[")
+      .append(getClass().getSimpleName())
+      .append(" name=")
+      .append(fullName());
+    if (schema() != null) {
+      buf.append(", schema=")
+        .append(schema().toString());
+    }
+    return buf.append("]").toString();
   }
 }

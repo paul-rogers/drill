@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
@@ -31,9 +32,9 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class BooleanParser extends ScalarParser {
 
-    public BooleanParser(JsonLoaderImpl.JsonElementParser parent, String fieldName,
+    public BooleanParser(JsonLoaderImpl.JsonElementParser parent, String key,
         ScalarWriter writer) {
-      super(parent, fieldName, writer);
+      super(parent, key, writer);
     }
 
     @Override
@@ -70,9 +71,9 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class IntParser extends ScalarParser {
 
-    public IntParser(JsonLoaderImpl.JsonElementParser parent, String fieldName,
+    public IntParser(JsonLoaderImpl.JsonElementParser parent, String key,
         ScalarWriter writer) {
-      super(parent, fieldName, writer);
+      super(parent, key, writer);
     }
 
     @Override
@@ -101,9 +102,9 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class FloatParser extends ScalarParser {
 
-    public FloatParser(JsonElementParser parent, String fieldName,
+    public FloatParser(JsonElementParser parent, String key,
         ScalarWriter writer) {
-      super(parent, fieldName, writer);
+      super(parent, key, writer);
     }
 
     @Override
@@ -130,9 +131,9 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class StringParser extends ScalarParser {
 
-    public StringParser(JsonElementParser parent, String fieldName,
+    public StringParser(JsonElementParser parent, String key,
         ScalarWriter writer) {
-      super(parent, fieldName, writer);
+      super(parent, key, writer);
     }
 
     @Override
@@ -174,9 +175,9 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
     private final boolean isArray;
 
-    public TextParser(JsonElementParser parent, String fieldName,
+    public TextParser(JsonElementParser parent, String key,
         ScalarWriter writer) {
-      super(parent, fieldName, writer);
+      super(parent, key, writer);
       this.isArray = writer.schema().isArray();
     }
 
@@ -213,8 +214,8 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   protected final ScalarWriter writer;
 
-  public ScalarParser(JsonElementParser parent, String fieldName, ScalarWriter writer) {
-    super(parent, fieldName);
+  public ScalarParser(JsonElementParser parent, String key, ScalarWriter writer) {
+    super(parent, key);
     this.writer = writer;
   }
 
@@ -225,4 +226,7 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
       throw loader.typeError(e, "Null value encountered in JSON input where Drill does not allow nulls.");
     }
   }
+
+  @Override
+  public ColumnMetadata schema() { return writer.schema(); }
 }

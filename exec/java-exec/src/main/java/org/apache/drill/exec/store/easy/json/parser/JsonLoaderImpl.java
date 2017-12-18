@@ -19,11 +19,13 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
@@ -120,6 +122,7 @@ public class JsonLoaderImpl implements JsonLoader {
 
     public TypeNegotiator typeNegotiator;
     public boolean useArrayTypes;
+    public boolean detectTypeEarly;
   }
 
   @SuppressWarnings("serial")
@@ -132,6 +135,7 @@ public class JsonLoaderImpl implements JsonLoader {
     JsonElementParser parent();
     boolean isAnonymous();
     boolean parse();
+    ColumnMetadata schema();
   }
 
   /**
@@ -161,6 +165,9 @@ public class JsonLoaderImpl implements JsonLoader {
       rootWriter.save();
       return true;
     }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
   }
 
   /**
@@ -194,15 +201,27 @@ public class JsonLoaderImpl implements JsonLoader {
 
     @Override
     public boolean isAnonymous() { return true; }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
+  }
+
+  interface NullTypeMarker {
+    void forceResolution();
   }
 
   final JsonParser parser;
   private final RowSetLoader rootWriter;
-  final NullValueHandler nullHandler;
   protected final JsonOptions options;
   protected final TokenIterator tokenizer;
   private JsonElementParser rootState;
   private int errorRecoveryCount;
+
+  // Using a simple list. Won't perform well if we have hundreds of
+  // null fields; but then we've never seen such a pathologically bad
+  // case... Usually just one or two fields have deferred nulls.
+
+  private final List<JsonLoaderImpl.NullTypeMarker> nullStates = new ArrayList<>();
 
   public JsonLoaderImpl(InputStream stream, RowSetLoader rootWriter, JsonOptions options) {
     try {
@@ -227,7 +246,6 @@ public class JsonLoaderImpl implements JsonLoader {
     this.options = options;
     tokenizer = new TokenIterator(this);
     rootState = makeRootState();
-    nullHandler = new NullValueHandler(this);
   }
 
   private JsonElementParser makeRootState() {
@@ -288,6 +306,14 @@ public class JsonLoaderImpl implements JsonLoader {
     }
   }
 
+  public void addNullMarker(JsonLoaderImpl.NullTypeMarker marker) {
+    nullStates.add(marker);
+  }
+
+  public void removeNullMarker(JsonLoaderImpl.NullTypeMarker marker) {
+    nullStates.remove(marker);
+  }
+
   /**
    * Finish reading a batch of data. We may have pending "null" columns:
    * a column for which we've seen only nulls, or an array that has
@@ -319,7 +345,12 @@ public class JsonLoaderImpl implements JsonLoader {
 
   @Override
   public void endBatch() {
-    nullHandler.endBatch();
+    List<NullTypeMarker> copy = new ArrayList<>();
+    copy.addAll(nullStates);
+    for (NullTypeMarker marker : copy) {
+      marker.forceResolution();
+    }
+    assert nullStates.isEmpty();
   }
 
   /**

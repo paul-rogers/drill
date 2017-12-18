@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -54,14 +57,14 @@ public class ListParser extends ArrayParser {
    * on that basis.
    */
 
-  protected static class NullElementParser extends AbstractParser.LeafParser implements NullValueHandler.NullTypeMarker {
+  protected static class NullElementParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
 
     private final ListParser listParser;
 
     public NullElementParser(ListParser parentState, String fieldName) {
       super(parentState, fieldName);
       this.listParser = parentState;
-      loader.nullHandler.add(this);
+      loader.addNullMarker(this);
     }
 
     @Override
@@ -78,24 +81,37 @@ public class ListParser extends ArrayParser {
 
       JsonLoaderImpl.JsonElementParser newParser = listParser.detectElementParser(token);
       loader.tokenizer.unget(token);
-      listParser.replaceChild(key(), newParser);
-      loader.nullHandler.remove(this);
-      return newParser.parse();
+      return resolve(newParser).parse();
     }
 
     @Override
-    public void realizeAsText() {
-      JsonLoaderImpl.logger.warn("Ambiguous type! JSON array {}" +
-          " contains all nulls. Assuming text mode.",
-          key());
-      JsonLoaderImpl.JsonElementParser newParser = new ScalarParser.TextParser(parent(), key(),
-          listParser.newWriter(key(), MinorType.VARCHAR).scalar());
-      listParser.replaceChild(key(), newParser);
-      loader.nullHandler.remove(this);
+    public void forceResolution() {
+      JsonElementParser newParser = listParser.inferElementFromHint();
+      if (newParser != null) {
+        JsonLoaderImpl.logger.info("Using hints to determine type of JSON list {}. " +
+            " Found type {}",
+            fullName(), newParser.schema().type().name());
+      } else {
+        JsonLoaderImpl.logger.warn("Ambiguous type! JSON list {}" +
+            " contains all nulls. Assuming text mode.",
+            fullName());
+        ObjectWriter elementWriter = listParser.newWriter(MinorType.VARCHAR);
+        newParser = new ScalarParser.TextParser(listParser, key(), elementWriter.scalar());
+      }
+      resolve(newParser);
+    }
+
+    private JsonElementParser resolve(JsonElementParser newParser) {
+      listParser.replaceChild(newParser);
+      loader.removeNullMarker(this);
+      return newParser;
     }
 
     @Override
-    public boolean isEmptyArray() { return false; }
+    public boolean isAnonymous() { return true; }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
   }
 
   private JsonElementParser elementParser;
@@ -115,16 +131,20 @@ public class ListParser extends ArrayParser {
     switch (token) {
     case START_ARRAY:
       return new ListParser(this, childKey,
-          newWriter(childKey, MinorType.LIST).array());
+          newWriter(MinorType.LIST).array());
 
     case START_OBJECT:
       return objectElementParser(childKey);
 
     case VALUE_NULL:
 
-      // Don't know what this is a list of yet.
+      JsonElementParser elementParser = inferFromType();
+      if (elementParser == null) {
+        // Don't know what this is a list of yet.
 
-      return null;
+        elementParser = new NullElementParser(this, childKey);
+      }
+      return elementParser;
 
     default:
       return detectScalarElementParser(token, childKey);
@@ -133,16 +153,16 @@ public class ListParser extends ArrayParser {
 
   private JsonElementParser detectScalarElementParser(JsonToken token, String key) {
     MinorType type = typeForToken(token);
-    ScalarWriter childWriter = newWriter(key, type).scalar();
+    ScalarWriter childWriter = newWriter(type).scalar();
     return scalarParserForToken(token, key, childWriter);
   }
 
   protected ObjectParser objectElementParser(String key) {
-    TupleWriter tupleWriter = newWriter(key, MinorType.MAP).tuple();
+    TupleWriter tupleWriter = newWriter(MinorType.MAP).tuple();
     return new ObjectParser(this, key, tupleWriter);
   }
 
-  protected ObjectWriter newWriter(String key, MinorType type) {
+  protected ObjectWriter newWriter(MinorType type) {
     VariantWriter variant = writer.variant();
     if (variant.hasType(type) || variant.variantSchema().size() == 0) {
       return variant.member(type);
@@ -159,8 +179,42 @@ public class ListParser extends ArrayParser {
     return variant.member(type);
   }
 
-  @Override
-  protected void replaceChild(String key, JsonElementParser newParser) {
+  private JsonElementParser inferFromType() {
+    if (! loader.options.detectTypeEarly) {
+      return null;
+    }
+    return inferElementFromHint();
+  }
+
+  private JsonElementParser inferElementFromHint() {
+    if (loader.options.typeNegotiator == null) {
+      return null;
+    }
+    MajorType type = loader.options.typeNegotiator.typeOf(makePath());
+    if (type == null) {
+      return null;
+    }
+    if (type.getMode() != DataMode.REPEATED) {
+      JsonLoaderImpl.logger.warn("Cardinality conflict! JSON source {}, list {} " +
+          "has a hint of cardinality {}, but JSON requires REPEATED. " +
+          "Hint ignored.",
+          loader.options.context, fullName(), type.getMode().name());
+    }
+    String key = key() + "[]";
+    ObjectWriter elementWriter = newWriter(type.getMinorType());
+    switch (type.getMinorType()) {
+    case MAP:
+      return new ObjectParser(this, key, elementWriter.tuple());
+
+    case LIST:
+      return new ListParser(this, key, elementWriter.array());
+
+    default:
+      return scalarParserForType(type.getMinorType(), key, elementWriter.scalar());
+    }
+  }
+
+  protected void replaceChild(JsonElementParser newParser) {
     elementParser = newParser;
   }
 }

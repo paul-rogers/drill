@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 
@@ -67,10 +68,6 @@ abstract class ArrayParser extends ContainerParser {
 
     @Override
     protected void parseContents(JsonToken token) {
-      if (token != JsonToken.START_OBJECT) {
-        throw loader.syntaxError(token);
-      }
-      loader.tokenizer.unget(token);
       objectParser.parse();
     }
   }
@@ -115,4 +112,7 @@ abstract class ArrayParser extends ContainerParser {
 
   @Override
   public boolean isAnonymous() { return true; }
+
+  @Override
+  public ColumnMetadata schema() { return writer.schema(); }
 }
