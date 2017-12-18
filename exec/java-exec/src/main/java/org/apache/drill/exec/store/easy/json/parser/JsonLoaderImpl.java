@@ -47,9 +47,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * represented as an {@link InputStream} so that this mechanism can parse files
  * or strings.
  * <p>
+ * The JSON parser mechanism runs two state machines intertwined:
+ * <ol>
+ * <li>The actual parser (to parse each JSON object, array or scalar according
+ * to its inferred type.</li>
+ * <li>The type discovery machine, which is made complex because JSON may include
+ * long runs of nulls. (See below.)</li>
+ * </ol>
+ *
+ * <h4>Schema Discovery</h4>
+ *
  * Fields are discovered on the fly. Types are inferred from the first JSON token
  * for a field. Type inference is less than perfect: it cannot handle type changes
  * such as first seeing 10, then 12.5, or first seeing "100", then 200.
+ * <p>
+ * When a field first contains null or an empty list, "null deferral" logic
+ * adds a special state that "waits" for an actual data type to present itself.
+ * This allows the parser to handle a series of nulls, empty arrays, or arrays
+ * of nulls (when using lists) at the start of the file. If no type ever appears,
+ * the loader forces the field to "text mode", hoping that the field is scalar.
+ * <p>
+ * To slightly help the null case, if the projection list shows that a column
+ * must be an array or a map, then that information is used to guess the type
+ * of a null column.
+ * <p>
+ * The code includes a prototype mechanism to provide type hints for columns.
+ * At present, it is just used to handle nulls that are never "resolved" by the
+ * end of a batch. Would be much better to use the hints (or a full schema) to
+ * avoid the huge mass of code needed to handle nulls.
  *
  * <h4>Comparison to Original JSON Reader</h4>
  *

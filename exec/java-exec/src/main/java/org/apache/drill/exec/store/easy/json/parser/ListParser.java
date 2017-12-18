@@ -77,7 +77,7 @@ public class ListParser extends ArrayParser {
         return true;
       }
 
-      // Replace ourself with a typed reader.
+      // Replace this parser with a typed parser.
 
       JsonLoaderImpl.JsonElementParser newParser = listParser.detectElementParser(token);
       loader.tokenizer.unget(token);
@@ -137,7 +137,6 @@ public class ListParser extends ArrayParser {
       return objectElementParser(childKey);
 
     case VALUE_NULL:
-
       JsonElementParser elementParser = inferFromType();
       if (elementParser == null) {
         // Don't know what this is a list of yet.

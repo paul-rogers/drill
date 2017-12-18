@@ -120,7 +120,9 @@ public class ObjectArrayWriter extends BaseArrayWriter {
   public void setObject(Object array) {
     Object values[] = (Object[]) array;
     for (int i = 0; i < values.length; i++) {
-      elementObjWriter.setObject(values[i]);
+      if (values[i] != null) {
+        elementObjWriter.setObject(values[i]);
+      }
       save();
     }
   }
