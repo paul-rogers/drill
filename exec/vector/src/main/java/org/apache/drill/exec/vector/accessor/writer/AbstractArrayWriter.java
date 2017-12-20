@@ -303,6 +303,9 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public int size() { return elementIndex.arraySize(); }
 
   @Override
+  public boolean nullable() { return false; }
+
+  @Override
   public void setNull() {
     throw new IllegalStateException("Not nullable");
   }

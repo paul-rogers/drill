@@ -46,7 +46,7 @@ public final class RowSetBuilder {
   }
 
   public RowSetBuilder(BufferAllocator allocator, TupleMetadata schema) {
-    this(allocator, schema, 10);
+    this(allocator, schema, 30);
   }
 
   public RowSetBuilder(BufferAllocator allocator, TupleMetadata schema, int capacity) {

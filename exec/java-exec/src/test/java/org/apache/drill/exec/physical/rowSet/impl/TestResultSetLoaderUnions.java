@@ -23,6 +23,7 @@ import java.util.Arrays;
 
 import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
@@ -30,6 +31,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.NullableIntVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -44,16 +46,20 @@ import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.SimpleListShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionVectorShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.listValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.variantArray;
 
@@ -554,6 +560,68 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     new RowSetComparison(expected)
       .verifyAndClearAll(result);
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testListofListofScalar() {
+
+    // JSON equivalent: {a: [[1, 2], [3, 4]]}
+
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
+
+    // Can write a batch as if this was a repeated Varchar, except
+    // that any value can also be null.
+
+    rsLoader.startBatch();
+
+    writer.addColumn(MaterializedField.create("a", Types.optional(MinorType.LIST)));
+    ArrayWriter outerArray = writer.array("a");
+    VariantWriter outerVariant = outerArray.variant();
+    outerVariant.addMember(MinorType.LIST);
+    ArrayWriter innerArray = outerVariant.array();
+    VariantWriter innerVariant = innerArray.variant();
+    innerVariant.addMember(MinorType.INT);
+
+    writer.addSingleCol(listValue(listValue(1, 2), listValue(3, 4)));
+    RowSet results = fixture.wrap(rsLoader.harvest());
+
+    // Verify metadata
+
+    ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
+    MajorType outerType = outer.getField().getType();
+    assertEquals(1, outerType.getSubTypeCount());
+    assertEquals(MinorType.LIST, outerType.getSubType(0));
+    assertEquals(1, outer.getField().getChildren().size());
+
+    ListVector inner = (ListVector) outer.getDataVector();
+    assertSame(inner.getField(), outer.getField().getChildren().iterator().next());
+    MajorType innerType = inner.getField().getType();
+    assertEquals(1, innerType.getSubTypeCount());
+    assertEquals(MinorType.INT, innerType.getSubType(0));
+    assertEquals(1, inner.getField().getChildren().size());
+
+    ValueVector data = inner.getDataVector();
+    assertSame(data.getField(), inner.getField().getChildren().iterator().next());
+    assertEquals(MinorType.INT, data.getField().getType().getMinorType());
+    assertEquals(DataMode.OPTIONAL, data.getField().getType().getMode());
+    assertTrue(data instanceof NullableIntVector);
+
+    // Note use of TupleMetadata: BatchSchema can't hold the
+    // structure of a list.
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addList("a")
+          .addList()
+            .addType(MinorType.INT)
+            .buildNested()
+          .build()
+        .buildSchema();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(listValue(listValue(1, 2), listValue(3, 4)))
+        .build();
+    RowSetUtilities.verify(expected, results);
   }
 
 }

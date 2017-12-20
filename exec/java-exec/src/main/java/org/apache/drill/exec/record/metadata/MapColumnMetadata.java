@@ -104,14 +104,19 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
 
   @Override
   public MaterializedField schema() {
-    MaterializedField field = MaterializedField.create(name,
-        MajorType.newBuilder()
-          .setMinorType(type)
-          .setMode(mode)
-          .build());
+    MaterializedField field = emptySchema();
     for (MaterializedField member : mapSchema.toFieldList()) {
       field.addChild(member);
     }
     return field;
+  }
+
+  @Override
+  public MaterializedField emptySchema() {
+   return MaterializedField.create(name,
+        MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(mode)
+          .build());
   }
 }

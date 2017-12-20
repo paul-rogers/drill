@@ -39,6 +39,7 @@ public interface ColumnMetadata {
   TupleMetadata mapSchema();
   VariantMetadata variantSchema();
   MaterializedField schema();
+  MaterializedField emptySchema();
   String name();
   MinorType type();
   MajorType majorType();

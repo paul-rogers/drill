@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -92,9 +93,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
-    assertTrue(a.mapProjection().isProjected("x"));
-    assertTrue(a.mapProjection().isProjected("y"));
-    assertFalse(a.mapProjection().isProjected("z"));
+    assertEquals(ProjectionType.UNSPECIFIED, a.mapProjection().projectionType("x"));
+    assertEquals(ProjectionType.UNSPECIFIED, a.mapProjection().projectionType("y"));
+    assertEquals(ProjectionType.UNPROJECTED,  a.mapProjection().projectionType("z"));
 
     RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());

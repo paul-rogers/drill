@@ -187,7 +187,6 @@ public class JsonLoaderImpl implements JsonLoader {
       }
       loader.tokenizer.unget(token);
       rootTuple.parse();
-      rootWriter.save();
       return true;
     }
 
@@ -205,23 +204,8 @@ public class JsonLoaderImpl implements JsonLoader {
 
   protected static class RootTupleState extends ObjectParser {
 
-    private final RowSetLoader rootWriter;
-
     public RootTupleState(JsonLoaderImpl loader, RowSetLoader rootWriter) {
       super(loader, rootWriter);
-      this.rootWriter = rootWriter;
-    }
-
-    @Override
-    public boolean parse() {
-      if (! rootWriter.start()) {
-        throw new IllegalStateException("Caller must check isFull()");
-      }
-      if (! super.parse()) {
-        return false;
-      }
-      rootWriter.save();
-      return true;
     }
 
     @Override

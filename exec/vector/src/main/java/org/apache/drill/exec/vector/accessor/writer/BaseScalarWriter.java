@@ -203,6 +203,9 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   public abstract void skipNulls();
 
   @Override
+  public boolean nullable() { return false; }
+
+  @Override
   public void setNull() {
     throw UnsupportedConversionError.nullError(schema());
   }

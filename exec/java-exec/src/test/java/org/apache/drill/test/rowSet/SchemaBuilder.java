@@ -189,7 +189,8 @@ public class SchemaBuilder {
     public UnionBuilder(UnionBuilder unionBuilder, DataMode mode) {
       parentSchema = null;
       parentUnion = unionBuilder;
-      this.name = null;
+      this.name = (mode == DataMode.REPEATED)
+          ? MinorType.LIST.name() : MinorType.UNION.name();
       this.mode = mode;
       union = new VariantSchema();
     }

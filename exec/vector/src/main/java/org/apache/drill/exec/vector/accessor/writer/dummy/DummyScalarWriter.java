@@ -45,6 +45,9 @@ public class DummyScalarWriter extends AbstractScalarWriter {
   public ValueType valueType() { return null; }
 
   @Override
+  public boolean nullable() { return true; }
+
+  @Override
   public void setNull() { }
 
   @Override

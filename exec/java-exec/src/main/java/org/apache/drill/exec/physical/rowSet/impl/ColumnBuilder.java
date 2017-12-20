@@ -199,6 +199,7 @@ public class ColumnBuilder {
       // have content that varies from batch to batch. Only the leaf
       // vectors can be cached.
 
+      assert columnSchema.mapSchema().isEmpty();
       vector = new MapVector(columnSchema.schema(), parent.loader().allocator(), null);
       vectorState = new MapVectorState(vector, new NullVectorState());
     } else {
@@ -231,6 +232,7 @@ public class ColumnBuilder {
       // have content that varies from batch to batch. Only the leaf
       // vectors can be cached.
 
+      assert columnSchema.mapSchema().isEmpty();
       mapVector = new RepeatedMapVector(mapColSchema.schema(),
           parent.loader().allocator(), null);
       offsetVector = mapVector.getOffsetVector();
@@ -280,6 +282,7 @@ public class ColumnBuilder {
     // have content that varies from batch to batch. Only the leaf
     // vectors can be cached.
 
+    assert columnSchema.variantSchema().size() == 0;
     UnionVector vector = new UnionVector(columnSchema.schema(), parent.loader().allocator(), null);
 
     // Then the union writer.

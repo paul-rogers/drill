@@ -182,6 +182,14 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
       buf.append(", cardinality: ")
          .append(expectedElementCount);
     }
+    if (variantSchema() != null) {
+      buf.append(", variant: ")
+         .append(variantSchema().toString());
+    }
+    if (mapSchema() != null) {
+      buf.append(", schema: ")
+         .append(mapSchema().toString());
+    }
     return buf
         .append("]")
         .toString();

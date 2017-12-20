@@ -115,4 +115,7 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
   public MaterializedField schema() {
     return MaterializedField.create(name, majorType());
   }
+
+  @Override
+  public MaterializedField emptySchema() { return schema(); }
 }

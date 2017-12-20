@@ -48,8 +48,8 @@ public class VariantColumnMetadata extends AbstractColumnMetadata {
 
   public VariantColumnMetadata(String name, MinorType type, VariantSchema variantSchema) {
     super(name, type, DataMode.OPTIONAL);
-    this.variantSchema = variantSchema;
-    variantSchema.bind(this);
+    this.variantSchema = variantSchema == null ? new VariantSchema() : variantSchema;
+    this.variantSchema.bind(this);
   }
 
   @Override
@@ -87,6 +87,15 @@ public class VariantColumnMetadata extends AbstractColumnMetadata {
           .setMinorType(type)
           .setMode(DataMode.OPTIONAL)
           .addAllSubType(variantSchema.types())
+          .build());
+  }
+
+  @Override
+  public MaterializedField emptySchema() {
+    return MaterializedField.create(name,
+        MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(DataMode.OPTIONAL)
           .build());
   }
 }

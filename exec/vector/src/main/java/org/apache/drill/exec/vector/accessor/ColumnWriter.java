@@ -73,6 +73,18 @@ public interface ColumnWriter extends WriterPosition {
   ObjectType type();
 
   /**
+   * Whether this writer allows nulls. This is not as simple as checking
+   * for the {@link DataMode#OPTIONAL} type in the schema. List entries
+   * are nullable, if they are primitive, but not if they are maps or lists.
+   * Unions are nullable, regardless of cardinality.
+   *
+   * @return true if a call to {@link #setNull()} is supported, false
+   * if not
+   */
+
+  boolean nullable();
+
+  /**
    * Returns the schema of the column associated with this writer.
    *
    * @return schema for this writer's column

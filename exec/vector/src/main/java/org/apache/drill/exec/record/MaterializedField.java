@@ -39,7 +39,7 @@ import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 
 public class MaterializedField {
   private final String name;
-  private final MajorType type;
+  private MajorType type;
   // use an ordered set as existing code relies on order (e,g. parquet writer)
   private final LinkedHashSet<MaterializedField> children;
 
@@ -88,13 +88,47 @@ public class MaterializedField {
     children.add(field);
   }
 
+  public void removeChild(MaterializedField field) {
+    children.remove(field);
+  }
+
+  /**
+   * Replace the type with a new one that has the same minor type
+   * and mode, but with perhaps different details.
+   * <p>
+   * The type is immutable. But, it contains subtypes, used or lists
+   * and unions. To add a subtype, we must create a whole new major type.
+   * <p>
+   * It appears that the <tt>MaterializedField</tt> class was also meant
+   * to be immutable. But, it holds the children for a map, and contains
+   * methods to add children. So, it is not immutable.
+   * <p>
+   * This method allows evolving a list or union without the need to create
+   * a new <tt>MaterializedField</tt>. Doing so is problematic for nested
+   * maps because the map (or list, or union) holds onto the
+   * <tt>MaterializedField</tt>'s of its children. There is no way for
+   * an inner map to reach out and change the child of its parent.
+   * <p>
+   * By allowing the non-critical metadata to change, we preserve the
+   * child relationships as a list or union evolves.
+   * @param type
+   */
+
+  public void replaceType(MajorType newType) {
+    assert type.getMinorType() == newType.getMinorType();
+    assert type.getMode() == newType.getMode();
+    type = newType;
+  }
+
   @Override
   public MaterializedField clone() {
     return withPathAndType(name, getType());
   }
 
   public MaterializedField cloneEmpty() {
-    return create(name, type);
+    return create(name, type.toBuilder()
+        .clearSubType()
+        .build());
   }
 
   public MaterializedField withType(MajorType type) {

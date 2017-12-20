@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.lang.reflect.Array;
+
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
@@ -117,8 +119,18 @@ public class ListWriterImpl extends ObjectArrayWriter {
   @Override
   public void setObject(Object array) {
     setNull(array == null);
-    if (array != null) {
-      super.setObject(array);
+    if (array == null) {
+      return;
+    }
+    int size = Array.getLength(array);
+    for (int i = 0; i < size; i++) {
+      Object value = Array.get(array, i);
+      if (value != null) {
+        elementObjWriter.setObject(value);
+      } else if (elementObjWriter.nullable()) {
+        elementObjWriter.setNull();
+      }
+      save();
     }
   }
 }

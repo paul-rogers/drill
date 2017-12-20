@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.lang.reflect.Array;
+
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
@@ -118,10 +120,11 @@ public class ObjectArrayWriter extends BaseArrayWriter {
 
   @Override
   public void setObject(Object array) {
-    Object values[] = (Object[]) array;
-    for (int i = 0; i < values.length; i++) {
-      if (values[i] != null) {
-        elementObjWriter.setObject(values[i]);
+    int size = Array.getLength(array);
+    for (int i = 0; i < size; i++) {
+      Object value = Array.get(array, i);
+      if (value != null) {
+        elementObjWriter.setObject(value);
       }
       save();
     }

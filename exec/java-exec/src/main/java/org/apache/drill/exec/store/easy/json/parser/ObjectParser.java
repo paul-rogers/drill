@@ -47,6 +47,49 @@ import com.fasterxml.jackson.core.JsonToken;
  * As it turns out, most of the semantic action occurs at the tuple level:
  * that is where fields are defined, types inferred, and projection is
  * computed.
+ *
+ * <h4>Nulls</h4>
+ *
+ * Much code here deals with null types, especially leading nulls, leading
+ * empty arrays, and so on. The object parser creates a parser for each
+ * value; a parser which "does the right thing" based on the data type.
+ * For example, for a Boolean, the parser recognizes <tt>true</tt>,
+ * <tt>false</tt> and <tt>null</tt>.
+ * <p>
+ * But what happens if the first value for a field is <tt>null</tt>? We
+ * don't know what kind of parser to create because we don't have a schema.
+ * Instead, we have to create a temporary placeholder parser that will consume
+ * nulls, waiting for a real type to show itself. Once that type appears, the
+ * null parser can replace itself with the correct form. Each vector's
+ * "fill empties" logic will back-fill the newly created vector with nulls
+ * for prior rows.
+ * <p>
+ * Two null parsers are needed: one when we see an empty list, and one for
+ * when we only see <tt>null</tt>. The one for <tt>null<tt> must morph into
+ * the one for empty lists if we see:<br>
+ * <tt>{a: null} {a: [ ]  }</tt><br>
+ * <p>
+ * If we get all the way through the batch, but have still not seen a type,
+ * then we have to guess. A prototype type system can tell us, otherwise we
+ * guess <tt>VARCHAR</tt>. (<tt>VARCHAR</tt> is the right choice for all-text
+ * mode, it is as good a guess as any for other cases.)
+ *
+ * <h4>Projection List Hints</h4>
+ *
+ * To help, we consult the projection list, if any, for a column. If the
+ * projection is of the form <tt>a[0]</tt>, we know the column had better
+ * be an array. Similarly, if the projection list has <tt>b.c</tt>, then
+ * <tt>b</tt> had better be an object.
+ *
+ * <h4>Array Handling</h4>
+ *
+ * The code here handles arrays in two ways. JSON normally uses the
+ * <tt>LIST</tt> type. But, that can be expensive if lists are
+ * well-behaved. So, the code here also implements arrays using the
+ * classic <tt>REPEATED</tt> types. The repeated type option is disabled
+ * by default. It can be enabled, for efficiency, if Drill ever supports
+ * a JSON schema. If an array is well-behaved, mark that column as able
+ * to use a repeated type.
  */
 
 class ObjectParser extends ContainerParser {

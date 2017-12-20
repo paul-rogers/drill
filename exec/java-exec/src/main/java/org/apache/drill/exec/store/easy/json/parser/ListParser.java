@@ -126,6 +126,15 @@ public class ListParser extends ArrayParser {
     elementParser.parse();
   }
 
+  /**
+   * Figure out which element parser is needed for this list based on the
+   * first token in the list. If the token is <tt>null</tt>, then use a temporary
+   * type-deferral parser.
+   *
+   * @param token token of first item in the list
+   * @return parser for the elements in the list
+   */
+
   protected JsonElementParser detectElementParser(JsonToken token) {
     String childKey = key() + "[]";
     switch (token) {
@@ -150,6 +159,15 @@ public class ListParser extends ArrayParser {
     }
   }
 
+  /**
+   * Determine which scalar element parser to use based on the JSON token
+   * for the first scalar element.
+   *
+   * @param token token seen in the JSON stream
+   * @param key name of the field
+   * @return an element parser for the scalar
+   */
+
   private JsonElementParser detectScalarElementParser(JsonToken token, String key) {
     MinorType type = typeForToken(token);
     ScalarWriter childWriter = newWriter(type).scalar();
@@ -160,6 +178,13 @@ public class ListParser extends ArrayParser {
     TupleWriter tupleWriter = newWriter(MinorType.MAP).tuple();
     return new ObjectParser(this, key, tupleWriter);
   }
+
+  /**
+   * Create a writer to be used for array elements.
+   *
+   * @param type the inferred Drill type for the elements
+   * @return a column writer of the requested type
+   */
 
   protected ObjectWriter newWriter(MinorType type) {
     VariantWriter variant = writer.variant();
@@ -177,6 +202,13 @@ public class ListParser extends ArrayParser {
     }
     return variant.member(type);
   }
+
+  /**
+   * If the experimental type system is enabled, infer the type of a null column
+   * using the type system.
+   *
+   * @return the parser state, if any, created from the hint
+   */
 
   private JsonElementParser inferFromType() {
     if (! loader.options.detectTypeEarly) {

@@ -70,6 +70,9 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
   public ObjectType type() { return baseWriter().type(); }
 
   @Override
+  public boolean nullable() { return baseWriter().nullable(); }
+
+  @Override
   public void setNull() {
     baseWriter().setNull();
   }

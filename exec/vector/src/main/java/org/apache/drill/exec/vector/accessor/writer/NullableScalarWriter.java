@@ -76,6 +76,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public boolean nullable() { return true; }
+
+  @Override
   public void setNull() {
     isSetWriter.setInt(0);
     baseWriter.skipNulls();

@@ -47,14 +47,14 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   protected AbstractMapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     super(field.clone(), allocator, callBack);
-    MaterializedField clonedField = field.clone();
     // create the hierarchy of the child vectors based on the materialized field
-    for (MaterializedField child : clonedField.getChildren()) {
-      if (!child.equals(BaseRepeatedValueVector.OFFSETS_FIELD)) {
-        final String fieldName = child.getName();
-        final ValueVector v = BasicTypeHelper.getNewVector(child, allocator, callBack);
-        putVector(fieldName, v);
+    for (MaterializedField child : field.getChildren()) {
+      if (child.getName().equals(BaseRepeatedValueVector.OFFSETS_FIELD.getName())) {
+        continue;
       }
+      final String fieldName = child.getName();
+      final ValueVector v = BasicTypeHelper.getNewVector(child, allocator, callBack);
+      putVector(fieldName, v);
     }
   }
 
@@ -77,13 +77,13 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     boolean success = false;
     try {
       for (final ValueVector v : vectors.values()) {
-        if (!v.allocateNewSafe()) {
+        if (! v.allocateNewSafe()) {
           return false;
         }
       }
       success = true;
     } finally {
-      if (!success) {
+      if (! success) {
         clear();
       }
     }
@@ -145,7 +145,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   private boolean nullFilled(ValueVector vector) {
     for (int r = 0; r < vector.getAccessor().getValueCount(); r++) {
-      if (!vector.getAccessor().isNull(r)) {
+      if (! vector.getAccessor().isNull(r)) {
         return false;
       }
     }

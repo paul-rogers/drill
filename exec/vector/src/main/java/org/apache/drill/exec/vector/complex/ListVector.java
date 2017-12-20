@@ -24,6 +24,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
@@ -56,11 +57,22 @@ public class ListVector extends BaseRepeatedValueVector {
   private UnionListReader reader;
 
   public ListVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
-    super(field, allocator);
+    super(field.cloneEmpty(), allocator);
     this.bits = new UInt1Vector(MaterializedField.create(BITS_VECTOR_NAME, Types.required(MinorType.UINT1)), allocator);
     this.field.addChild(getDataVector().getField());
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
+
+    // To be consistent with the map vector, create the child if a child is
+    // given in the field. This is a mess. See DRILL-6046.
+
+    assert field.getChildren().size() <= 1;
+    for (MaterializedField child : field.getChildren()) {
+      if (child.getName().equals(DATA_VECTOR_NAME)) {
+        continue;
+      }
+      setChildVector(BasicTypeHelper.getNewVector(child, allocator, callBack));
+    }
   }
 
   public UnionListWriter getWriter() {
@@ -278,15 +290,37 @@ public class ListVector extends BaseRepeatedValueVector {
   }
 
   public void setChildVector(ValueVector childVector) {
+
+    // When created, the list uses the default vector of type LATE.
+    // That entry appears as a child vector. Remove it and add the
+    // new type instead.
+
     assert vector == DEFAULT_DATA_VECTOR;
+    assert field.getChildren().size() == 1;
+    assert field.getChildren().iterator().next().getType().getMinorType() == MinorType.LATE;
+    field.removeChild(vector.getField());
     replaceDataVector(childVector);
+    field.addChild(childVector.getField());
+    assert field.getChildren().size() == 1;
+
+    // Initial LATE type vector not added as a subtype initially.
+    // So, no need to remove it, just add the new subtype. Since the
+    // MajorType is immutable, must build a new one and replace the type
+    // in the materialized field. (We replace the type, rather than creating
+    // a new materialized field, to preserve the link to this field from
+    // a parent map, list or union.)
+
+    assert field.getType().getSubTypeCount() == 0;
+    field.replaceType(
+        field.getType().toBuilder()
+          .addSubType(childVector.getField().getType().getMinorType())
+          .build());
   }
 
   /**
    * Promote the list to a union. Called from old-style writers. This implementation
-   * likely contains a bug: it does not set the types vector for any existing values,
-   * instead it simply clears the existing vector. (Does the reader the copy in the
-   * new values?)
+   * relies on the caller to set the types vector for any existing values.
+   * This method simply clears the existing vector.
    *
    * @return the new union vector
    */

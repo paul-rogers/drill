@@ -25,7 +25,6 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
@@ -84,16 +83,9 @@ public class BuildVectorsFromMetadata {
 
     // Creating the map vector will create its contained vectors if we
     // give it a materialized field with children. So, instead pass a clone
-    // without children so we can add them.
+    // without children so we can add the children as we add vectors.
 
-    MaterializedField mapField = schema.schema();
-    MaterializedField emptyClone = MaterializedField.create(mapField.getName(), mapField.getType());
-
-    // Don't get the map vector from the vector cache. Map vectors may
-    // have content that varies from batch to batch. Only the leaf
-    // vectors can be cached.
-
-    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(emptyClone, allocator, null);
+    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(schema.emptySchema(), allocator, null);
     populateMap(mapVector, schema.mapSchema(), false);
     return mapVector;
   }
@@ -120,7 +112,7 @@ public class BuildVectorsFromMetadata {
   }
 
   private ValueVector buildUnion(ColumnMetadata metadata) {
-    ValueVector vector = TypeHelper.getNewVector(metadata.schema(), allocator, null);
+    ValueVector vector = TypeHelper.getNewVector(metadata.emptySchema(), allocator, null);
     populateUnion((UnionVector) vector, metadata.variantSchema());
     return vector;
   }
@@ -153,7 +145,7 @@ public class BuildVectorsFromMetadata {
   }
 
   private ValueVector builList(ColumnMetadata metadata) {
-    ValueVector vector = TypeHelper.getNewVector(metadata.schema(), allocator, null);
+    ValueVector vector = TypeHelper.getNewVector(metadata.emptySchema(), allocator, null);
     populateList((ListVector) vector, metadata.variantSchema());
     return vector;
   }
@@ -164,8 +156,7 @@ public class BuildVectorsFromMetadata {
     } else if (variantSchema.size() == 1) {
       ColumnMetadata subtype = variantSchema.listSubtype();
       @SuppressWarnings("resource")
-      ValueVector childVector = TypeHelper.getNewVector(
-          variantSchema.member(subtype.type()).schema(), allocator, null);
+      ValueVector childVector = buildVector(subtype);
       vector.setChildVector(childVector);
     } else {
       populateUnion(vector.promoteToUnion(), variantSchema);

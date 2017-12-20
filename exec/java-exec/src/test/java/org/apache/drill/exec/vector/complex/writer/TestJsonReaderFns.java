@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.complex.writer;
 
 import static org.apache.drill.test.TestBuilder.listOf;
+import static org.apache.drill.test.TestBuilder.mapOf;
 import static org.junit.Assert.*;
 
 import java.io.BufferedWriter;
@@ -64,7 +65,7 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void hack() throws Exception {
-    testSplitAndTransferFailure();
+    testSplitAndTransferFailureScalar();
   }
 
   private RowSet runTest(String sql) {
@@ -161,14 +162,41 @@ public class TestJsonReaderFns extends ClusterTest {
   }
 
   @Test
-  public void testSplitAndTransferFailure() throws Exception {
-    final String testVal = "a string";
+  public void testSplitAndTransferFailureScalar() throws Exception {
+    String sql = "select flatten(config) as flat from cp.`store/json/null_list.json`";
+//    String sql = "select * from cp.`store/json/null_list.json`";
+    RowSet result = client.queryBuilder().sql(sql).rowSet();
+    result.print();
+    result.clear();
+
     testBuilder()
-        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list.json`")
+        .sqlQuery(sql)
         .ordered()
         .baselineColumns("flat")
         .baselineValues(listOf())
-        .baselineValues(listOf(testVal))
+        .baselineValues(listOf("a string"))
+        .go();
+  }
+
+  @Test
+  public void testSplitAndTransferFailureMap() throws Exception {
+    testBuilder()
+        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v2.json`")
+        .ordered()
+        .baselineColumns("flat")
+        .baselineValues(mapOf("repeated_varchar", listOf()))
+        .baselineValues(mapOf("repeated_varchar", listOf("a string")))
+        .go();
+  }
+
+  @Test
+  public void testSplitAndTransferFailureMapArray() throws Exception {
+    testBuilder()
+        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v3.json`")
+        .ordered()
+        .baselineColumns("flat")
+        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf()))))
+        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf("a string")))))
         .go();
   }
 

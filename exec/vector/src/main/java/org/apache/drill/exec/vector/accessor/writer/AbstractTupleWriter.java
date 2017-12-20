@@ -217,6 +217,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public int size() { return tupleSchema().size(); }
 
   @Override
+  public boolean nullable() { return false; }
+
+  @Override
   public void setNull() {
     throw new IllegalStateException("Not nullable");
   }
@@ -331,9 +334,10 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     Object values[] = (Object[]) value;
     if (values.length != tupleSchema.size()) {
       throw new IllegalArgumentException(
-          "Map has " + tupleSchema.size() +
-          " columns, but value array has " +
-          values.length + " values.");
+          String.format("Map %s has %d columns, but value array has " +
+              " %d values.",
+              schema().name(),
+              tupleSchema.size(), values.length));
     }
     for (int i = 0; i < values.length; i++) {
       set(i, values[i]);

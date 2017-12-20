@@ -22,6 +22,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.listValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleList;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
@@ -29,6 +30,8 @@ import java.io.InputStream;
 import java.io.StringReader;
 
 import org.apache.commons.io.input.ReaderInputStream;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
@@ -38,6 +41,9 @@ import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.store.json.JsonLoaderTestUtils.JsonTester;
+import org.apache.drill.exec.vector.NullableBigIntVector;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
@@ -48,9 +54,9 @@ import org.junit.Test;
 
 public class TestJsonLoaderLists extends SubOperatorTest {
 
-  private JsonTester jsonTester() {
-    return new JsonTester(fixture.allocator());
-  }
+//  private JsonTester jsonTester() {
+//    return new JsonTester(fixture.allocator());
+//  }
 
   private JsonTester jsonTester(JsonOptions options) {
     return new JsonTester(fixture.allocator(), options);
@@ -282,6 +288,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     RowSetUtilities.verify(expected, results);
   }
 
+  @SuppressWarnings("resource")
   @Test
   public void testListofListofScalar() {
     String json =
@@ -290,6 +297,27 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     JsonTester tester = jsonTester(options);
     options.useArrayTypes = false;
     RowSet results = tester.parse(json);
+
+    // Verify metadata
+
+    ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
+    MajorType outerType = outer.getField().getType();
+    assertEquals(1, outerType.getSubTypeCount());
+    assertEquals(MinorType.LIST, outerType.getSubType(0));
+    assertEquals(1, outer.getField().getChildren().size());
+
+    ListVector inner = (ListVector) outer.getDataVector();
+    assertSame(inner.getField(), outer.getField().getChildren().iterator().next());
+    MajorType innerType = inner.getField().getType();
+    assertEquals(1, innerType.getSubTypeCount());
+    assertEquals(MinorType.BIGINT, innerType.getSubType(0));
+    assertEquals(1, inner.getField().getChildren().size());
+
+    ValueVector data = inner.getDataVector();
+    assertSame(data.getField(), inner.getField().getChildren().iterator().next());
+    assertEquals(MinorType.BIGINT, data.getField().getType().getMinorType());
+    assertEquals(DataMode.OPTIONAL, data.getField().getType().getMode());
+    assertTrue(data instanceof NullableBigIntVector);
 
     // Note use of TupleMetadata: BatchSchema can't hold the
     // structure of a list.
@@ -307,7 +335,129 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     RowSetUtilities.verify(expected, results);
   }
 
-  // TODO: Nested list
-  // TODO: List of objects
+  @Test
+  public void testListofListofScalarWithNulls() {
+    String json =
+        "{a: null}\n" +
+        "{a: []}\n" +
+        "{a: [null]}\n" +
+        "{a: [[]]}\n" +
+        "{a: [[null]]}\n" +
+        "{a: [null, [\"a\", \"string\"]]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = jsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+    results.print();
 
+    // Note use of TupleMetadata: BatchSchema can't hold the
+    // structure of a list.
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addList("a")
+          .addList()
+            .addType(MinorType.VARCHAR)
+            .buildNested()
+          .build()
+        .buildSchema();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(null)
+        .addSingleCol(listValue())
+        .addSingleCol(singleList(null))
+        .addSingleCol(singleList(listValue()))
+        .addSingleCol(singleList(singleList(null)))
+        .addSingleCol(listValue(null, strArray("a", "string")))
+        .build();
+    expected.print();
+    RowSetUtilities.verify(expected, results);
+  }
+
+  @Test
+  public void testListofListofObject() {
+    String json =
+        "{a: [[{a: 1, b: 2}, {a: 3, b: 4}],\n" +
+             "[{a: 5, b: 6}, {a: 7, b: 8}]]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = jsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+
+    // Note use of TupleMetadata: BatchSchema can't hold the
+    // structure of a list.
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addList("a")
+          .addList()
+            .addMap()
+              .addNullable("a", MinorType.BIGINT)
+              .addNullable("b", MinorType.BIGINT)
+              .buildNested()
+            .buildNested()
+          .build()
+        .buildSchema();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(listValue(listValue(mapValue(1L, 2L), mapValue(3L, 4L)),
+                                listValue(mapValue(5L, 6L), mapValue(7L, 8L))))
+        .build();
+    RowSetUtilities.verify(expected, results);
+  }
+
+  @Test
+  public void testListofListofObjectWithNulls() {
+    String json =
+        "{a: [[{a: null, b: null}, {a: 1, b: 2}, null, {a: 3}],\n" +
+             "null, [{b: 6}]]}\n" +
+        "{a: null}\n" +
+        "{a: []}\n" +
+        "{a: [[], null]}";
+    JsonOptions options = new JsonOptions();
+    JsonTester tester = jsonTester(options);
+    options.useArrayTypes = false;
+    RowSet results = tester.parse(json);
+
+    // Note use of TupleMetadata: BatchSchema can't hold the
+    // structure of a list.
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addList("a")
+          .addList()
+            .addMap()
+              .addNullable("a", MinorType.BIGINT)
+              .addNullable("b", MinorType.BIGINT)
+              .buildNested()
+            .buildNested()
+          .build()
+        .buildSchema();
+
+    // Logically expected results.
+
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(listValue(listValue(mapValue(null, null),
+                                          mapValue(1L, 2L),
+                                          null,
+                                          mapValue(3L, null)),
+                                null,
+                                singleList(mapValue(null, 6L))))
+        .addSingleCol(null)
+        .addSingleCol(listValue())
+        .addSingleCol(listValue(listValue(), null))
+        .build();
+    new RowSetComparison(expected).verify(results);
+    expected.clear();
+
+    // Physical description of results
+
+    expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(listValue(listValue(mapValue(null, null),
+                                          mapValue(1L, 2L),
+                                          mapValue(null, null), // Maps can't really be null
+                                          mapValue(3L, null)),
+                                null, // List entries can be null
+                                singleList(mapValue(null, 6L))))
+        .addSingleCol(null)
+        .addSingleCol(listValue())
+        .addSingleCol(listValue(listValue(), null))
+        .build();
+    RowSetUtilities.verify(expected, results);
+  }
 }

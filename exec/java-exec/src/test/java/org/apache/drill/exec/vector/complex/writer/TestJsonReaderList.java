@@ -17,43 +17,7 @@
  */
 package org.apache.drill.exec.vector.complex.writer;
 
-import static org.apache.drill.test.TestBuilder.listOf;
-import static org.apache.drill.test.TestBuilder.mapOf;
 import org.apache.drill.test.ClusterTest;
-import org.junit.Test;
 
 public class TestJsonReaderList extends ClusterTest {
-
-  @Test
-  public void testSplitAndTransferFailureArray() throws Exception {
-    testBuilder()
-        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list.json`")
-        .ordered()
-        .baselineColumns("flat")
-        .baselineValues(listOf())
-        .baselineValues(listOf("a string"))
-        .go();
-  }
-
-  @Test
-  public void testSplitAndTransferFailureMap() throws Exception {
-    testBuilder()
-        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v2.json`")
-        .ordered()
-        .baselineColumns("flat")
-        .baselineValues(mapOf("repeated_varchar", listOf()))
-        .baselineValues(mapOf("repeated_varchar", listOf("a string")))
-        .go();
-  }
-
-  @Test
-  public void testSplitAndTransferFailureMapArray() throws Exception {
-    testBuilder()
-        .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list_v3.json`")
-        .ordered()
-        .baselineColumns("flat")
-        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf()))))
-        .baselineValues(mapOf("repeated_map", listOf(mapOf("repeated_varchar", listOf("a string")))))
-        .go();
-  }
 }
