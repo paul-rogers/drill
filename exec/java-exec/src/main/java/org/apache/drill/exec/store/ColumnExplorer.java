@@ -17,9 +17,11 @@
  */
 package org.apache.drill.exec.store;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.io.Files;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
@@ -31,10 +33,9 @@ import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.exec.util.Utilities;
 import org.apache.hadoop.fs.Path;
 
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.io.Files;
 
 public class ColumnExplorer {
 
@@ -45,7 +46,6 @@ public class ColumnExplorer {
   private final List<SchemaPath> tableColumns;
   private final Map<String, ImplicitFileColumns> allImplicitColumns;
   private final Map<String, ImplicitFileColumns> selectedImplicitColumns;
-
 
   /**
    * Helper class that encapsulates logic for sorting out columns
@@ -74,7 +74,8 @@ public class ColumnExplorer {
   }
 
   /**
-   * Creates case insensitive map with implicit file columns as keys and appropriate ImplicitFileColumns enum as values
+   * Creates case insensitive map with implicit file columns as keys and
+   * appropriate ImplicitFileColumns enum as values
    */
   public static Map<String, ImplicitFileColumns> initImplicitFileColumns(OptionManager optionManager) {
     Map<String, ImplicitFileColumns> map = CaseInsensitiveMap.newHashMap();
@@ -252,11 +253,11 @@ public class ColumnExplorer {
       this.name = name;
     }
 
+    public String optionName() { return name; }
+
     /**
      * Using file path calculates value for each implicit file column
      */
     public abstract String getValue(Path path);
-
   }
-
 }

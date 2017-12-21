@@ -20,35 +20,18 @@ package org.apache.drill.exec.vector.complex.writer;
 import static org.apache.drill.test.TestBuilder.listOf;
 import static org.apache.drill.test.TestBuilder.mapOf;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.zip.GZIPOutputStream;
-
 import org.apache.drill.test.BaseTestQuery;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.record.RecordBatchLoader;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.RepeatedBigIntVector;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -66,7 +49,7 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void dummyDoNotCheckIn() throws Exception {
-    schemaChange();
+//    schemaChange();
   }
 
   // TODO: Requires lists

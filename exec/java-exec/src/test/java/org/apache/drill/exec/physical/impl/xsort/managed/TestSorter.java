@@ -82,7 +82,7 @@ public class TestSorter extends DrillTest {
   }
 
   public void runSorterTest(Sort popConfig, SingleRowSet rowSet, SingleRowSet expected) throws Exception {
-    OperatorContext opContext = fixture.operatorContext(popConfig);
+    OperatorContext opContext = fixture.newOperatorContext(popConfig);
     SorterWrapper sorter = new SorterWrapper(opContext);
 
     try {

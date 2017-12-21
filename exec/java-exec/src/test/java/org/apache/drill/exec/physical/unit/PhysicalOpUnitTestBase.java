@@ -342,7 +342,6 @@ public class PhysicalOpUnitTestBase extends ExecTest {
     new NonStrictExpectations() {
       {
         opContext.getStats();result = opStats;
-        opContext.getStatsWriter(); result = opStats;
         opContext.getAllocator(); result = allocator;
         opContext.getFragmentContext(); result = fragContext;
         opContext.getOperatorDefn(); result = popConfig;

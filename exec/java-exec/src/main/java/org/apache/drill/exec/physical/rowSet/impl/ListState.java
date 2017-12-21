@@ -325,7 +325,7 @@ public class ListState extends ContainerState
 
     unionWriter().bindShim(new SimpleListShim());
   }
-  
+
   /**
    * Perform the delicate dance of promoting a list vector from a single type to
    * a union, while leaving the writer client blissfully ignorant that the underlying
@@ -354,7 +354,7 @@ public class ListState extends ContainerState
    * too complex; too much can go wrong and there are too many states to handle.
    * Not only that, variant types don't play well with a relational model like
    * SQL. This code works, but the overall list concept really needs rethinking.
-   * 
+   *
    * @param colState the column state for the newly added type column; the
    * one causing the list to change from single-type to a union
    */

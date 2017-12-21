@@ -159,6 +159,9 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   public ObjectType type() { return ObjectType.VARIANT; }
 
   @Override
+  public boolean nullable() { return true; }
+
+  @Override
   public ColumnMetadata schema() { return schema; }
 
   @Override
