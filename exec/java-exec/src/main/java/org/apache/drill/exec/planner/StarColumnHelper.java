@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,19 +20,16 @@ package org.apache.drill.exec.planner;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.drill.common.expression.SchemaPath;
 
 public class StarColumnHelper {
 
   public final static String PREFIX_DELIMITER = "\u00a6\u00a6";
 
-  public final static String STAR_COLUMN = "*";
-
-  public final static String PREFIXED_STAR_COLUMN = PREFIX_DELIMITER + STAR_COLUMN;
+  public final static String PREFIXED_STAR_COLUMN = PREFIX_DELIMITER + SchemaPath.WILDCARD;
 
   public static boolean containsStarColumn(RelDataType type) {
     if (! type.isStruct()) {
@@ -42,7 +39,7 @@ public class StarColumnHelper {
     List<String> fieldNames = type.getFieldNames();
 
     for (String s : fieldNames) {
-      if (s.startsWith(STAR_COLUMN)) {
+      if (s.startsWith(SchemaPath.WILDCARD)) {
         return true;
       }
     }
@@ -59,7 +56,7 @@ public class StarColumnHelper {
       if (expr instanceof RexInputRef) {
         String name = inputRowType.getFieldNames().get(((RexInputRef) expr).getIndex());
 
-        if (name.startsWith(STAR_COLUMN)) {
+        if (name.startsWith(SchemaPath.WILDCARD)) {
           return true;
         }
       }
@@ -73,7 +70,7 @@ public class StarColumnHelper {
   }
 
   public static boolean isNonPrefixedStarColumn(String fieldName) {
-    return fieldName.startsWith(STAR_COLUMN);
+    return fieldName.startsWith(SchemaPath.WILDCARD);
   }
 
   public static boolean isStarColumn(String fieldName) {
