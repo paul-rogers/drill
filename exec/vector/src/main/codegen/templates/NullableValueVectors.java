@@ -160,7 +160,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   <#if type.major == "VarLen">
   @Override
-  public UInt${type.width}Vector getOffsetVector() {
+  public UInt4Vector getOffsetVector() {
     return ((VariableWidthVector) values).getOffsetVector();
   }
 

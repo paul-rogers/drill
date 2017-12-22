@@ -540,11 +540,7 @@ public class SortImpl {
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }
-    try {
-      context.close();
-    } catch (RuntimeException e) {
-      ex = ex == null ? e : ex;
-    }
+    // Operator context closed by fragment context
     if (ex != null) {
       throw ex;
     }

@@ -153,7 +153,9 @@ public abstract class BaseOperatorContext implements OperatorContext {
       ex = e;
     }
     try {
-      allocator.close();
+      if (allocator != null) {
+        allocator.close();
+      }
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }
