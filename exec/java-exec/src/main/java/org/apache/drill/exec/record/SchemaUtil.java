@@ -122,6 +122,7 @@ public class SchemaUtil {
           if (!vv.getAccessor().isNull(i)) {
             u.getMutator().setType(i, type);
           } else {
+//            u.getMutator().setNull(i);
             u.getMutator().setType(i, MinorType.LATE);
           }
         }

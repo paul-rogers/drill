@@ -100,8 +100,11 @@ public class UnionVector implements ValueVector {
     typeVector = new UInt1Vector(
         MaterializedField.create(TYPES_NAME, Types.required(MinorType.UINT1)),
         allocator);
-    this.field.addChild(internalMap.getField().clone());
+    
+    // Child order here must match load() below.
+    
     this.field.addChild(typeVector.getField());
+    this.field.addChild(internalMap.getField());
     this.callBack = callBack;
   }
 
@@ -146,6 +149,13 @@ public class UnionVector implements ValueVector {
     addSubtypeMetadata(type);
   }
   
+  /**
+   * Add a vector to the union. The vector is created by the caller
+   * and added to the union. (It is not created by the union itself.)
+   * 
+   * @param v
+   * @return
+   */
   // Called from SchemaUtil
   
   public ValueVector addVector(ValueVector v) {
@@ -153,16 +163,14 @@ public class UnionVector implements ValueVector {
     MinorType type = majorType.getMinorType();
     String name = type.name();
     Preconditions.checkState(internalMap.getChild(name) == null, String.format("%s vector already exists", name));
-    final ValueVector newVector = internalMap.addOrGet(name, majorType, BasicTypeHelper.getValueVectorClass(type, majorType.getMode()));
-    v.makeTransferPair(newVector).transfer();
-    internalMap.putChild(name, newVector);
+    internalMap.putChild(name, v);
     subtypes[type.ordinal()] = v;
-    addSubType(type);
-    return newVector;
+    addSubtypeMetadata(type);
+    return v;
   }
 
   private void addSubtypeMetadata(MinorType type) {
-    field = MaterializedField.create(field.getName(),
+    field.replaceType(
         MajorType.newBuilder(field.getType()).addSubType(type).build());
   }
 
@@ -271,25 +279,22 @@ public class UnionVector implements ValueVector {
   @Override
   public void allocateNew() throws OutOfMemoryException {
     internalMap.allocateNew();
-    if (typeVector != null) {
-      typeVector.allocateNew();
-    }
+    typeVector.allocateNew();
+    typeVector.zeroVector();
   }
 
   public void allocateNew(int rowCount) throws OutOfMemoryException {
     internalMap.allocateNew();
-    if (typeVector != null) {
-      typeVector.allocateNew(rowCount);
-    }
+    typeVector.allocateNew(rowCount);
+    typeVector.zeroVector();
   }
 
   @Override
   public boolean allocateNewSafe() {
     boolean safe = internalMap.allocateNewSafe();
     if (safe) {
-      if (typeVector != null) {
-        typeVector.allocateNewSafe();
-      }
+      typeVector.allocateNewSafe();
+      typeVector.zeroVector();
     }
     return safe;
   }
@@ -423,9 +428,9 @@ public class UnionVector implements ValueVector {
 
   @Override
   public UserBitShared.SerializedField getMetadata() {
-    SerializedField.Builder b = getField() //
-            .getAsBuilder() //
-            .setBufferLength(getBufferSize()) //
+    SerializedField.Builder b = getField()
+            .getAsBuilder()
+            .setBufferLength(getBufferSize())
             .setValueCount(valueCount);
 
     b.addChild(internalMap.getMetadata());
@@ -434,12 +439,14 @@ public class UnionVector implements ValueVector {
 
   @Override
   public int getBufferSize() {
-    return internalMap.getBufferSize();
+    return internalMap.getBufferSize() +
+           typeVector.getBufferSize();
   }
 
   @Override
   public int getAllocatedSize() {
-    return internalMap.getAllocatedSize();
+    return internalMap.getAllocatedSize() +
+           typeVector.getAllocatedSize();
   }
 
   @Override
@@ -448,24 +455,26 @@ public class UnionVector implements ValueVector {
       return 0;
     }
 
-    long bufferSize = 0;
+    long bufferSize = typeVector.getBufferSizeFor(valueCount);
     for (final ValueVector v : (Iterable<ValueVector>) this) {
       bufferSize += v.getBufferSizeFor(valueCount);
     }
-
+ 
     return (int) bufferSize;
   }
 
   @Override
   public DrillBuf[] getBuffers(boolean clear) {
-    return internalMap.getBuffers(clear);
+    final DrillBuf[] buffers = ObjectArrays.concat(typeVector.getBuffers(clear), internalMap.getBuffers(clear), DrillBuf.class);
+    return buffers;
   }
 
   @Override
   public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
     valueCount = metadata.getValueCount();
 
-    internalMap.load(metadata.getChild(0), buffer);
+    typeVector.load(metadata.getChild(0), buffer);
+    internalMap.load(metadata.getChild(1), buffer);
   }
 
   @Override
@@ -582,6 +591,10 @@ public class UnionVector implements ValueVector {
 
     public void setType(int index, MinorType type) {
       typeVector.getMutator().setSafe(index, type.getNumber());
+    }
+    
+    public void setNull(int index) {
+      setType(index, NULL_MARKER);
     }
 
     @Override
