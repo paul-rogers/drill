@@ -213,6 +213,8 @@ public class ScanBatch implements CloseableRecordBatch {
       throw UserException.internalError(e)
           .addContext("Setup failed for", currentReaderClassName)
           .build(logger);
+    } catch (UserException ex) {
+      throw ex;
     } catch (Exception ex) {
       throw UserException.internalError(ex).build(logger);
     } finally {

@@ -197,7 +197,7 @@ public class HeaderBuilder extends TextOutput {
       currentField.put(data);
     } catch (BufferOverflowException e) {
       throw UserException.dataReadError()
-        .message("Column " + (headers.size() + 1) + ": Column exceeds maximum length of " + MAX_HEADER_LEN)
+        .message("Column exceeds maximum length of %d", MAX_HEADER_LEN)
         .addContext("File Path", filePath.toString())
         .build(logger);
     }
