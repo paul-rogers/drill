@@ -365,19 +365,18 @@ public class MaterializedField {
   @Override
   public String toString() {
     final int maxLen = 10;
-    String childString = children != null && !children.isEmpty() ? toString(children, maxLen) : "";
     StringBuilder builder = new StringBuilder();
     builder
-      .append("`")
+      .append("[`")
       .append(name)
-      .append("`(")
+      .append("` (")
       .append(type.getMinorType().name());
 
     if (type.hasPrecision()) {
       builder.append("(");
       builder.append(type.getPrecision());
       if (type.hasScale()) {
-        builder.append(",");
+        builder.append(", ");
         builder.append(type.getScale());
       }
       builder.append(")");
@@ -386,10 +385,25 @@ public class MaterializedField {
     builder
       .append(":")
       .append(type.getMode().name())
-      .append(")")
-      .append(childString);
+      .append(")");
 
-    return builder.toString();
+    if (type.getSubTypeCount() > 0) {
+      builder
+        .append(", subtypes=(")
+        .append(type.getSubTypeList().toString())
+        .append(")");
+    }
+
+    if (children != null && ! children.isEmpty()) {
+      builder
+        .append(", children=(")
+        .append(toString(children, maxLen))
+        .append(")");
+    }
+
+    return builder
+        .append("]")
+        .toString();
   }
 
   /**
@@ -404,7 +418,6 @@ public class MaterializedField {
 
   private String toString(Collection<?> collection, int maxLen) {
     StringBuilder builder = new StringBuilder();
-    builder.append(" [");
     int i = 0;
     for (Iterator<?> iterator = collection.iterator(); iterator.hasNext() && i < maxLen; i++) {
       if (i > 0){
@@ -412,7 +425,6 @@ public class MaterializedField {
       }
       builder.append(iterator.next());
     }
-    builder.append("]");
     return builder.toString();
   }
 }

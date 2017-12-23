@@ -223,8 +223,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   protected void addMember(AbstractObjectWriter writer) {
     MinorType type = writer.schema().type();
-    assert ! variantSchema().hasType(type);
-    variantSchema().addType(type);
+    assert variantSchema().hasType(type);
     writer.events().bindIndex(index);
     if (state != State.IDLE) {
       writer.events().startWrite();
