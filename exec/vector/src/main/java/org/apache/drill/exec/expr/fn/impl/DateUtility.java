@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,7 +18,6 @@
 
 package org.apache.drill.exec.expr.fn.impl;
 
-import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -26,18 +25,23 @@ import org.joda.time.format.DateTimeParser;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 
-// Utility class for Date, DateTime, TimeStamp, Interval data types
+/**
+ * Utility class for Date, DateTime, TimeStamp, Interval data types.
+ * <p>
+ * WARNING: This class is excluded from the JDBC driver. If vectors refer
+ * to this code, they will fail when called from JDBC.
+ */
+
 public class DateUtility {
 
-
-    /* We have a hashmap that stores the timezone as the key and an index as the value
-     * While storing the timezone in value vectors, holders we only use this index. As we
-     * reconstruct the timestamp, we use this index to index through the array timezoneList
-     * and get the corresponding timezone and pass it to joda-time
-     */
+  /* We have a hashmap that stores the timezone as the key and an index as the value
+   * While storing the timezone in value vectors, holders we only use this index. As we
+   * reconstruct the timestamp, we use this index to index through the array timezoneList
+   * and get the corresponding timezone and pass it to joda-time
+   */
   public static ObjectIntHashMap<String> timezoneMap = new ObjectIntHashMap<String>();
 
-    public static String[] timezoneList =  {"Africa/Abidjan",
+  public static String[] timezoneList =  {  "Africa/Abidjan",
                                             "Africa/Accra",
                                             "Africa/Addis_Ababa",
                                             "Africa/Algiers",
@@ -612,27 +616,20 @@ public class DateUtility {
                                             "WET",
                                             "Zulu"};
 
-    static {
-      for (int i = 0; i < timezoneList.length; i++) {
-        timezoneMap.put(timezoneList[i], i);
-      }
+  static {
+    for (int i = 0; i < timezoneList.length; i++) {
+      timezoneMap.put(timezoneList[i], i);
     }
+  }
 
-    public static final DateTimeFormatter formatDate        = DateTimeFormat.forPattern("yyyy-MM-dd");
-    public static final DateTimeFormatter formatTimeStamp    = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
-    public static final DateTimeFormatter formatTime        = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatDate        = DateTimeFormat.forPattern("yyyy-MM-dd");
+  public static final DateTimeFormatter formatTimeStamp    = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
+  public static final DateTimeFormatter formatTime        = DateTimeFormat.forPattern("HH:mm:ss.SSS");
 
-    public static DateTimeFormatter dateTimeTZFormat = null;
-    public static DateTimeFormatter timeFormat = null;
+  public static DateTimeFormatter dateTimeTZFormat = null;
+  public static DateTimeFormatter timeFormat = null;
 
-    public static final int yearsToMonths = 12;
-    public static final int hoursToMillis = 60 * 60 * 1000;
-    public static final int minutesToMillis = 60 * 1000;
-    public static final int secondsToMillis = 1000;
-    public static final int monthToStandardDays = 30;
-    public static final long monthsToMillis = 2592000000L; // 30 * 24 * 60 * 60 * 1000
-    public static final int daysToStandardMillis = 24 * 60 * 60 * 1000;
 
 
   public static int getIndex(String timezone) {
@@ -668,152 +665,4 @@ public class DateUtility {
     return timeFormat;
   }
 
-  public static int monthsFromPeriod(Period period){
-    return (period.getYears() * yearsToMonths) + period.getMonths();
-  }
-
-  public static int periodToMillis(final Period period){
-    return (period.getHours() * hoursToMillis) +
-           (period.getMinutes() * minutesToMillis) +
-           (period.getSeconds() * secondsToMillis) +
-           (period.getMillis());
-  }
-
-  public static int toMonths(int years, int months) {
-    return years * yearsToMonths + months;
-  }
-
-  public static int periodToMonths(Period value) {
-    return value.getYears() * yearsToMonths + value.getMonths();
-  }
-
-  public static Period fromIntervalYear(int value) {
-    final int years  = (value / yearsToMonths);
-    final int months = (value % yearsToMonths);
-    return new Period()
-        .plusYears(years)
-        .plusMonths(months);
-  }
-
-  public static StringBuilder intervalYearStringBuilder(int months) {
-    final int years = months / yearsToMonths;
-    months %= yearsToMonths;
-
-    return new StringBuilder()
-           .append(years)
-           .append(pluralify("year", years))
-           .append(" ")
-           .append(months)
-           .append(pluralify("month", months));
-  }
-
-  public static StringBuilder intervalYearStringBuilder(Period value) {
-    return intervalYearStringBuilder(
-        value.getYears() * 12 + value.getMonths());
-  }
-
-  public static String pluralify(String term, int value) {
-    term = (Math.abs(value) == 1) ? term : term + "s";
-    return " " + term;
-  }
-
-  public static Period fromIntervalDay(int days, int millis) {
-    return new Period()
-        .plusDays(days)
-        .plusMillis(millis);
-  }
-
-  public static StringBuilder intervalDayStringBuilder(int days, int millis) {
-
-    final int hours  = millis / (DateUtility.hoursToMillis);
-    millis %= (DateUtility.hoursToMillis);
-
-    final int minutes = millis / (DateUtility.minutesToMillis);
-    millis %= (DateUtility.minutesToMillis);
-
-    final int seconds = millis / (DateUtility.secondsToMillis);
-    millis %= (DateUtility.secondsToMillis);
-
-    StringBuilder buf = new StringBuilder()
-            .append(days)
-            .append(pluralify("day", days))
-            .append(" ")
-            .append(hours)
-            .append(":")
-            .append(asTwoDigits(minutes))
-            .append(":")
-            .append(asTwoDigits(seconds));
-    if (millis != 0) {
-      buf.append(".")
-         .append(millis);
-    }
-    return buf;
-  }
-
-  public static StringBuilder intervalDayStringBuilder(Period value) {
-    return intervalDayStringBuilder(
-        value.getDays(),
-        periodToMillis(value));
-  }
-
-  public static Period fromInterval(int months, int days, int millis) {
-    return new Period()
-        .plusMonths(months)
-        .plusDays(days)
-        .plusMillis(millis);
-  }
-
-  public static String asTwoDigits(int value) {
-    return String.format("%02d", value);
-  }
-
-  public static StringBuilder intervalStringBuilder(int months, int days, int millis) {
-
-    final int years = months / yearsToMonths;
-    months %= yearsToMonths;
-
-    final int hours  = millis / hoursToMillis;
-    millis %= hoursToMillis;
-
-    final int minutes = millis / minutesToMillis;
-    millis %= minutesToMillis;
-
-    final int seconds = millis / secondsToMillis;
-    millis %= secondsToMillis;
-
-    StringBuilder buf = new StringBuilder()
-           .append(years)
-           .append(pluralify("year", years))
-           .append(" ")
-           .append(months)
-           .append(pluralify("month", months))
-           .append(" ")
-           .append(days)
-           .append(pluralify("day", days))
-           .append(" ")
-           .append(hours)
-           .append(":")
-           .append(asTwoDigits(minutes))
-           .append(":")
-           .append(asTwoDigits(seconds));
-    if (millis != 0) {
-      buf.append(".")
-         .append(millis);
-    }
-    return buf;
-  }
-
-  public static StringBuilder intervalStringBuilder(Period value) {
-    return intervalStringBuilder(
-        value.getYears() * 12 + value.getMonths(),
-        value.getDays(),
-        periodToMillis(value));
-  }
-
-  public static int timeToMillis(int hours, int minutes, int seconds, int millis) {
-    return ((hours * 60 +
-             minutes) * 60 +
-            seconds) * 1000 +
-           millis;
-  }
 }

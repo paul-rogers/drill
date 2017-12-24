@@ -29,7 +29,6 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers;
 import org.apache.drill.exec.expr.fn.interpreter.InterpreterEvaluator;
 import org.apache.drill.exec.expr.holders.BigIntHolder;
@@ -71,6 +70,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.sql.TypeInferenceUtils;
+import org.apache.drill.exec.vector.DateUtilities;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -312,7 +312,7 @@ public class DrillConstExecutor implements RelOptPlanner.Executor {
                 milliseconds = intervalDayOut.milliseconds;
               }
               return rexBuilder.makeLiteral(
-                new BigDecimal(days * DateUtility.daysToStandardMillis + milliseconds),
+                new BigDecimal(days * DateUtilities.daysToStandardMillis + milliseconds),
                 TypeInferenceUtils.createCalciteTypeWithNullability(typeFactory, SqlTypeName.INTERVAL_DAY_TIME, newCall.getType().isNullable()),
                 false);
             }

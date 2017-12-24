@@ -173,6 +173,11 @@ public class TestSortImpl extends DrillTest {
       results.close();
       dest.clear();
       sort.close();
+
+      // Note: context closed separately because this is normally done by
+      // the external sort itself after closing the output container.
+
+      sort.opContext().close();
       validateFinalStats(sort);
     }
 
@@ -456,6 +461,7 @@ public class TestSortImpl extends DrillTest {
     results.close();
     dest.clear();
     sort.close();
+    sort.opContext().close();
   }
 
   /**
@@ -544,6 +550,7 @@ public class TestSortImpl extends DrillTest {
     results.close();
     dest.clear();
     sort.close();
+    sort.opContext().close();
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 

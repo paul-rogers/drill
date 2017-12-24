@@ -67,7 +67,7 @@ package org.apache.drill.exec.vector.accessor;
 import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.expr.fn.impl.DateUtility;
+import org.apache.drill.exec.vector.DateUtilities;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
@@ -185,16 +185,16 @@ public class ColumnAccessors {
           type.getScale(),
           type.getPrecision());
     <#elseif drillType == "IntervalYear">
-      return DateUtility.fromIntervalYear(
+      return DateUtilities.fromIntervalYear(
           buf.unsafeGetInt(${getOffset}));
     <#elseif drillType == "IntervalDay">
       final int offset = ${getOffset};
-      return DateUtility.fromIntervalDay(
+      return DateUtilities.fromIntervalDay(
           buf.unsafeGetInt(offset), 
           buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
     <#elseif drillType == "Interval">
       final int offset = ${getOffset};
-      return DateUtility.fromInterval(
+      return DateUtilities.fromInterval(
           buf.unsafeGetInt(offset), 
           buf.unsafeGetInt(offset + ${minor.daysOffset}),
           buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
@@ -308,12 +308,12 @@ public class ColumnAccessors {
       <#elseif drillType == "IntervalDay">
       final int offset = ${putOffset};
       drillBuf.unsafePutInt(offset, value.getDays());
-      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtility.periodToMillis(value));
+      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
       <#elseif drillType == "Interval">
       final int offset = ${putOffset};
-      drillBuf.unsafePutInt(offset, DateUtility.periodToMonths(value));
+      drillBuf.unsafePutInt(offset, DateUtilities.periodToMonths(value));
       drillBuf.unsafePutInt(offset + ${minor.daysOffset}, value.getDays());
-      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtility.periodToMillis(value));
+      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
       <#elseif drillType == "Float4">
       drillBuf.unsafePutInt(${putOffset}, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">

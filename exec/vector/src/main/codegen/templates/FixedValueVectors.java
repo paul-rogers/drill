@@ -28,7 +28,6 @@
 package org.apache.drill.exec.vector;
 
 <#include "/@includes/vv_imports.ftl" />
-import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.util.DecimalUtility;
 
 /**
@@ -408,7 +407,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final int months  = data.getInt(offsetIndex);
       final int days    = data.getInt(offsetIndex + ${minor.daysOffset});
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      return DateUtility.fromInterval(months, days, millis);
+      return DateUtilities.fromInterval(months, days, millis);
     }
 
     public StringBuilder getAsStringBuilder(int index) {
@@ -416,7 +415,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final int months = data.getInt(offsetIndex);
       final int days   = data.getInt(offsetIndex + ${minor.daysOffset});
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});      
-      return DateUtility.intervalStringBuilder(months, days, millis);
+      return DateUtilities.intervalStringBuilder(months, days, millis);
     }
     <#elseif (minor.class == "IntervalDay")>
     
@@ -438,14 +437,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final int offsetIndex = index * VALUE_WIDTH;
       final int days   = data.getInt(offsetIndex);
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      return DateUtility.fromIntervalDay(days, millis);
+      return DateUtilities.fromIntervalDay(days, millis);
     }
 
     public StringBuilder getAsStringBuilder(int index) {
       final int offsetIndex = index * VALUE_WIDTH;
       final int days   = data.getInt(offsetIndex);
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});     
-      return DateUtility.intervalDayStringBuilder(days, millis);
+      return DateUtilities.intervalDayStringBuilder(days, millis);
     }
     <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
 
@@ -524,11 +523,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     @Override
     public ${friendlyType} getObject(int index) {
-      return DateUtility.fromIntervalYear(get(index));
+      return DateUtilities.fromIntervalYear(get(index));
     }
 
     public StringBuilder getAsStringBuilder(int index) {
-      return DateUtility.intervalYearStringBuilder(data.getInt(index));
+      return DateUtilities.intervalYearStringBuilder(data.getInt(index));
     }
     <#elseif minor.class == "Time">
 

@@ -373,7 +373,7 @@ public class VectorContainer implements VectorAccessible {
   }
 
   public int getNumberOfColumns() {
-    return this.wrappers.size();
+    return wrappers.size();
   }
 
   public void allocateNew() {

@@ -36,6 +36,8 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * Implementation of the external sort which is wrapped into the Drill
  * "next" protocol by the {@link ExternalSortBatch} class.
@@ -213,6 +215,9 @@ public class SortImpl {
     boolean allowed = allocator.setLenient();
     logger.debug("Config: Is allocator lenient? {}", allowed);
   }
+
+  @VisibleForTesting
+  public OperatorContext opContext() { return context; }
 
   public void setSchema(BatchSchema schema) {
     bufferedBatches.setSchema(schema);
@@ -540,11 +545,11 @@ public class SortImpl {
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }
-    try {
-      context.close();
-    } catch (RuntimeException e) {
-      ex = ex == null ? e : ex;
-    }
+
+    // Note: don't close the operator context here. It must
+    // remain open until all containers are cleared, which
+    // is done in the ExternalSortBatch class.
+
     if (ex != null) {
       throw ex;
     }
