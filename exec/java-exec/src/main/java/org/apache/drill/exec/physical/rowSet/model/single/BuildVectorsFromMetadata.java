@@ -29,6 +29,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -58,17 +59,30 @@ public class BuildVectorsFromMetadata {
   }
 
   private ValueVector buildVector(ColumnMetadata metadata) {
-    if (metadata.isMap()) {
+    switch (metadata.structureType()) {
+    case TUPLE:
       return buildMap(metadata);
-    } else if (metadata.isVariant()) {
+    case VARIANT:
       if (metadata.isArray()) {
         return builList(metadata);
       } else {
         return buildUnion(metadata);
       }
-    } else {
+    case MULTI_ARRAY:
+      return buildRepeatedList(metadata);
+    default:
       return TypeHelper.getNewVector(metadata.schema(), allocator, null);
     }
+  }
+
+  private ValueVector buildRepeatedList(ColumnMetadata metadata) {
+    RepeatedListVector listVector = new RepeatedListVector(metadata.emptySchema(), allocator, null);
+    if (metadata.childSchema() != null) {
+      @SuppressWarnings("resource")
+      ValueVector child = buildVector(metadata.childSchema());
+      listVector.setChildVector(child);
+    }
+    return listVector;
   }
 
   /**

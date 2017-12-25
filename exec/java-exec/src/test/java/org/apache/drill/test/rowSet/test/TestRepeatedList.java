@@ -23,10 +23,16 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.RepeatedVarCharVector;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
@@ -55,18 +61,18 @@ public class TestRepeatedList extends SubOperatorTest {
 
   @Test
   public void testSchemaIncompleteMetadata() {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .build()
-        .build();
+        .buildSchema();
 
-    assertEquals(2, schema.getFieldCount());
-    MaterializedField list = schema.getColumn(1);
-    assertEquals("list2", list.getName());
-    assertEquals(MinorType.LIST, list.getType().getMinorType());
-    assertEquals(DataMode.REPEATED, list.getType().getMode());
-    assertTrue(list.getChildren().isEmpty());
+    assertEquals(2, schema.size());
+    ColumnMetadata list = schema.metadata(1);
+    assertEquals("list2", list.name());
+    assertEquals(MinorType.LIST, list.type());
+    assertEquals(DataMode.REPEATED, list.mode());
+    assertNull(list.childSchema());
   }
 
   /**
@@ -201,4 +207,45 @@ public class TestRepeatedList extends SubOperatorTest {
     assertNull(child2.childSchema());
   }
 
+  @Test
+  public void testIncompleteVectors() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+          .addRepeatedList("list2")
+            .build()
+        .buildSchema();
+
+    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    VectorContainer container = rowSet.container();
+    assertEquals(2, container.getNumberOfColumns());
+    assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
+    @SuppressWarnings("resource")
+    RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
+    assertSame(BaseRepeatedValueVector.DEFAULT_DATA_VECTOR, list.getDataVector());
+    assertTrue(list.getField().getChildren().isEmpty());
+    rowSet.clear();
+  }
+
+  @Test
+  public void testSchema2DVector() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+          .addRepeatedList("list2")
+            .addArray(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    VectorContainer container = rowSet.container();
+    assertEquals(2, container.getNumberOfColumns());
+    assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
+    @SuppressWarnings("resource")
+    RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
+    assertEquals(1, list.getField().getChildren().size());
+    @SuppressWarnings("resource")
+    ValueVector child = list.getDataVector();
+    assertTrue(child instanceof RepeatedVarCharVector);
+    assertSame(list.getField().getChildren().iterator().next(), child.getField());
+    rowSet.clear();
+  }
 }

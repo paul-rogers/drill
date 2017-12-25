@@ -316,6 +316,10 @@ public class RepeatedListVector extends AbstractContainerVector
     return result;
   }
 
+  public void setChildVector(ValueVector childVector) {
+    delegate.setChildVector(childVector);
+  }
+
   @Override
   public int size() {
     return delegate.size();

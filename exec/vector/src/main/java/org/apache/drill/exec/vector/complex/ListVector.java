@@ -289,19 +289,17 @@ public class ListVector extends BaseRepeatedValueVector {
     return getDataVector() == DEFAULT_DATA_VECTOR;
   }
 
+  @Override
   public void setChildVector(ValueVector childVector) {
 
-    // When created, the list uses the default vector of type LATE.
-    // That entry appears as a child vector. Remove it and add the
-    // new type instead.
+    // Unlike the repeated list vector, the (plain) list vector
+    // adds the dummy vector as a child type.
 
-    assert vector == DEFAULT_DATA_VECTOR;
     assert field.getChildren().size() == 1;
     assert field.getChildren().iterator().next().getType().getMinorType() == MinorType.LATE;
     field.removeChild(vector.getField());
-    replaceDataVector(childVector);
-    field.addChild(childVector.getField());
-    assert field.getChildren().size() == 1;
+
+    super.setChildVector(childVector);
 
     // Initial LATE type vector not added as a subtype initially.
     // So, no need to remove it, just add the new subtype. Since the
