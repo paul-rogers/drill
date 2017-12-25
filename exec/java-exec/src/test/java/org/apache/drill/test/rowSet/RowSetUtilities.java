@@ -227,6 +227,10 @@ public class RowSetUtilities {
     return new Object[] { element };
   }
 
+  public static Object[] objArray(Object... elements) {
+    return elements;
+  }
+
   public static void verify(RowSet expected, RowSet actual) {
     new RowSetComparison(expected).verifyAndClearAll(actual);
   }

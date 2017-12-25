@@ -22,6 +22,7 @@ import java.lang.reflect.Array;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 
 /**
  * Writer for an array of either a map or another array. Here, the contents
@@ -107,9 +108,18 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
 
 public class ObjectArrayWriter extends BaseArrayWriter {
 
-  protected ObjectArrayWriter(ColumnMetadata schema, UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
+  protected ObjectArrayWriter(ColumnMetadata schema,
+      UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
     super(schema, offsetVector, elementWriter);
     elementIndex = new ArrayElementWriterIndex();
+  }
+
+  public static AbstractObjectWriter buildRepeatedList(ColumnMetadata schema,
+      RepeatedListVector vector, AbstractObjectWriter elementWriter) {
+    AbstractArrayWriter arrayWriter = new ObjectArrayWriter(schema,
+        vector.getOffsetVector(),
+        elementWriter);
+    return new ArrayObjectWriter(arrayWriter);
   }
 
   @Override

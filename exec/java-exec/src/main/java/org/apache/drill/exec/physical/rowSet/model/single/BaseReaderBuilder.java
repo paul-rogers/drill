@@ -37,6 +37,7 @@ import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
@@ -63,7 +64,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     case UNION:
       return buildUnion((UnionVector) vector, va, descrip);
     case LIST:
-      return buildList((ListVector) vector, va, descrip);
+      return buildList(vector, va, descrip);
     case LATE:
 
       // Occurs for a list with no type: a list of nulls.
@@ -130,6 +131,27 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
         variants);
   }
 
+  private AbstractObjectReader buildList(ValueVector vector, VectorAccessor listAccessor,
+      VectorDescrip listDescrip) {
+    if (vector.getField().getType().getMode() == DataMode.REPEATED) {
+      return buildMultiDList((RepeatedListVector) vector, listAccessor, listDescrip);
+    } else
+      return build1DList((ListVector) vector, listAccessor, listDescrip);
+  }
+
+  @SuppressWarnings("resource")
+  private AbstractObjectReader buildMultiDList(RepeatedListVector vector,
+      VectorAccessor listAccessor, VectorDescrip listDescrip) {
+
+    ValueVector child = vector.getDataVector();
+    if (child == null) {
+      throw new UnsupportedOperationException("No child vector for repeated list.");
+    }
+    VectorDescrip childDescrip = new VectorDescrip(listDescrip.childProvider(), 0, child.getField());
+    AbstractObjectReader elementReader = buildVectorReader(child, childDescrip);
+    return ArrayReaderImpl.buildRepeatedList(listDescrip.metadata, listAccessor, elementReader);
+  }
+
   /**
    * Build a list vector.
    * <p>
@@ -154,7 +176,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
    */
 
   @SuppressWarnings("resource")
-  private AbstractObjectReader buildList(ListVector vector, VectorAccessor listAccessor,
+  private AbstractObjectReader build1DList(ListVector vector, VectorAccessor listAccessor,
       VectorDescrip listDescrip) {
     ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata;

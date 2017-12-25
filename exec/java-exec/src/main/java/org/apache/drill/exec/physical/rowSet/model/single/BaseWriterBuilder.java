@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.model.single;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
@@ -30,11 +31,13 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -66,7 +69,7 @@ public abstract class BaseWriterBuilder {
       return buildUnion((UnionVector) vector, descrip);
 
     case LIST:
-      return buildList((ListVector) vector, descrip);
+      return buildList(vector, descrip);
 
     default:
       return ColumnWriterFactory.buildColumnWriter(descrip.metadata, vector);
@@ -114,12 +117,34 @@ public abstract class BaseWriterBuilder {
         new UnionWriterImpl(descrip.metadata, vector, variants));
   }
 
-  @SuppressWarnings("resource")
-  private AbstractObjectWriter buildList(ListVector vector,
+  private AbstractObjectWriter buildList(ValueVector vector,
       VectorDescrip descrip) {
     if (vector == null) {
-      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
+      throw new UnsupportedOperationException("Dummy list writer not yet supported");
     }
+    if (vector.getField().getType().getMode() == DataMode.REPEATED) {
+      return buildMultiDList((RepeatedListVector) vector, descrip);
+    } else {
+      return build1DList((ListVector) vector, descrip);
+    }
+  }
+
+  @SuppressWarnings("resource")
+  private AbstractObjectWriter buildMultiDList(RepeatedListVector vector,
+      VectorDescrip descrip) {
+
+    ValueVector child = vector.getDataVector();
+    if (child == null) {
+      throw new UnsupportedOperationException("No child vector for repeated list.");
+    }
+    VectorDescrip childDescrip = new VectorDescrip(descrip.childProvider(), 0, child.getField());
+    AbstractObjectWriter childWriter = buildVectorWriter(child, childDescrip);
+    return ObjectArrayWriter.buildRepeatedList(descrip.metadata, vector, childWriter);
+  }
+
+  @SuppressWarnings("resource")
+  private AbstractObjectWriter build1DList(ListVector vector,
+      VectorDescrip descrip) {
     ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata;
     if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {

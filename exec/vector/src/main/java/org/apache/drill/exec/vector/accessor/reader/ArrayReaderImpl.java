@@ -20,6 +20,8 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
@@ -271,6 +273,39 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     // value, and the null state of the entry. But, if the list entry itself is
     // null, then we can't iterate over the elements. So, no need to doctor up
     // the entry's null state.
+
+    // Wrap it all in an object reader.
+
+    return new ArrayObjectReader(arrayReader);
+  }
+
+  /**
+   * Build a 2+D array reader. The backing vector must be a repeated
+   * list. The element reader must itself be a repeated list, or a
+   * repeated of some other type.
+   *
+   * @param schema
+   * @param listAccessor
+   * @param elementReader
+   * @return
+   */
+
+  public static AbstractObjectReader buildRepeatedList(ColumnMetadata schema,
+      VectorAccessor listAccessor,
+      AbstractObjectReader elementReader) {
+
+    assert schema.isArray();
+    assert listAccessor.type().getMinorType() == MinorType.LIST;
+    assert listAccessor.type().getMode() == DataMode.REPEATED;
+    assert elementReader.type() == ObjectType.ARRAY;
+
+    // Create the array over whatever it is that the list holds.
+
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(schema, listAccessor, elementReader);
+
+    // The repeated list has no bits vector, all values are non-null.
+
+    arrayReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
 
     // Wrap it all in an object reader.
 

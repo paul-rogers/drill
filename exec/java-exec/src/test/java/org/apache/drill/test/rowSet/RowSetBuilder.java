@@ -77,7 +77,7 @@ public final class RowSetBuilder {
    */
 
   public RowSetBuilder addRow(Object...values) {
-    writer.setRow(values);
+    writer.addRow(values);
     return this;
   }
 

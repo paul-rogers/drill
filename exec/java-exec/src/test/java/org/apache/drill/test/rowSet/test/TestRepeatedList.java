@@ -18,6 +18,8 @@
 package org.apache.drill.test.rowSet.test;
 
 import static org.junit.Assert.*;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -28,11 +30,23 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.RepeatedVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectReader;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.DirectRowSet;
+import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSetUtilities;
+import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
@@ -211,8 +225,8 @@ public class TestRepeatedList extends SubOperatorTest {
   public void testIncompleteVectors() {
     TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
-          .addRepeatedList("list2")
-            .build()
+        .addRepeatedList("list2")
+          .build()
         .buildSchema();
 
     DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
@@ -230,8 +244,8 @@ public class TestRepeatedList extends SubOperatorTest {
   public void testSchema2DVector() {
     TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
-          .addRepeatedList("list2")
-            .addArray(MinorType.VARCHAR)
+        .addRepeatedList("list2")
+          .addArray(MinorType.VARCHAR)
           .build()
         .buildSchema();
 
@@ -242,10 +256,143 @@ public class TestRepeatedList extends SubOperatorTest {
     @SuppressWarnings("resource")
     RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
     assertEquals(1, list.getField().getChildren().size());
+
     @SuppressWarnings("resource")
     ValueVector child = list.getDataVector();
     assertTrue(child instanceof RepeatedVarCharVector);
     assertSame(list.getField().getChildren().iterator().next(), child.getField());
     rowSet.clear();
+  }
+
+  @Test
+  public void testSchema3DVector() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addRepeatedList("list2")
+          .addDimension()
+            .addArray(MinorType.VARCHAR)
+            .endDimension()
+          .build()
+        .buildSchema();
+
+    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    VectorContainer container = rowSet.container();
+    assertEquals(2, container.getNumberOfColumns());
+    assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
+    @SuppressWarnings("resource")
+    RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
+    assertEquals(1, list.getField().getChildren().size());
+
+    assertTrue(list.getDataVector() instanceof RepeatedListVector);
+    @SuppressWarnings("resource")
+    RepeatedListVector child1 = (RepeatedListVector) list.getDataVector();
+    assertEquals(1, child1.getField().getChildren().size());
+    assertSame(list.getField().getChildren().iterator().next(), child1.getField());
+
+    @SuppressWarnings("resource")
+    ValueVector child2 = child1.getDataVector();
+    assertTrue(child2 instanceof RepeatedVarCharVector);
+    assertSame(child1.getField().getChildren().iterator().next(), child2.getField());
+    rowSet.clear();
+  }
+
+  @Test
+  public void testSchema2DWriterReader() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addRepeatedList("list2")
+          .addArray(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    SingleRowSet result;
+    {
+      RowSetWriter writer = rowSet.writer();
+      assertEquals(2, writer.size());
+      ObjectWriter listObj = writer.column("list2");
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayWriter listWriter = listObj.array();
+      assertEquals(ObjectType.ARRAY, listWriter.entryType());
+      ArrayWriter innerWriter = listWriter.array();
+      assertEquals(ObjectType.SCALAR, innerWriter.entryType());
+      ScalarWriter strWriter = innerWriter.scalar();
+
+      // Write one row using writers explicitly.
+      //
+      // (1, [["a, "b"], ["c", "d"]])
+      //
+      // Note auto increment of inner list on write.
+
+      writer.scalar("id").setInt(1);
+      strWriter.setString("a");
+      strWriter.setString("b");
+      listWriter.save();
+      strWriter.setString("c");
+      strWriter.setString("d");
+      listWriter.save();
+      writer.save();
+
+      // Write more rows using the convenience methods.
+      //
+      // (2, [["e"], [], ["f", "g", "h"]])
+      // (3, [])
+      // (4, [[], ["i"], []])
+
+      writer
+        .addRow(2, objArray(strArray("e"), strArray(), strArray("f", "g", "h")))
+        .addRow(3, objArray())
+        .addRow(4, objArray(strArray(), strArray("i"), strArray()));
+
+      result = writer.done();
+    }
+
+    // Verify one row using the individual readers.
+
+    {
+      RowSetReader reader = result.reader();
+
+      assertEquals(2, reader.columnCount());
+      ObjectReader listObj = reader.column("list2");
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayReader listReader = listObj.array();
+      assertEquals(ObjectType.ARRAY, listReader.entryType());
+      ArrayReader innerReader = listReader.array();
+      assertEquals(ObjectType.SCALAR, innerReader.entryType());
+      ScalarReader strReader = innerReader.scalar();
+
+      // Write one row using writers explicitly.
+      //
+      // (1, [["a, "b"], ["c", "d"]])
+
+      assertTrue(reader.next());
+      assertEquals(2, listReader.size());
+        assertTrue(listReader.next());
+          assertEquals(2, innerReader.size());
+          assertTrue(innerReader.next());
+          assertEquals("a", strReader.getString());
+          assertTrue(innerReader.next());
+          assertEquals("b", strReader.getString());
+          assertFalse(innerReader.next());
+        assertTrue(listReader.next());
+          assertEquals(2, innerReader.size());
+          assertTrue(innerReader.next());
+          assertEquals("c", strReader.getString());
+          assertTrue(innerReader.next());
+          assertEquals("d", strReader.getString());
+          assertFalse(innerReader.next());
+        assertFalse(listReader.next());
+    }
+
+    // Verify both rows by building another row set and comparing.
+
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, objArray(strArray("a", "b"), strArray("c", "d")))
+        .addRow(2, objArray(strArray("e"), strArray(), strArray("f", "g", "h")))
+        .addRow(3, objArray())
+        .addRow(4, objArray(strArray(), strArray("i"), strArray()))
+        .build();
+
+    RowSetUtilities.verify(expected, result);
   }
 }
