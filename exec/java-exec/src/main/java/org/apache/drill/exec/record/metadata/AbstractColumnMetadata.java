@@ -113,6 +113,9 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
   public boolean isArray() { return mode() == DataMode.REPEATED; }
 
   @Override
+  public int dimensions() { return isArray() ? 1 : 0; }
+
+  @Override
   public boolean isMap() { return false; }
 
   @Override
@@ -123,6 +126,9 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
 
   @Override
   public VariantMetadata variantSchema() { return null; }
+
+  @Override
+  public ColumnMetadata childSchema() { return null; }
 
   @Override
   public boolean isVariableWidth() {
@@ -161,6 +167,7 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
   @Override
   public int expectedElementCount() { return expectedElementCount; }
 
+  @Override
   public void setProjected(boolean projected) {
     this.projected = projected;
   }

@@ -37,7 +37,8 @@ public class MetadataUtils {
   /**
    * Create a column metadata object that holds the given
    * {@link MaterializedField}. The type of the object will be either a
-   * primitive or map column, depending on the field's type.
+   * primitive or map column, depending on the field's type. The logic
+   * here mimics the code as written, which is very messy in some places.
    *
    * @param field the materialized field to wrap
    * @return the column metadata that wraps the field
@@ -49,11 +50,30 @@ public class MetadataUtils {
     case MAP:
       return MetadataUtils.newMap(field);
     case UNION:
-    case LIST:
       if (field.getType().getMode() != DataMode.OPTIONAL) {
-        throw new UnsupportedOperationException(type.toString() + " type must be nullable");
+        throw new UnsupportedOperationException(type.name() + " type must be nullable");
       }
       return new VariantColumnMetadata(field);
+    case LIST:
+      switch (field.getType().getMode()) {
+      case OPTIONAL:
+
+        // List of unions (or a degenerate union of a single type.)
+        // Not supported in Drill.
+
+        return new VariantColumnMetadata(field);
+      case REPEATED:
+
+        // Not a list at all, but rather the second (or third...)
+        // dimension on a repeated type.
+
+        return new RepeatedListColumnMetadata(field);
+      default:
+        throw new UnsupportedOperationException(
+            String.format("Unsupported mode %s for type %s",
+                field.getType().getMode().name(),
+                type.name()));
+      }
     default:
       return new PrimitiveColumnMetadata(field);
     }

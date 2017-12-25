@@ -55,6 +55,12 @@ import org.junit.Test;
 
 /**
  * Tests for readers and writers for union and list types.
+ * <p>
+ * Note that the union type is only partially supported in Drill.
+ * The list type is unsupported. (However, the list type works in
+ * the schema builder, row set writer, row set reader and the
+ * result set builder. It does not, however, work in the Project
+ * and other operators. Some assembly required for future use.)
  */
 
 public class TestVariant extends SubOperatorTest {

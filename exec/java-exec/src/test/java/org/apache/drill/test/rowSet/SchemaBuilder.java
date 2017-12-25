@@ -249,6 +249,63 @@ public class SchemaBuilder {
     }
   }
 
+  /**
+   * Builder for a repeated list. Drill's metadata represents a repeated
+   * list as a chain of materialized fields and that is the pattern used
+   * here. It would certainly be cleaner to have a single field, with the
+   * number of dimensions as a property, but that is not how Drill evolved.
+   */
+
+  public static class RepeatedListBuilder {
+
+    private final String name;
+    private final SchemaBuilder parentTuple;
+    private final RepeatedListBuilder parentList;
+    private MaterializedField child;
+
+    public RepeatedListBuilder(SchemaBuilder parent, String name) {
+      this.name = name;
+      parentTuple = parent;
+      parentList = null;
+    }
+
+    public RepeatedListBuilder(RepeatedListBuilder parent) {
+      this.name = parent.name;
+      parentList = parent;
+      parentTuple = null;
+    }
+
+    public RepeatedListBuilder addDimension() {
+      return new RepeatedListBuilder(this);
+    }
+
+    public RepeatedListBuilder addArray(MinorType type) {
+      // Existing code uses the repeated list name as the name of
+      // the vector within the list.
+
+      child = columnSchema(name, type, DataMode.REPEATED);
+      return this;
+    }
+
+    private MaterializedField buildField() {
+      MaterializedField field = columnSchema(name, MinorType.LIST, DataMode.REPEATED);
+      if (child != null) {
+        field.addChild(child);
+      }
+      return field;
+    }
+
+    public RepeatedListBuilder endDimension() {
+      parentList.child = buildField();
+      return parentList;
+    }
+
+    public SchemaBuilder build() {
+      parentTuple.add(buildField());
+      return parentTuple;
+    }
+  }
+
   protected TupleSchema schema = new TupleSchema();
   private SelectionVectorMode svMode = SelectionVectorMode.NONE;
 
@@ -321,6 +378,10 @@ public class SchemaBuilder {
     return add(name, type, DataMode.REPEATED);
   }
 
+//  public SchemaBuilder addArray(String name, MinorType type, int dims) {
+//    return add(name, type, DataMode.REPEATED);
+//  }
+
   /**
    * Add a map column. The returned schema builder is for the nested
    * map. Building that map, using {@link MapBuilder#buildMap()},
@@ -343,7 +404,11 @@ public class SchemaBuilder {
   }
 
   public UnionBuilder addList(String name) {
-    return new UnionBuilder(this, name, DataMode.REPEATED);
+    return new UnionBuilder(this, name, DataMode.OPTIONAL);
+  }
+
+  public RepeatedListBuilder addRepeatedList(String name) {
+    return new RepeatedListBuilder(this, name);
   }
 
   public SchemaBuilder withSVMode(SelectionVectorMode svMode) {
