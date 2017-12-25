@@ -20,9 +20,11 @@ package org.apache.drill.exec.physical.rowSet.model.single;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -31,6 +33,7 @@ import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -48,13 +51,18 @@ public class SingleSchemaInference {
     return MetadataUtils.fromColumns(columns);
   }
 
-  private ColumnMetadata inferVector(ValueVector vector) {
+  private AbstractColumnMetadata inferVector(ValueVector vector) {
     MaterializedField field = vector.getField();
     switch (field.getType().getMinorType()) {
     case MAP:
       return MetadataUtils.newMap(field, inferMapSchema((AbstractMapVector) vector));
     case LIST:
-      return MetadataUtils.newVariant(field, inferListSchema((ListVector) vector));
+      if (field.getDataMode() == DataMode.REPEATED) {
+        return MetadataUtils.newRepeatedList(field.getName(),
+            inferVector(((RepeatedListVector) vector).getDataVector()));
+      } else {
+        return MetadataUtils.newVariant(field, inferListSchema((ListVector) vector));
+      }
     case UNION:
       return MetadataUtils.newVariant(field, inferUnionSchema((UnionVector) vector));
     default:

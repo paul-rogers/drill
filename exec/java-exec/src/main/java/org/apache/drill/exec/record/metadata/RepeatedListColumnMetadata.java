@@ -34,18 +34,20 @@ public class RepeatedListColumnMetadata extends AbstractColumnMetadata {
     Preconditions.checkArgument(field.getChildren().size() <= 1);
     if (! field.getChildren().isEmpty()) {
       childSchema = MetadataUtils.fromField(field.getChildren().iterator().next());
+      Preconditions.checkArgument(childSchema.isArray());
     }
+  }
+
+  public RepeatedListColumnMetadata(String name, AbstractColumnMetadata childSchema) {
+    super(name, MinorType.LIST, DataMode.REPEATED);
+    Preconditions.checkArgument(childSchema.isArray());
+    this.childSchema = childSchema;
   }
 
   public void childSchema(ColumnMetadata childMetadata) {
     Preconditions.checkState(childSchema == null);
     Preconditions.checkArgument(childMetadata.mode() == DataMode.REPEATED);
     childSchema = (AbstractColumnMetadata) childMetadata;
-  }
-
-  public RepeatedListColumnMetadata(String name, AbstractColumnMetadata childSchema) {
-    super(name, MinorType.LIST, DataMode.REPEATED);
-    this.childSchema = childSchema;
   }
 
   @Override

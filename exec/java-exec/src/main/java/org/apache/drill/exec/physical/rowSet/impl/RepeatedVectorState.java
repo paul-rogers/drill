@@ -20,9 +20,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
@@ -37,7 +37,7 @@ public class RepeatedVectorState implements VectorState {
   private final OffsetVectorState offsetsState;
   private final SimpleVectorState valuesState;
 
-  public RepeatedVectorState(AbstractObjectWriter writer, RepeatedValueVector vector) {
+  public RepeatedVectorState(ArrayWriter writer, RepeatedValueVector vector) {
 
     // Get the repeated vector
 
@@ -46,17 +46,17 @@ public class RepeatedVectorState implements VectorState {
     // Create the values state using the value (data) portion of the repeated
     // vector, and the scalar (value) portion of the array writer.
 
-    arrayWriter = (AbstractArrayWriter) writer.array();
-    AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
+    arrayWriter = (AbstractArrayWriter) writer;
+    AbstractScalarWriter colWriter = (AbstractScalarWriter) writer.scalar();
     valuesState = SimpleVectorState.vectorState(writer.schema(), colWriter, vector.getDataVector());
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
     offsetsState = new OffsetVectorState(
-        (arrayWriter.offsetWriter()),
+        arrayWriter.offsetWriter(),
         vector.getOffsetVector(),
-        arrayWriter.entry());
+        colWriter);
   }
 
   @SuppressWarnings("unchecked")

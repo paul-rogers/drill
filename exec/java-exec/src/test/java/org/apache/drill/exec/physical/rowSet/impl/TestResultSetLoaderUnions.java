@@ -106,8 +106,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
       .addRow(2, mapValue(20, "fred"))
       .addRow(3, null)
       .addRow(4, mapValue(40, null))
-      .addRow(5, "last")
-      ;
+      .addRow(5, "last");
 
     // Verify the values.
     // (Relies on the row set level union tests having passed.)
@@ -120,8 +119,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
       .addRow(5, "last")
       .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(rsLoader.harvest()));
+    RowSetUtilities.verify(expected, fixture.wrap(rsLoader.harvest()));
   }
 
   @Test
@@ -292,6 +290,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     }
     assertEquals(readCount - startCount, result.rowCount());
     result.clear();
+    rsLoader.close();
   }
 
   /**
@@ -562,6 +561,19 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
       .verifyAndClearAll(result);
   }
 
+  /**
+   * The semantics of the ListVector are such that it allows
+   * multi-dimensional lists. In this way, it is like a (slightly
+   * more normalized) version of the repeated list vector. This form
+   * allows arrays to be null.
+   * <p>
+   * This test verifies that the (non-repeated) list vector can
+   * be used to create multi-dimensional arrays in the result set
+   * loader layer. However, the rest of Drill does not support this
+   * functionality at present, so this test is more of a proof-of-
+   * concept than a necessity.
+   */
+
   @SuppressWarnings("resource")
   @Test
   public void testListofListofScalar() {
@@ -623,5 +635,4 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .build();
     RowSetUtilities.verify(expected, results);
   }
-
 }

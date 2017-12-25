@@ -149,4 +149,8 @@ public class MetadataUtils {
     }
   }
 
+  public static RepeatedListColumnMetadata newRepeatedList(String name, AbstractColumnMetadata child) {
+    return new RepeatedListColumnMetadata(name, child);
+  }
+
 }

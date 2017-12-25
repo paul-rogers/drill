@@ -19,10 +19,13 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.PrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.RepeatedListColumnState.RepeatedListVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
@@ -44,12 +47,14 @@ import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.EmptyListShim;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
@@ -90,15 +95,18 @@ public class ColumnBuilder {
 
     // Build the column
 
-    if (columnSchema.isMap()) {
+    switch (columnSchema.structureType()) {
+    case TUPLE:
       return buildMap(parent, columnSchema);
-    } else if (columnSchema.isVariant()) {
+    case VARIANT:
       if (columnSchema.isArray()) {
         return buildList(parent, columnSchema);
       } else {
         return buildUnion(parent, columnSchema);
       }
-    } else {
+    case MULTI_ARRAY:
+      return buildRepeatedList(parent, columnSchema);
+    default:
       return buildPrimitive(parent, columnSchema);
     }
   }
@@ -145,7 +153,7 @@ public class ColumnBuilder {
     if (vector == null) {
       vectorState = new NullVectorState();
     } else if (columnSchema.isArray()) {
-      vectorState = new RepeatedVectorState(colWriter, (RepeatedValueVector) vector);
+      vectorState = new RepeatedVectorState(colWriter.array(), (RepeatedValueVector) vector);
     } else if (columnSchema.isNullable()) {
       vectorState = new NullableVectorState(
           colWriter,
@@ -268,6 +276,24 @@ public class ColumnBuilder {
     return new MapColumnState(mapState, writer, mapVectorState, parent.isVersioned());
   }
 
+  /**
+   * Builds a union column.
+   * <p>
+   * The union vector type is not well supported in Drill. The idea is that
+   * arbitrary operators can absorb schema changes by converting vectors to
+   * unions so that an operator can handle, say, a nullable int and a varchar.
+   * In practice, most operators don't support this feature. (Sort does -- but
+   * does not manage memory for the union case.) In principal, union can't solve
+   * the problem because ODBC and JDBC don't support unions, and it is easy
+   * to envision changes that unions won't solve (int and varchar types combining
+   * in a join column, say.) Still, Drill supports unions, so the code here
+   * does so. Unions are fully tested in the row set writer mechanism.
+   *
+   * @param parent
+   * @param columnSchema
+   * @return
+   */
+
   @SuppressWarnings("resource")
   private static ColumnState buildUnion(ContainerState parent, ColumnMetadata columnSchema) {
     assert columnSchema.isVariant() && ! columnSchema.isArray();
@@ -330,6 +356,10 @@ public class ColumnBuilder {
    * Create a list that is promised to only ever contain a single type (at least
    * during this write session). The list acts as a repeated vector in which each
    * element can be null. The writer is presented as an array of the single type.
+   * <p>
+   * List vectors (lists of optional values) are not supported in
+   * Drill. The code here works up through the scan operator. But, other operators do
+   * not support the <tt>ListVector</tt> type.
    *
    * @param parent the parent (tuple, union or list) that holds this list
    * @param columnSchema metadata description of the list which must contain
@@ -385,6 +415,10 @@ public class ColumnBuilder {
    * list of nulls (no child type), to a list of a single type, to a list of unions.
    * The writer interface will consistently present the list as a list of unions, even
    * when the list itself has no subtype or a single subtype.
+   * <p>
+   * List vectors (lists of unions) are not supported in
+   * Drill. The code here works up through the scan operator. But, other operators do
+   * not support the <tt>ListVector</tt> type.
    *
    * @param parent the parent (tuple, union or list) that holds this list
    * @param columnSchema metadata description of the list (must be empty of
@@ -438,5 +472,46 @@ public class ColumnBuilder {
 
     return new UnionColumnState(parent.loader(),
         listWriter, vectorState, listState);
+  }
+
+  @SuppressWarnings("resource")
+  private static ColumnState buildRepeatedList(ContainerState parent,
+      ColumnMetadata columnSchema) {
+
+    assert columnSchema.type() == MinorType.LIST;
+    assert columnSchema.mode() == DataMode.REPEATED;
+
+    // The schema must describe the column "all the way down"
+    // the dimensions. Repeated lists don't allow dynamically
+    // setting the type the way the "list vector" does.
+
+    assert columnSchema.childSchema() != null;
+
+    // Build the child.
+
+    ColumnState childState = buildColumn(parent, columnSchema.childSchema());
+
+    // Build the repeated vector.
+
+    RepeatedListVector vector = new RepeatedListVector(
+        columnSchema.emptySchema(), parent.loader().allocator(), null);
+    vector.setChildVector(childState.vector());
+
+    // Create the list writer: an array of arrays.
+
+    AbstractObjectWriter arrayWriter = ObjectArrayWriter.buildRepeatedList(
+        columnSchema, vector, childState.writer());
+
+    // Create the list vector state that tracks the list vector lifecycle.
+    // For a repeated list, we only care about
+
+    RepeatedListVectorState vectorState = new RepeatedListVectorState(
+        arrayWriter.array(), vector);
+
+    // Assemble it all into a column state. This state will
+    // propagate events down to the (one and only) child state.
+
+    return new RepeatedListColumnState(parent.loader(),
+        arrayWriter, vectorState, childState);
   }
 }

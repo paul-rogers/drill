@@ -51,6 +51,13 @@ import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
+/**
+ * Test the basics of repeated list support in the schema builder,
+ * column writers and column readers. These tests work with a
+ * single row set (batch). These tests should pass before moving
+ * on to the result set loader tests.
+ */
+
 public class TestRepeatedList extends SubOperatorTest {
 
   /**

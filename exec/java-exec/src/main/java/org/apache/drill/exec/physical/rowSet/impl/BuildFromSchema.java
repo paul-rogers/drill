@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
@@ -44,10 +45,12 @@ public class BuildFromSchema {
     for (int i = 0; i < schema.size(); i++) {
       ColumnMetadata colSchema = schema.metadata(i);
 
-      // Single-type lists are special and require the type information at
+      // Single-type lists and repeated lists are special: they
+      // require the type information at
       // creation time, as is the case with repeated types.
 
-      if (isSingleList(colSchema)) {
+      if (isSingleList(colSchema) ||
+          colSchema.structureType() == StructureType.MULTI_ARRAY) {
         writer.addColumn(colSchema);
       } else {
         int index = writer.addColumn(colSchema.cloneEmpty());
