@@ -378,9 +378,36 @@ public class SchemaBuilder {
     return add(name, type, DataMode.REPEATED);
   }
 
-//  public SchemaBuilder addArray(String name, MinorType type, int dims) {
-//    return add(name, type, DataMode.REPEATED);
-//  }
+  /**
+   * Add a multi-dimensional array, implemented as a repeated vector
+   * along with 0 or more repeated list vectors.
+   *
+   * @param name column name
+   * @param type base data type
+   * @param dims number of dimensions, 1 or more
+   * @return this builder
+   */
+
+  public SchemaBuilder addArray(String name, MinorType type, int dims) {
+    assert dims >= 1;
+    if (dims == 1) {
+      return addArray(name, type);
+    }
+    RepeatedListBuilder listBuilder = addRepeatedList(name);
+    buildMultiDimArray(listBuilder, type, dims - 1);
+    return listBuilder.build();
+  }
+
+  private void buildMultiDimArray(RepeatedListBuilder listBuilder,
+      MinorType type, int dims) {
+    if (dims == 1) {
+      listBuilder.addArray(type);
+    } else {
+      RepeatedListBuilder childBuilder = listBuilder.addDimension();
+      buildMultiDimArray(childBuilder, type, dims - 1);
+      childBuilder.endDimension();
+    }
+  }
 
   /**
    * Add a map column. The returned schema builder is for the nested

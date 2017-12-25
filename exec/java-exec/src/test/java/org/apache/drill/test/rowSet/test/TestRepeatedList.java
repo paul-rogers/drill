@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet.test;
 import static org.junit.Assert.*;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singlObjArray;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -394,5 +395,59 @@ public class TestRepeatedList extends SubOperatorTest {
         .build();
 
     RowSetUtilities.verify(expected, result);
+  }
+
+  @Test
+  public void testSchema3DWriterReader() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+
+        // Uses a short-hand method to avoid mucking with actual
+        // nested lists.
+
+        .addArray("cube", MinorType.VARCHAR, 3)
+        .buildSchema();
+
+    SingleRowSet actual = fixture.rowSetBuilder(schema)
+      .addRow(1,
+          objArray(
+              objArray(
+                  strArray("a", "b"),
+                  strArray("c")),
+              objArray(
+                  strArray("d", "e", "f"),
+                  null),
+              null,
+              objArray()))
+      .addRow(2, null)
+      .addRow(3, objArray())
+      .addRow(4, objArray(objArray()))
+      .addRow(5, singlObjArray(
+          objArray(
+              strArray("g", "h"),
+              strArray("i"))))
+      .build();
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+      .addRow(1,
+          objArray(
+              objArray(
+                  strArray("a", "b"),
+                  strArray("c")),
+              objArray(
+                  strArray("d", "e", "f"),
+                  strArray()),
+              objArray(),
+              objArray()))
+      .addRow(2, objArray())
+      .addRow(3, objArray())
+      .addRow(4, objArray(objArray()))
+      .addRow(5, singlObjArray(
+          objArray(
+              strArray("g", "h"),
+              strArray("i"))))
+      .build();
+
+    RowSetUtilities.verify(expected, actual);
   }
 }

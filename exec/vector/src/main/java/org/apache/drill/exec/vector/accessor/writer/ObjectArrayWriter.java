@@ -130,6 +130,12 @@ public class ObjectArrayWriter extends BaseArrayWriter {
 
   @Override
   public void setObject(Object array) {
+
+    // Null array = 0-length array
+
+    if (array == null) {
+      return;
+    }
     int size = Array.getLength(array);
     for (int i = 0; i < size; i++) {
       Object value = Array.get(array, i);
