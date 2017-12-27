@@ -231,7 +231,7 @@ public class RowSetUtilities {
     return elements;
   }
 
-  public static Object[] singlObjArray(Object element) {
+  public static Object[] singleObjArray(Object element) {
     return new Object[] {element};
   }
 

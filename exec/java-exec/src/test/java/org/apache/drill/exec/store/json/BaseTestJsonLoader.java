@@ -28,16 +28,18 @@ import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 
-public class JsonLoaderTestUtils {
+public abstract class BaseTestJsonLoader extends SubOperatorTest {
 
   static class JsonTester {
     private final BufferAllocator allocator;
@@ -48,7 +50,6 @@ public class JsonLoaderTestUtils {
     public JsonTester(BufferAllocator allocator, JsonOptions options) {
       this.allocator = allocator;
       this.options = options;
-      options.useArrayTypes = true;
     }
 
     public JsonTester(BufferAllocator allocator) {
@@ -70,11 +71,7 @@ public class JsonLoaderTestUtils {
           ReaderInputStream(new StringReader(json));
       options.context = "test Json";
       JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
-      tableLoader.startBatch();
-      while (loader.next()) {
-        // No op
-      }
-      loader.endBatch();
+      readBatch(tableLoader, loader);
       try {
         inStream.close();
       } catch (IOException e) {
@@ -89,16 +86,53 @@ public class JsonLoaderTestUtils {
     }
   }
 
-  static void expectError(JsonTester tester, String json) {
-      try {
-        tester.parse(json);
-        fail();
-      } catch (UserException e) {
-  //      System.out.println(e.getMessage());
-        // expected
-        assertTrue(e.getMessage().contains("test Json"));
+  protected static boolean readBatch(ResultSetLoader tableLoader, JsonLoader loader) {
+    tableLoader.startBatch();
+    RowSetLoader writer = tableLoader.writer();
+    boolean more = false;
+    while (writer.start()) {
+      more = loader.next();
+      if (! more) {
+        break;
       }
-      tester.close();
+      writer.save();
     }
+    loader.endBatch();
+    return more;
+  }
+
+  protected static void readBatch(ResultSetLoader tableLoader, JsonLoader loader, int count) {
+    tableLoader.startBatch();
+    RowSetLoader writer = tableLoader.writer();
+    for (int i = 0; i < count; i++) {
+      writer.start();
+      assertTrue(loader.next());
+      writer.save();
+    }
+    loader.endBatch();
+  }
+
+  static void expectError(JsonTester tester, String json) {
+    try {
+      tester.parse(json);
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("test Json"));
+    }
+    tester.close();
+  }
+
+  protected JsonTester jsonTester() {
+    return new JsonTester(fixture.allocator());
+  }
+
+  protected JsonTester jsonTester(JsonOptions options) {
+    return new JsonTester(fixture.allocator(), options);
+  }
+
+  protected void expectError(String json) {
+    JsonTester tester = jsonTester();
+    expectError(tester, json);
+  }
 
 }

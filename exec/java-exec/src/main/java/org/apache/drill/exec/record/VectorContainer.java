@@ -367,7 +367,11 @@ public class VectorContainer implements VectorAccessible {
 
   /**
    * Clears the contained vectors.  (See {@link ValueVector#clear}).
+   * Note that the name <tt>zeroVector()</tt> in a value vector is
+   * used for the action to set all vectors to zero. Here it means
+   * to free the vector's memory. Sigh...
    */
+
   public void zeroVectors() {
     VectorAccessibleUtilities.clear(this);
   }

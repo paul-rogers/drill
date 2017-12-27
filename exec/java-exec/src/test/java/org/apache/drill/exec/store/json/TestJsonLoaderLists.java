@@ -40,11 +40,9 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
-import org.apache.drill.exec.store.json.JsonLoaderTestUtils.JsonTester;
 import org.apache.drill.exec.vector.NullableBigIntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.ListVector;
-import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -52,15 +50,13 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
-public class TestJsonLoaderLists extends SubOperatorTest {
+/**
+ * Tests of the experimental JSON list support using the incomplete
+ * list vector. The tests here show that the list vector works for
+ * JSON. There are known problems, however, in other operators.
+ */
 
-//  private JsonTester jsonTester() {
-//    return new JsonTester(fixture.allocator());
-//  }
-
-  private JsonTester jsonTester(JsonOptions options) {
-    return new JsonTester(fixture.allocator(), options);
-  }
+public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   /**
    * Test scalar list support.
@@ -78,7 +74,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: 1, b: [10, null, 20]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     BatchSchema expectedSchema = new SchemaBuilder()
@@ -100,7 +96,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: 1, b: [null, 10, 20]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     BatchSchema expectedSchema = new SchemaBuilder()
@@ -122,7 +118,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: 1, b: [null, null, null]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     BatchSchema expectedSchema = new SchemaBuilder()
@@ -145,18 +141,14 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     InputStream inStream = new
         ReaderInputStream(new StringReader(json));
     JsonOptions options = new JsonOptions();
-    options.useArrayTypes = false;
+    options.useListType = true;
     options.context = "test Json";
     JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
-    tableLoader.startBatch();
-    for (int i = 0; i < 2; i++) {
-      assertTrue(loader.next());
-    }
-    loader.endBatch();
+    readBatch(tableLoader, loader, 2);
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .addList("a")
@@ -167,22 +159,19 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         .addSingleCol(strArray())
         .addSingleCol(strArray())
         .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+    RowSetUtilities.verify(expected,
+        fixture.wrap(tableLoader.harvest()));
 
     // Second batch, read remaining records as text mode.
 
-    tableLoader.startBatch();
-    while (loader.next()) {
-      // No op
-    }
+    readBatch(tableLoader, loader);
     expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(strArray())
         .addSingleCol(strArray("10", "20"))
         .addSingleCol(strArray("foo", "bar"))
         .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+    RowSetUtilities.verify(expected,
+        fixture.wrap(tableLoader.harvest()));
 
     try {
       inStream.close();
@@ -198,7 +187,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     String json = "{a: null} {a: []} {a: null} {a: [10, 20]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     BatchSchema expectedSchema = new SchemaBuilder()
@@ -221,7 +210,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
     options.skipOuterList = false;
     JsonTester tester = jsonTester(options);
     String json = "{a: [10]} {a: [\"oops\"]}";
-    JsonLoaderTestUtils.expectError(tester, json);
+    expectError(tester, json);
   }
 
   @Test
@@ -231,7 +220,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: []} {a: null} {a: [{b: \"wilma\", c: 30}]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     // Note use of TupleMetadata: BatchSchema can't hold the
@@ -262,7 +251,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: []} {a: null} {a: [{b: \"wilma\", c: 30}]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     // Note use of TupleMetadata: BatchSchema can't hold the
@@ -295,7 +284,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: [[1, 2], [3, 4]]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     // Verify metadata
@@ -346,7 +335,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: [null, [\"a\", \"string\"]]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
     results.print();
 
@@ -379,7 +368,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
              "[{a: 5, b: 6}, {a: 7, b: 8}]]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     // Note use of TupleMetadata: BatchSchema can't hold the
@@ -412,7 +401,7 @@ public class TestJsonLoaderLists extends SubOperatorTest {
         "{a: [[], null]}";
     JsonOptions options = new JsonOptions();
     JsonTester tester = jsonTester(options);
-    options.useArrayTypes = false;
+    options.useListType = true;
     RowSet results = tester.parse(json);
 
     // Note use of TupleMetadata: BatchSchema can't hold the

@@ -27,9 +27,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -110,7 +110,7 @@ class ObjectParser extends ContainerParser {
    * on that basis.
    */
 
-  protected static class NullTypeParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
+  protected static class NullTypeParser extends AbstractParser.LeafParser implements NullTypeMarker {
 
     private final ObjectParser objectParser;
 
@@ -176,7 +176,7 @@ class ObjectParser extends ContainerParser {
    * a text array (as in all-text mode.)
    */
 
-  protected static class NullArrayParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
+  protected static class NullArrayParser extends AbstractParser.LeafParser implements NullTypeMarker {
 
     private final ObjectParser objectParser;
 
@@ -339,7 +339,6 @@ class ObjectParser extends ContainerParser {
       break;
 
     case VALUE_NULL:
-      valueParser = inferParser(key, projType);
 
       // Use the projection type as a hint. Note that this is not a panacea,
       // and may even lead to seemingly-random behavior. In one query, we can
@@ -349,6 +348,7 @@ class ObjectParser extends ContainerParser {
       // because the projection list differed.) It is not clear if such behavior
       // is a bug or feature...
 
+      valueParser = inferParser(key, projType);
       break;
 
     default:
@@ -358,110 +358,16 @@ class ObjectParser extends ContainerParser {
     return valueParser;
   }
 
-  private ObjectParser objectParser(String key) {
-    return new ObjectParser(this, key,
-        newWriter(key, MinorType.MAP, DataMode.REQUIRED).tuple());
-  }
-
-  private JsonElementParser typedScalar(JsonToken token, String key) {
-    MinorType type = typeForToken(token);
-    ScalarWriter scalarWriter = newWriter(key, type, DataMode.OPTIONAL).scalar();
-    return scalarParserForToken(token, key, scalarWriter);
-  }
-
-  protected ArrayParser objectArrayParser(String key) {
-    ArrayWriter arrayWriter = newWriter(key, MinorType.MAP, DataMode.REPEATED).array();
-    return new ArrayParser.ObjectArrayParser(this, key, arrayWriter,
-        new ObjectParser(this, key, arrayWriter.tuple()));
-  }
-
-  /**
-   * Detect the type of an array member by "sniffing" the first element.
-   * Creates a simple repeated type if requested and possible. Else, creates
-   * an array depending on the array contents. May have to look ahead
-   * multiple tokens if the array is multi-dimensional.
-   * <p>
-   * Note that repeated types can only appear directly inside maps; they
-   * cannot be used inside a list.
-   *
-   * @param parent the object parser that will hold the array element
-   * @param key field name
-   * @return the parse state for this array
-   */
-
-  protected JsonElementParser detectArrayParser(String key) {
-
-    if (! loader.options.useArrayTypes) {
-      return listParser(key);
-    }
-
-    // The client would prefer to create a repeated type for JSON arrays.
-    // Detect the type of that array. Or, detect that the the first value
-    // dictates that a list be used because this is a nested list, contains
-    // nulls, etc.
-
-    JsonToken token = loader.tokenizer.peek();
-    switch (token) {
-    case START_ARRAY:
-    case VALUE_NULL:
-
-      // Can't use an array, must use a list since this is nested
-      // or null.
-
-      return listParser(key);
-
-    case END_ARRAY:
-
-      // Don't know what this is. Defer judgment until later.
-
-      return new ObjectParser.NullArrayParser(this, key);
-
-    case START_OBJECT:
-      return objectArrayParser(key);
-
-    default:
-      return detectScalarArrayParser(token, key);
-    }
-  }
-
-  private JsonElementParser listParser(String key) {
-    return new ListParser(this, key, newWriter(key, MinorType.LIST, DataMode.OPTIONAL).array());
-  }
-
-  /**
-   * Create a parser for a scalar array implemented as a repeated type.
-   *
-   * @param parent
-   * @param token
-   * @param key
-   * @return
-   */
-
-  private JsonElementParser detectScalarArrayParser(JsonToken token, String key) {
-    MinorType type = typeForToken(token);
-    ArrayWriter arrayWriter = newWriter(key, type, DataMode.REPEATED).array();
-    JsonElementParser elementState = scalarParserForToken(token, key, arrayWriter.scalar());
-    return new ArrayParser.ScalarArrayParser(this, key, arrayWriter, elementState);
-  }
-
-  /**
-   * The field type has been determined. Build a writer for that field given
-   * the field name, type and mode (optional or repeated). The result set loader
-   * that backs this JSON loader will handle field projection, returning a dummy
-   * parser if the field is not projected.
-   *
-   * @param key name of the field
-   * @param type Drill data type
-   * @param mode cardinality: either Optional (for map fields) or Repeated
-   * (for array members). (JSON does not allow Required fields)
-   * @return the object writer for the field, which may be a tuple, scalar
-   * or array writer, depending on type
-   */
-
+  @Override
   protected ObjectWriter newWriter(String key,
         MinorType type, DataMode mode) {
     int index = writer.addColumn(schemaFor(key, type, mode));
     return writer.column(index);
+  }
+
+  @Override
+  protected JsonElementParser nullArrayParser(String key) {
+    return new ObjectParser.NullArrayParser(this, key);
   }
 
   @Override

@@ -32,6 +32,7 @@ import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementPa
 import com.fasterxml.jackson.core.JsonToken;
 
 abstract class AbstractParser implements JsonElementParser {
+
   public static abstract class LeafParser extends AbstractParser {
 
     public LeafParser(JsonLoaderImpl.JsonElementParser parent, String fieldName) {

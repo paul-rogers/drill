@@ -17,9 +17,12 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -115,4 +118,15 @@ abstract class ArrayParser extends ContainerParser {
 
   @Override
   public ColumnMetadata schema() { return writer.schema(); }
+
+  @Override
+  protected ObjectWriter newWriter(String key, MinorType type,
+      DataMode mode) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected JsonElementParser nullArrayParser(String key) {
+    throw new UnsupportedOperationException();
+  }
 }

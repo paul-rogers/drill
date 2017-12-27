@@ -42,13 +42,11 @@ import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 public class TestJsonScanOp extends SubOperatorTest {
-
 
   private static class TestJsonReader implements ManagedReader<SchemaNegotiator> {
 
@@ -74,11 +72,12 @@ public class TestJsonScanOp extends SubOperatorTest {
     @Override
     public boolean next() {
       boolean more = true;
-      while (! tableLoader.writer().isFull()) {
+      while (tableLoader.writer().start()) {
         if (! jsonLoader.next()) {
           more = false;
           break;
         }
+        tableLoader.writer().save();
       }
       jsonLoader.endBatch();
       return more;
@@ -150,27 +149,7 @@ public class TestJsonScanOp extends SubOperatorTest {
                 mapValue(strArray("3", "4", "5"), strArray("10", "11", "12"))))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(result);
-    opFixture.close();
-  }
-
-  @Test
-  public void testScanProject1() {
-
-    BasicScanOpFixture opFixture = new BasicScanOpFixture();
-    JsonOptions options = new JsonOptions();
-    opFixture.addReader(new TestJsonReader("/store/json/schema_change_int_to_string.json", options));
-    opFixture.setProjection("field_3.inner_1", "field_3.inner_2");
-    ScanOperatorExec scanOp = opFixture.build();
-
-    assertTrue(scanOp.buildSchema());
-    RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
-//    result.print();
-    assertTrue(scanOp.next());
-    result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
-    result.print();
-    result.clear();
+    RowSetUtilities.verify(expected, result);
     opFixture.close();
   }
 
@@ -202,8 +181,8 @@ public class TestJsonScanOp extends SubOperatorTest {
         .addSingleCol(mapValue(2L, null))
         .addSingleCol(mapValue(5L, 3L))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(result);
-    scanOp.close();
+    RowSetUtilities.verify(expected, result);
+    opFixture.close();
   }
 
   @Test
@@ -242,8 +221,8 @@ public class TestJsonScanOp extends SubOperatorTest {
             mapValue(strArray("7" ,"8.0", "12341324"), null),
             mapValue(strArray("3", "4", "5"), null)))
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(result);
-    scanOp.close();
+    RowSetUtilities.verify(expected, result);
+    opFixture.close();
   }
 
   @Test
@@ -287,12 +266,12 @@ public class TestJsonScanOp extends SubOperatorTest {
 
     Object nullMap = singleMap(singleMap(null));
     RowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(longArray(1L), mapValue(null, null), mapValue(longArray()), null, nullMap )
-        .addRow(longArray(5L), mapValue(2L, null), mapValue(longArray(1L, 2L, 3L)), null, nullMap)
-        .addRow(longArray(5L, 10L, 15L), mapValue(5L, 3L), mapValue(longArray(4L, 5L, 6L)), null, nullMap)
+        .addRow(longArray(1L), mapValue(null, null), singleMap(longArray()), null, nullMap )
+        .addRow(longArray(5L), mapValue(2L, null), singleMap(longArray(1L, 2L, 3L)), null, nullMap)
+        .addRow(longArray(5L, 10L, 15L), mapValue(5L, 3L), singleMap(longArray(4L, 5L, 6L)), null, nullMap)
         .build();
-    new RowSetComparison(expected).verifyAndClearAll(result);
-    scanOp.close();
+    RowSetUtilities.verify(expected, result);
+    opFixture.close();
   }
 
 }
