@@ -44,7 +44,6 @@ public class TestProjectedTuple {
     assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("foo"));
   }
 
-
   /**
    * Test an empty projection which occurs in a
    * SELECT COUNT(*) query.

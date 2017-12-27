@@ -170,12 +170,12 @@ public class UnionVectorShim implements UnionShim {
   }
 
   /**
-   * Performs just the work of adding a vector to the list of exising
+   * Performs just the work of adding a vector to the list of existing
    * variants. Called when adding a type via the writer, but also when
    * the result set loader promotes a list from single type to a union,
    * and provides this shim with the writer from the single-list shim.
    * In the latter case, the writer is already initialized and is already
-   * part of the metadata for this list; so we dont' want to call the
+   * part of the metadata for this list; so we don't want to call the
    * list's <tt>addMember()</tt> and repeat those operations.
    *
    * @param colWriter the column (type) writer to add

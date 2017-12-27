@@ -35,7 +35,9 @@ import org.apache.drill.exec.record.MaterializedField;
  * fields. Optimized for use when creating schemas by hand in tests.
  * <p>
  * Example usage to create the following schema: <br>
- * <tt>(c: INT, a: MAP(b: VARCHAR, d: INT, e: MAP(f: VARCHAR), g: INT), h: BIGINT)</tt>
+ * <tt>(c: INT, a: MAP(b: VARCHAR, d: INT, e: MAP(f: VARCHAR), g: INT),
+ * h: UNION(INT, MAP(h1: INT), LIST(BIGINT)),
+ * i: BIGINT[], j: VARCHAR[][][])</tt>
  * <p>
  * Code:<pre><code>
  *     BatchSchema batchSchema = new SchemaBuilder()
@@ -58,6 +60,11 @@ import org.apache.drill.exec.record.MaterializedField;
  *            .buildNested()
  *          .build()
  *        .addArray("i", MinorType.BIGINT)
+ *        .addRepeatedList("k")
+ *          .addDimension()
+ *            .addArray(MinorType.VARCHAR)
+ *            .endDimension()
+ *         .build()
  *        .build();
  * </code</pre>
  */
@@ -130,7 +137,7 @@ public class SchemaBuilder {
     public MapBuilder(UnionBuilder unionBuilder) {
       parent = null;
       union = unionBuilder;
-      memberName = MinorType.MAP.toString();
+      memberName = MinorType.MAP.name().toLowerCase();
       mode = DataMode.OPTIONAL;
     }
 
@@ -190,7 +197,8 @@ public class SchemaBuilder {
       parentSchema = null;
       parentUnion = unionBuilder;
       this.name = (mode == DataMode.REPEATED)
-          ? MinorType.LIST.name() : MinorType.UNION.name();
+          ? MinorType.LIST.name().toLowerCase()
+          : MinorType.UNION.name().toLowerCase();
       this.mode = mode;
       union = new VariantSchema();
     }

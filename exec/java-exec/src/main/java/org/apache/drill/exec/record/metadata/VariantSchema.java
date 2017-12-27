@@ -190,7 +190,7 @@ public class VariantSchema implements VariantMetadata {
         .append("[")
         .append(getClass().getSimpleName())
         .append(types.toString())
-        .append(", expandable: ")
+        .append(", simple: ")
         .append(isSimple)
         .append("]")
         .toString();

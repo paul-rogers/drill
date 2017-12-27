@@ -66,9 +66,13 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
   }
 
   public MapColumnMetadata(String name, DataMode mode,
-      TupleSchema schema) {
+      TupleSchema mapSchema) {
     super(name, MinorType.MAP, mode);
-    mapSchema = schema;
+    if (mapSchema == null) {
+      this.mapSchema = new TupleSchema();
+    } else {
+      this.mapSchema = mapSchema;
+    }
   }
 
   @Override

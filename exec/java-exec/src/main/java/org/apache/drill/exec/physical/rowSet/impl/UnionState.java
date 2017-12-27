@@ -177,7 +177,6 @@ public class UnionState extends ContainerState
     if (variantSchema().hasType(member.type())) {
       throw new IllegalArgumentException("Duplicate type: " + member.type().toString());
     }
-    variantSchema().addType(member);
     return addColumn(member).writer();
   }
 
