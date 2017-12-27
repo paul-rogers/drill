@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseContainerColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
@@ -32,6 +33,7 @@ import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionVectorShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.complex.UnionVector;
@@ -47,6 +49,40 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 
 public class UnionState extends ContainerState
   implements VariantWriter.VariantWriterListener {
+
+  /**
+   * Union or list (repeated union) column state.
+   */
+
+  public static class UnionColumnState extends BaseContainerColumnState {
+
+    private final ContainerState unionState;
+
+    public UnionColumnState(LoaderInternals loader,
+        AbstractObjectWriter writer,
+        VectorState vectorState,
+        ContainerState unionState) {
+      super(loader, writer, vectorState);
+      this.unionState = unionState;
+      unionState.bindColumnState(this);
+    }
+
+    @Override
+    public boolean isProjected() {
+      // Unions and lists are always projected
+      return true;
+    }
+
+    /**
+     * Get the output schema. For a primitive (non-structured) column,
+     * the output schema is the same as the internal schema.
+     */
+    @Override
+    public ColumnMetadata outputSchema() { return schema(); }
+
+    @Override
+    public ContainerState container() { return unionState; }
+  }
 
   /**
    * Vector wrapper for a union vector. Union vectors contain a types

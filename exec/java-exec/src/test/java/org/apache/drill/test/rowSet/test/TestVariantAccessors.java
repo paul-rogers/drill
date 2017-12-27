@@ -63,7 +63,7 @@ import org.junit.Test;
  * and other operators. Some assembly required for future use.)
  */
 
-public class TestVariant extends SubOperatorTest {
+public class TestVariantAccessors extends SubOperatorTest {
 
   @SuppressWarnings("resource")
   @Test

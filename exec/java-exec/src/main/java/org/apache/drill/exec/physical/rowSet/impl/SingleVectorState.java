@@ -118,11 +118,22 @@ public abstract class SingleVectorState implements VectorState {
 
   public static class OffsetVectorState extends SingleVectorState {
 
-    private final WriterPosition childWriter;
+    /**
+     * The child writer used to determine positions on overflow.
+     * The repeated list vector defers creating the child until the
+     * child type is know so this field cannot be final. It will,
+     * however, change value only once: from null to a valid writer.
+     */
+
+    private WriterPosition childWriter;
 
     public OffsetVectorState(WriterPosition writer, ValueVector mainVector,
         WriterPosition childWriter) {
       super(writer, mainVector);
+      this.childWriter = childWriter;
+    }
+
+    public void setChildWriter(WriterPosition childWriter) {
       this.childWriter = childWriter;
     }
 
@@ -142,6 +153,8 @@ public abstract class SingleVectorState implements VectorState {
       if (sourceStartIndex > sourceEndIndex) {
         return;
       }
+
+      assert childWriter != null;
 
       // This is an offset vector. The data to copy is one greater
       // than the row index.

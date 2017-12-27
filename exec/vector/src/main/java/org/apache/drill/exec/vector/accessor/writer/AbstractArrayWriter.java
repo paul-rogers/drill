@@ -254,7 +254,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   protected final ColumnMetadata schema;
-  protected final AbstractObjectWriter elementObjWriter;
+  protected AbstractObjectWriter elementObjWriter;
   protected final OffsetVectorWriter offsetsWriter;
   protected ColumnWriterIndex outerIndex;
   protected ArrayElementWriterIndex elementIndex;

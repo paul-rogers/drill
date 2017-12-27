@@ -58,7 +58,7 @@ import org.junit.Test;
  * on to the result set loader tests.
  */
 
-public class TestRepeatedList extends SubOperatorTest {
+public class TestRepeatedListAccessors extends SubOperatorTest {
 
   /**
    * Test the intermediate case in which a repeated list

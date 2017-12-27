@@ -21,18 +21,21 @@ import java.util.ArrayList;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.PrimitiveColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.RepeatedListColumnState.RepeatedListVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.RepeatedListState.RepeatedListColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.RepeatedListState.RepeatedListVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.SingleMapState;
+import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
@@ -47,7 +50,7 @@ import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.EmptyListShim;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
+import org.apache.drill.exec.vector.accessor.writer.RepeatedListWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
@@ -462,7 +465,7 @@ public class ColumnBuilder {
 
     ListState listState = new ListState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        new ImpliedTupleRequest(true));
+        ImpliedTupleRequest.ALL_MEMBERS);
 
     // Bind the union state to the union writer to handle column additions.
 
@@ -481,26 +484,30 @@ public class ColumnBuilder {
     assert columnSchema.type() == MinorType.LIST;
     assert columnSchema.mode() == DataMode.REPEATED;
 
-    // The schema must describe the column "all the way down"
-    // the dimensions. Repeated lists don't allow dynamically
-    // setting the type the way the "list vector" does.
+    // The schema provided must be empty. The caller must add
+    // the element type after creating the repeated writer itself.
 
-    assert columnSchema.childSchema() != null;
-
-    // Build the child.
-
-    ColumnState childState = buildColumn(parent, columnSchema.childSchema());
+    assert columnSchema.childSchema() == null;
 
     // Build the repeated vector.
 
     RepeatedListVector vector = new RepeatedListVector(
         columnSchema.emptySchema(), parent.loader().allocator(), null);
-    vector.setChildVector(childState.vector());
+
+    // No inner type yet. The result set loader builds the subtype
+    // incrementally because it might be complex (a map or another
+    // repeated list.) To start, use a dummy to avoid need for if-statements
+    // everywhere.
+
+    ColumnMetadata dummyElementSchema = new PrimitiveColumnMetadata(
+        MaterializedField.create(columnSchema.name(),
+            Types.repeated(MinorType.NULL)));
+    AbstractObjectWriter dummyElement = ColumnWriterFactory.buildDummyColumnWriter(dummyElementSchema);
 
     // Create the list writer: an array of arrays.
 
-    AbstractObjectWriter arrayWriter = ObjectArrayWriter.buildRepeatedList(
-        columnSchema, vector, childState.writer());
+    AbstractObjectWriter arrayWriter = RepeatedListWriter.buildRepeatedList(
+        columnSchema, vector, dummyElement);
 
     // Create the list vector state that tracks the list vector lifecycle.
     // For a repeated list, we only care about
@@ -508,10 +515,21 @@ public class ColumnBuilder {
     RepeatedListVectorState vectorState = new RepeatedListVectorState(
         arrayWriter.array(), vector);
 
+    // Build the container that tracks the array contents
+
+    RepeatedListState listState = new RepeatedListState(
+        parent.loader(),
+        parent.vectorCache().childCache(columnSchema.name()),
+        parent.isVersioned());
+
+    // Bind the list state as the list event listener.
+
+    ((RepeatedListWriter) arrayWriter.array()).bindListener(listState);
+
     // Assemble it all into a column state. This state will
     // propagate events down to the (one and only) child state.
 
     return new RepeatedListColumnState(parent.loader(),
-        arrayWriter, vectorState, childState);
+        arrayWriter, vectorState, listState);
   }
 }

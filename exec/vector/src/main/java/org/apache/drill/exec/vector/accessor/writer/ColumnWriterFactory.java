@@ -116,7 +116,6 @@ public class ColumnWriterFactory {
     switch (schema.type()) {
     case GENERIC_OBJECT:
     case LATE:
-    case NULL:
     case LIST:
     case MAP:
     case UNION:

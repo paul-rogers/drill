@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -88,9 +89,22 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     // lists as a list does require an explicit save.
   }
 
+  /**
+   * Set a repeated vector based on a Java array of the proper
+   * type. This function involves parsing the array type and so is
+   * suitable only for test code. The array can be either a primitive
+   * (<tt>int [], say</tt>) or a typed array of boxed values
+   * (<tt>Integer[], say</tt>).
+   */
+
   @Override
   public void setObject(Object array) {
-    if (array == null) {
+
+    // Accept an empty array (of any type) to mean
+    // an empty array of the type of this writer.
+
+    if (array == null || Array.getLength(array) == 0) {
+
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.
 

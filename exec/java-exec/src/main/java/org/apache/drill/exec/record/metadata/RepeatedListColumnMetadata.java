@@ -40,7 +40,9 @@ public class RepeatedListColumnMetadata extends AbstractColumnMetadata {
 
   public RepeatedListColumnMetadata(String name, AbstractColumnMetadata childSchema) {
     super(name, MinorType.LIST, DataMode.REPEATED);
-    Preconditions.checkArgument(childSchema.isArray());
+    if (childSchema != null) {
+      Preconditions.checkArgument(childSchema.isArray());
+    }
     this.childSchema = childSchema;
   }
 

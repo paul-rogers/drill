@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -127,122 +126,6 @@ public abstract class ColumnState {
       super.close();
       container().close();
     }
-  }
-
-  /**
-   * Represents a map column (either single or repeated). Includes maps that
-   * are top-level, nested within other maps, or nested inside a union.
-   * Schema management is a bit complex:
-   * <table border=1>
-   * <tr><th rowspan=2>Condition</th><th colspan=2>Action</th></tr>
-   * <tr><th>Outside of Union</th><th>Inside of Union<th></tr>
-   * <tr><td>Unprojected</td><td>N/A</td><td>Omitted from output</td></tr>
-   * <tr><td>Added in prior batch</td><td colspan=2>Included in output</td></tr>
-   * <tr><td>Added in present batch, before overflow</td>
-   *     <td colspan=2>Included in output</td></tr>
-   * <tr><td>Added in present batch, after overflow</td>
-   *     <td>Omitted from output this batch (added next batch)</td>
-   *     <td>Included in output</td></tr>
-   * </table>
-   * <p>
-   * The above rules say that, for maps in a union, the output schema
-   * is identical to the internal writer schema. But, for maps outside
-   * of union, the output schema is a subset of the internal schema with
-   * two types of omissions:
-   * <ul>
-   * <li>Unprojected columns</li>
-   * <li>Columns added after overflow</li>
-   * </ul
-   * <p>
-   * New columns can be added at any time for data readers that discover
-   * their schema as data is read (such as JSON). In this case, new columns
-   * always appear at the end of the map (remember, in Drill, a "map" is actually
-   * a structured: an ordered, named list of columns.) When looking for newly
-   * added columns, they will always be at the end.
-   */
-
-  public static class MapColumnState extends BaseContainerColumnState {
-    protected final MapState mapState;
-    protected boolean isVersioned;
-    protected final ColumnMetadata outputSchema;
-
-    public MapColumnState(MapState mapState,
-        AbstractObjectWriter writer,
-        VectorState vectorState,
-        boolean isVersioned) {
-      super(mapState.loader(), writer, vectorState);
-      this.mapState = mapState;
-      mapState.bindColumnState(this);
-      this.isVersioned = isVersioned;
-      if (isVersioned) {
-        outputSchema = schema().cloneEmpty();
-      } else {
-        outputSchema = schema();
-      }
-      mapState.bindOutputSchema(outputSchema.mapSchema());
-    }
-
-    public MapState mapState() { return mapState; }
-
-    @Override
-    public ContainerState container() { return mapState; }
-
-    @Override
-    public boolean isProjected() {
-      return mapState.hasProjections();
-    }
-
-    /**
-     * Indicate if this map is versioned. A versionable map has three attributes:
-     * <ol>
-     * <li>Columns can be unprojected. (Columns appear as writers for the client
-     * of the result set loader, but are not materialized and do not appear in
-     * the projected output container.</li>
-     * <li>Columns appear in the output only if added before the overflow row.</li>
-     * <li>As a result, the output schema is a subset of the internal input
-     * schema.</li>
-     * </ul>
-     * @return <tt>true</tt> if this map is versioned as described above
-     */
-
-    public boolean isVersioned() { return isVersioned; }
-
-    @Override
-    public ColumnMetadata outputSchema() { return outputSchema; }
-  }
-
-  /**
-   * Union or list (repeated union) column state.
-   */
-
-  public static class UnionColumnState extends BaseContainerColumnState {
-
-    private final ContainerState unionState;
-
-    public UnionColumnState(LoaderInternals loader,
-        AbstractObjectWriter writer,
-        VectorState vectorState,
-        ContainerState unionState) {
-      super(loader, writer, vectorState);
-      this.unionState = unionState;
-      unionState.bindColumnState(this);
-    }
-
-    @Override
-    public boolean isProjected() {
-      // Unions and lists are always projected
-      return true;
-    }
-
-    /**
-     * Get the output schema. For a primitive (non-structured) column,
-     * the output schema is the same as the internal schema.
-     */
-    @Override
-    public ColumnMetadata outputSchema() { return schema(); }
-
-    @Override
-    public ContainerState container() { return unionState; }
   }
 
   /**

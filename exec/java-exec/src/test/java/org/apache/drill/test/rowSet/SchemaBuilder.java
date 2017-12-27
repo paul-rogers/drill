@@ -431,7 +431,7 @@ public class SchemaBuilder {
   }
 
   public UnionBuilder addList(String name) {
-    return new UnionBuilder(this, name, DataMode.OPTIONAL);
+    return new UnionBuilder(this, name, DataMode.REPEATED);
   }
 
   public RepeatedListBuilder addRepeatedList(String name) {

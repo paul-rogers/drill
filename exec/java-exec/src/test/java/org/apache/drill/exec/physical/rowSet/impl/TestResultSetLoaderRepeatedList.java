@@ -23,10 +23,16 @@ import static org.junit.Assert.*;
 
 import java.util.Arrays;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
+import org.apache.drill.exec.record.metadata.RepeatedListColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -35,6 +41,7 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
+import org.apache.drill.exec.vector.accessor.writer.RepeatedListWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetReader;
@@ -79,6 +86,22 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     ScalarWriter strWriter = innerWriter.scalar();
     assertEquals(ValueType.STRING, strWriter.valueType());
 
+    // Sanity test of schema
+
+    TupleMetadata rowSchema = writer.tupleSchema();
+    assertEquals(2, rowSchema.size());
+    ColumnMetadata listSchema = rowSchema.metadata(1);
+    assertEquals(MinorType.LIST, listSchema.type());
+    assertEquals(DataMode.REPEATED, listSchema.mode());
+    assertTrue(listSchema instanceof RepeatedListColumnMetadata);
+    assertEquals(StructureType.MULTI_ARRAY, listSchema.structureType());
+    assertNotNull(listSchema.childSchema());
+
+    ColumnMetadata elementSchema = listSchema.childSchema();
+    assertEquals(listSchema.name(), elementSchema.name());
+    assertEquals(MinorType.VARCHAR, elementSchema.type());
+    assertEquals(DataMode.REPEATED, elementSchema.mode());
+
     // Write values
 
     rsLoader.startBatch();
@@ -118,9 +141,98 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     // Add columns dynamically
 
     writer.addColumn(schema.metadata(0));
-    writer.addColumn(schema.metadata(1));
+    writer.addColumn(schema.metadata(1).cloneEmpty());
+
+    // Yes, this is ugly. The whole repeated array idea is awkward.
+    // The only place it is used at present is in JSON where the
+    // awkwardness is mixed in with a logs of JSON complexity.
+    // Consider improving this API in the future.
+
+    ((RepeatedListWriter) writer.array(1)).defineElement(schema.metadata(1).childSchema());
 
     do2DTest(schema, rsLoader);
+    rsLoader.close();
+  }
+
+  @Test
+  public void test2DLateSchemaIncremental() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addRepeatedList("list2")
+          .addArray(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader writer = rsLoader.writer();
+
+    // Add columns dynamically
+
+    writer.addColumn(schema.metadata(0));
+
+    // Write a row without the array.
+
+    rsLoader.startBatch();
+    writer.addRow(1);
+
+    // Add the repeated list, but without contents.
+
+    writer.addColumn(schema.metadata(1).cloneEmpty());
+
+    // Sanity check of writer structure
+
+    assertEquals(2, writer.size());
+    ObjectWriter listObj = writer.column("list2");
+    assertEquals(ObjectType.ARRAY, listObj.type());
+    ArrayWriter listWriter = listObj.array();
+
+    // No child defined yet. A dummy child is inserted instead.
+
+    assertEquals(MinorType.NULL, listWriter.entry().schema().type());
+    assertEquals(ObjectType.ARRAY, listWriter.entryType());
+    assertEquals(ObjectType.SCALAR, listWriter.array().entryType());
+    assertEquals(ValueType.NULL, listWriter.array().scalar().valueType());
+
+    // Although we don't know the type of the inner, we can still
+    // create null (empty) elements in the outer array.
+
+    writer
+      .addRow(2, null)
+      .addRow(3, objArray())
+      .addRow(4, objArray(objArray(), null));
+
+    // Define the inner type.
+
+    RepeatedListWriter listWriterImpl = (RepeatedListWriter) listWriter;
+    listWriterImpl.defineElement(MaterializedField.create("list2", Types.repeated(MinorType.VARCHAR)));
+
+    // Sanity check of completed structure
+
+    assertEquals(ObjectType.ARRAY, listWriter.entryType());
+    ArrayWriter innerWriter = listWriter.array();
+    assertEquals(ObjectType.SCALAR, innerWriter.entryType());
+    ScalarWriter strWriter = innerWriter.scalar();
+    assertEquals(ValueType.STRING, strWriter.valueType());
+
+    // Write values
+
+    writer
+        .addRow(5, objArray(strArray("a", "b"), strArray("c", "d")));
+
+    // Verify the values.
+    // (Relies on the row set level repeated list tests having passed.)
+
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, objArray())
+        .addRow(2, objArray())
+        .addRow(3, objArray())
+        .addRow(4, objArray(objArray(), null))
+        .addRow(5, objArray(strArray("a", "b"), strArray("c", "d")))
+        .build();
+
+    RowSetUtilities.verify(expected, fixture.wrap(rsLoader.harvest()));
     rsLoader.close();
   }
 
@@ -261,4 +373,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     result.clear();
     rsLoader.close();
   }
+
+  // TODO: Test union list as inner
+  // TODO: Test repeated map as inner
 }

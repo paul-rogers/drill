@@ -34,7 +34,7 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
   public PrimitiveColumnMetadata(MaterializedField schema) {
     super(schema);
     MajorType majorType = schema.getType();
-    if (type() == MinorType.NULL) {
+    if (type() == MinorType.NULL || type() == MinorType.LATE) {
       expectedWidth = 0;
     } else if (isVariableWidth()) {
 

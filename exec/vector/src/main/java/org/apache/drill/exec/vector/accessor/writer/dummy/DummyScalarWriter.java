@@ -42,7 +42,7 @@ public class DummyScalarWriter extends AbstractScalarWriter {
   public void bindListener(ColumnWriterListener listener) { }
 
   @Override
-  public ValueType valueType() { return null; }
+  public ValueType valueType() { return ValueType.NULL; }
 
   @Override
   public boolean nullable() { return true; }

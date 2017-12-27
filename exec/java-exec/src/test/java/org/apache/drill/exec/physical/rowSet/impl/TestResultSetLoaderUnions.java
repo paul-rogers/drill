@@ -635,4 +635,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .build();
     RowSetUtilities.verify(expected, results);
   }
+
+  // TODO: Simple list of map
+  // TODO: Regular list of map
+  // TODO: Regular list of union
 }

@@ -31,7 +31,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
+import org.apache.drill.exec.vector.accessor.writer.RepeatedListWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
@@ -139,7 +139,7 @@ public abstract class BaseWriterBuilder {
     }
     VectorDescrip childDescrip = new VectorDescrip(descrip.childProvider(), 0, child.getField());
     AbstractObjectWriter childWriter = buildVectorWriter(child, childDescrip);
-    return ObjectArrayWriter.buildRepeatedList(descrip.metadata, vector, childWriter);
+    return RepeatedListWriter.buildRepeatedList(descrip.metadata, vector, childWriter);
   }
 
   @SuppressWarnings("resource")
