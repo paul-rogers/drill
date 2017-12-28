@@ -45,13 +45,13 @@ class RepeatedListParser extends ArrayParser {
     }
 
     /**
-     * Parse (null | [])* ([ some_token)?
+     * Parse null | [] | ([ some_token)? ]
      */
 
     @Override
     public boolean parse() {
       // Position: [ ^
-      JsonToken token = parseEmptyEntries();
+      JsonToken token = parseEmptyEntry();
       if (token != JsonToken.START_ARRAY) {
         return true;
       }
@@ -65,59 +65,41 @@ class RepeatedListParser extends ArrayParser {
       return newParser.parse();
     }
 
-    private JsonToken parseEmptyEntries() {
+    private JsonToken parseEmptyEntry() {
 
       // Parse null* [|]
 
-      for (;;) {
-        JsonToken token = loader.tokenizer.requireNext();
-        // Position: [ ? ^
-        switch (token) {
-        case VALUE_NULL:
-
-          // Null value in the outer array is
-          // the same as an empty inner array.
-
-          listParser.writer.save();
-          // Position: [ null ^
-          break;
-
-        case START_ARRAY:
-          if (! parseEmptyArray()) {
-            // Position: [ [ ^ ?
-            return token;
-          }
-          // Position: [ [ ] ^
-          break;
-
-        case END_ARRAY:
-          loader.tokenizer.unget(token);
-          // Position: [ (null | [])* ^ ]
-          return token;
-
-        default:
-          throw loader.syntaxError(token);
-        }
-      }
-    }
-
-    /**
-     * Parse [ ^ ] | token
-     * @return true if found an empty array, false
-     * if the array contains a token
-     */
-
-    private boolean parseEmptyArray() {
       JsonToken token = loader.tokenizer.requireNext();
-      // Position: [ [ ? ^
-      if (token == JsonToken.END_ARRAY) {
-        listParser.writer.save();
-        // Position: [ [ ] ^
-        return true;
+      // Position: [ ? ^
+      switch (token) {
+      case VALUE_NULL:
+
+        // Null value in the outer array is
+        // the same as an empty inner array.
+
+        // Position: [ null ^
+        break;
+
+      case START_ARRAY:
+        JsonToken token2 = loader.tokenizer.requireNext();
+        // Position: [ [ ? ^
+        if (token2 == JsonToken.END_ARRAY) {
+          // Position: [ [ ] ^
+          return token2;
+        }
+        loader.tokenizer.unget(token2);
+        // Position: [ [ ^ ?
+        break;
+
+      case END_ARRAY:
+        loader.tokenizer.unget(token);
+        // Position: [ (null | [])* ^ ]
+        break;
+
+      default:
+        throw loader.syntaxError(token);
       }
-      loader.tokenizer.unget(token);
-      // Position: [ [ ^ ?
-      return false;
+      return token;
     }
 
     /**
@@ -140,14 +122,13 @@ class RepeatedListParser extends ArrayParser {
 
         throw new IllegalStateException();
       case START_ARRAY:
+        // Position: [ [ [ ^
         return listParser.detectArrayParser(key());
-//        childWriter = listWriter.defineElement(schemaFor(key(), MinorType.LIST, DataMode.REPEATED));
-//        return new RepeatedListParser(this, key(), childWriter.array());
       case START_OBJECT:
+        // Position: [ [ { ^
         return listParser.objectArrayParser(key());
-//        childWriter = listWriter.defineElement(schemaFor(key(), MinorType.MAP, DataMode.REPEATED));
-//        return new RepeatedListParser(this, key(), childWriter.array());
       default:
+        // Position: [ [ scalar ^
         return listParser.detectScalarArrayParser(token, key());
       }
     }

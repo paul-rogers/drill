@@ -31,7 +31,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
@@ -166,7 +166,7 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
         .addMap("map")
           .add("a", MinorType.INT)
           .add("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
@@ -207,7 +207,7 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
         .addMap("map")
           .add("a", MinorType.INT)
           .add("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)

@@ -20,7 +20,7 @@ package org.apache.drill.test.rowSet.test;
 import static org.junit.Assert.*;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
-import static org.apache.drill.test.rowSet.RowSetUtilities.singlObjArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleObjArray;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -45,10 +45,10 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -70,7 +70,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     BatchSchema schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
-          .build()
+          .resumeSchema()
         .build();
 
     assertEquals(2, schema.getFieldCount());
@@ -86,7 +86,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(2, schema.size());
@@ -108,7 +108,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(2, schema.size());
@@ -137,7 +137,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(2, schema.size());
@@ -166,8 +166,8 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .addRepeatedList("list2")
           .addDimension()
             .addArray(MinorType.VARCHAR)
-            .endDimension()
-          .build()
+            .resumeList()
+          .resumeSchema()
         .build();
 
     assertEquals(2, schema.getFieldCount());
@@ -197,8 +197,8 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .addRepeatedList("list2")
           .addDimension()
             .addArray(MinorType.VARCHAR)
-            .endDimension()
-          .build()
+            .resumeList()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(2, schema.size());
@@ -234,7 +234,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
@@ -254,7 +254,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
@@ -279,8 +279,8 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .addRepeatedList("list2")
           .addDimension()
             .addArray(MinorType.VARCHAR)
-            .endDimension()
-          .build()
+            .resumeList()
+          .resumeSchema()
         .buildSchema();
 
     DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
@@ -310,7 +310,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
@@ -429,7 +429,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
       .addRow(2, null)
       .addRow(3, objArray())
       .addRow(4, objArray(objArray()))
-      .addRow(5, singlObjArray(
+      .addRow(5, singleObjArray(
           objArray(
               strArray("g", "h"),
               strArray("i"))))
@@ -449,7 +449,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
       .addRow(2, objArray())
       .addRow(3, objArray())
       .addRow(4, objArray(objArray()))
-      .addRow(5, singlObjArray(
+      .addRow(5, singleObjArray(
           objArray(
               strArray("g", "h"),
               strArray("i"))))

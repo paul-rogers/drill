@@ -167,9 +167,14 @@ class ObjectParser extends ContainerParser {
    * Parses: [] | null [ ... ]
    * <p>
    * This state remains in effect as long as the input contains empty arrays or
-   * null values. However, once the array contains a non-empty array, detects the
-   * type of the array based on this value and replaces this state with the
-   * result array parser state.
+   * null values. However, once the array contains a non-empty array, this parser
+   * detects the type of the array based on this value and replaces this state
+   * with the new, resolved array parser based on the token seen.
+   * <p>
+   * The above implies that we look only at the first token to determine array
+   * type. If that first token is <tt>null</tt>, then we can't handle the token
+   * because arrays don't allow nulls (unless the array is an outer dimension of
+   * a multi-dimensional array, but we don't know that yet.)
    * <p>
    * If at the end of a batch, no non-empty array was seen, assumes that the
    * array, when seen, will be an array of scalars, and replaces this state with
@@ -193,20 +198,53 @@ class ObjectParser extends ContainerParser {
     @Override
     public boolean parse() {
       JsonToken startToken = loader.tokenizer.requireNext();
-      if (startToken == JsonToken.VALUE_NULL) {
+      // Position: ^ ?
+      switch (startToken) {
+      case VALUE_NULL:
+        // Position: null ^
+        // The value of this array is null, which is the same
+        // as an empty array.
         return true;
-      }
-      if (startToken != JsonToken.START_ARRAY) {
+      case START_ARRAY:
+        // Position: [ ^
+        break;
+      default:
+        // Position: ~[ ^
+        // This is supposed to be an array.
         throw loader.syntaxError(startToken);
       }
+
       JsonToken valueToken = loader.tokenizer.requireNext();
-      if (valueToken == JsonToken.END_ARRAY) {
+      // Position: [ ? ^
+      switch (valueToken) {
+      case END_ARRAY:
+        // Position: [ ] ^
+        // An empty array, which we an absorb without knowing
+        // the array type.
         return true;
+      case VALUE_NULL:
+        // Position: [ null ^
+        // We don't have a type, so we don't have a backing vector to
+        // set to null. Besides, null is only allowed in the upper
+        // dimensions of multi-dimensional arrays. (This statement would
+        // not be true if we were using lists, or if we created the array's
+        // offset vector separate from the associated data vector.
+        // Ready for a schema yet?
+        throw loader.syntaxError("Drill does not support leading nulls in JSON arrays.");
+      default:
+        loader.tokenizer.unget(valueToken);
+        // Position: [ ^ ?
+        // Let's try to resolve the next token to tell us the array type.
+        // The above has weeded out the "we don't know" cases.
+        JsonElementParser newParser = resolve(objectParser.detectArrayParser(key()));
+        loader.tokenizer.unget(startToken);
+        // Position: [ ^ ?
+        // Replace this parser with the new one, then use that new
+        // parser to reparse this array.
+        objectParser.replaceChild(key(), newParser);
+        loader.removeNullMarker(this);
+        return newParser.parse();
       }
-      loader.tokenizer.unget(valueToken);
-      JsonElementParser newState = resolve(objectParser.detectArrayParser(key()));
-      loader.tokenizer.unget(startToken);
-      return newState.parse();
     }
 
     @Override
@@ -254,19 +292,26 @@ class ObjectParser extends ContainerParser {
   public boolean parse() {
     JsonToken token = loader.tokenizer.next();
     if (token == null) {
-      return false; // EOF
+      // Position: EOF ^
+      return false;
     }
+    // Position: ? ^
     switch (token) {
     case NOT_AVAILABLE:
       return false; // Should never occur
 
     case VALUE_NULL:
-      return true; // Null, same as omitting the object
+      // Position: null ^
+      // Same as omitting the object
+      return true;
 
     case START_OBJECT:
-      break; // Start the object
+      // Position: { ^
+      break;
 
     default:
+      // Position ~{ ^
+      // Not a valid object.
       throw loader.syntaxError(token); // Nothing else is valid
     }
 
@@ -274,15 +319,22 @@ class ObjectParser extends ContainerParser {
 
     for (;;) {
       token = loader.tokenizer.requireNext();
+      // Position: { (key: value)* ? ^
       switch (token) {
       case END_OBJECT:
+        // Position: { (key: value)* } ^
         return true;
 
       case FIELD_NAME:
+        // Position: { (key: value)* key: ^
         parseMember();
         break;
 
       default:
+        // Position: { (key: value)* ~(key | }) ^
+        // Invalid JSON.
+        // Actually, we probably won't get here, the JSON parser
+        // itself will throw an exception.
         throw loader.syntaxError(token);
       }
     }
@@ -296,12 +348,21 @@ class ObjectParser extends ContainerParser {
    */
 
   private void parseMember() {
+    // Position: key: ^ ?
     final String key = loader.tokenizer.textValue().trim();
     JsonElementParser fieldState = members.get(key);
     if (fieldState == null) {
+      // New key; sniff the value to determine the parser to use
+      // (which also tell us the kind of column to create in Drill.)
+      // Position: key: ^
       fieldState = detectValueParser(key);
       members.put(key, fieldState);
     }
+    // Parse the field value using the parser for that field.
+    // The structure implies that fields don't change types: the type of
+    // the first value (sniffed above) must be repeated for every subsequent
+    // object.
+    // Position: key: ^ value ...
     fieldState.parse();
   }
 
@@ -328,18 +389,22 @@ class ObjectParser extends ContainerParser {
     // mechanism will catch conflicts.
 
     JsonToken token = loader.tokenizer.requireNext();
+    // Position: key: ? ^
     JsonElementParser valueParser;
     switch (token) {
     case START_ARRAY:
+      // Position: key: [ ^
       valueParser = detectArrayParser(key);
       break;
 
     case START_OBJECT:
+      // Position: key: { ^
       valueParser = objectParser(key);
       break;
 
     case VALUE_NULL:
 
+      // Position: key: null ^
       // Use the projection type as a hint. Note that this is not a panacea,
       // and may even lead to seemingly-random behavior. In one query, we can
       // pick out arrays or array lists when confronted with a list of nulls
@@ -352,9 +417,11 @@ class ObjectParser extends ContainerParser {
       break;
 
     default:
+      // Position: key: ? ^
       valueParser = typedScalar(token, key);
     }
     loader.tokenizer.unget(token);
+    // Position: key: ^ ?
     return valueParser;
   }
 
@@ -396,6 +463,17 @@ class ObjectParser extends ContainerParser {
     }
     return valueParser;
   }
+
+  /**
+   * Use information from the projection list to infer the general shape of
+   * a field that contains nulls. This information is weak, but it is better
+   * than nothing. Plus, if the shape we guess here is inconsistent with the
+   * project list, the query will simply fail during the projection step.
+   *
+   * @param key name of the key
+   * @param projType projection type hint from the projection system
+   * @return a parser for the value
+   */
 
   private JsonElementParser inferFromProjection(String key, ProjectionType projType) {
     switch (projType) {

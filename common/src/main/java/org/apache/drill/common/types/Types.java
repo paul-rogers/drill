@@ -774,4 +774,8 @@ public class Types {
     Collections.sort(copy2);
     return copy1.equals(copy2);
   }
+
+  public static String typeKey(MinorType type) {
+    return type.name().toLowerCase();
+  }
 }

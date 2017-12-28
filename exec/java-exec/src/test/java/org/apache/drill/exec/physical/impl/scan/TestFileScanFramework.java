@@ -43,8 +43,9 @@ import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.ColumnBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
@@ -220,7 +221,7 @@ public class TestFileScanFramework extends SubOperatorTest {
         RowSetLoader rowSet = tableLoader.writer();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         rowSet.addColumn(a);
-        MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
+        MaterializedField b = new ColumnBuilder("b", MinorType.VARCHAR)
             .setMode(DataMode.OPTIONAL)
             .setWidth(10)
             .build();
@@ -476,7 +477,7 @@ public class TestFileScanFramework extends SubOperatorTest {
           .addMap("m1")
             .add("a", MinorType.INT)
             .add("b", MinorType.INT)
-            .buildMap()
+            .resumeSchema()
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
       tableLoader = schemaNegotiator.build();
@@ -515,7 +516,7 @@ public class TestFileScanFramework extends SubOperatorTest {
     BatchSchema expectedSchema = new SchemaBuilder()
         .addMap("m1")
           .add("a", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addSingleCol(new Object[] {10})

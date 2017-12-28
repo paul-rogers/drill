@@ -48,9 +48,9 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -77,11 +77,11 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addMap()
             .addNullable("c", MinorType.BIGINT)
             .addNullable("d", MinorType.VARCHAR)
-            .buildNested()
+            .resumeUnion()
           .addList()
             .addType(MinorType.VARCHAR)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -134,7 +134,7 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
           .addType(MinorType.FLOAT8)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rs = fixture.rowSet(schema);
@@ -281,7 +281,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
         .addList("list2")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -311,14 +311,14 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addMap()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
+            .resumeUnion()
 
           // Nested single-element list
 
           .addList()
             .addType(MinorType.FLOAT8)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -381,8 +381,8 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addMap()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet result;
@@ -523,7 +523,7 @@ public class TestVariantAccessors extends SubOperatorTest {
   /**
    * Test a scalar list. Should act just like a repeated type, with the
    * addition of allowing the list for a row to be null. But, a list
-   * writer does not do auto-increment, so we must do that expliclty
+   * writer does not do auto-increment, so we must do that explicitly
    * after each write.
    */
 
@@ -532,7 +532,7 @@ public class TestVariantAccessors extends SubOperatorTest {
     TupleMetadata schema = new SchemaBuilder()
         .addList("list")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -672,8 +672,8 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addMap()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -823,7 +823,7 @@ public class TestVariantAccessors extends SubOperatorTest {
         .addList("list")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ExtendableRowSet rowSet = fixture.rowSet(schema);
@@ -1090,7 +1090,7 @@ public class TestVariantAccessors extends SubOperatorTest {
           .addList()
             .addType(MinorType.VARCHAR)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet result;

@@ -34,10 +34,10 @@ import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -190,7 +190,7 @@ public class TestBatchSerialization extends DrillTest {
         .addMap("map")
           .add("key", MinorType.INT)
           .add("value", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
 
     verifySerialize(buildMapSet(schema).toIndirect(),

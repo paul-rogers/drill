@@ -26,7 +26,7 @@ import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.test.rowSet.DirectRowSet;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 

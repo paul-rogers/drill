@@ -38,7 +38,7 @@ import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -386,7 +386,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
             .addMap("m3")
               .addNullable("n3", MinorType.INT)
               .addArray("s3", MinorType.VARCHAR)
-              .buildMap()
+              .resumeSchema()
             .buildMap()
           .buildMap()
         .buildSchema();

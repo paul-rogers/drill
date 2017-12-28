@@ -26,12 +26,12 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.HyperRowSetImpl;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetReader;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
@@ -288,7 +288,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addMap("m")
           .add("a", MinorType.INT)
           .add("b", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
@@ -330,7 +330,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addMapArray("ma")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
@@ -372,7 +372,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addUnion("u")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
@@ -412,7 +412,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
     TupleMetadata schema = new SchemaBuilder()
         .addList("a")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
@@ -460,7 +460,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addList("list")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)

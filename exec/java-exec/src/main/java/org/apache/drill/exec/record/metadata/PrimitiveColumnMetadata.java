@@ -17,8 +17,10 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.record.MaterializedField;
 
@@ -33,9 +35,17 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
   public PrimitiveColumnMetadata(MaterializedField schema) {
     super(schema);
-    MajorType majorType = schema.getType();
+    expectedWidth = estimateWidth(schema.getType());
+  }
+
+  public PrimitiveColumnMetadata(String name, MinorType type, DataMode mode) {
+    super(name, type, mode);
+    expectedWidth = estimateWidth(Types.withMode(type, mode));
+  }
+
+  private int estimateWidth(MajorType majorType) {
     if (type() == MinorType.NULL || type() == MinorType.LATE) {
-      expectedWidth = 0;
+      return 0;
     } else if (isVariableWidth()) {
 
       // The above getSize() method uses the deprecated getWidth()
@@ -44,14 +54,14 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
       int precision = majorType.getPrecision();
       if (precision > 0) {
-        expectedWidth = precision;
+        return precision;
       } else {
         // TypeHelper includes the offset vector width
 
-        expectedWidth = TypeHelper.getSize(majorType) - 4;
+        return TypeHelper.getSize(majorType) - 4;
       }
     } else {
-      expectedWidth = TypeHelper.getSize(majorType);
+      return TypeHelper.getSize(majorType);
     }
   }
 

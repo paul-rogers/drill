@@ -44,7 +44,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRo
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 

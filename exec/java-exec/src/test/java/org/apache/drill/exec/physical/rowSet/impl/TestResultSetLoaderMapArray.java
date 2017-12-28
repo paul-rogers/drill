@@ -42,13 +42,14 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+
 import org.junit.Test;
 
 /**
@@ -70,7 +71,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .addMapArray("m")
           .add("c", MinorType.INT)
           .add("d", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -162,7 +163,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("c", MinorType.INT)
           .add("d", MinorType.VARCHAR)
           .addNullable("e", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(40, mapArray(
@@ -188,7 +189,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .addMapArray("m")
           .add("c", MinorType.INT)
           .addArray("d", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -243,7 +244,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .addMapArray("m2")
             .add("c", MinorType.INT)
             .addArray("d", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -329,7 +330,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .addMapArray("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
-        .buildMap()
+        .resumeSchema()
       .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -403,7 +404,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .addMapArray("m")
           .addNullable("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -476,7 +477,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .addMapArray("m")
           .add("a", MinorType.INT)
           .add("b", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)

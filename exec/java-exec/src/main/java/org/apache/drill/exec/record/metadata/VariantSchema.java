@@ -39,7 +39,7 @@ public class VariantSchema implements VariantMetadata {
   }
 
   public static AbstractColumnMetadata memberMetadata(MinorType type) {
-    String name = type.name().toLowerCase();
+    String name = Types.typeKey(type);
     switch (type) {
     case LIST:
       return new VariantColumnMetadata(name, type, null);
@@ -72,9 +72,15 @@ public class VariantSchema implements VariantMetadata {
   @Override
   public void addType(ColumnMetadata col) {
     checkType(col.type());
+    Preconditions.checkArgument(col.name().equals(Types.typeKey(col.type())));
     switch (col.type()) {
     case UNION:
       throw new IllegalArgumentException("Cannot add a union to a union");
+    case LIST:
+      if (col.mode() == DataMode.REQUIRED) {
+        throw new IllegalArgumentException("List type column must be OPTIONAL or REPEATED");
+      }
+      break;
     default:
       if (col.mode() != DataMode.OPTIONAL) {
         throw new IllegalArgumentException("Type column must be OPTIONAL");

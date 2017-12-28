@@ -49,8 +49,9 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.ColumnBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -138,7 +139,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
         RowSetLoader rowSet = tableLoader.writer();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         rowSet.addColumn(a);
-        MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
+        MaterializedField b = new ColumnBuilder("b", MinorType.VARCHAR)
             .setMode(DataMode.OPTIONAL)
             .setWidth(10)
             .build();

@@ -26,7 +26,6 @@ import java.io.StringReader;
 
 import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
@@ -42,18 +41,16 @@ import org.apache.drill.test.rowSet.RowSet;
 public abstract class BaseTestJsonLoader extends SubOperatorTest {
 
   static class JsonTester {
-    private final BufferAllocator allocator;
     public OptionBuilder loaderOptions = new OptionBuilder();
     private final JsonOptions options;
     private ResultSetLoader tableLoader;
 
-    public JsonTester(BufferAllocator allocator, JsonOptions options) {
-      this.allocator = allocator;
+    public JsonTester(JsonOptions options) {
       this.options = options;
     }
 
-    public JsonTester(BufferAllocator allocator) {
-      this(allocator, new JsonOptions());
+    public JsonTester() {
+      this(new JsonOptions());
     }
 
     public RowSet parseFile(String resourcePath) {
@@ -65,7 +62,7 @@ public abstract class BaseTestJsonLoader extends SubOperatorTest {
     }
 
     public RowSet parse(String json) {
-      tableLoader = new ResultSetLoaderImpl(allocator,
+      tableLoader = new ResultSetLoaderImpl(fixture.allocator(),
           loaderOptions.build());
       InputStream inStream = new
           ReaderInputStream(new StringReader(json));
@@ -82,6 +79,45 @@ public abstract class BaseTestJsonLoader extends SubOperatorTest {
     }
 
     public void close() {
+      tableLoader.close();
+    }
+  }
+
+  protected static class MultiBatchJson {
+
+    private final ResultSetLoader tableLoader;
+    private final InputStream inStream;
+    private final JsonLoader loader;
+
+    public MultiBatchJson(JsonOptions options, String json) {
+      options.context = "test Json";
+      inStream = new
+          ReaderInputStream(new StringReader(json));
+      tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+      loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+    }
+
+    public MultiBatchJson(String json) {
+      this(new JsonOptions(), json);
+    }
+
+    public RowSet parse(int rowCount) {
+      readBatch(tableLoader, loader, rowCount);
+      return fixture.wrap(tableLoader.harvest());
+    }
+
+    public RowSet parse() {
+      readBatch(tableLoader, loader);
+      return fixture.wrap(tableLoader.harvest());
+    }
+
+    public void close() {
+      try {
+        inStream.close();
+      } catch (IOException e) {
+        fail();
+      }
+      loader.close();
       tableLoader.close();
     }
   }
@@ -123,11 +159,11 @@ public abstract class BaseTestJsonLoader extends SubOperatorTest {
   }
 
   protected JsonTester jsonTester() {
-    return new JsonTester(fixture.allocator());
+    return new JsonTester();
   }
 
   protected JsonTester jsonTester(JsonOptions options) {
-    return new JsonTester(fixture.allocator(), options);
+    return new JsonTester(options);
   }
 
   protected void expectError(String json) {

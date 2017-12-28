@@ -40,7 +40,7 @@ import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -186,11 +186,11 @@ public class TestJsonLoaderArray extends BaseTestJsonLoader {
         .addNullable("id", MinorType.BIGINT)
         .addMap("customer")
           .addNullable("name", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .addMapArray("orders")
           .addNullable("id", MinorType.BIGINT)
           .addNullable("status", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, mapValue("fred"), mapArray(
@@ -214,7 +214,7 @@ public class TestJsonLoaderArray extends BaseTestJsonLoader {
     BatchSchema expectedSchema = new SchemaBuilder()
         .addMapArray("a")
           .addNullable("name", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(mapArray())

@@ -49,8 +49,8 @@ import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -76,8 +76,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .addMap()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -169,8 +169,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .addMap()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
@@ -192,7 +192,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .addUnion("u")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -309,7 +309,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     schema.metadata("list").variantSchema().becomeSimple();
@@ -393,7 +393,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, strArray("fred", "barney"))
@@ -418,7 +418,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     try {
@@ -443,7 +443,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .addList("list")
           .addType(MinorType.VARCHAR)
           .addType(MinorType.INT)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     try {
@@ -547,7 +547,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
         .addList("list")
           .addType(MinorType.VARCHAR)
           .addType(MinorType.INT)
-          .build()
+          .resumeSchema()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, null)
@@ -628,7 +628,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .addList()
             .addType(MinorType.INT)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(1, 2), listValue(3, 4)))

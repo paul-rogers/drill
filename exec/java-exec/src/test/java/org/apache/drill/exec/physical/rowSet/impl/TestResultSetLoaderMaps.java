@@ -41,9 +41,9 @@ import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
@@ -64,7 +64,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .addMap("m")
           .add("c", MinorType.INT)
           .add("d", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .add("e", MinorType.VARCHAR)
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -145,7 +145,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addMap("m")
           .add("b", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -200,7 +200,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .add("c", MinorType.INT)
           .add("d", MinorType.BIGINT)
           .add("e", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(30, mapValue("wilma", 130, 130_000L, ""))
@@ -269,7 +269,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addMap("m")
           .add("a", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(10, mapValue(""))
@@ -321,7 +321,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(10, mapValue())
@@ -350,7 +350,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addMap("m")
           .add("a", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(40, mapValue("fred"))
@@ -377,7 +377,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .add("b", MinorType.VARCHAR)
           .addMap("m2")
             .add("c", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -432,7 +432,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .add("c", MinorType.VARCHAR)
             .add("e", MinorType.VARCHAR)
             .add("g", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .add("d", MinorType.VARCHAR)
           .add("f", MinorType.VARCHAR)
           .buildMap()
@@ -461,7 +461,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .addNullable("b", MinorType.VARCHAR)
           .addMap("m2")
             .addNullable("c", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -514,7 +514,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .addNullable("c", MinorType.VARCHAR)
             .addNullable("e", MinorType.VARCHAR)
             .addNullable("g", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .addNullable("d", MinorType.VARCHAR)
           .addNullable("f", MinorType.VARCHAR)
           .buildMap()
@@ -544,7 +544,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .addMap("m")
           .addArray("c", MinorType.INT)
           .addArray("d", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -623,7 +623,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
             .add("c", MinorType.INT) // Before overflow, written
             .add("d", MinorType.VARCHAR)
             .add("e", MinorType.INT) // After overflow, not yet written
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -699,7 +699,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .addMap("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -792,7 +792,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .addMap("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.VARCHAR)
-        .buildMap()
+        .resumeSchema()
       .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
@@ -858,7 +858,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .add("a", MinorType.INT)
           .addMap("m")
             .add("a", MinorType.INT)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()

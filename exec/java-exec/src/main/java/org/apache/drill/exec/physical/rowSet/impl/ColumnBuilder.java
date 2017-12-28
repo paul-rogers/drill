@@ -233,6 +233,7 @@ public class ColumnBuilder {
     RepeatedMapVector mapVector;
     UInt4Vector offsetVector;
     if (columnSchema.isProjected()) {
+
       // Creating the map vector will create its contained vectors if we
       // give it a materialized field with children. So, instead pass a clone
       // without children so we can add them.
@@ -519,8 +520,7 @@ public class ColumnBuilder {
 
     RepeatedListState listState = new RepeatedListState(
         parent.loader(),
-        parent.vectorCache().childCache(columnSchema.name()),
-        parent.isVersioned());
+        parent.vectorCache().childCache(columnSchema.name()));
 
     // Bind the list state as the list event listener.
 

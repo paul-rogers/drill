@@ -25,7 +25,6 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetPrinter;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
@@ -34,6 +33,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import com.google.common.collect.Lists;
 
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 
 /**
  * Tests for a prototype version of an implicit join reader. Suppose
@@ -71,7 +71,7 @@ public class TestImplicitJoinReader extends SubOperatorTest {
         .addMapArray("order")
           .add("orderId", MinorType.INT)
           .add("amount", MinorType.FLOAT8)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
@@ -116,7 +116,7 @@ public class TestImplicitJoinReader extends SubOperatorTest {
         .addMapArray("order")
           .add("orderId", MinorType.INT)
           .add("amount", MinorType.FLOAT8)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)

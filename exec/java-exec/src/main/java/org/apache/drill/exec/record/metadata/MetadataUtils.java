@@ -153,4 +153,13 @@ public class MetadataUtils {
     return new RepeatedListColumnMetadata(name, child);
   }
 
+  public static AbstractColumnMetadata newMapArray(String name, TupleMetadata schema) {
+    return new MapColumnMetadata(name, DataMode.REPEATED, (TupleSchema) schema);
+  }
+
+  public static PrimitiveColumnMetadata newScalar(String name, MinorType type,
+      DataMode mode) {
+    assert type != MinorType.MAP && type != MinorType.UNION && type != MinorType.LIST;
+    return new PrimitiveColumnMetadata(name, type, mode);
+  }
 }

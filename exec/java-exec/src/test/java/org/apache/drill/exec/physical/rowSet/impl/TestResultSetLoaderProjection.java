@@ -35,8 +35,8 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
@@ -156,15 +156,15 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addMap("m1")
           .add("a", MinorType.INT)
           .add("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .addMap("m2")
           .add("c", MinorType.INT)
           .add("d", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .addMap("m3")
           .add("e", MinorType.INT)
           .add("f", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
@@ -211,10 +211,10 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
       .addMap("m1")
         .add("a", MinorType.INT)
         .add("b", MinorType.INT)
-        .buildMap()
+        .resumeSchema()
       .addMap("m2")
         .add("d", MinorType.INT)
-        .buildMap()
+        .resumeSchema()
       .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
       .addRow(mapValue( 1,  2), mapValue( 4))
@@ -234,7 +234,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addMap("m1")
           .add("a", MinorType.INT)
           .add("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
@@ -288,15 +288,15 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addMapArray("m1")
           .add("a", MinorType.INT)
           .add("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .addMapArray("m2")
           .add("c", MinorType.INT)
           .add("d", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .addMapArray("m3")
           .add("e", MinorType.INT)
           .add("f", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
@@ -323,10 +323,10 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
       .addMapArray("m1")
         .add("a", MinorType.INT)
         .add("b", MinorType.INT)
-        .buildMap()
+        .resumeSchema()
       .addMapArray("m2")
         .add("d", MinorType.INT)
-        .buildMap()
+        .resumeSchema()
       .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
       .addRow(

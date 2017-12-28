@@ -23,7 +23,7 @@ import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Ignore;
 import org.junit.Test;
 

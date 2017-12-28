@@ -46,7 +46,7 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -59,7 +59,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -130,7 +130,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -160,7 +160,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
@@ -242,7 +242,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()

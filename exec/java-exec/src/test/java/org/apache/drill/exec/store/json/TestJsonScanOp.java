@@ -43,7 +43,7 @@ import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 public class TestJsonScanOp extends SubOperatorTest {
@@ -124,12 +124,12 @@ public class TestJsonScanOp extends SubOperatorTest {
           .addNullable("inner_2", MinorType.VARCHAR)
           .addMapArray("inner_3")
             .addNullable("inner_object_field_1", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .addMapArray("field_5")
           .addArray("inner_list", MinorType.VARCHAR)
           .addArray("inner_list_2", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     RowSetUtilities.strArray();
@@ -173,7 +173,7 @@ public class TestJsonScanOp extends SubOperatorTest {
         .addMap("field_3")
           .addNullable("inner_1", MinorType.BIGINT)
           .addNullable("inner_2", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(schema)
@@ -207,7 +207,7 @@ public class TestJsonScanOp extends SubOperatorTest {
         .addMapArray("field_5")
           .addArray("inner_list", MinorType.VARCHAR)
           .addNullable("dummy", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(schema)
@@ -252,15 +252,15 @@ public class TestJsonScanOp extends SubOperatorTest {
         .addMap("field_3")
           .addNullable("inner_1", MinorType.BIGINT)
           .addNullable("inner_2", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .addMap("field_4")
           .addArray("inner_1", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .addNullable("non_existent_at_root", MinorType.VARCHAR)
         .addMap("non_existent")
           .addMap("nested")
             .addNullable("field", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .build();
 

@@ -102,7 +102,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
  * The key reason to understand this flow is to understand what happens
  * in vector overflow: unlike an array of scalars, in which the data
  * vector can never be in the Behind state, when we have an array of
- * maps then each vector can be in an of the scalar writer state.
+ * maps then each vector can be in any of the scalar writer states.
  */
 
 public class ObjectArrayWriter extends BaseArrayWriter {

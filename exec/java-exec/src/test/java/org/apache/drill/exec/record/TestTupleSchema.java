@@ -43,7 +43,8 @@ import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantColumnMetadata;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.ColumnBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -173,7 +174,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // A different precision is a different type.
 
-    MaterializedField field2 = new SchemaBuilder.ColumnBuilder("c", MinorType.VARCHAR)
+    MaterializedField field2 = new ColumnBuilder("c", MinorType.VARCHAR)
         .setMode(DataMode.REQUIRED)
         .setPrecision(10)
         .build();
@@ -687,7 +688,7 @@ public class TestTupleSchema extends SubOperatorTest {
         .addUnion("u")
           .addType(MinorType.BIGINT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(1, schema.size());
@@ -732,7 +733,7 @@ public class TestTupleSchema extends SubOperatorTest {
         .addList("list")
           .addType(MinorType.BIGINT)
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(1, schema.size());
@@ -785,12 +786,12 @@ public class TestTupleSchema extends SubOperatorTest {
           .addMap()
             .add("a", MinorType.INT)
             .add("b", MinorType.VARCHAR)
-            .buildNested()
+            .resumeUnion()
           .addList()
             .addType(MinorType.FLOAT8)
             .addType(MinorType.DECIMAL18)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     assertEquals(1, schema.size());

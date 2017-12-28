@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseContainerColumnState;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
@@ -339,6 +340,39 @@ public abstract class TupleState extends ContainerState
     }
 
     @Override
+    protected void addColumn(ColumnState colState) {
+      super.addColumn(colState);
+
+      // If the map is materialized (because it is nested inside a union)
+      // then add the new vector to the map at add time. But, for top-level
+      // maps, or those nested inside other maps (but not a union or
+      // repeated list), defer
+      // adding the column until harvest time, to allow for the case that
+      // new columns are added in the overflow row. Such columns may be
+      // required, and not allow back-filling. But, inside unions, all
+      // columns must be nullable, so back-filling of nulls is possible.
+
+      if (! isVersioned()) {
+        @SuppressWarnings("resource")
+        AbstractMapVector mapVector = parentColumn.vector();
+        mapVector.putChild(colState.schema().name(), colState.vector());
+      }
+    }
+
+    /**
+     * A map is within a union if the map vector has been materialized.
+     * Top-level maps are built at harvest time. But, due to the complexity
+     * of unions, maps within unions are materialized. This method ensures
+     * that maps are materialized regardless of nesting depth within
+     * a union.
+     */
+
+    @Override
+    protected boolean isVersioned() {
+      return ((MapColumnState) parentColumn).isVersioned();
+    }
+
+    @Override
     public int innerCardinality() {
       return parentColumn.innerCardinality();
     }
@@ -371,38 +405,6 @@ public abstract class TupleState extends ContainerState
     public AbstractTupleWriter writer() {
       return (AbstractTupleWriter) parentColumn.writer().tuple();
     }
-
-    @Override
-    protected void addColumn(ColumnState colState) {
-      super.addColumn(colState);
-
-      // If the map is materialized (because it is nested inside a union)
-      // then add the new vector to the map at add time. But, for top-level
-      // maps, or those nested inside other maps (but not a union), defer
-      // adding the column until harvest time, to allow for the case that
-      // new columns are added in the overflow row. Such columns may be
-      // required, and not allow back-filling. But, inside unions, all
-      // columns must be nullable, so back-filling of nulls is possible.
-
-      @SuppressWarnings("resource")
-      AbstractMapVector mapVector = parentColumn.vector();
-      if (! isVersioned()) {
-         mapVector.putChild(colState.schema().name(), colState.vector());
-      }
-    }
-
-    /**
-     * A map is within a union if the map vector has been materialized.
-     * Top-level maps are built at harvest time. But, due to the complexity
-     * of unions, maps within unions are materialized. This method ensures
-     * that maps are materialized regardless of nesting depth within
-     * a union.
-     */
-
-    @Override
-    protected boolean isVersioned() {
-      return ((MapColumnState) parentColumn).isVersioned();
-    }
   }
 
   public static class MapArrayState extends MapState {
@@ -423,9 +425,6 @@ public abstract class TupleState extends ContainerState
     public AbstractTupleWriter writer() {
       return (AbstractTupleWriter) parentColumn.writer().array().tuple();
     }
-
-    @Override
-    protected boolean isVersioned() { return true; }
   }
 
   /**
@@ -500,7 +499,10 @@ public abstract class TupleState extends ContainerState
     TupleMetadata tupleSchema = schema();
     String colName = columnSchema.name();
     if (tupleSchema.column(colName) != null) {
-      throw new IllegalArgumentException("Duplicate column: " + colName);
+      throw UserException
+        .validationError()
+        .message("Duplicate column name: ", colName)
+        .build(ResultSetLoaderImpl.logger);
     }
 
     return addColumn(columnSchema).writer();

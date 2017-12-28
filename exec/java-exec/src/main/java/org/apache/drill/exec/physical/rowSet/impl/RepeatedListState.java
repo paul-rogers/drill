@@ -155,12 +155,10 @@ public class RepeatedListState extends ContainerState implements RepeatedListWri
   }
 
   private ColumnState childState;
-  private final boolean isVersioned;
 
   public RepeatedListState(LoaderInternals loader,
-      ResultVectorCache vectorCache, boolean isVersioned) {
+      ResultVectorCache vectorCache) {
     super(loader, vectorCache, ImpliedTupleRequest.ALL_MEMBERS);
-    this.isVersioned = isVersioned;
   }
 
   @Override
@@ -208,8 +206,18 @@ public class RepeatedListState extends ContainerState implements RepeatedListWri
     }
   }
 
+  /**
+   * The repeated list vector does not support versioning
+   * of maps within the list. (That is, if a new field is
+   * added in the overflow row, it will appear in the output
+   * of the first batch.) The reasons for not versioning are simple:
+   * 1) repeated lists are a very obscure and low-priority area of Drill,
+   * and 2) given that background, the additional work of versioning is
+   * not worth the effort.
+   */
+
   @Override
-  protected boolean isVersioned() { return isVersioned; }
+  protected boolean isVersioned() { return false; }
 
   // Callback from the repeated list vector to add the child.
 

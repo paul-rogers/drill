@@ -37,7 +37,7 @@ import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
@@ -50,7 +50,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
  * loader properly handles column types, projections and so on.
  */
 
-public class TestJsonLoader extends BaseTestJsonLoader {
+public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testEmpty() {
@@ -209,6 +209,7 @@ public class TestJsonLoader extends BaseTestJsonLoader {
     RowSetUtilities.verify(expected, results);
     tester.close();
   }
+
   @Test
   public void testMissingEndObject() {
     expectError("{a: 0} {a: 100");
@@ -329,7 +330,7 @@ public class TestJsonLoader extends BaseTestJsonLoader {
         .addNullable("id", MinorType.BIGINT)
         .addMap("customer")
           .addNullable("name", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, mapValue("fred"))
@@ -352,7 +353,7 @@ public class TestJsonLoader extends BaseTestJsonLoader {
         .addNullable("id", MinorType.BIGINT)
         .addMap("customer")
           .addNullable("name", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, mapValue("fred"))
@@ -503,7 +504,7 @@ public class TestJsonLoader extends BaseTestJsonLoader {
         .addMapArray("field_5")
           .addArray("inner_list", MinorType.VARCHAR)
           .addArray("inner_list_2", MinorType.VARCHAR)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(mapArray())

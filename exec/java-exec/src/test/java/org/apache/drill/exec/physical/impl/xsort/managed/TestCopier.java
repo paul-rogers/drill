@@ -35,9 +35,9 @@ import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -348,7 +348,7 @@ public class TestCopier extends SubOperatorTest {
           .add("b", MinorType.INT)
           .addMap("m2")
             .add("c", MinorType.INT)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .build();
 

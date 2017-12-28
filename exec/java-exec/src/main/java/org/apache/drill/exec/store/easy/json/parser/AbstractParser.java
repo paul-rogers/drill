@@ -22,8 +22,8 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
@@ -136,10 +136,7 @@ abstract class AbstractParser implements JsonElementParser {
   protected MaterializedField schemaFor(String key,
       MinorType type, DataMode mode) {
     return MaterializedField.create(key,
-        MajorType.newBuilder()
-          .setMinorType(type)
-          .setMode(mode)
-          .build());
+        Types.withMode(type, mode));
   }
 
   protected List<String> makePath() {

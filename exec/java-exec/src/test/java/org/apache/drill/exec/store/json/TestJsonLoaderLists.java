@@ -47,7 +47,7 @@ import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -81,7 +81,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.BIGINT)
-          .build()
+          .resumeSchema()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
@@ -103,7 +103,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.BIGINT)
-          .build()
+          .resumeSchema()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
@@ -125,7 +125,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .build();
 
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
@@ -153,7 +153,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     BatchSchema expectedSchema = new SchemaBuilder()
         .addList("a")
           .addType(MinorType.VARCHAR)
-          .build()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(strArray())
@@ -193,7 +193,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     BatchSchema expectedSchema = new SchemaBuilder()
         .addList("a")
           .addType(MinorType.BIGINT)
-          .build()
+          .resumeSchema()
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
@@ -231,8 +231,8 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
           .addMap()
             .addNullable("b", MinorType.VARCHAR)
             .addNullable("c", MinorType.BIGINT)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(mapArray(mapValue("fred", 10L), null, mapValue("barney", 20L)))
@@ -262,8 +262,8 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
           .addMap()
             .addNullable("b", MinorType.VARCHAR)
             .addNullable("c", MinorType.BIGINT)
-            .buildNested()
-          .build()
+            .resumeUnion()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
@@ -316,7 +316,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
           .addList()
             .addType(MinorType.BIGINT)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(1L, 2L), listValue(3L, 4L)))
@@ -347,7 +347,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
           .addList()
             .addType(MinorType.VARCHAR)
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
@@ -380,9 +380,9 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
             .addMap()
               .addNullable("a", MinorType.BIGINT)
               .addNullable("b", MinorType.BIGINT)
-              .buildNested()
+              .resumeUnion()
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(mapValue(1L, 2L), mapValue(3L, 4L)),
@@ -413,9 +413,9 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
             .addMap()
               .addNullable("a", MinorType.BIGINT)
               .addNullable("b", MinorType.BIGINT)
-              .buildNested()
+              .resumeUnion()
             .buildNested()
-          .build()
+          .resumeSchema()
         .buildSchema();
 
     // Logically expected results.

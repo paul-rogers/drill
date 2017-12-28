@@ -43,10 +43,10 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 /**
@@ -315,7 +315,7 @@ public class RowSetTest extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addMap("m")
           .addArray("b", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer();
@@ -446,7 +446,7 @@ public class RowSetTest extends SubOperatorTest {
         .addMapArray("m")
           .add("b", MinorType.INT)
           .add("c", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer();

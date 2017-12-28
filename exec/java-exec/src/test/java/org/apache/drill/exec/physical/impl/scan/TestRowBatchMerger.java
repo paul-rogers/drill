@@ -34,8 +34,8 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
@@ -302,7 +302,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
           .addNullable("null2", MinorType.VARCHAR)
           .addMap("map2")
             .addNullable("null3", MinorType.INT)
-            .buildMap()
+            .resumeSchema()
           .buildMap()
         .add("d", MinorType.VARCHAR)
         .build();
@@ -330,7 +330,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .addMap("a")
           .add("c", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSetSource input = new RowSetSource(
         fixture.rowSetBuilder(inputSchema)
@@ -374,7 +374,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
         .addMap("a")
           .add("c", MinorType.INT)
           .addNullable("null1", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow("barney", mapValue(10, null))
@@ -399,7 +399,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .addMapArray("a")
           .add("c", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSetSource input = new RowSetSource(
         fixture.rowSetBuilder(inputSchema)
@@ -443,7 +443,7 @@ public class TestRowBatchMerger extends SubOperatorTest {
         .addMapArray("a")
           .add("c", MinorType.INT)
           .addNullable("null1", MinorType.INT)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow("barney", mapArray(

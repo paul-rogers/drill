@@ -44,7 +44,7 @@ import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -114,7 +114,7 @@ public class TestJsonReader2 extends ClusterTest {
         .addMap("b")
           .addNullable("x", MinorType.BIGINT)
           .addNullable("y", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .build();
     RowSet f2Expected = client.rowSetBuilder(f2Schema)
         .addSingleCol(mapValue(null, null))
@@ -315,11 +315,11 @@ public class TestJsonReader2 extends ClusterTest {
         .addMap("field_3")
           .addNullable("inner_1", MinorType.BIGINT)
           .addNullable("inner_2", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .addMap("field_4")
           .addArray("inner_1", MinorType.BIGINT)
           .addNullable("inner_2", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .build();
 
     RowSet expected = client.rowSetBuilder(expectedSchema)
@@ -365,7 +365,7 @@ public class TestJsonReader2 extends ClusterTest {
           .addNullable("f_1", MinorType.BIGINT)
           .addNullable("f_2", MinorType.BIGINT)
           .addNullable("f_3", MinorType.BIGINT)
-          .buildMap()
+          .resumeSchema()
         .build();
 
     RowSet expected = client.rowSetBuilder(expectedSchema)
@@ -389,7 +389,7 @@ public class TestJsonReader2 extends ClusterTest {
             .addNullable("f_1", MinorType.VARCHAR)
             .addNullable("f_2", MinorType.VARCHAR)
             .addNullable("f_3", MinorType.VARCHAR)
-            .buildMap()
+            .resumeSchema()
           .build();
 
       RowSet expected = client.rowSetBuilder(expectedSchema)
@@ -473,15 +473,15 @@ public class TestJsonReader2 extends ClusterTest {
           .addMap("field_3")
             .addNullable("inner_1", MinorType.BIGINT)
             .addNullable("inner_2", MinorType.BIGINT)
-            .buildMap()
+            .resumeSchema()
           .addMap("field_4")
             .addArray("inner_1", MinorType.BIGINT)
-            .buildMap()
+            .resumeSchema()
           .addNullable("non_existent_at_root", MinorType.VARCHAR)
           .addMap("non_existent")
             .addMap("nested")
               .addNullable("field", MinorType.VARCHAR)
-              .buildMap()
+              .resumeSchema()
             .buildMap()
           .build();
 

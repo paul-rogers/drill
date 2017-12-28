@@ -43,7 +43,7 @@ import org.apache.drill.exec.physical.impl.scan.project.WildcardSchemaProjection
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 public class TestSchemaLevelProjection extends SubOperatorTest {
@@ -330,7 +330,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .addMap("a")
           .add("b", MinorType.BIGINT)
           .add("c", MinorType.FLOAT8)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
@@ -429,7 +429,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
         .addMap("a")
           .add("b", MinorType.BIGINT)
           .add("c", MinorType.FLOAT8)
-          .buildMap()
+          .resumeSchema()
         .buildSchema();
 
     NullColumnBuilder builder = new NullColumnBuilder(null, false);
