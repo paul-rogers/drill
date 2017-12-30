@@ -329,7 +329,7 @@ public class ListVector extends BaseRepeatedValueVector {
     // Replace the current vector, clearing its data. (This is the
     // old behavior.
 
-    replaceDataVector(unionVector);
+    setChildVector(unionVector);
     return unionVector;
   }
 

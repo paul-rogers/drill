@@ -50,6 +50,13 @@ public class UnionVectorShim implements UnionShim {
 
     @Override
     public ObjectWriter addType(MinorType type) {
+
+      // This vector layer does not have visibility to the implementation
+      // classes for metadata. Use the methods provided to add the type
+      // which will create the member metadata. This means that the type
+      // will already be in the variant schema by the time we add the
+      // writer to the variant writer in a few steps from now.
+
       ValueVector memberVector = shim.vector.getMember(type);
       ColumnMetadata memberSchema = shim.writer.variantSchema().addType(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);

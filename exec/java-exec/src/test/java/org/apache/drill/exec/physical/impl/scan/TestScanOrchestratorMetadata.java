@@ -41,7 +41,6 @@ import com.google.common.collect.Lists;
 
 public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
-
   /**
    * Resolve a selection list using SELECT *.
    */

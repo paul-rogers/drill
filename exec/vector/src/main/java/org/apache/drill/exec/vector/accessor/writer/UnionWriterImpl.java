@@ -223,8 +223,14 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   protected void addMember(AbstractObjectWriter writer) {
     MinorType type = writer.schema().type();
-    assert ! variantSchema().hasType(type);
-    variantSchema().addType(writer.schema());
+
+    // If the metadata has not yet been added to the variant
+    // schema, do so now. (Unfortunately, the default listener
+    // does add the schema, while the row set loader does not.)
+
+    if (! variantSchema().hasType(type)) {
+      variantSchema().addType(writer.schema());
+    }
     writer.events().bindIndex(index);
     if (state != State.IDLE) {
       writer.events().startWrite();

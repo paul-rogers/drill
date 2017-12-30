@@ -104,22 +104,24 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema2DBatch() {
-    TupleMetadata schema = new SchemaBuilder()
+    BatchSchema schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
-        .buildSchema();
+        .build();
 
-    assertEquals(2, schema.size());
-    ColumnMetadata list = schema.metadata(1);
-    assertEquals("list2", list.name());
-    assertEquals(MinorType.LIST, list.type());
-    assertEquals(DataMode.REPEATED, list.mode());
-    assertEquals(StructureType.MULTI_ARRAY, list.structureType());
-    assertTrue(list.isArray());
-    assertEquals(-1, list.dimensions());
-    assertNull(list.childSchema());
+    assertEquals(2, schema.getFieldCount());
+    MaterializedField list = schema.getColumn(1);
+    assertEquals("list2", list.getName());
+    assertEquals(MinorType.LIST, list.getType().getMinorType());
+    assertEquals(DataMode.REPEATED, list.getType().getMode());
+    assertEquals(1, list.getChildren().size());
+
+    MaterializedField inner = list.getChildren().iterator().next();
+    assertEquals("list2", inner.getName());
+    assertEquals(MinorType.VARCHAR, inner.getType().getMinorType());
+    assertEquals(DataMode.REPEATED, inner.getType().getMode());
   }
 
   /**

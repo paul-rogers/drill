@@ -302,8 +302,8 @@ public class TestRowBatchMerger extends SubOperatorTest {
           .addNullable("null2", MinorType.VARCHAR)
           .addMap("map2")
             .addNullable("null3", MinorType.INT)
-            .resumeSchema()
-          .buildMap()
+            .resumeMap()
+          .resumeSchema()
         .add("d", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)

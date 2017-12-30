@@ -32,7 +32,34 @@ public class VariantColumnMetadata extends AbstractColumnMetadata {
     super(schema);
     variantSchema = new VariantSchema();
     variantSchema.bind(this);
-    List<MinorType> types = schema.getType().getSubTypeList();
+    List<MinorType> types = null;
+    if (type() == MinorType.UNION) {
+      types = schema.getType().getSubTypeList();
+    } else {
+      assert type() == MinorType.LIST;
+      MaterializedField child = schema.getChildren().iterator().next();
+      switch (child.getType().getMinorType()) {
+      case UNION:
+
+        // List contains a union.
+
+        types = child.getType().getSubTypeList();
+        break;
+
+      case LATE:
+
+        // List has no type.
+
+        return;
+
+      default:
+
+        // List contains a single non-null type.
+
+        variantSchema.addType(MetadataUtils.fromField(child));
+        return;
+      }
+    }
     if (types == null) {
       return;
     }

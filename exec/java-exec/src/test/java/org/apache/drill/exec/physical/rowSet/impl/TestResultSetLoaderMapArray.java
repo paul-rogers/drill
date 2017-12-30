@@ -244,8 +244,8 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .addMapArray("m2")
             .add("c", MinorType.INT)
             .addArray("d", MinorType.VARCHAR)
-            .resumeSchema()
-          .buildMap()
+            .resumeMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)

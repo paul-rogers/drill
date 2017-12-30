@@ -24,7 +24,18 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+
+/**
+ * Infer the schema for a hyperbatch. Scans each vector of each batch
+ * to ensure that the vectors are compatible. (They should be.)
+ * <p>
+ * This code should be extended to handle merges. For example, batch
+ * 1 may have a union with type INT. Batch 2 might have a union with
+ * VARCHAR. The combined schema should have (INT, VARCHAR). The same
+ * is true with (non-repeated) lists. There may be other cases.
+ */
 
 public class HyperSchemaInference {
 
@@ -45,6 +56,15 @@ public class HyperSchemaInference {
         commonSchema = mapSchema;
       } else if (! commonSchema.isEquivalent(mapSchema)) {
         throw new SchemaChangeException("Maps are not consistent");
+      }
+    }
+
+    // Special handling of lists and unions
+
+    if (commonSchema.isVariant()) {
+      VariantMetadata variantSchema = commonSchema.variantSchema();
+      if (variantSchema.size() == 1) {
+        variantSchema.becomeSimple();
       }
     }
     return commonSchema;

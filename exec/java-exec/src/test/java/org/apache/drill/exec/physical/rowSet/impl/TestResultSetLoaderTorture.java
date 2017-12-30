@@ -386,9 +386,9 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
             .addMap("m3")
               .addNullable("n3", MinorType.INT)
               .addArray("s3", MinorType.VARCHAR)
-              .resumeSchema()
-            .buildMap()
-          .buildMap()
+              .resumeMap()
+            .resumeMap()
+          .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)

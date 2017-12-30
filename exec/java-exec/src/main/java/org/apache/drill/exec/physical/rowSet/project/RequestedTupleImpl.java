@@ -161,7 +161,7 @@ public class RequestedTupleImpl implements RequestedTuple {
       projection.add(name, new RequestedColumnImpl(this, name));
       return;
     }
-    if (member.isSimple()) {
+    if (member.isSimple() || member.isWildcard()) {
       throw UserException
         .validationError()
         .message("Duplicate column in project list: %s",

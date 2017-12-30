@@ -188,6 +188,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   /**
    * Can't include both a column name and a wildcard.
    */
+
   @Test
   public void testErrorColumnAndWildcard() {
     try {
@@ -199,6 +200,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
       // Expected
     }
   }
+
   /**
    * Can't include a wildcard twice.
    * <p>

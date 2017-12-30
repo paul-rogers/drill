@@ -32,6 +32,12 @@ import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
+/**
+ * The schema builder for tests has grown complex to handle maps, unions,
+ * lists and repeated lists. This test verifies that it assembles the various
+ * pieces correctly for the various nesting combinations.
+ */
+
 public class TestSchemaBuilder {
 
   @Test

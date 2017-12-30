@@ -17,8 +17,7 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.assertNull;
-
+import static org.junit.Assert.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
@@ -79,7 +79,7 @@ public class DummyWriterTest extends SubOperatorTest {
 
     // At present, dummy writers report no type (because they don't have one.)
 
-    assertNull(rootWriter.scalar(0).valueType());
+    assertEquals(ValueType.NULL, rootWriter.scalar(0).valueType());
 
     // First column. Set int value.
 

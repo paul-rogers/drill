@@ -41,8 +41,6 @@ import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 
-import com.google.common.collect.Lists;
-
 /**
  * Test of the basics of the projection mechanism.
  */
@@ -56,10 +54,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testProjectionStatic() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("c"),
-        SchemaPath.getSimplePath("b"),
-        SchemaPath.getSimplePath("e"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("c", "b", "e");
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.INT)
@@ -77,10 +72,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testProjectionDynamic() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("c"),
-        SchemaPath.getSimplePath("b"),
-        SchemaPath.getSimplePath("e"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("c", "b", "e");
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
         .build();
@@ -149,9 +141,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testMapProjection() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("m1"),
-        SchemaPath.getCompoundPath("m2", "d"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("m1", "m2.d");
     TupleMetadata schema = new SchemaBuilder()
         .addMap("m1")
           .add("a", MinorType.INT)
@@ -227,9 +217,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testMapProjectionMemberAndMap() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("m1"),
-        SchemaPath.getCompoundPath("m1", "b"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("m1", "m1.b");
     TupleMetadata schema = new SchemaBuilder()
         .addMap("m1")
           .add("a", MinorType.INT)
@@ -281,9 +269,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testMapArrayProjection() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("m1"),
-        SchemaPath.getCompoundPath("m2", "d"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("m1", "m2.d");
     TupleMetadata schema = new SchemaBuilder()
         .addMapArray("m1")
           .add("a", MinorType.INT)
@@ -351,9 +337,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testProjectWithOverflow() {
-    List<SchemaPath> selection = Lists.newArrayList(
-        SchemaPath.getSimplePath("small"),
-        SchemaPath.getSimplePath("dummy"));
+    List<SchemaPath> selection = RowSetTestUtils.projectList("small", "dummy");
     TupleMetadata schema = new SchemaBuilder()
         .add("big", MinorType.VARCHAR)
         .add("small", MinorType.VARCHAR)

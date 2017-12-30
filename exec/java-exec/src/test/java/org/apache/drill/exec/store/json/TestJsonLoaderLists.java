@@ -337,7 +337,6 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     JsonTester tester = jsonTester(options);
     options.useListType = true;
     RowSet results = tester.parse(json);
-    results.print();
 
     // Note use of TupleMetadata: BatchSchema can't hold the
     // structure of a list.
@@ -357,7 +356,6 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
         .addSingleCol(singleList(singleList(null)))
         .addSingleCol(listValue(null, strArray("a", "string")))
         .build();
-    expected.print();
     RowSetUtilities.verify(expected, results);
   }
 

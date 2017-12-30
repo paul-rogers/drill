@@ -65,7 +65,7 @@ public class UnionBuilder implements SchemaContainer {
 
   public MapBuilder addMap() {
     checkType(MinorType.MAP);
-    return new MapBuilder(this, Types.typeKey(type), mode);
+    return new MapBuilder(this, Types.typeKey(MinorType.MAP), DataMode.OPTIONAL);
   }
 
   public UnionBuilder addList() {

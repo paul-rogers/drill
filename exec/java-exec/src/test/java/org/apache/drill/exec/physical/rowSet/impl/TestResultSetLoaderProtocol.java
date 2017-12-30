@@ -27,6 +27,7 @@ import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -368,14 +369,14 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     try {
       rootWriter.addColumn(colSchema);
       fail();
-    } catch(IllegalArgumentException e) {
+    } catch(UserException e) {
       // Expected
     }
     try {
       MaterializedField testCol = SchemaBuilder.columnSchema("A", MinorType.VARCHAR, DataMode.REQUIRED);
       rootWriter.addColumn(testCol);
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
       assertTrue(e.getMessage().contains("Duplicate"));
     }

@@ -360,6 +360,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   @Override
   public void setPosn(int posn) {
+    elementIndex.set(posn);
     elementReader.events().reposition();
   }
 

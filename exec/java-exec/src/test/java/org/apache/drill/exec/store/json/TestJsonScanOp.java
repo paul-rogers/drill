@@ -124,8 +124,8 @@ public class TestJsonScanOp extends SubOperatorTest {
           .addNullable("inner_2", MinorType.VARCHAR)
           .addMapArray("inner_3")
             .addNullable("inner_object_field_1", MinorType.VARCHAR)
-            .resumeSchema()
-          .buildMap()
+            .resumeMap()
+          .resumeSchema()
         .addMapArray("field_5")
           .addArray("inner_list", MinorType.VARCHAR)
           .addArray("inner_list_2", MinorType.VARCHAR)
@@ -238,10 +238,8 @@ public class TestJsonScanOp extends SubOperatorTest {
 
     assertTrue(scanOp.buildSchema());
     RowSet result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
-//    result.print();
     assertTrue(scanOp.next());
     result = fixture.wrap(scanOp.batchAccessor().getOutgoingContainer());
-//    result.print();
 
     // Projects all columns (since the revised scan operator handles missing-column
     // projection.) Note that the result includes two batches, including the first empty
@@ -260,8 +258,8 @@ public class TestJsonScanOp extends SubOperatorTest {
         .addMap("non_existent")
           .addMap("nested")
             .addNullable("field", MinorType.VARCHAR)
-            .resumeSchema()
-          .buildMap()
+            .resumeMap()
+          .resumeSchema()
         .build();
 
     Object nullMap = singleMap(singleMap(null));

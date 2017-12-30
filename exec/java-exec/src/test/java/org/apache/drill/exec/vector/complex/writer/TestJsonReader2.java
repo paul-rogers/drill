@@ -524,7 +524,6 @@ public class TestJsonReader2 extends ClusterTest {
     os.close();
     String sql = "select t.col1, t.col2.col3 from dfs.tmp.drill_4032 t order by col1";
     RowSet results = runTest(sql);
-    results.print();
 
     BatchSchema schema = new SchemaBuilder()
         .addNullable("col1", MinorType.VARCHAR)

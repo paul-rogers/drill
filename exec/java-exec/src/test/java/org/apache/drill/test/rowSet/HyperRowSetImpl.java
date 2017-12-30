@@ -96,6 +96,19 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       for (VectorContainer container : batches) {
         hyperContainer.addBatch(container);
       }
+
+      // TODO: This has a bug. If the hyperset has two batches with unions,
+      // and the first union contains only VARCHAR, while the second contains
+      // only INT, the combined schema should be (VARCHAR, INT). Same is true
+      // of lists. But, this code looks at only the first container.
+      //
+      // This is only a theoretical bug as Drill does not support unions
+      // completely, but must be fixed if we want complete union support.
+      //
+      // Actually, the problem is more fundamental. The extendable hyper
+      // container, which creates the metadata schema, does not handle the
+      // case either.
+
       TupleMetadata schema = new HyperSchemaInference().infer(hyperContainer);
       return new HyperRowSetImpl(schema, hyperContainer, sv4);
     }

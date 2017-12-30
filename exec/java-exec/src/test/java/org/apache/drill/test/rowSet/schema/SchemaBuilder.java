@@ -208,14 +208,6 @@ public class SchemaBuilder implements SchemaContainer {
     return tupleBuilder.batchSchema(svMode);
   }
 
-  public SchemaBuilder buildMap() {
-    throw new IllegalStateException("Cannot build map for a top-level schema");
-  }
-
-  public UnionBuilder buildNested() {
-    throw new IllegalStateException("Not inside a union");
-  }
-
   public TupleMetadata buildSchema() {
     return tupleBuilder.schema();
   }

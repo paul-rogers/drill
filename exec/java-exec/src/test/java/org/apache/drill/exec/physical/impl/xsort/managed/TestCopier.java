@@ -348,8 +348,8 @@ public class TestCopier extends SubOperatorTest {
           .add("b", MinorType.INT)
           .addMap("m2")
             .add("c", MinorType.INT)
-            .resumeSchema()
-          .buildMap()
+            .resumeMap()
+          .resumeSchema()
         .build();
 
     CopierTester tester = new CopierTester(fixture);

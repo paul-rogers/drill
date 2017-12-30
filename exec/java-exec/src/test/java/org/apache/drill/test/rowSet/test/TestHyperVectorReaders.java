@@ -28,11 +28,12 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.HyperRowSetImpl;
 import org.apache.drill.test.rowSet.RowSetBuilder;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSetUtilities;
+
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
@@ -40,11 +41,22 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.variantArray;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.junit.Test;
 
+/**
+ * Test the reader mechanism that reads rows indexed via an SV4.
+ * SV4's introduce an additional level of indexing: each row may
+ * come from a different batch. The readers use the SV4 to find
+ * the root batch and vector, then must navigate downward from that
+ * vector for maps, repeated maps, lists, unions, repeated lists,
+ * nullable vectors and variable-length vectors.
+ * <p>
+ * This test does not cover repeated vectors; those tests should be added.
+ */
+
 public class TestHyperVectorReaders extends SubOperatorTest {
 
   /**
    * Test the simplest case: a top-level required vector. Has no contained vectors.
-   * This test focuses on the SV4 indirection mechanism itself
+   * This test focuses on the SV4 indirection mechanism itself.
    */
 
   @Test
@@ -125,8 +137,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
       rsBuilder.addRow(expected);
     }
 
-    new RowSetComparison(rsBuilder.build())
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(rsBuilder.build(), hyperSet);
   }
 
   @Test
@@ -163,8 +174,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addRow("fourth")
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   /**
@@ -221,8 +231,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addSingleCol("sixth")
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   /**
@@ -272,8 +281,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addSingleCol(strArray("sixth", "6.1", "6.2"))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   /**
@@ -319,8 +327,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addSingleCol(mapValue(4, "fourth"))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   @Test
@@ -361,8 +368,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addRow(4, mapArray(mapValue(41, "fourth.1")))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   @Test
@@ -403,8 +409,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addRow(4, "fourth")
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   @Test
@@ -414,6 +419,8 @@ public class TestHyperVectorReaders extends SubOperatorTest {
           .addType(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
+
+    schema.metadata("a").variantSchema().becomeSimple();
 
     SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
         .addSingleCol(strArray("sixth", "6.1", "6.2"))
@@ -449,8 +456,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addSingleCol(strArray("sixth", "6.1", "6.2"))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   @Test
@@ -497,7 +503,6 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .addRow(6, variantArray("sixth", 61, "6.2"))
         .build();
 
-    new RowSetComparison(expected)
-      .verifyAndClearAll(hyperSet);
+    RowSetUtilities.verify(expected, hyperSet);
   }
 }

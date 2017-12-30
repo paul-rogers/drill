@@ -186,7 +186,6 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     for (int i = 0; i < mapSchema.size(); i++) {
       ColumnMetadata member = mapSchema.metadata(i);
       // Does not use the hyper-vector mechanism.
-//      HyperVectorWrapper<? extends ValueVector> child = (HyperVectorWrapper<? extends ValueVector>) vw.getChildWrapper(new int[] {0, i});
 
       readers.add(buildVectorReader(
           new VectorAccessors.MapMemberHyperVectorAccessor(va, i, member.majorType()),
@@ -212,6 +211,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
         unionAccessor,
         variants);
   }
+
+  // Note: Does not yet handle 2D lists. See the "single" base reader builder
+  // for the needed code.
 
   private AbstractObjectReader buildList(VectorAccessor listAccessor,
       ColumnMetadata metadata) {

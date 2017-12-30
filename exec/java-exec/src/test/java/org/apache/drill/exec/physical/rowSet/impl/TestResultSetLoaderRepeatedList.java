@@ -51,6 +51,14 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 
+/**
+ * Tests repeated list support. Repeated lists add another layer of dimensinality
+ * on top of other repeated types. Since a repeated list can wrap another repeated
+ * list, the repeated list allows creatng 2D, 3D or higher dimensional arrays (lists,
+ * actually, since the different "slices" need not have the same length...)
+ * Repeated lists appear to be used only by JSON.
+ */
+
 public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
   @Test

@@ -65,6 +65,14 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.variantArray;
 
 import com.google.common.base.Charsets;
 
+/**
+ * Tests the result set loader support for union vectors. Union vectors
+ * are only lightly supported in Apache Drill and not supported at all
+ * in commercial versions. They have may problems: both in code and in theory.
+ * Most operators do not support them. But, JSON uses them, so they must
+ * be made to work in the result set loader layer.
+ */
+
 public class TestResultSetLoaderUnions extends SubOperatorTest {
 
   @Test
