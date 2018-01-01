@@ -58,6 +58,11 @@
           extensions: [ "csvh" ],
           delimiter: ",",
           extractHeader: true
+        },
+        "drill-log": {
+          type: "regex",
+          regex: “(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d) (\\d\\d):(\\d\\d):(\\d\\d),\\d+ \\[([^]]*)] (\\w+)\\s+(\\S+) - (.*)”
+          Fields: "year, month, day, hour, minute, second, thread, level, module, message"
         }
       }
     },
