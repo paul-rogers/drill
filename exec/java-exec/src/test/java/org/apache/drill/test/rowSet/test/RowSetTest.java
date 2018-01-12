@@ -41,6 +41,7 @@ import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
@@ -734,5 +735,108 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(count, writer.rowIndex());
     assertEquals(count, rs.rowCount());
     rs.clear();
+  }
+
+  /**
+   * The code below is not a test. Rather, it is a simple example of
+   * how to write a batch of data using writers, then read it using
+   * readers.
+   */
+
+  @Test
+  public void example() {
+
+    // Step 1: Define a schema. In a real app, this
+    // will be provided by a reader, by an incoming batch,
+    // etc.
+
+    BatchSchema schema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .addArray("b", MinorType.INT)
+        .addMap("c")
+          .add("c1", MinorType.INT)
+          .add("c2", MinorType.VARCHAR)
+          .resumeSchema()
+        .build();
+
+    // Step 2: Create a batch. Done here because this is
+    // a batch-oriented test. Done automatically in the
+    // result set loader.
+
+    DirectRowSet drs = DirectRowSet.fromSchema(fixture.allocator(), schema);
+
+    // Step 3: Create the writer.
+
+    RowSetWriter writer = drs.writer();
+
+    // Step 4: Populate data. Here we do it the way an app would:
+    // using the individual accessors. See tests above for the many
+    // ways this can be done depending on the need of the app.
+    //
+    // Write two rows:
+    // ("fred", [10, 11], {12, "wilma"})
+    // ("barney", [20, 21], {22, "betty"})
+    //
+    // This example uses Java strings for Varchar. Real code might
+    // use byte arrays.
+
+    writer.scalar("a").setString("fred");
+    ArrayWriter bWriter = writer.array("b");
+    bWriter.scalar().setInt(10);
+    bWriter.scalar().setInt(11);
+    TupleWriter cWriter = writer.tuple("c");
+    cWriter.scalar("c1").setInt(12);
+    cWriter.scalar("c2").setString("wilma");
+    writer.save();
+
+    writer.scalar("a").setString("barney");
+    bWriter.scalar().setInt(20);
+    bWriter.scalar().setInt(21);
+    cWriter.scalar("c1").setInt(22);
+    cWriter.scalar("c2").setString("betty");
+    writer.save();
+
+    // Step 5: "Harvest" the batch. Done differently in the
+    // result set loader.
+
+    SingleRowSet rowSet = writer.done();
+
+    // Step 5: Create a reader.
+
+    RowSetReader reader = rowSet.reader();
+
+    // Step 6: Retrieve the data. Here we just print the
+    // values.
+
+    while (reader.next()) {
+      print(reader.scalar("a").getString());
+      ArrayReader bReader = reader.array("b");
+      while (bReader.next()) {
+        print(bReader.scalar().getInt());
+      }
+      TupleReader cReader = reader.tuple("c");
+      print(cReader.scalar("c1").getInt());
+      print(cReader.scalar("c2").getString());
+      endRow();
+    }
+
+    // Step 7: Free memory.
+
+    rowSet.clear();
+  }
+
+  public void print(Object obj) {
+    if (obj instanceof String) {
+      System.out.print("\"");
+      System.out.print(obj);
+      System.out.print("\"");
+    } else {
+      System.out.print(obj);
+    }
+    System.out.print(" ");
+  }
+
+  public void endRow() {
+    System.out.println();
   }
 }

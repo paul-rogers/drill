@@ -135,8 +135,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
       VectorDescrip listDescrip) {
     if (vector.getField().getType().getMode() == DataMode.REPEATED) {
       return buildMultiDList((RepeatedListVector) vector, listAccessor, listDescrip);
-    } else
+    } else {
       return build1DList((ListVector) vector, listAccessor, listDescrip);
+    }
   }
 
   @SuppressWarnings("resource")
