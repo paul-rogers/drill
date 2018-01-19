@@ -171,7 +171,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     if (capacity * VALUE_WIDTH < MIN_BUFFER_SIZE) {
       realloc(MIN_BUFFER_SIZE);
     }
-    drillBuf.unsafePutInt(0, 0);
+    drillBuf.setInt(0, 0);
   }
 
   @Override
@@ -221,27 +221,27 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     // Call to resize may cause rollover, so reset write index
     // afterwards.
 
-    writeIndex = vectorIndex.vectorIndex() + 1;
+    final int valueIndex = vectorIndex.vectorIndex() + 1;
 
     // Fill empties to the write position.
     // Fill empties works of the row index, not the write
     // index. (Yes, this is complex...)
 
-    fillEmpties(writeIndex);
-    return writeIndex;
+    fillEmpties(valueIndex);
+    return valueIndex + 1;
   }
 
   @Override
   protected final void fillEmpties(final int valueIndex) {
     while (lastWriteIndex < valueIndex - 1) {
-      drillBuf.unsafePutInt((++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
+      drillBuf.setInt((++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
   }
 
   @Override
   public final void setNextOffset(final int newOffset) {
     final int writeIndex = prepareWrite();
-    drillBuf.unsafePutInt(writeIndex * VALUE_WIDTH, newOffset);
+    drillBuf.setInt(writeIndex * VALUE_WIDTH, newOffset);
     nextOffset = newOffset;
   }
 
@@ -277,19 +277,14 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   }
 
   @Override
-  public final void endWrite() {
-    setValueCount(vectorIndex.vectorIndex() + 1);
-  }
-
-  @Override
   public void setValueCount(int valueCount) {
     mandatoryResize(valueCount);
 
     // Value count are in offset vector positions. Fill empties
     // works in row positions.
 
-    fillEmpties(valueCount - 1);
-    vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
+    fillEmpties(valueCount);
+    vector().getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
   }
 
   @Override

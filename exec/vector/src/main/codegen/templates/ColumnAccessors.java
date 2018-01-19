@@ -176,28 +176,28 @@ public class ColumnAccessors {
       return buf.unsafeGetMemory((int) (entry >> 32), (int) (entry & 0xFFFF_FFFF));
     <#elseif drillType == "Decimal9">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-          buf.unsafeGetInt(${getOffset}),
+          buf.getInt(${getOffset}),
           type.getScale(),
           type.getPrecision());
     <#elseif drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-          buf.unsafeGetLong(${getOffset}),
+          buf.getLong(${getOffset}),
           type.getScale(),
           type.getPrecision());
     <#elseif drillType == "IntervalYear">
       return DateUtilities.fromIntervalYear(
-          buf.unsafeGetInt(${getOffset}));
+          buf.getInt(${getOffset}));
     <#elseif drillType == "IntervalDay">
       final int offset = ${getOffset};
       return DateUtilities.fromIntervalDay(
-          buf.unsafeGetInt(offset), 
-          buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
+          buf.getInt(offset), 
+          buf.getInt(offset + ${minor.millisecondsOffset}));
     <#elseif drillType == "Interval">
       final int offset = ${getOffset};
       return DateUtilities.fromInterval(
-          buf.unsafeGetInt(offset), 
-          buf.unsafeGetInt(offset + ${minor.daysOffset}),
-          buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
+          buf.getInt(offset), 
+          buf.getInt(offset + ${minor.daysOffset}),
+          buf.getInt(offset + ${minor.millisecondsOffset}));
     <#elseif drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
       return DecimalUtility.getBigDecimalFromSparse(buf, ${getOffset},
           ${minor.nDecimalDigits}, type.getScale());
@@ -206,20 +206,20 @@ public class ColumnAccessors {
           ${minor.nDecimalDigits}, type.getScale(),
           ${minor.maxPrecisionDigits}, VALUE_WIDTH);
     <#elseif drillType == "UInt1">
-      return buf.unsafeGetByte(${getOffset}) & 0xFF;
+      return buf.getByte(${getOffset}) & 0xFF;
     <#elseif drillType == "UInt2">
-      return buf.unsafeGetShort(${getOffset}) & 0xFFFF;
+      return buf.getShort(${getOffset}) & 0xFFFF;
     <#elseif drillType == "UInt4">
       // Should be the following:
       // return ((long) buf.unsafeGetInt(${getOffset})) & 0xFFFF_FFFF;
       // else, the unsigned values of 32 bits are mapped to negative.
-      return buf.unsafeGetInt(${getOffset});
+      return buf.getInt(${getOffset});
     <#elseif drillType == "Float4">
-      return Float.intBitsToFloat(buf.unsafeGetInt(${getOffset}));
+      return Float.intBitsToFloat(buf.getInt(${getOffset}));
     <#elseif drillType == "Float8">
-      return Double.longBitsToDouble(buf.unsafeGetLong(${getOffset}));
+      return Double.longBitsToDouble(buf.getLong(${getOffset}));
     <#else>
-      return buf.unsafeGet${putType?cap_first}(${getOffset});
+      return buf.get${putType?cap_first}(${getOffset});
     </#if>
     }
   <#if drillType == "VarChar">
@@ -282,14 +282,14 @@ public class ColumnAccessors {
       </#if>
       <#if varWidth>
       final int offset = prepareWrite(len);
-      drillBuf.unsafeCopyMemory(value, 0, offset, len);
+      drillBuf.setBytes(offset, value, 0, len);
       offsetsWriter.setNextOffset(offset + len);
       <#elseif drillType == "Decimal9">
-      drillBuf.unsafePutInt(${putOffset},
+      drillBuf.setInt(${putOffset},
           DecimalUtility.getDecimal9FromBigDecimal(value,
               type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal18">
-      drillBuf.unsafePutLong(${putOffset},
+      drillBuf.setLong(${putOffset},
           DecimalUtility.getDecimal18FromBigDecimal(value,
               type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal38Sparse">
@@ -303,23 +303,23 @@ public class ColumnAccessors {
           ${putOffset},
           type.getScale(), type.getPrecision(), 5);
       <#elseif drillType == "IntervalYear">
-      drillBuf.unsafePutInt(${putOffset},
+      drillBuf.setInt(${putOffset},
           value.getYears() * 12 + value.getMonths());
       <#elseif drillType == "IntervalDay">
       final int offset = ${putOffset};
-      drillBuf.unsafePutInt(offset, value.getDays());
-      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
+      drillBuf.setInt(offset, value.getDays());
+      drillBuf.setInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
       <#elseif drillType == "Interval">
       final int offset = ${putOffset};
-      drillBuf.unsafePutInt(offset, DateUtilities.periodToMonths(value));
-      drillBuf.unsafePutInt(offset + ${minor.daysOffset}, value.getDays());
-      drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
+      drillBuf.setInt(offset, DateUtilities.periodToMonths(value));
+      drillBuf.setInt(offset + ${minor.daysOffset}, value.getDays());
+      drillBuf.setInt(offset + ${minor.millisecondsOffset}, DateUtilities.periodToMillis(value));
       <#elseif drillType == "Float4">
-      drillBuf.unsafePutInt(${putOffset}, Float.floatToRawIntBits((float) value));
+      drillBuf.setInt(${putOffset}, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">
-      drillBuf.unsafePutLong(${putOffset}, Double.doubleToRawLongBits(value));
+      drillBuf.setLong(${putOffset}, Double.doubleToRawLongBits(value));
       <#else>
-      drillBuf.unsafePut${putType?cap_first}(${putOffset}, <#if doCast>(${putType}) </#if>value);
+      drillBuf.set${putType?cap_first}(${putOffset}, <#if doCast>(${putType}) </#if>value);
       </#if>
       vectorIndex.nextElement();
     }

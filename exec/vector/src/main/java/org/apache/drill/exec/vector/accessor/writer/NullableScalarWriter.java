@@ -30,8 +30,45 @@ import org.joda.time.Period;
 
 public class NullableScalarWriter extends AbstractScalarWriter {
 
+  public static final class ChildIndex implements ColumnWriterIndex {
+
+    private final ColumnWriterIndex parentIndex;
+
+    public ChildIndex(ColumnWriterIndex parentIndex) {
+      this.parentIndex = parentIndex;
+    }
+
+    @Override
+    public int rowStartIndex() {
+      return parentIndex.rowStartIndex();
+    }
+
+    @Override
+    public int vectorIndex() {
+      return parentIndex.vectorIndex();
+    }
+
+    @Override
+    public void nextElement() {
+      // Ignore next element requests from children.
+      // Nullable writers have two children, we don't want
+      // to increment the index twice.
+    }
+
+    @Override
+    public void rollover() {
+      parentIndex.rollover();
+    }
+
+    @Override
+    public ColumnWriterIndex outerIndex() {
+      return parentIndex.outerIndex();
+    }
+  }
+
   private final UInt1ColumnWriter isSetWriter;
   private final BaseScalarWriter baseWriter;
+  private ColumnWriterIndex writerIndex;
 
   public NullableScalarWriter(ColumnMetadata schema, NullableVector nullableVector, BaseScalarWriter baseWriter) {
     this.schema = schema;
@@ -55,8 +92,10 @@ public class NullableScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    isSetWriter.bindIndex(index);
-    baseWriter.bindIndex(index);
+    writerIndex = index;
+    ColumnWriterIndex childIndex = new ChildIndex(index);
+    isSetWriter.bindIndex(childIndex);
+    baseWriter.bindIndex(childIndex);
   }
 
   @Override
@@ -82,24 +121,28 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void setNull() {
     isSetWriter.setInt(0);
     baseWriter.skipNulls();
+    writerIndex.nextElement();
   }
 
   @Override
   public void setInt(int value) {
     baseWriter.setInt(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
   public void setLong(long value) {
     baseWriter.setLong(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
   public void setDouble(double value) {
     baseWriter.setDouble(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
@@ -111,24 +154,28 @@ public class NullableScalarWriter extends AbstractScalarWriter {
 
     baseWriter.setString(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
   public void setBytes(byte[] value, int len) {
     baseWriter.setBytes(value, len);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
   public void setDecimal(BigDecimal value) {
     baseWriter.setDecimal(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
   public void setPeriod(Period value) {
     baseWriter.setPeriod(value);
     isSetWriter.setInt(1);
+    writerIndex.nextElement();
   }
 
   @Override
