@@ -55,10 +55,6 @@ public abstract class AbstractObjectReader implements ObjectReader {
     throw new UnsupportedOperationException();
   }
 
-  public abstract ReaderEvents events();
-
-  public abstract ColumnReader reader();
-
   @Override
   public boolean isNull() { return reader().isNull(); }
 

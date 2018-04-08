@@ -24493,12 +24493,12 @@ public final class UserBitShared {
       "ASE_SUB_SCAN\020!\022\n\n\006WINDOW\020\"\022\024\n\020NESTED_LOO" +
       "P_JOIN\020#\022\021\n\rAVRO_SUB_SCAN\020$\022\021\n\rPCAP_SUB_" +
       "SCAN\020%\022\022\n\016KAFKA_SUB_SCAN\020&\022\021\n\rKUDU_SUB_S" +
-<<<<<<< HEAD
       "CAN\020\'\022\013\n\007FLATTEN\020(*g\n\nSaslStatus\022\020\n\014SASL" +
       "_UNKNOWN\020\000\022\016\n\nSASL_START\020\001\022\024\n\020SASL_IN_PR" +
       "OGRESS\020\002\022\020\n\014SASL_SUCCESS\020\003\022\017\n\013SASL_FAILE" +
       "D\020\004B.\n\033org.apache.drill.exec.protoB\rUser" +
       "BitSharedH\001"
+<<<<<<< HEAD
 =======
       "CAN\020\'*g\n\nSaslStatus\022\020\n\014SASL_UNKNOWN\020\000\022\016\n" +
       "\nSASL_START\020\001\022\024\n\020SASL_IN_PROGRESS\020\002\022\020\n\014S" +
@@ -24611,6 +24611,8 @@ public final class UserBitShared {
 =======
 >>>>>>> Merge fixes
 >>>>>>> Next batch of vector accessor work
+=======
+>>>>>>> Fix merge issues
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
