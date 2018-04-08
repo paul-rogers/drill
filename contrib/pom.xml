@@ -32,6 +32,7 @@
   </dependencies>
 
   <modules>
+    <module>drill-logfile2</module>
     <module>storage-hbase</module>
     <module>format-maprdb</module>
     <module>storage-hive</module>
@@ -43,5 +44,6 @@
     <module>sqlline</module>
     <module>data</module>
     <module>gis</module>
+    <module>format-regex</module>
   </modules>
 </project>
