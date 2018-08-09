@@ -23,14 +23,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.OutputMutator;
-import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -64,22 +56,22 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
   }
 
   private ColumnDef[] buildColumnDefs() {
-    List<ColumnDef> defs = new ArrayList<>();
+    final List<ColumnDef> defs = new ArrayList<>();
 
     // Look for duplicate names. Bad things happen when the same name
     // appears twice. We must do this here because some tests create
     // a physical plan directly, meaning that this is the first
     // opportunity to review the column definitions.
 
-    Set<String> names = new HashSet<>();
-    MockColumn cols[] = config.getTypes();
+    final Set<String> names = new HashSet<>();
+    final MockColumn cols[] = config.getTypes();
     for (int i = 0; i < cols.length; i++) {
-      MockTableDef.MockColumn col = cols[i];
+      final MockTableDef.MockColumn col = cols[i];
       if (names.contains(col.name)) {
         throw new IllegalArgumentException("Duplicate column name: " + col.name);
       }
       names.add(col.name);
-      int repeat = Math.max(1, col.getRepeatCount());
+      final int repeat = Math.max(1, col.getRepeatCount());
       if (repeat == 1) {
         defs.add(new ColumnDef(col));
       } else {
@@ -88,14 +80,14 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
         }
       }
     }
-    ColumnDef[] defArray = new ColumnDef[defs.size()];
+    final ColumnDef[] defArray = new ColumnDef[defs.size()];
     defs.toArray(defArray);
     return defArray;
   }
 
   @Override
   public boolean open(SchemaNegotiator schemaNegotiator) {
-    TupleMetadata schema = new TupleSchema();
+    final TupleMetadata schema = new TupleSchema();
     for (int i = 0; i < fields.length; i++) {
       final ColumnDef col = fields[i];
       final MaterializedField field = MaterializedField.create(col.getName(),
@@ -111,7 +103,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
 
     // TODO: Defer batch size to framework, update tests accordingly.
 
-    int batchSize = config.getBatchSize();
+    final int batchSize = config.getBatchSize();
     if (batchSize > 0) {
       schemaNegotiator.setBatchSize(batchSize);
     }
@@ -126,12 +118,12 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
 
   @Override
   public boolean next() {
-    int rowCount = config.getRecords() - loader.totalRowCount();
+    final int rowCount = config.getRecords() - loader.totalRowCount();
     if (rowCount <= 0) {
       return false;
     }
 
-    Random rand = new Random();
+    final Random rand = new Random();
     for (int i = 0; i < rowCount; i++) {
       if (writer.isFull()) {
         break;

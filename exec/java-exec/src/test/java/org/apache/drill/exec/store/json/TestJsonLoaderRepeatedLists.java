@@ -28,7 +28,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
@@ -39,15 +39,15 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testBoolean2D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[true, false], [false, true]]}\n" +
         "{a: [[true], [false]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.TINYINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(intArray(1, 0), intArray(0, 1)))
         .addSingleCol(objArray(intArray(1), intArray(0)))
         .build();
@@ -57,15 +57,15 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testInt2D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[1, 10], [2, 20]]}\n" +
         "{a: [[1], [-1]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(longArray(1L, 10L), longArray(2L, 20L)))
         .addSingleCol(objArray(longArray(1L), longArray(-1L)))
         .build();
@@ -75,15 +75,15 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testFloat2D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[1.25, 10.5], [2.25, 20.5]]}\n" +
         "{a: [[1], [-1]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.FLOAT8, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(doubleArray(1.25D, 10.5D), doubleArray(2.25D, 20.5D)))
         .addSingleCol(objArray(doubleArray(1D), doubleArray(-1D)))
         .build();
@@ -93,15 +93,15 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testString2D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[\"first\", \"second\"], [\"third\", \"fourth\"]]}\n" +
         "{a: [[\"fifth\"], [\"sixth\"]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.VARCHAR, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(strArray("first", "second"), strArray("third", "fourth")))
         .addSingleCol(objArray(strArray("fifth"), strArray("sixth")))
         .build();
@@ -111,25 +111,25 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testObject2D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[{b: 1, c: \"first\"},\n" +
         "      {b: 2, c: \"second\"}],\n" +
         "     [{b: 3, c: \"third\"},\n" +
         "      {b: 4, c: \"fourth\"}]]}\n" +
         "{a: [[{b: 5, c: \"fifth\"}],\n" +
         "     [{b: 6, c: \"sixth\"}]]}";
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addRepeatedList("a")
           .addMapArray()
             .addNullable("b", MinorType.BIGINT)
             .addNullable("c", MinorType.VARCHAR)
             .resumeList()
           .resumeSchema()
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(
             objArray(
                 objArray(mapValue(1L, "first"), mapValue(2L, "second")),
@@ -151,16 +151,16 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testLeadingEmpties() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[]]}\n" +
         "{a: [[], null]}\n" +
         "{a: [[1, 10], [2, 20]]}\n";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(singleObjArray(longArray()))
         .addSingleCol(objArray(longArray(), longArray()))
         .addSingleCol(objArray(longArray(1L, 10L), longArray(2L, 20L)))
@@ -176,17 +176,17 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testTrailingEmpties() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[1, 10], [2, 20]]}\n" +
         "{a: [[]]}\n" +
         "{a: [[], null]}\n" +
         "{a: [[1], [-1]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(longArray(1L, 10L), longArray(2L, 20L)))
         .addSingleCol(singleObjArray(longArray()))
         .addSingleCol(objArray(longArray(), longArray()))
@@ -204,17 +204,17 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testLeadingAmbiguity() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: null}\n" +
         "{a: []}\n" +
         "{a: [[]]}\n" +
         "{a: [[1, 10], [2, 20]]}\n";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray())
         .addSingleCol(objArray())
         .addSingleCol(singleObjArray(longArray()))
@@ -246,14 +246,14 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testTrailingNulls() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[10]]} {a: [null]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(singleObjArray(longArray(10L)))
         .addSingleCol(singleObjArray(longArray())) // null same as []
         .build();
@@ -269,15 +269,15 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testInt3D() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{a: [[[1, 2], [3, 4]],\n" +
         "     [[5, 6], [7, 8]]]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT, 3)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(
             objArray(
                 objArray(
@@ -299,21 +299,21 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testUnresolvedAmbiguity() {
-    String json =
+    final String json =
         "{a: null}\n" +
         "{a: []}\n" +
         "{a: [[]]}\n" +
         "{a: [[1, 10], [2, 20]]}\n";
-    MultiBatchJson tester = new MultiBatchJson(json);
+    final MultiBatchJson tester = new MultiBatchJson(json);
 
     // Read first three records into a batch. Since we've not yet seen
     // a type, the 2D array type will be resolved as a text field.
 
     RowSet results = tester.parse(3);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.VARCHAR, 2)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray())
         .addSingleCol(objArray())
@@ -339,22 +339,22 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testAmbiguityWrongGuess() {
-    String json =
+    final String json =
         "{a: null}\n" +
         "{a: []}\n" +
         "{a: [[]]}\n" +
         "{a: [[[]]]}\n";
-    MultiBatchJson tester = new MultiBatchJson(json);
+    final MultiBatchJson tester = new MultiBatchJson(json);
 
     // Read first three records into a batch. Since we've not yet seen
     // a type, the 2D array type will be resolved as a text field.
 
-    RowSet results = tester.parse(3);
+    final RowSet results = tester.parse(3);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.VARCHAR, 2)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray())
         .addSingleCol(objArray())
         .addSingleCol(singleObjArray(strArray()))
@@ -366,7 +366,7 @@ public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
     try {
       tester.parse();
       fail();
-    } catch (UserException e) {
+    } catch (final UserException e) {
       // Expected;
     }
 

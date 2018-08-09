@@ -21,9 +21,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -110,11 +108,11 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
       throw new IllegalStateException("Table schema must have exactly one column.");
     }
 
-    int tabColIndex = tableSchema.index(COLUMNS_COL);
+    final int tabColIndex = tableSchema.index(COLUMNS_COL);
     if (tabColIndex == -1) {
       throw new IllegalStateException("Table schema must include only one column named `" + COLUMNS_COL + "`");
     }
-    MaterializedField tableCol = tableSchema.column(tabColIndex);
+    final MaterializedField tableCol = tableSchema.column(tabColIndex);
     if (tableCol.getType().getMode() != DataMode.REPEATED) {
       throw new IllegalStateException("Table schema column `" + COLUMNS_COL +
           "` is of mode " + tableCol.getType().getMode() +
@@ -129,7 +127,7 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
   }
 
   public boolean[] elementProjection() {
-    UnresolvedColumnsArrayColumn columnsArrayCol = parser.columnsArrayCol();
+    final UnresolvedColumnsArrayColumn columnsArrayCol = parser.columnsArrayCol();
     return columnsArrayCol == null ? null : columnsArrayCol.selectedIndexes();
   }
 

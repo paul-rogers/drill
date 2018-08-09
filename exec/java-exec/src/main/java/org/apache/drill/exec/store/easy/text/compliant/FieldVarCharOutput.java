@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
@@ -44,8 +43,8 @@ class FieldVarCharOutput extends BaseFieldOutput {
   }
 
   private static boolean[] makeMask(RowSetLoader writer) {
-    TupleMetadata schema = writer.tupleSchema();
-    boolean projectionMask[] = new boolean[schema.size()];
+    final TupleMetadata schema = writer.tupleSchema();
+    final boolean projectionMask[] = new boolean[schema.size()];
     for (int i = 0; i < schema.size(); i++) {
       projectionMask[i] = schema.metadata(i).isProjected();
     }

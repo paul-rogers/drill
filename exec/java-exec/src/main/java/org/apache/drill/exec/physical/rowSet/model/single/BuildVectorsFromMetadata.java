@@ -22,10 +22,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.VectorContainer;
+
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
@@ -78,7 +79,6 @@ public class BuildVectorsFromMetadata {
   private ValueVector buildRepeatedList(ColumnMetadata metadata) {
     RepeatedListVector listVector = new RepeatedListVector(metadata.emptySchema(), allocator, null);
     if (metadata.childSchema() != null) {
-      @SuppressWarnings("resource")
       ValueVector child = buildVector(metadata.childSchema());
       listVector.setChildVector(child);
     }
@@ -134,7 +134,6 @@ public class BuildVectorsFromMetadata {
   private void populateUnion(UnionVector unionVector,
       VariantMetadata variantSchema) {
     for (MinorType type : variantSchema.types()) {
-      @SuppressWarnings("resource")
       ValueVector childVector = unionVector.getMember(type);
       switch (type) {
       case LIST:
@@ -169,12 +168,10 @@ public class BuildVectorsFromMetadata {
       return;
     } else if (variantSchema.size() == 1) {
       ColumnMetadata subtype = variantSchema.listSubtype();
-      @SuppressWarnings("resource")
       ValueVector childVector = buildVector(subtype);
       vector.setChildVector(childVector);
     } else {
       populateUnion(vector.promoteToUnion(), variantSchema);
     }
->>>>>>> Next batch of vector accessor work
   }
 }

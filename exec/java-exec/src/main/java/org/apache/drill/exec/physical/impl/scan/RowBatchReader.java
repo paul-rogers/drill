@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.store.RecordReader;
 
 /**
  * Extended version of a record reader used by the revised

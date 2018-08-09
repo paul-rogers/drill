@@ -18,7 +18,7 @@
 package org.apache.drill.exec.store.json;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
@@ -32,21 +32,21 @@ public class TestJsonLoaderAllText extends BaseTestJsonLoader {
   @Test
   @Ignore("Turns out all text can't handle structures")
   public void testRootTupleAllTextComplex() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.allTextMode = true;
-    JsonTester tester = jsonTester(options);
-    String json =
+    final JsonTester tester = jsonTester(options);
+    final String json =
       "{id: 1, name: \"Fred\", balance: 100.0, extra: [\"a\",   \"\\\"b,\\\", said I\" ]}\n" +
       "{id: 2, name: \"Barney\", extra: {a:  10 , b:20}}\n" +
       "{id: 3, name: \"Wilma\", balance: 500.00, extra: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.VARCHAR)
         .addNullable("name", MinorType.VARCHAR)
         .addNullable("balance", MinorType.VARCHAR)
         .addNullable("extra", MinorType.VARCHAR)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow("1", "Fred", "100.0", "[\"a\", \"\\\"b,\\\", said I\"]")
         .addRow("2", "Barney", null, "{\"a\": 10, \"b\": 20}")
         .addRow("3", "Wilma", "500.00", null)
@@ -58,22 +58,22 @@ public class TestJsonLoaderAllText extends BaseTestJsonLoader {
 
   @Test
   public void testRootTupleAllText() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.allTextMode = true;
-    JsonTester tester = jsonTester(options);
-    String json =
+    final JsonTester tester = jsonTester(options);
+    final String json =
       "{id: 1, name: \"Fred\", balance: 100.0, extra: true}\n" +
       "{id: 2, name: \"Barney\", extra: 10}\n" +
       "{id: 3, name: \"Wilma\", balance: 500.00, extra: null}\n" +
       "{id: 4, name: \"Betty\", balance: 12.00, extra: \"Hello\"}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.VARCHAR)
         .addNullable("name", MinorType.VARCHAR)
         .addNullable("balance", MinorType.VARCHAR)
         .addNullable("extra", MinorType.VARCHAR)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow("1", "Fred", "100.0", "true")
         .addRow("2", "Barney", null, "10")
         .addRow("3", "Wilma", "500.00", null)

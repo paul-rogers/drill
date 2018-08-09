@@ -19,7 +19,10 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
@@ -63,49 +66,49 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
   @Test
   public void test2DEarlySchema() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
 
     do2DTest(schema, rsLoader);
     rsLoader.close();
   }
 
   private void do2DTest(TupleMetadata schema, ResultSetLoader rsLoader) {
-    RowSetLoader writer = rsLoader.writer();
+    final RowSetLoader writer = rsLoader.writer();
 
     // Sanity check of writer structure
 
     assertEquals(2, writer.size());
-    ObjectWriter listObj = writer.column("list2");
+    final ObjectWriter listObj = writer.column("list2");
     assertEquals(ObjectType.ARRAY, listObj.type());
-    ArrayWriter listWriter = listObj.array();
+    final ArrayWriter listWriter = listObj.array();
     assertEquals(ObjectType.ARRAY, listWriter.entryType());
-    ArrayWriter innerWriter = listWriter.array();
+    final ArrayWriter innerWriter = listWriter.array();
     assertEquals(ObjectType.SCALAR, innerWriter.entryType());
-    ScalarWriter strWriter = innerWriter.scalar();
+    final ScalarWriter strWriter = innerWriter.scalar();
     assertEquals(ValueType.STRING, strWriter.valueType());
 
     // Sanity test of schema
 
-    TupleMetadata rowSchema = writer.tupleSchema();
+    final TupleMetadata rowSchema = writer.tupleSchema();
     assertEquals(2, rowSchema.size());
-    ColumnMetadata listSchema = rowSchema.metadata(1);
+    final ColumnMetadata listSchema = rowSchema.metadata(1);
     assertEquals(MinorType.LIST, listSchema.type());
     assertEquals(DataMode.REPEATED, listSchema.mode());
     assertTrue(listSchema instanceof RepeatedListColumnMetadata);
     assertEquals(StructureType.MULTI_ARRAY, listSchema.structureType());
     assertNotNull(listSchema.childSchema());
 
-    ColumnMetadata elementSchema = listSchema.childSchema();
+    final ColumnMetadata elementSchema = listSchema.childSchema();
     assertEquals(listSchema.name(), elementSchema.name());
     assertEquals(MinorType.VARCHAR, elementSchema.type());
     assertEquals(DataMode.REPEATED, elementSchema.mode());
@@ -122,7 +125,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     // Verify the values.
     // (Relies on the row set level repeated list tests having passed.)
 
-    RowSet expected = fixture.rowSetBuilder(schema)
+    final RowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, objArray(strArray("a", "b"), strArray("c", "d")))
         .addRow(2, objArray(strArray("e"), strArray(), strArray("f", "g", "h")))
         .addRow(3, objArray())
@@ -134,17 +137,17 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
   @Test
   public void test2DLateSchema() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader writer = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader writer = rsLoader.writer();
 
     // Add columns dynamically
 
@@ -164,17 +167,17 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
   @Test
   public void test2DLateSchemaIncremental() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader writer = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader writer = rsLoader.writer();
 
     // Add columns dynamically
 
@@ -192,9 +195,9 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     // Sanity check of writer structure
 
     assertEquals(2, writer.size());
-    ObjectWriter listObj = writer.column("list2");
+    final ObjectWriter listObj = writer.column("list2");
     assertEquals(ObjectType.ARRAY, listObj.type());
-    ArrayWriter listWriter = listObj.array();
+    final ArrayWriter listWriter = listObj.array();
 
     // No child defined yet. A dummy child is inserted instead.
 
@@ -213,15 +216,15 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
     // Define the inner type.
 
-    RepeatedListWriter listWriterImpl = (RepeatedListWriter) listWriter;
+    final RepeatedListWriter listWriterImpl = (RepeatedListWriter) listWriter;
     listWriterImpl.defineElement(MaterializedField.create("list2", Types.repeated(MinorType.VARCHAR)));
 
     // Sanity check of completed structure
 
     assertEquals(ObjectType.ARRAY, listWriter.entryType());
-    ArrayWriter innerWriter = listWriter.array();
+    final ArrayWriter innerWriter = listWriter.array();
     assertEquals(ObjectType.SCALAR, innerWriter.entryType());
-    ScalarWriter strWriter = innerWriter.scalar();
+    final ScalarWriter strWriter = innerWriter.scalar();
     assertEquals(ValueType.STRING, strWriter.valueType());
 
     // Write values
@@ -232,7 +235,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     // Verify the values.
     // (Relies on the row set level repeated list tests having passed.)
 
-    RowSet expected = fixture.rowSetBuilder(schema)
+    final RowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, objArray())
         .addRow(2, objArray())
         .addRow(3, objArray())
@@ -246,19 +249,19 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
   @Test
   public void test2DOverflow() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    RowSetLoader writer = rsLoader.writer();
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final RowSetLoader writer = rsLoader.writer();
 
     // Fill the batch with enough data to cause overflow.
     // Data must be large enough to cause overflow before 64K rows
@@ -267,15 +270,15 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     final int outerSize = 7;
     final int innerSize = 5;
     final int strLength = ValueVector.MAX_BUFFER_SIZE / ValueVector.MAX_ROW_COUNT / outerSize / innerSize + 20;
-    byte value[] = new byte[strLength - 6];
+    final byte value[] = new byte[strLength - 6];
     Arrays.fill(value, (byte) 'X');
-    String strValue = new String(value, Charsets.UTF_8);
+    final String strValue = new String(value, Charsets.UTF_8);
     int rowCount = 0;
     int elementCount = 0;
 
-    ArrayWriter outerWriter = writer.array(1);
-    ArrayWriter innerWriter = outerWriter.array();
-    ScalarWriter elementWriter = innerWriter.scalar();
+    final ArrayWriter outerWriter = writer.array(1);
+    final ArrayWriter innerWriter = outerWriter.array();
+    final ScalarWriter elementWriter = innerWriter.scalar();
     rsLoader.startBatch();
     while (! writer.isFull()) {
       writer.start();
@@ -294,7 +297,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     // Number of rows should be driven by vector size.
     // Our row count should include the overflow row
 
-    int expectedCount = ValueVector.MAX_BUFFER_SIZE / (strLength * innerSize * outerSize);
+    final int expectedCount = ValueVector.MAX_BUFFER_SIZE / (strLength * innerSize * outerSize);
     assertEquals(expectedCount + 1, rowCount);
 
     // Loader's row count should include only "visible" rows
@@ -356,7 +359,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
     result = fixture.wrap(rsLoader.harvest());
     assertEquals(1001, result.rowCount());
 
-    int startCount = readRowCount;
+    final int startCount = readRowCount;
     reader = result.reader();
     outerReader = reader.array(1);
     innerReader = outerReader.array();

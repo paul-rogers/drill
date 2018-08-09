@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.scan.framework;
 
-import org.apache.drill.exec.store.RecordReader;
-
 /**
  * Extended version of a record reader which uses a size-aware batch mutator.
  * Use this for all new readers. Replaces the original {@link RecordReader}

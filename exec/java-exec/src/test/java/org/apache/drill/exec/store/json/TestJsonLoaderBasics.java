@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.store.json;
 
-import static org.junit.Assert.*;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -29,7 +27,7 @@ import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
@@ -41,6 +39,10 @@ import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 
@@ -54,8 +56,8 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testEmpty() {
-    JsonTester tester = jsonTester();
-    RowSet results = tester.parse("");
+    final JsonTester tester = jsonTester();
+    final RowSet results = tester.parse("");
     assertEquals(0, results.rowCount());
     results.clear();
     tester.close();
@@ -63,9 +65,9 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testEmptyTuple() {
-    JsonTester tester = jsonTester();
-    String json = "{} {} {}";
-    RowSet results = tester.parse(json);
+    final JsonTester tester = jsonTester();
+    final String json = "{} {} {}";
+    final RowSet results = tester.parse(json);
     assertEquals(3, results.rowCount());
     results.clear();
     tester.close();
@@ -73,13 +75,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testBoolean() {
-    JsonTester tester = jsonTester();
-    String json = "{a: true} {a: false} {a: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: true} {a: false} {a: null}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.TINYINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1)
         .addRow(0)
         .addSingleCol(null)
@@ -90,13 +92,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testInteger() {
-    JsonTester tester = jsonTester();
-    String json = "{a: 0} {a: 100} {a: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: 0} {a: 100} {a: null}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(0L)
         .addRow(100L)
         .addSingleCol(null)
@@ -108,16 +110,16 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testFloat() {
-    JsonTester tester = jsonTester();
+    final JsonTester tester = jsonTester();
 
     // Note: integers allowed after first float.
 
-    String json = "{a: 0.0} {a: 100.5} {a: 5} {a: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final String json = "{a: 0.0} {a: 100.5} {a: 5} {a: null}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.FLOAT8)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(0D)
         .addRow(100.5D)
         .addRow(5D)
@@ -129,17 +131,17 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testExtendedFloat() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.allowNanInf = true;
-    JsonTester tester = jsonTester(options);
-    String json =
+    final JsonTester tester = jsonTester(options);
+    final String json =
         "{a: 0.0} {a: 100.5} {a: -200.5} {a: NaN}\n" +
         "{a: Infinity} {a: -Infinity} {a: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.FLOAT8)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(0D)
         .addRow(100.5D)
         .addRow(-200.5D)
@@ -154,15 +156,15 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testIntegerAsFloat() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.readNumbersAsDouble = true;
-    JsonTester tester = jsonTester(options);
-    String json = "{a: 0} {a: 100} {a: null} {a: 123.45}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester(options);
+    final String json = "{a: 0} {a: 100} {a: null} {a: 123.45}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.FLOAT8)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(0D)
         .addRow(100D)
         .addSingleCol(null)
@@ -174,13 +176,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testString() {
-    JsonTester tester = jsonTester();
-    String json = "{a: \"\"} {a: \"hi\"} {a: null}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: \"\"} {a: \"hi\"} {a: null}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.VARCHAR)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow("")
         .addRow("hi")
         .build();
@@ -190,18 +192,18 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testRootTuple() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
       "{id: 1, name: \"Fred\", balance: 100.0}\n" +
       "{id: 2, name: \"Barney\"}\n" +
       "{id: 3, name: \"Wilma\", balance: 500.00}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.BIGINT)
         .addNullable("name", MinorType.VARCHAR)
         .addNullable("balance", MinorType.FLOAT8)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, "Fred", 100.00D)
         .addRow(2L, "Barney", null)
         .addRow(3L, "Wilma", 500.0D)
@@ -242,15 +244,15 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testLeadingTrailingWhitespace() {
-    JsonTester tester = jsonTester();
-    String json = "{\" a\": 10, \" b\": 20, \" c \": 30}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{\" a\": 10, \" b\": 20, \" c \": 30}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addNullable("b", MinorType.BIGINT)
         .addNullable("c", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(10L, 20L, 30L)
         .build();
     RowSetUtilities.verify(expected, results);
@@ -264,13 +266,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testCaseInsensitive() {
-    JsonTester tester = jsonTester();
-    String json = "{a: 10} {A: 20} {\" a \": 30}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: 10} {A: 20} {\" a \": 30}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(10L)
         .addRow(20L)
         .addRow(30L)
@@ -285,13 +287,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testCaseInsensitive2() {
-    JsonTester tester = jsonTester();
-    String json = "{Bob: 10} {bOb: 20} {BoB: 30}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{Bob: 10} {bOb: 20} {BoB: 30}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("Bob", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(10L)
         .addRow(20L)
         .addRow(30L)
@@ -306,13 +308,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testDuplicateNames() {
-    JsonTester tester = jsonTester();
-    String json = "{a: 10, A: 20, \" a \": 30}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: 10, A: 20, \" a \": 30}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(30L)
         .build();
     RowSetUtilities.verify(expected, results);
@@ -321,18 +323,18 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testNestedTuple() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{id: 1, customer: { name: \"fred\" }}\n" +
         "{id: 2, customer: { name: \"barney\" }}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.BIGINT)
         .addMap("customer")
           .addNullable("name", MinorType.VARCHAR)
           .resumeSchema()
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, mapValue("fred"))
         .addRow(2L, mapValue("barney"))
         .build();
@@ -342,20 +344,20 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testNullTuple() {
-    JsonTester tester = jsonTester();
-    String json =
+    final JsonTester tester = jsonTester();
+    final String json =
         "{id: 1, customer: {name: \"fred\"}}\n" +
         "{id: 2, customer: {name: \"barney\"}}\n" +
         "{id: 3, customer: null}\n" +
         "{id: 4}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.BIGINT)
         .addMap("customer")
           .addNullable("name", MinorType.VARCHAR)
           .resumeSchema()
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1L, mapValue("fred"))
         .addRow(2L, mapValue("barney"))
         .addRow(3L, mapValue((String) null))
@@ -367,13 +369,13 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testRootArray() {
-    JsonTester tester = jsonTester();
-    String json = "[{a: 0}, {a: 100}, {a: null}]";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "[{a: 0}, {a: 100}, {a: null}]";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(0L)
         .addRow(100L)
         .addSingleCol(null)
@@ -384,10 +386,10 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testRootArrayDisallowed() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.skipOuterList = false;
-    JsonTester tester = jsonTester(options);
-    String json = "[{a: 0}, {a: 100}, {a: null}]";
+    final JsonTester tester = jsonTester(options);
+    final String json = "[{a: 0}, {a: 100}, {a: null}]";
     expectError(tester, json);
   }
 
@@ -398,7 +400,7 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testNonProjected() {
-    String json =
+    final String json =
         "{a: 10, b: {c: 100, c: 200, d: {x: null, y: 30}}}\n" +
         "{a: 20, b: { }}\n" +
         "{a: 30, b: null}\n" +
@@ -408,27 +410,27 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
         "{a: 70, b: null}\n" +
         "{a: 80, b: [\"foo\", [{}, {x: {}}]]}\n" +
         "{a: 90, b: 55.5} {a: 100, b: 10} {a: 110, b: \"foo\"}";
-    ResultSetOptions rsOptions = new OptionBuilder()
+    final ResultSetOptions rsOptions = new OptionBuilder()
         .setProjection(RowSetTestUtils.projectList("a"))
         .build();
-    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
-    InputStream inStream = new
+    final ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
+    final InputStream inStream = new
         ReaderInputStream(new StringReader(json));
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.context = "test Json";
-    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+    final JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     readBatch(tableLoader, loader);
-    RowSet result = fixture.wrap(tableLoader.harvest());
+    final RowSet result = fixture.wrap(tableLoader.harvest());
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    assertTrue(expectedSchema.isEquivalent(result.batchSchema()));
-    RowSetReader reader = result.reader();
+        .buildSchema();
+    assertTrue(expectedSchema.isEquivalent(result.schema()));
+    final RowSetReader reader = result.reader();
     for (int i = 10; i <= 110; i += 10) {
       assertTrue(reader.next());
       assertEquals(i, reader.scalar(0).getLong());
@@ -438,7 +440,7 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
     try {
       inStream.close();
-    } catch (IOException e) {
+    } catch (final IOException e) {
       fail();
     }
     loader.close();
@@ -453,16 +455,16 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testErrorRecovery() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.skipMalformedRecords = true;
-    JsonTester tester = jsonTester(options);
-    String json = "{\"a: 10}\n{a: 20}\n{a: 30}";
-    RowSet results = tester.parse(json);
+    final JsonTester tester = jsonTester(options);
+    final String json = "{\"a: 10}\n{a: 20}\n{a: 30}";
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
 //        .addRow(20L) // Recovery will eat the second record.
         .addRow(30L)
         .build();
@@ -479,9 +481,9 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testUnrecoverableError() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.skipMalformedRecords = true;
-    JsonTester tester = jsonTester(options);
+    final JsonTester tester = jsonTester(options);
     expectError(tester, "{a: }\n{a: 20}\n{a: 30}");
   }
 
@@ -493,20 +495,20 @@ public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testMapSelect() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.allTextMode = true;
-    JsonTester tester = jsonTester(options);
+    final JsonTester tester = jsonTester(options);
     tester.loaderOptions.setProjection(RowSetTestUtils.projectList("field_5"));
-    RowSet results = tester.parseFile("store/json/schema_change_int_to_string.json");
+    final RowSet results = tester.parseFile("store/json/schema_change_int_to_string.json");
 //    results.print();
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addMapArray("field_5")
           .addArray("inner_list", MinorType.VARCHAR)
           .addArray("inner_list_2", MinorType.VARCHAR)
           .resumeSchema()
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(mapArray())
         .addSingleCol(mapArray(
             mapValue(strArray("1", "", "6"), strArray()),

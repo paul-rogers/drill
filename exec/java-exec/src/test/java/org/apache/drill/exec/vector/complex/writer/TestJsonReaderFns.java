@@ -19,7 +19,7 @@ package org.apache.drill.exec.vector.complex.writer;
 
 import static org.apache.drill.test.TestBuilder.listOf;
 import static org.apache.drill.test.TestBuilder.mapOf;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -71,7 +71,7 @@ public class TestJsonReaderFns extends ClusterTest {
   private RowSet runTest(String sql) {
     try {
       return client.queryBuilder().sql(sql).rowSet();
-    } catch (RpcException e) {
+    } catch (final RpcException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -79,14 +79,14 @@ public class TestJsonReaderFns extends ClusterTest {
   @Test
   public void testEmptyList() throws Exception {
 
-    String sql = "select count(a[0]) as ct from dfs.`store/json/emptyLists`";
+    final String sql = "select count(a[0]) as ct from dfs.`store/json/emptyLists`";
 
-    RowSet results = runTest(sql);
-    BatchSchema schema = new SchemaBuilder()
+    final RowSet results = runTest(sql);
+    final BatchSchema schema = new SchemaBuilder()
         .add("ct", MinorType.BIGINT)
         .build();
 
-    RowSet expected = client.rowSetBuilder(schema)
+    final RowSet expected = client.rowSetBuilder(schema)
         .addRow(6L)
         .build();
     new RowSetComparison(expected).verifyAndClearAll(results);
@@ -96,8 +96,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedCountStr() throws Exception {
-    RowSet results = runTest("select repeated_count(str_list) from cp.`store/json/json_basic_repeated_varchar.json`");
-    RowSet expected = client.rowSetBuilder(countSchema())
+    final RowSet results = runTest("select repeated_count(str_list) from cp.`store/json/json_basic_repeated_varchar.json`");
+    final RowSet expected = client.rowSetBuilder(countSchema())
         .addSingleCol(5)
         .addSingleCol(1)
         .addSingleCol(3)
@@ -108,8 +108,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedCountInt() throws Exception {
-    RowSet results = runTest("select repeated_count(INT_col) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(countSchema())
+    final RowSet results = runTest("select repeated_count(INT_col) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(countSchema())
         .addSingleCol(12)
         .addSingleCol(4)
         .addSingleCol(4)
@@ -120,8 +120,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedCountFloat4() throws Exception {
-    RowSet results = runTest("select repeated_count(FLOAT4_col) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(countSchema())
+    final RowSet results = runTest("select repeated_count(FLOAT4_col) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(countSchema())
         .addSingleCol(7)
         .addSingleCol(4)
         .addSingleCol(4)
@@ -132,8 +132,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedCountVarchar() throws Exception {
-    RowSet results = runTest("select repeated_count(VARCHAR_col) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(countSchema())
+    final RowSet results = runTest("select repeated_count(VARCHAR_col) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(countSchema())
         .addSingleCol(4)
         .addSingleCol(3)
         .addSingleCol(3)
@@ -144,8 +144,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedCountBit() throws Exception {
-    RowSet results = runTest("select repeated_count(BIT_col) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(countSchema())
+    final RowSet results = runTest("select repeated_count(BIT_col) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(countSchema())
         .addSingleCol(7)
         .addSingleCol(7)
         .addSingleCol(5)
@@ -155,7 +155,7 @@ public class TestJsonReaderFns extends ClusterTest {
   }
 
   private BatchSchema countSchema() {
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final BatchSchema expectedSchema = new SchemaBuilder()
         .add("EXPR$0", MinorType.INT)
         .build();
     return expectedSchema;
@@ -163,9 +163,9 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testSplitAndTransferFailureScalar() throws Exception {
-    String sql = "select flatten(config) as flat from cp.`store/json/null_list.json`";
+    final String sql = "select flatten(config) as flat from cp.`store/json/null_list.json`";
 //    String sql = "select * from cp.`store/json/null_list.json`";
-    RowSet result = client.queryBuilder().sql(sql).rowSet();
+    final RowSet result = client.queryBuilder().sql(sql).rowSet();
     result.print();
     result.clear();
 
@@ -205,8 +205,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsStr() throws Exception {
-    RowSet results = runTest("select repeated_contains(str_list, 'asdf') from cp.`store/json/json_basic_repeated_varchar.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(str_list, 'asdf') from cp.`store/json/json_basic_repeated_varchar.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(5) // WRONG! Should be 1. See DRILL-6034
         .addSingleCol(0)
         .addSingleCol(0)
@@ -217,8 +217,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsInt() throws Exception {
-    RowSet results = runTest("select repeated_contains(INT_col, -2147483648) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(INT_col, -2147483648) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(1)
         .addSingleCol(0)
         .addSingleCol(0)
@@ -229,8 +229,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsFloat4() throws Exception {
-    RowSet results = runTest("select repeated_contains(FLOAT4_col, -1000000000000.0) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(FLOAT4_col, -1000000000000.0) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(1)
         .addSingleCol(0)
         .addSingleCol(0)
@@ -241,8 +241,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsVarchar() throws Exception {
-    RowSet results = runTest("select repeated_contains(VARCHAR_col, 'qwerty' ) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(VARCHAR_col, 'qwerty' ) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(1)
         .addSingleCol(0)
         .addSingleCol(0)
@@ -253,8 +253,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsBitTrue() throws Exception {
-    RowSet results = runTest("select repeated_contains(BIT_col, true) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(BIT_col, true) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(11) // WRONG! Should be 1. See DRILL-6034
         .addSingleCol(0)
         .addSingleCol(0)
@@ -265,8 +265,8 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void testRepeatedContainsBitFalse() throws Exception {
-    RowSet results = runTest("select repeated_contains(BIT_col, false) from cp.`parquet/alltypes_repeated.json`");
-    RowSet expected = client.rowSetBuilder(bitCountSchema())
+    final RowSet results = runTest("select repeated_contains(BIT_col, false) from cp.`parquet/alltypes_repeated.json`");
+    final RowSet expected = client.rowSetBuilder(bitCountSchema())
         .addSingleCol(7) // WRONG! Should be 1. See DRILL-6034
         .addSingleCol(0)
         .addSingleCol(0)
@@ -276,7 +276,7 @@ public class TestJsonReaderFns extends ClusterTest {
   }
 
   private BatchSchema bitCountSchema() {
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final BatchSchema expectedSchema = new SchemaBuilder()
         .add("EXPR$0", MinorType.BIT)
         .build();
     return expectedSchema;
@@ -284,9 +284,9 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test
   public void drill_4479() throws Exception {
-    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
+    final File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
     table_dir.mkdir();
-    BufferedWriter os = new BufferedWriter(new FileWriter(new File(table_dir, "mostlynulls.json")));
+    final BufferedWriter os = new BufferedWriter(new FileWriter(new File(table_dir, "mostlynulls.json")));
     // Create an entire batch of null values for 3 columns
     for (int i = 0 ; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH; i++) {
       os.write("{\"a\": null, \"b\": null, \"c\": null}");
@@ -332,7 +332,7 @@ public class TestJsonReaderFns extends ClusterTest {
     }
 
     try {
-      String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
+      final String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
 
       client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
       testBuilder()
@@ -355,20 +355,20 @@ public class TestJsonReaderFns extends ClusterTest {
 
   @Test // DRILL-5521
   public void testKvgenWithUnionAll() throws Exception {
-    String fileName = "map.json";
+    final String fileName = "map.json";
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dirTestWatcher.getRootDir(), fileName)))) {
       writer.write("{\"rk\": \"a\", \"m\": {\"a\":\"1\"}}");
     }
 
-    String query = String.format("select kvgen(m) as res from (select m from dfs.`%s` union all " +
+    final String query = String.format("select kvgen(m) as res from (select m from dfs.`%s` union all " +
         "select convert_from('{\"a\" : null}' ,'json') as m from (values(1)))", fileName);
-    QuerySummary result = client.queryBuilder().sql(query).run();
+    final QuerySummary result = client.queryBuilder().sql(query).run();
     assertEquals("Row count should match", 2, result.recordCount());
   }
 
   @Test // DRILL-4264
   public void testFieldWithDots() throws Exception {
-    String fileName = "table.json";
+    final String fileName = "table.json";
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dirTestWatcher.getRootDir(), fileName)))) {
       writer.write("{\"rk.q\": \"a\", \"m\": {\"a.b\":\"1\", \"a\":{\"b\":\"2\"}, \"c\":\"3\"}}");
     }

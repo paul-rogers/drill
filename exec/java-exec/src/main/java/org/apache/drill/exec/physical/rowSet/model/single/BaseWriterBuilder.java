@@ -27,14 +27,13 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.RepeatedListWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
@@ -48,18 +47,17 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 public abstract class BaseWriterBuilder {
 
   protected List<AbstractObjectWriter> buildContainerChildren(VectorContainer container, MetadataProvider mdProvider) {
-    List<AbstractObjectWriter> writers = new ArrayList<>();
+    final List<AbstractObjectWriter> writers = new ArrayList<>();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = container.getValueVector(i).getValueVector();
-      VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector.getField());
+      final ValueVector vector = container.getValueVector(i).getValueVector();
+      final VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector.getField());
       writers.add(buildVectorWriter(vector, descrip));
     }
     return writers;
   }
 
   private AbstractObjectWriter buildVectorWriter(ValueVector vector, VectorDescrip descrip) {
-    MajorType type = vector.getField().getType();
+    final MajorType type = vector.getField().getType();
     switch (type.getMinorType()) {
     case MAP:
       return MapWriter.buildMapWriter(descrip.metadata,
@@ -78,11 +76,11 @@ public abstract class BaseWriterBuilder {
   }
 
   private List<AbstractObjectWriter> buildMap(AbstractMapVector vector, VectorDescrip descrip) {
-    List<AbstractObjectWriter> writers = new ArrayList<>();
-    MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
+    final List<AbstractObjectWriter> writers = new ArrayList<>();
+    final MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
     int i = 0;
-    for (ValueVector child : vector) {
-      VectorDescrip childDescrip = new VectorDescrip(provider, i, child.getField());
+    for (final ValueVector child : vector) {
+      final VectorDescrip childDescrip = new VectorDescrip(provider, i, child.getField());
       writers.add(buildVectorWriter(child, childDescrip));
       i++;
     }
@@ -100,18 +98,17 @@ public abstract class BaseWriterBuilder {
       throw new UnsupportedOperationException("Dummy variant writer not yet supported");
     }
     final AbstractObjectWriter variants[] = new AbstractObjectWriter[MinorType.values().length];
-    MetadataProvider mdProvider = descrip.childProvider();
+    final MetadataProvider mdProvider = descrip.childProvider();
     int i = 0;
-    for (MinorType type : vector.getField().getType().getSubTypeList()) {
+    for (final MinorType type : vector.getField().getType().getSubTypeList()) {
 
       // This call will create the vector if it does not yet exist.
       // Will throw an exception for unsupported types.
       // so call this only if the MajorType reports that the type
       // already exists.
 
-      @SuppressWarnings("resource")
-      ValueVector memberVector = vector.getMember(type);
-      VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
+      final ValueVector memberVector = vector.getMember(type);
+      final VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
     }
     return new VariantObjectWriter(
@@ -130,23 +127,21 @@ public abstract class BaseWriterBuilder {
     }
   }
 
-  @SuppressWarnings("resource")
   private AbstractObjectWriter buildMultiDList(RepeatedListVector vector,
       VectorDescrip descrip) {
 
-    ValueVector child = vector.getDataVector();
+    final ValueVector child = vector.getDataVector();
     if (child == null) {
       throw new UnsupportedOperationException("No child vector for repeated list.");
     }
-    VectorDescrip childDescrip = new VectorDescrip(descrip.childProvider(), 0, child.getField());
-    AbstractObjectWriter childWriter = buildVectorWriter(child, childDescrip);
+    final VectorDescrip childDescrip = new VectorDescrip(descrip.childProvider(), 0, child.getField());
+    final AbstractObjectWriter childWriter = buildVectorWriter(child, childDescrip);
     return RepeatedListWriter.buildRepeatedList(descrip.metadata, vector, childWriter);
   }
 
-  @SuppressWarnings("resource")
   private AbstractObjectWriter build1DList(ListVector vector,
       VectorDescrip descrip) {
-    ValueVector dataVector = vector.getDataVector();
+    final ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata;
     if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {
 

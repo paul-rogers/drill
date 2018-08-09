@@ -30,7 +30,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.TypeNegotiator;
 import org.apache.drill.test.rowSet.RowSet;
@@ -56,13 +56,13 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredScalarNull() {
-    JsonTester tester = jsonTester();
-    String json = "{a: null} {a: null} {a: 10}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: null} {a: null} {a: 10}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(null)
         .addRow(10L)
@@ -73,17 +73,17 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredScalarNullAsText() {
-    String json = "{a: null} {a: null} {a: null} {a: 10} {a: \"foo\"}";
-    MultiBatchJson tester = new MultiBatchJson(json);
+    final String json = "{a: null} {a: null} {a: null} {a: 10} {a: \"foo\"}";
+    final MultiBatchJson tester = new MultiBatchJson(json);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     RowSet results = tester.parse(2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(null)
@@ -105,9 +105,9 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredScalarNullAsType() {
-    String json = "{a: null} {a: null} {a: null} {a: 10} {a: 20}";
+    final String json = "{a: null} {a: null} {a: null} {a: 10} {a: 20}";
 
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.context = "test Json";
     options.typeNegotiator = new TypeNegotiator() {
 
@@ -120,16 +120,16 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
         return Types.optional(MinorType.BIGINT);
       }
     };
-    MultiBatchJson tester = new MultiBatchJson(options, json);
+    final MultiBatchJson tester = new MultiBatchJson(options, json);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     RowSet results = tester.parse(2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(null)
@@ -151,13 +151,13 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testNestedDeferredScalarNullAsType() {
-    String json =
+    final String json =
         "{a: {b: null, c: null, d: null}, e: null}\n" +
         "{a: {b: null, c: null, d: null}, e: null}\n" +
         "{a: {b: null, c: null, d: null}, e: null}\n" +
         "{a: {b: 10, c: \"fred\", d: [1.5, 2.5]}, e: 10.25}\n";
 
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.context = "test Json";
     options.typeNegotiator = new TypeNegotiator() {
 
@@ -165,7 +165,7 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
       @Override
       public MajorType typeOf(List<String> path) {
-        String name = Joiner.on(".").join(path);
+        final String name = Joiner.on(".").join(path);
         switch (name) {
         case "a.b": return Types.optional(MinorType.BIGINT);
         case "a.c": return Types.optional(MinorType.VARCHAR);
@@ -177,21 +177,21 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
         }
       }
     };
-    MultiBatchJson tester = new MultiBatchJson(options, json);
+    final MultiBatchJson tester = new MultiBatchJson(options, json);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     RowSet results = tester.parse(2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addMap("a")
           .addNullable("b", MinorType.BIGINT)
           .addNullable("c", MinorType.VARCHAR)
           .addArray("d", MinorType.FLOAT8)
           .resumeSchema()
         .addNullable("e", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(mapValue(null, null, doubleArray()), null)
         .addRow(mapValue(null, null, doubleArray()), null)
@@ -212,13 +212,13 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredScalarArray() {
-    JsonTester tester = jsonTester();
-    String json = "{a: []} {a: null} {a: [10, 20]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: []} {a: null} {a: [10, 20]}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(longArray())
         .addSingleCol(longArray())
         .addSingleCol(longArray(10L, 20L))
@@ -229,17 +229,17 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredArrayAsText() {
-    String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
-    MultiBatchJson tester = new MultiBatchJson(json);
+    final String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
+    final MultiBatchJson tester = new MultiBatchJson(json);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     RowSet results = tester.parse(2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(strArray())
         .addSingleCol(strArray())
@@ -261,14 +261,14 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredArrayAsType() {
-    String json =
+    final String json =
         "{a: [], b: []}\n" +
         "{a: null, b: null}\n" +
         "{a: [], b: []}\n" +
         "{a: [10, 20], b: [10.5, \"fred\"]}\n" +
         "{a: [30, 40], b: [null, false]}";
 
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.context = "test Json";
     options.typeNegotiator = new TypeNegotiator() {
       @Override
@@ -290,17 +290,17 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
         }
       }
     };
-    MultiBatchJson tester = new MultiBatchJson(options, json);
+    final MultiBatchJson tester = new MultiBatchJson(options, json);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     RowSet results = tester.parse(2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT)
         .addArray("b", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(longArray(), strArray())
         .addRow(longArray(), strArray())
@@ -328,13 +328,13 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredNullToArray() {
-    JsonTester tester = jsonTester();
-    String json = "{a: null} {a: []} {a: [10, 20]}";
-    RowSet results = tester.parse(json);
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final JsonTester tester = jsonTester();
+    final String json = "{a: null} {a: []} {a: [10, 20]}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("a", MinorType.BIGINT)
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(longArray())
         .addSingleCol(longArray())
         .addSingleCol(longArray(10L, 20L))
@@ -357,19 +357,19 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
     // Then, at the end of the batch, we guess that the array is of
     // type VARCHAR.
 
-    String json =
+    final String json =
         "{a: 1, b: null}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     tester.loaderOptions.setProjection(RowSetTestUtils.projectList("a", "b[0]"));
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addArray("b", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
 
-    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, strArray())
         .build();
     RowSetUtilities.verify(expected, results);
@@ -388,20 +388,20 @@ public class TestJsonLoaderNulls extends BaseTestJsonLoader {
     // be a map (based on the projection of a.b), to make it an map
     // (which contains no columns.)
 
-    String json =
+    final String json =
         "{a: 1, b: null}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     tester.loaderOptions.setProjection(RowSetTestUtils.projectList("a", "b.c"));
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addMap("b")
           .resumeSchema()
-        .build();
+        .buildSchema();
 
-    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, mapValue())
         .build();
     RowSetUtilities.verify(expected, results);

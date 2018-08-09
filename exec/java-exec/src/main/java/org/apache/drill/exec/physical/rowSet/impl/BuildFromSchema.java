@@ -19,8 +19,6 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -214,5 +212,4 @@ public class BuildFromSchema {
 //      }
 //    }
 //  }
->>>>>>> Next batch of vector accessor work
 }

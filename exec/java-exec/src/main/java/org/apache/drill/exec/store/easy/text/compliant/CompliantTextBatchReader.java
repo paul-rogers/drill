@@ -20,10 +20,7 @@ package org.apache.drill.exec.store.easy.text.compliant;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -53,16 +50,16 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
   private static final int WHITE_SPACE_BUFFER = 64*1024;
 
   // settings to be used while parsing
-  private TextParsingSettings settings;
+  private final TextParsingSettings settings;
   // Chunk of the file to be read by this reader
-  private FileSplit split;
+  private final FileSplit split;
   // text reader implementation
   private TextReader reader;
   // input buffer
   private DrillBuf readBuffer;
   // working buffer to handle whitespaces
   private DrillBuf whitespaceBuffer;
-  private DrillFileSystem dfs;
+  private final DrillFileSystem dfs;
 
   private RowSetLoader writer;
 
@@ -93,7 +90,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
   @Override
   public boolean open(ColumnsSchemaNegotiator schemaNegotiator) {
-    OperatorContext context = schemaNegotiator.context();
+    final OperatorContext context = schemaNegotiator.context();
 
     // Note: DO NOT use managed buffers here. They remain in existence
     // until the fragment is shut down. The buffers here are large.
@@ -124,7 +121,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
       }
       openReader(output);
       return true;
-    } catch (IOException e) {
+    } catch (final IOException e) {
       throw UserException.dataReadError(e).addContext("File Path", split.getPath().toString()).build(logger);
     }
   }
@@ -138,12 +135,12 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
    */
 
   private TextOutput openWithHeaders(ColumnsSchemaNegotiator schemaNegotiator) throws IOException {
-    String [] fieldNames = extractHeader();
+    final String [] fieldNames = extractHeader();
     if (fieldNames == null) {
       return null;
     }
-    TupleMetadata schema = new TupleSchema();
-    for (String colName : fieldNames) {
+    final TupleMetadata schema = new TupleSchema();
+    for (final String colName : fieldNames) {
       schema.add(MaterializedField.create(colName,
           MajorType.newBuilder()
             .setMinorType(MinorType.VARCHAR)
@@ -164,7 +161,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
   private TextOutput openWithoutHeaders(
       ColumnsSchemaNegotiator schemaNegotiator) {
-    TupleMetadata schema = new TupleSchema();
+    final TupleMetadata schema = new TupleSchema();
     schema.add(MaterializedField.create(ColumnsArrayManager.COLUMNS_COL,
         MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
@@ -185,8 +182,9 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
   private void openReader(TextOutput output) throws IOException {
     logger.trace("Opening file {}", split.getPath());
     @SuppressWarnings("resource")
+    final
     InputStream stream = dfs.openPossiblyCompressedStream(split.getPath());
-    TextInput input = new TextInput(settings, stream, readBuffer, split.getStart(), split.getStart() + split.getLength());
+    final TextInput input = new TextInput(settings, stream, readBuffer, split.getStart(), split.getStart() + split.getLength());
 
     // setup Reader using Input and Output
     reader = new TextReader(settings, input, output, whitespaceBuffer);
@@ -207,12 +205,12 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
     // don't skip header in case skipFirstLine is set true
     settings.setSkipFirstLine(false);
 
-    HeaderBuilder hOutput = new HeaderBuilder(split.getPath());
+    final HeaderBuilder hOutput = new HeaderBuilder(split.getPath());
 
     // setup Input using InputStream
     // we should read file header irrespective of split given given to this reader
-    InputStream hStream = dfs.openPossiblyCompressedStream(split.getPath());
-    TextInput hInput = new TextInput(settings, hStream, readBuffer, 0, split.getLength());
+    final InputStream hStream = dfs.openPossiblyCompressedStream(split.getPath());
+    final TextInput hInput = new TextInput(settings, hStream, readBuffer, 0, split.getLength());
 
     // setup Reader using Input and Output
     this.reader = new TextReader(settings, hInput, hOutput, whitespaceBuffer);
@@ -222,7 +220,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
     reader.parseNext();
 
     // grab the field names from output
-    String [] fieldNames = hOutput.getHeaders();
+    final String [] fieldNames = hOutput.getHeaders();
 
     // cleanup and set to skip the first line next time we read input
     reader.close();
@@ -283,7 +281,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
         reader.close();
         reader = null;
       }
-    } catch (IOException e) {
+    } catch (final IOException e) {
       logger.warn("Exception while closing stream.", e);
     }
   }

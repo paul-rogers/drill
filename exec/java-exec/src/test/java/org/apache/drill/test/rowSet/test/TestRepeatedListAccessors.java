@@ -17,8 +17,13 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.singleObjArray;
 
@@ -67,14 +72,14 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchemaIncompleteBatch() {
-    BatchSchema schema = new SchemaBuilder()
+    final BatchSchema schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .resumeSchema()
         .build();
 
     assertEquals(2, schema.getFieldCount());
-    MaterializedField list = schema.getColumn(1);
+    final MaterializedField list = schema.getColumn(1);
     assertEquals("list2", list.getName());
     assertEquals(MinorType.LIST, list.getType().getMinorType());
     assertEquals(DataMode.REPEATED, list.getType().getMode());
@@ -83,14 +88,14 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchemaIncompleteMetadata() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .resumeSchema()
         .buildSchema();
 
     assertEquals(2, schema.size());
-    ColumnMetadata list = schema.metadata(1);
+    final ColumnMetadata list = schema.metadata(1);
     assertEquals("list2", list.name());
     assertEquals(MinorType.LIST, list.type());
     assertEquals(DataMode.REPEATED, list.mode());
@@ -104,7 +109,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema2DBatch() {
-    BatchSchema schema = new SchemaBuilder()
+    final BatchSchema schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
@@ -112,13 +117,13 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .build();
 
     assertEquals(2, schema.getFieldCount());
-    MaterializedField list = schema.getColumn(1);
+    final MaterializedField list = schema.getColumn(1);
     assertEquals("list2", list.getName());
     assertEquals(MinorType.LIST, list.getType().getMinorType());
     assertEquals(DataMode.REPEATED, list.getType().getMode());
     assertEquals(1, list.getChildren().size());
 
-    MaterializedField inner = list.getChildren().iterator().next();
+    final MaterializedField inner = list.getChildren().iterator().next();
     assertEquals("list2", inner.getName());
     assertEquals(MinorType.VARCHAR, inner.getType().getMinorType());
     assertEquals(DataMode.REPEATED, inner.getType().getMode());
@@ -135,7 +140,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema2DMetadata() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
@@ -143,7 +148,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .buildSchema();
 
     assertEquals(2, schema.size());
-    ColumnMetadata list = schema.metadata(1);
+    final ColumnMetadata list = schema.metadata(1);
     assertEquals("list2", list.name());
     assertEquals(MinorType.LIST, list.type());
     assertEquals(DataMode.REPEATED, list.mode());
@@ -152,7 +157,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     assertEquals(2, list.dimensions());
     assertNotNull(list.childSchema());
 
-    ColumnMetadata child = list.childSchema();
+    final ColumnMetadata child = list.childSchema();
     assertEquals("list2", child.name());
     assertEquals(MinorType.VARCHAR, child.type());
     assertEquals(DataMode.REPEATED, child.mode());
@@ -163,7 +168,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema3DBatch() {
-    BatchSchema schema = new SchemaBuilder()
+    final BatchSchema schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addDimension()
@@ -173,19 +178,19 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .build();
 
     assertEquals(2, schema.getFieldCount());
-    MaterializedField list = schema.getColumn(1);
+    final MaterializedField list = schema.getColumn(1);
     assertEquals("list2", list.getName());
     assertEquals(MinorType.LIST, list.getType().getMinorType());
     assertEquals(DataMode.REPEATED, list.getType().getMode());
     assertEquals(1, list.getChildren().size());
 
-    MaterializedField child1 = list.getChildren().iterator().next();
+    final MaterializedField child1 = list.getChildren().iterator().next();
     assertEquals("list2", child1.getName());
     assertEquals(MinorType.LIST, child1.getType().getMinorType());
     assertEquals(DataMode.REPEATED, child1.getType().getMode());
     assertEquals(1, child1.getChildren().size());
 
-    MaterializedField child2 = child1.getChildren().iterator().next();
+    final MaterializedField child2 = child1.getChildren().iterator().next();
     assertEquals("list2", child2.getName());
     assertEquals(MinorType.VARCHAR, child2.getType().getMinorType());
     assertEquals(DataMode.REPEATED, child2.getType().getMode());
@@ -194,7 +199,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema3DMetadata() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addDimension()
@@ -204,7 +209,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .buildSchema();
 
     assertEquals(2, schema.size());
-    ColumnMetadata list = schema.metadata(1);
+    final ColumnMetadata list = schema.metadata(1);
     assertEquals("list2", list.name());
     assertEquals(MinorType.LIST, list.type());
     assertEquals(DataMode.REPEATED, list.mode());
@@ -213,7 +218,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     assertEquals(3, list.dimensions());
     assertNotNull(list.childSchema());
 
-    ColumnMetadata child1 = list.childSchema();
+    final ColumnMetadata child1 = list.childSchema();
     assertEquals("list2", child1.name());
     assertEquals(MinorType.LIST, child1.type());
     assertEquals(DataMode.REPEATED, child1.mode());
@@ -222,7 +227,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     assertEquals(2, child1.dimensions());
     assertNotNull(child1.childSchema());
 
-    ColumnMetadata child2 = child1.childSchema();
+    final ColumnMetadata child2 = child1.childSchema();
     assertEquals("list2", child2.name());
     assertEquals(MinorType.VARCHAR, child2.type());
     assertEquals(DataMode.REPEATED, child2.mode());
@@ -233,17 +238,18 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testIncompleteVectors() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .resumeSchema()
         .buildSchema();
 
-    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
-    VectorContainer container = rowSet.container();
+    final DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    final VectorContainer container = rowSet.container();
     assertEquals(2, container.getNumberOfColumns());
     assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
     @SuppressWarnings("resource")
+    final
     RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
     assertSame(BaseRepeatedValueVector.DEFAULT_DATA_VECTOR, list.getDataVector());
     assertTrue(list.getField().getChildren().isEmpty());
@@ -252,22 +258,24 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema2DVector() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
-    VectorContainer container = rowSet.container();
+    final DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    final VectorContainer container = rowSet.container();
     assertEquals(2, container.getNumberOfColumns());
     assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
     @SuppressWarnings("resource")
+    final
     RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
     assertEquals(1, list.getField().getChildren().size());
 
     @SuppressWarnings("resource")
+    final
     ValueVector child = list.getDataVector();
     assertTrue(child instanceof RepeatedVarCharVector);
     assertSame(list.getField().getChildren().iterator().next(), child.getField());
@@ -276,7 +284,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema3DVector() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addDimension()
@@ -285,21 +293,24 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
-    VectorContainer container = rowSet.container();
+    final DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    final VectorContainer container = rowSet.container();
     assertEquals(2, container.getNumberOfColumns());
     assertTrue(container.getValueVector(1).getValueVector() instanceof RepeatedListVector);
     @SuppressWarnings("resource")
+    final
     RepeatedListVector list = (RepeatedListVector) container.getValueVector(1).getValueVector();
     assertEquals(1, list.getField().getChildren().size());
 
     assertTrue(list.getDataVector() instanceof RepeatedListVector);
     @SuppressWarnings("resource")
+    final
     RepeatedListVector child1 = (RepeatedListVector) list.getDataVector();
     assertEquals(1, child1.getField().getChildren().size());
     assertSame(list.getField().getChildren().iterator().next(), child1.getField());
 
     @SuppressWarnings("resource")
+    final
     ValueVector child2 = child1.getDataVector();
     assertTrue(child2 instanceof RepeatedVarCharVector);
     assertSame(child1.getField().getChildren().iterator().next(), child2.getField());
@@ -308,25 +319,25 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema2DWriterReader() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addRepeatedList("list2")
           .addArray(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
+    final DirectRowSet rowSet = DirectRowSet.fromSchema(fixture.allocator(), schema);
     SingleRowSet result;
     {
-      RowSetWriter writer = rowSet.writer();
+      final RowSetWriter writer = rowSet.writer();
       assertEquals(2, writer.size());
-      ObjectWriter listObj = writer.column("list2");
+      final ObjectWriter listObj = writer.column("list2");
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayWriter listWriter = listObj.array();
+      final ArrayWriter listWriter = listObj.array();
       assertEquals(ObjectType.ARRAY, listWriter.entryType());
-      ArrayWriter innerWriter = listWriter.array();
+      final ArrayWriter innerWriter = listWriter.array();
       assertEquals(ObjectType.SCALAR, innerWriter.entryType());
-      ScalarWriter strWriter = innerWriter.scalar();
+      final ScalarWriter strWriter = innerWriter.scalar();
 
       // Write one row using writers explicitly.
       //
@@ -360,16 +371,16 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
     // Verify one row using the individual readers.
 
     {
-      RowSetReader reader = result.reader();
+      final RowSetReader reader = result.reader();
 
       assertEquals(2, reader.columnCount());
-      ObjectReader listObj = reader.column("list2");
+      final ObjectReader listObj = reader.column("list2");
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayReader listReader = listObj.array();
+      final ArrayReader listReader = listObj.array();
       assertEquals(ObjectType.ARRAY, listReader.entryType());
-      ArrayReader innerReader = listReader.array();
+      final ArrayReader innerReader = listReader.array();
       assertEquals(ObjectType.SCALAR, innerReader.entryType());
-      ScalarReader strReader = innerReader.scalar();
+      final ScalarReader strReader = innerReader.scalar();
 
       // Write one row using writers explicitly.
       //
@@ -396,7 +407,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
     // Verify both rows by building another row set and comparing.
 
-    RowSet expected = fixture.rowSetBuilder(schema)
+    final RowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, objArray(strArray("a", "b"), strArray("c", "d")))
         .addRow(2, objArray(strArray("e"), strArray(), strArray("f", "g", "h")))
         .addRow(3, objArray())
@@ -408,7 +419,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
 
   @Test
   public void testSchema3DWriterReader() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
 
         // Uses a short-hand method to avoid mucking with actual
@@ -417,7 +428,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
         .addArray("cube", MinorType.VARCHAR, 3)
         .buildSchema();
 
-    SingleRowSet actual = fixture.rowSetBuilder(schema)
+    final SingleRowSet actual = fixture.rowSetBuilder(schema)
       .addRow(1,
           objArray(
               objArray(
@@ -437,7 +448,7 @@ public class TestRepeatedListAccessors extends SubOperatorTest {
               strArray("i"))))
       .build();
 
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
+    final SingleRowSet expected = fixture.rowSetBuilder(schema)
       .addRow(1,
           objArray(
               objArray(

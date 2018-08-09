@@ -17,7 +17,12 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
@@ -65,10 +70,9 @@ import org.junit.Test;
 
 public class TestVariantAccessors extends SubOperatorTest {
 
-  @SuppressWarnings("resource")
   @Test
   public void testBuildRowSetUnion() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
 
         // Union with simple and complex types
 
@@ -84,17 +88,17 @@ public class TestVariantAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    VectorContainer vc = rowSet.container();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final VectorContainer vc = rowSet.container();
     assertEquals(1, vc.getNumberOfColumns());
 
     // Single union
 
-    ValueVector vector = vc.getValueVector(0).getValueVector();
+    final ValueVector vector = vc.getValueVector(0).getValueVector();
     assertTrue(vector instanceof UnionVector);
-    UnionVector union = (UnionVector) vector;
+    final UnionVector union = (UnionVector) vector;
 
-    MapVector typeMap = union.getTypeMap();
+    final MapVector typeMap = union.getTypeMap();
     ValueVector member = typeMap.getChild(MinorType.INT.name());
     assertTrue(member instanceof NullableIntVector);
 
@@ -104,7 +108,7 @@ public class TestVariantAccessors extends SubOperatorTest {
     assertTrue(member instanceof MapVector);
     member = typeMap.getChild(MinorType.MAP.name());
     assertTrue(member instanceof MapVector);
-    MapVector childMap = (MapVector) member;
+    final MapVector childMap = (MapVector) member;
     ValueVector mapMember = childMap.getChild("c");
     assertNotNull(mapMember);
     assertTrue(mapMember instanceof NullableBigIntVector);
@@ -116,7 +120,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
     member = typeMap.getChild(MinorType.LIST.name());
     assertTrue(member instanceof ListVector);
-    ListVector list = (ListVector) member;
+    final ListVector list = (ListVector) member;
     assertTrue(list.getDataVector() instanceof NullableVarCharVector);
 
     rowSet.clear();
@@ -129,7 +133,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testScalarVariant() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addUnion("u")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
@@ -137,14 +141,14 @@ public class TestVariantAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rs = fixture.rowSet(schema);
-    RowSetWriter writer = rs.writer();
+    final ExtendableRowSet rs = fixture.rowSet(schema);
+    final RowSetWriter writer = rs.writer();
 
     // Sanity check of writer structure
 
-    ObjectWriter wo = writer.column(0);
+    final ObjectWriter wo = writer.column(0);
     assertEquals(ObjectType.VARIANT, wo.type());
-    VariantWriter vw = wo.variant();
+    final VariantWriter vw = wo.variant();
     assertSame(vw, writer.variant(0));
     assertSame(vw, writer.variant("u"));
     assertTrue(vw.hasType(MinorType.INT));
@@ -178,21 +182,21 @@ public class TestVariantAccessors extends SubOperatorTest {
     vw.scalar(MinorType.INT).setInt(20);
     writer.save();
 
-    SingleRowSet result = writer.done();
+    final SingleRowSet result = writer.done();
     assertEquals(6, result.rowCount());
 
     // Read the values.
 
-    RowSetReader reader = result.reader();
+    final RowSetReader reader = result.reader();
 
     // Sanity check of structure
 
-    ObjectReader ro = reader.column(0);
+    final ObjectReader ro = reader.column(0);
     assertEquals(ObjectType.VARIANT, ro.type());
-    VariantReader vr = ro.variant();
+    final VariantReader vr = ro.variant();
     assertSame(vr, reader.variant(0));
     assertSame(vr, reader.variant("u"));
-    for (MinorType type : MinorType.values()) {
+    for (final MinorType type : MinorType.values()) {
       if (type == MinorType.INT || type == MinorType.VARCHAR || type == MinorType.FLOAT8) {
         assertTrue(vr.hasType(type));
       } else {
@@ -202,9 +206,9 @@ public class TestVariantAccessors extends SubOperatorTest {
 
     // Can get readers up front
 
-    ScalarReader intReader = vr.scalar(MinorType.INT);
-    ScalarReader strReader = vr.scalar(MinorType.VARCHAR);
-    ScalarReader floatReader = vr.scalar(MinorType.FLOAT8);
+    final ScalarReader intReader = vr.scalar(MinorType.INT);
+    final ScalarReader strReader = vr.scalar(MinorType.VARCHAR);
+    final ScalarReader floatReader = vr.scalar(MinorType.FLOAT8);
 
     // Verify the data
 
@@ -275,7 +279,7 @@ public class TestVariantAccessors extends SubOperatorTest {
   @SuppressWarnings("resource")
   @Test
   public void testBuildRowSetScalarList() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
 
         // Top-level single-element list
 
@@ -284,16 +288,16 @@ public class TestVariantAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    VectorContainer vc = rowSet.container();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final VectorContainer vc = rowSet.container();
     assertEquals(1, vc.getNumberOfColumns());
 
 
     // Single-type list
 
-    ValueVector vector = vc.getValueVector(0).getValueVector();
+    final ValueVector vector = vc.getValueVector(0).getValueVector();
     assertTrue(vector instanceof ListVector);
-    ListVector list = (ListVector) vector;
+    final ListVector list = (ListVector) vector;
     assertTrue(list.getDataVector() instanceof NullableVarCharVector);
 
     rowSet.clear();
@@ -302,7 +306,7 @@ public class TestVariantAccessors extends SubOperatorTest {
   @SuppressWarnings("resource")
   @Test
   public void testBuildRowSetUnionArray() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
 
         // List with multiple types
 
@@ -321,28 +325,28 @@ public class TestVariantAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    VectorContainer vc = rowSet.container();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final VectorContainer vc = rowSet.container();
     assertEquals(1, vc.getNumberOfColumns());
 
     // List with complex internal structure
 
-    ValueVector vector = vc.getValueVector(0).getValueVector();
+    final ValueVector vector = vc.getValueVector(0).getValueVector();
     assertTrue(vector instanceof ListVector);
-    ListVector list = (ListVector) vector;
+    final ListVector list = (ListVector) vector;
     assertTrue(list.getDataVector() instanceof UnionVector);
-    UnionVector union = (UnionVector) list.getDataVector();
+    final UnionVector union = (UnionVector) list.getDataVector();
 
     // Union inside the list
 
-    MajorType unionType = union.getField().getType();
-    List<MinorType> types = unionType.getSubTypeList();
+    final MajorType unionType = union.getField().getType();
+    final List<MinorType> types = unionType.getSubTypeList();
     assertEquals(3, types.size());
     assertTrue(types.contains(MinorType.BIGINT));
     assertTrue(types.contains(MinorType.MAP));
     assertTrue(types.contains(MinorType.LIST));
 
-    MapVector typeMap = union.getTypeMap();
+    final MapVector typeMap = union.getTypeMap();
     ValueVector member = typeMap.getChild(MinorType.BIGINT.name());
     assertTrue(member instanceof NullableBigIntVector);
 
@@ -350,7 +354,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
     member = typeMap.getChild(MinorType.MAP.name());
     assertTrue(member instanceof MapVector);
-    MapVector childMap = (MapVector) member;
+    final MapVector childMap = (MapVector) member;
     ValueVector mapMember = childMap.getChild("a");
     assertNotNull(mapMember);
     assertTrue(mapMember instanceof NullableIntVector);
@@ -362,7 +366,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
     member = typeMap.getChild(MinorType.LIST.name());
     assertTrue(member instanceof ListVector);
-    ListVector childList = (ListVector) member;
+    final ListVector childList = (ListVector) member;
     assertTrue(childList.getDataVector() instanceof NullableFloat8Vector);
 
     rowSet.clear();
@@ -375,7 +379,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testUnionWithMap() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addUnion("u")
           .addType(MinorType.VARCHAR)
           .addMap()
@@ -390,27 +394,27 @@ public class TestVariantAccessors extends SubOperatorTest {
     // Write values
 
     {
-      ExtendableRowSet rs = fixture.rowSet(schema);
-      RowSetWriter writer = rs.writer();
+      final ExtendableRowSet rs = fixture.rowSet(schema);
+      final RowSetWriter writer = rs.writer();
 
       // Sanity check of writer structure
 
-      ObjectWriter wo = writer.column(0);
+      final ObjectWriter wo = writer.column(0);
       assertEquals(ObjectType.VARIANT, wo.type());
-      VariantWriter vw = wo.variant();
+      final VariantWriter vw = wo.variant();
 
       assertTrue(vw.hasType(MinorType.VARCHAR));
-      ObjectWriter strObj = vw.member(MinorType.VARCHAR);
-      ScalarWriter strWriter = strObj.scalar();
+      final ObjectWriter strObj = vw.member(MinorType.VARCHAR);
+      final ScalarWriter strWriter = strObj.scalar();
       assertSame(strWriter, vw.scalar(MinorType.VARCHAR));
 
       assertTrue(vw.hasType(MinorType.MAP));
-      ObjectWriter mapObj = vw.member(MinorType.MAP);
-      TupleWriter mWriter = mapObj.tuple();
+      final ObjectWriter mapObj = vw.member(MinorType.MAP);
+      final TupleWriter mWriter = mapObj.tuple();
       assertSame(mWriter, vw.tuple());
 
-      ScalarWriter aWriter = mWriter.scalar("a");
-      ScalarWriter bWriter = mWriter.scalar("b");
+      final ScalarWriter aWriter = mWriter.scalar("a");
+      final ScalarWriter bWriter = mWriter.scalar("b");
 
       // First row: string "first"
 
@@ -450,26 +454,26 @@ public class TestVariantAccessors extends SubOperatorTest {
     // Read the values.
 
     {
-      RowSetReader reader = result.reader();
+      final RowSetReader reader = result.reader();
 
       // Sanity check of structure
 
-      ObjectReader ro = reader.column(0);
+      final ObjectReader ro = reader.column(0);
       assertEquals(ObjectType.VARIANT, ro.type());
-      VariantReader vr = ro.variant();
+      final VariantReader vr = ro.variant();
 
       assertTrue(vr.hasType(MinorType.VARCHAR));
-      ObjectReader strObj = vr.member(MinorType.VARCHAR);
-      ScalarReader strReader = strObj.scalar();
+      final ObjectReader strObj = vr.member(MinorType.VARCHAR);
+      final ScalarReader strReader = strObj.scalar();
       assertSame(strReader, vr.scalar(MinorType.VARCHAR));
 
       assertTrue(vr.hasType(MinorType.MAP));
-      ObjectReader mapObj = vr.member(MinorType.MAP);
-      TupleReader mReader = mapObj.tuple();
+      final ObjectReader mapObj = vr.member(MinorType.MAP);
+      final TupleReader mReader = mapObj.tuple();
       assertSame(mReader, vr.tuple());
 
-      ScalarReader aReader = mReader.scalar("a");
-      ScalarReader bReader = mReader.scalar("b");
+      final ScalarReader aReader = mReader.scalar("a");
+      final ScalarReader bReader = mReader.scalar("b");
 
       // First row: string "first"
 
@@ -529,27 +533,27 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testScalarList() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addList("list")
           .addType(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    RowSetWriter writer = rowSet.writer();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final RowSetWriter writer = rowSet.writer();
 
     {
-      ObjectWriter listObj = writer.column(0);
+      final ObjectWriter listObj = writer.column(0);
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayWriter listArray = listObj.array();
+      final ArrayWriter listArray = listObj.array();
 
       // The list contains only a scalar. But, because lists can,
       // in general, contain multiple contents, the list requires
       // an explicit save after each entry.
 
-      ObjectWriter itemObj = listArray.entry();
+      final ObjectWriter itemObj = listArray.entry();
       assertEquals(ObjectType.SCALAR, itemObj.type());
-      ScalarWriter strWriter = itemObj.scalar();
+      final ScalarWriter strWriter = itemObj.scalar();
 
       // First row: two strings and a null
       // Unlike a repeated type, a list can mark individual elements
@@ -590,20 +594,20 @@ public class TestVariantAccessors extends SubOperatorTest {
       writer.save();
     }
 
-    SingleRowSet result = writer.done();
+    final SingleRowSet result = writer.done();
     assertEquals(5, result.rowCount());
 
     {
-      RowSetReader reader = result.reader();
+      final RowSetReader reader = result.reader();
 
-      ObjectReader listObj = reader.column(0);
+      final ObjectReader listObj = reader.column(0);
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayReader listArray = listObj.array();
+      final ArrayReader listArray = listObj.array();
 
       // The list is a repeated scalar
 
       assertEquals(ObjectType.SCALAR, listArray.entry().type());
-      ScalarReader strReader = listArray.scalar();
+      final ScalarReader strReader = listArray.scalar();
 
       // First row: two strings and a null
 
@@ -667,7 +671,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testListOfMaps() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addList("list")
           .addMap()
             .addNullable("a", MinorType.INT)
@@ -676,18 +680,18 @@ public class TestVariantAccessors extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    RowSetWriter writer = rowSet.writer();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final RowSetWriter writer = rowSet.writer();
 
     {
-      ObjectWriter listObj = writer.column("list");
+      final ObjectWriter listObj = writer.column("list");
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayWriter listArray = listObj.array();
-      ObjectWriter itemObj = listArray.entry();
+      final ArrayWriter listArray = listObj.array();
+      final ObjectWriter itemObj = listArray.entry();
       assertEquals(ObjectType.TUPLE, itemObj.type());
-      TupleWriter mapWriter = itemObj.tuple();
-      ScalarWriter aWriter = mapWriter.scalar("a");
-      ScalarWriter bWriter = mapWriter.scalar("b");
+      final TupleWriter mapWriter = itemObj.tuple();
+      final ScalarWriter aWriter = mapWriter.scalar("a");
+      final ScalarWriter bWriter = mapWriter.scalar("b");
 
       // First row:
       // {1, "fred"}, null, {3, null}
@@ -732,19 +736,19 @@ public class TestVariantAccessors extends SubOperatorTest {
       writer.save();
     }
 
-    SingleRowSet result = writer.done();
+    final SingleRowSet result = writer.done();
     assertEquals(5, result.rowCount());
 
     {
-      RowSetReader reader = result.reader();
+      final RowSetReader reader = result.reader();
 
-      ObjectReader listObj = reader.column("list");
+      final ObjectReader listObj = reader.column("list");
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayReader listArray = listObj.array();
+      final ArrayReader listArray = listObj.array();
       assertEquals(ObjectType.TUPLE, listArray.entry().type());
-      TupleReader mapReader = listArray.tuple();
-      ScalarReader aReader = mapReader.scalar("a");
-      ScalarReader bReader = mapReader.scalar("b");
+      final TupleReader mapReader = listArray.tuple();
+      final ScalarReader aReader = mapReader.scalar("a");
+      final ScalarReader bReader = mapReader.scalar("b");
 
       // First row:
       // {1, "fred"}, null, {3, null}
@@ -819,25 +823,25 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testListOfUnions() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addList("list")
           .addType(MinorType.INT)
           .addType(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
 
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    RowSetWriter writer = rowSet.writer();
+    final ExtendableRowSet rowSet = fixture.rowSet(schema);
+    final RowSetWriter writer = rowSet.writer();
 
     {
-      ObjectWriter listObj = writer.column(0);
+      final ObjectWriter listObj = writer.column(0);
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayWriter listArray = listObj.array();
-      ObjectWriter itemObj = listArray.entry();
+      final ArrayWriter listArray = listObj.array();
+      final ObjectWriter itemObj = listArray.entry();
       assertEquals(ObjectType.VARIANT, itemObj.type());
-      VariantWriter variant = itemObj.variant();
-      ScalarWriter intWriter = variant.scalar(MinorType.INT);
-      ScalarWriter strWriter = variant.scalar(MinorType.VARCHAR);
+      final VariantWriter variant = itemObj.variant();
+      final ScalarWriter intWriter = variant.scalar(MinorType.INT);
+      final ScalarWriter strWriter = variant.scalar(MinorType.VARCHAR);
 
       // First row: (1, "two", 3)
 
@@ -887,19 +891,19 @@ public class TestVariantAccessors extends SubOperatorTest {
       writer.save();
     }
 
-    SingleRowSet result = writer.done();
+    final SingleRowSet result = writer.done();
     assertEquals(5, result.rowCount());
 
     {
-      RowSetReader reader = result.reader();
+      final RowSetReader reader = result.reader();
 
-      ObjectReader listObj = reader.column(0);
+      final ObjectReader listObj = reader.column(0);
       assertEquals(ObjectType.ARRAY, listObj.type());
-      ArrayReader listArray = listObj.array();
+      final ArrayReader listArray = listObj.array();
       assertEquals(ObjectType.VARIANT, listArray.entry().type());
-      VariantReader variant = listArray.variant();
-      ScalarReader intReader = variant.scalar(MinorType.INT);
-      ScalarReader strReader = variant.scalar(MinorType.VARCHAR);
+      final VariantReader variant = listArray.variant();
+      final ScalarReader intReader = variant.scalar(MinorType.INT);
+      final ScalarReader strReader = variant.scalar(MinorType.VARCHAR);
 
       // First row: (1, "two", 3)
 
@@ -986,21 +990,21 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testAddTypes() {
-    BatchSchema batchSchema = new SchemaBuilder()
+    final BatchSchema batchSchema = new SchemaBuilder()
         .addNullable("v", MinorType.UNION)
         .build();
 
-    ExtendableRowSet rs = fixture.rowSet(batchSchema);
-    RowSetWriter writer = rs.writer();
+    final ExtendableRowSet rs = fixture.rowSet(batchSchema);
+    final RowSetWriter writer = rs.writer();
 
     // Sanity check of writer structure
 
-    ObjectWriter wo = writer.column(0);
+    final ObjectWriter wo = writer.column(0);
     assertEquals(ObjectType.VARIANT, wo.type());
-    VariantWriter vw = wo.variant();
+    final VariantWriter vw = wo.variant();
     assertSame(vw, writer.variant(0));
     assertSame(vw, writer.variant("v"));
-    for (MinorType type : MinorType.values()) {
+    for (final MinorType type : MinorType.values()) {
       assertFalse(vw.hasType(type));
     }
 
@@ -1023,22 +1027,22 @@ public class TestVariantAccessors extends SubOperatorTest {
     assertTrue(vw.hasType(MinorType.FLOAT8));
     writer.save();
 
-    SingleRowSet result = writer.done();
+    final SingleRowSet result = writer.done();
 
     assertEquals(4, result.rowCount());
 
     // Read the values.
 
-    RowSetReader reader = result.reader();
+    final RowSetReader reader = result.reader();
 
     // Sanity check of structure
 
-    ObjectReader ro = reader.column(0);
+    final ObjectReader ro = reader.column(0);
     assertEquals(ObjectType.VARIANT, ro.type());
-    VariantReader vr = ro.variant();
+    final VariantReader vr = ro.variant();
     assertSame(vr, reader.variant(0));
     assertSame(vr, reader.variant("v"));
-    for (MinorType type : MinorType.values()) {
+    for (final MinorType type : MinorType.values()) {
       if (type == MinorType.INT || type == MinorType.VARCHAR || type == MinorType.FLOAT8) {
         assertTrue(vr.hasType(type));
       } else {
@@ -1084,7 +1088,7 @@ public class TestVariantAccessors extends SubOperatorTest {
 
   @Test
   public void testUnionWithList() {
-    TupleMetadata schema = new SchemaBuilder()
+    final TupleMetadata schema = new SchemaBuilder()
         .addUnion("u")
           .addType(MinorType.INT)
           .addList()
@@ -1098,16 +1102,16 @@ public class TestVariantAccessors extends SubOperatorTest {
     // Write values
 
     {
-      ExtendableRowSet rs = fixture.rowSet(schema);
-      RowSetWriter writer = rs.writer();
-      VariantWriter vw = writer.variant("u");
+      final ExtendableRowSet rs = fixture.rowSet(schema);
+      final RowSetWriter writer = rs.writer();
+      final VariantWriter vw = writer.variant("u");
 
       assertTrue(vw.hasType(MinorType.INT));
-      ScalarWriter intWriter = vw.scalar(MinorType.INT);
+      final ScalarWriter intWriter = vw.scalar(MinorType.INT);
 
       assertTrue(vw.hasType(MinorType.LIST));
-      ArrayWriter aWriter = vw.array();
-      ScalarWriter strWriter = aWriter.scalar();
+      final ArrayWriter aWriter = vw.array();
+      final ScalarWriter strWriter = aWriter.scalar();
 
       // Row 1: 1, ["fred", "barney"]
 
@@ -1134,15 +1138,15 @@ public class TestVariantAccessors extends SubOperatorTest {
     // Read the values.
 
     {
-      RowSetReader reader = result.reader();
-      VariantReader vr = reader.variant("u");
+      final RowSetReader reader = result.reader();
+      final VariantReader vr = reader.variant("u");
 
       assertTrue(vr.hasType(MinorType.INT));
-      ScalarReader intReader = vr.scalar(MinorType.INT);
+      final ScalarReader intReader = vr.scalar(MinorType.INT);
 
       assertTrue(vr.hasType(MinorType.LIST));
-      ArrayReader aReader = vr.array();
-      ScalarReader strReader = aReader.scalar();
+      final ArrayReader aReader = vr.array();
+      final ScalarReader strReader = aReader.scalar();
 
       assertTrue(reader.next());
       assertEquals(1, intReader.getInt());

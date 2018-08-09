@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.scan;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
@@ -158,7 +157,7 @@ public class ScanOperatorExec implements OperatorExec {
       default:
         throw new IllegalStateException("Unexpected state: " + state);
       }
-    } catch(Throwable t) {
+    } catch(final Throwable t) {
       state = State.FAILED;
       throw t;
     }
@@ -209,7 +208,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Get the next reader, if any.
 
-    RowBatchReader reader = factory.nextReader();
+    final RowBatchReader reader = factory.nextReader();
     if (reader == null) {
       containerAccessor.setContainer(null);
       return false;

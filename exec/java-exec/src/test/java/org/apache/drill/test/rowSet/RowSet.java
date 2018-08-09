@@ -27,6 +27,8 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
+import java.util.Set;
+
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
  * Drill we call this a "record batch", but that term has been overloaded to
@@ -116,6 +118,7 @@ public interface RowSet {
 
   public interface SingleRowSet extends RowSet {
     SingleRowSet toIndirect();
+    SingleRowSet toIndirect(Set<Integer> skipIndices);
     SelectionVector2 getSv2();
   }
 

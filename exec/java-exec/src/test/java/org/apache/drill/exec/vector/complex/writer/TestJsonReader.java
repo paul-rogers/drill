@@ -26,8 +26,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.zip.GZIPOutputStream;
 
 import org.apache.drill.exec.util.JsonStringHashMap;
 import org.apache.drill.exec.util.Text;
@@ -94,7 +92,7 @@ public class TestJsonReader extends BaseTestQuery {
     logger.debug(Files.toString(DrillFileUtils.getResourceAsFile(filename), Charsets.UTF_8));
 
     int i = 0;
-    for (String query : queries) {
+    for (final String query : queries) {
       logger.debug("=====");
       logger.debug("query");
       logger.debug("=====");
@@ -102,7 +100,7 @@ public class TestJsonReader extends BaseTestQuery {
       logger.debug("======");
       logger.debug("result");
       logger.debug("======");
-      int rowCount = testRunAndPrint(queryType, query);
+      final int rowCount = testRunAndPrint(queryType, query);
       assertEquals(rowCounts[i], rowCount);
 
       logger.debug("\n");
@@ -249,8 +247,8 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testSumMultipleBatches() throws Exception {
-    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("multi_batch"));
-    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
+    final File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("multi_batch"));
+    final BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
     for (int i = 0; i < 10000; i++) {
       os.write("{ type : \"map\", data : { a : 1 } }\n".getBytes());
       os.write("{ type : \"bigint\", data : 1 }\n".getBytes());
@@ -275,7 +273,7 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testSumFilesWithDifferentSchema() throws Exception {
-    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("multi_file"));
+    final File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("multi_file"));
     BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
     for (int i = 0; i < 10000; i++) {
       os.write("{ type : \"map\", data : { a : 1 } }\n".getBytes());
@@ -307,9 +305,9 @@ public class TestJsonReader extends BaseTestQuery {
   @Test
   public void drill_4479() throws Exception {
     try {
-      File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
+      final File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
       table_dir.mkdir();
-      BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "mostlynulls.json")));
+      final BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "mostlynulls.json")));
       // Create an entire batch of null values for 3 columns
       for (int i = 0 ; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH; i++) {
         os.write("{\"a\": null, \"b\": null, \"c\": null}".getBytes());
@@ -357,7 +355,7 @@ public class TestJsonReader extends BaseTestQuery {
     }
 
     try {
-      String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
+      final String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
 
       alterSession("store.json.all_text_mode", true);
       testBuilder()
@@ -387,7 +385,7 @@ public class TestJsonReader extends BaseTestQuery {
     }
 
     try {
-      String query = "select flatten(t.a.b.c) as c from dfs.`empty_array.json` t";
+      final String query = "select flatten(t.a.b.c) as c from dfs.`empty_array.json` t";
 
       testBuilder()
         .sqlQuery(query)
@@ -412,19 +410,19 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test // DRILL-5521
   public void testKvgenWithUnionAll() throws Exception {
-    String fileName = "map.json";
+    final String fileName = "map.json";
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dirTestWatcher.getRootDir(), fileName)))) {
       writer.write("{\"rk\": \"a\", \"m\": {\"a\":\"1\"}}");
     }
 
-    String query = String.format("select kvgen(m) as res from (select m from dfs.`%s` union all " +
+    final String query = String.format("select kvgen(m) as res from (select m from dfs.`%s` union all " +
         "select convert_from('{\"a\" : null}' ,'json') as m from (values(1)))", fileName);
     assertEquals("Row count should match", 2, testSql(query));
   }
 
   @Test // DRILL-4264
   public void testFieldWithDots() throws Exception {
-    String fileName = "table.json";
+    final String fileName = "table.json";
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dirTestWatcher.getRootDir(), fileName)))) {
       writer.write("{\"rk.q\": \"a\", \"m\": {\"a.b\":\"1\", \"a\":{\"b\":\"2\"}, \"c\":\"3\"}}");
     }
@@ -444,13 +442,13 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test // DRILL-6020
   public void testUntypedPathWithUnion() throws Exception {
-    String fileName = "table.json";
+    final String fileName = "table.json";
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dirTestWatcher.getRootDir(), fileName)))) {
       writer.write("{\"rk\": {\"a\": {\"b\": \"1\"}}}");
       writer.write("{\"rk\": {\"a\": \"2\"}}");
     }
 
-    JsonStringHashMap<String, Text> map = new JsonStringHashMap<>();
+    final JsonStringHashMap<String, Text> map = new JsonStringHashMap<>();
     map.put("b", new Text("1"));
 
     try {

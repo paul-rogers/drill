@@ -19,11 +19,14 @@ package org.apache.drill.exec.store.json;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.longArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.listValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.singleList;
-import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +38,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl;
@@ -70,21 +72,21 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     // be a map (based on the projection of a.b), to make it an map
     // (which contains no columns.)
 
-    String json =
+    final String json =
         "{a: 1, b: [10, null, 20]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.BIGINT)
           .resumeSchema()
-        .build();
+        .buildSchema();
 
-    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, longArray(10L, null, 20L))
         .build();
     RowSetUtilities.verify(expected, results);
@@ -92,21 +94,21 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testScalarListLeadingNull() {
-    String json =
+    final String json =
         "{a: 1, b: [null, 10, 20]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.BIGINT)
           .resumeSchema()
-        .build();
+        .buildSchema();
 
-    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, longArray(null, 10L, 20L))
         .build();
     RowSetUtilities.verify(expected, results);
@@ -114,21 +116,21 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testScalarListAllNull() {
-    String json =
+    final String json =
         "{a: 1, b: [null, null, null]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
         .addList("b")
           .addType(MinorType.VARCHAR)
           .resumeSchema()
-        .build();
+        .buildSchema();
 
-    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, strArray(null, null, null))
         .build();
     RowSetUtilities.verify(expected, results);
@@ -136,25 +138,25 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredListAsText() {
-    String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
-    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
-    InputStream inStream = new
+    final String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
+    final ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+    final InputStream inStream = new
         ReaderInputStream(new StringReader(json));
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.useListType = true;
     options.context = "test Json";
-    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+    final JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
 
     // Read first two records into a batch. Since we've not yet seen
     // a type, the null field will be realized as a text field.
 
     readBatch(tableLoader, loader, 2);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addType(MinorType.VARCHAR)
           .resumeSchema()
-        .build();
+        .buildSchema();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(strArray())
         .addSingleCol(strArray())
@@ -175,7 +177,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
     try {
       inStream.close();
-    } catch (IOException e) {
+    } catch (final IOException e) {
       fail();
     }
     loader.close();
@@ -184,18 +186,18 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testListPromotionFromNull() {
-    String json = "{a: null} {a: []} {a: null} {a: [10, 20]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final String json = "{a: null} {a: []} {a: null} {a: [10, 20]}";
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    BatchSchema expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addType(MinorType.BIGINT)
           .resumeSchema()
-        .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(longArray())
         .addSingleCol(null)
@@ -206,27 +208,24 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testConflictingListTypes() {
-    JsonOptions options = new JsonOptions();
+    final JsonOptions options = new JsonOptions();
     options.skipOuterList = false;
-    JsonTester tester = jsonTester(options);
-    String json = "{a: [10]} {a: [\"oops\"]}";
+    final JsonTester tester = jsonTester(options);
+    final String json = "{a: [10]} {a: [\"oops\"]}";
     expectError(tester, json);
   }
 
   @Test
   public void testObjectList() {
-    String json =
+    final String json =
         "{a: [{b: \"fred\", c: 10}, null, {b: \"barney\", c: 20}]}\n" +
         "{a: []} {a: null} {a: [{b: \"wilma\", c: 30}]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addMap()
             .addNullable("b", MinorType.VARCHAR)
@@ -234,7 +233,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
             .resumeUnion()
           .resumeSchema()
         .buildSchema();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(mapArray(mapValue("fred", 10L), null, mapValue("barney", 20L)))
         .addSingleCol(mapArray())
         .addSingleCol(null)
@@ -245,19 +244,16 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testDeferredObjectList() {
-    String json =
+    final String json =
         "{a: null} {a: []} {a: [null]}\n" +
         "{a: [{b: \"fred\", c: 10}, null, {b: \"barney\", c: 20}]}\n" +
         "{a: []} {a: null} {a: [{b: \"wilma\", c: 30}]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addMap()
             .addNullable("b", MinorType.VARCHAR)
@@ -265,7 +261,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
             .resumeUnion()
           .resumeSchema()
         .buildSchema();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(mapArray())
         .addSingleCol(mapArray((Object[]) null))
@@ -280,45 +276,42 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
   @SuppressWarnings("resource")
   @Test
   public void testListofListofScalar() {
-    String json =
+    final String json =
         "{a: [[1, 2], [3, 4]]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
     // Verify metadata
 
-    ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
-    MajorType outerType = outer.getField().getType();
+    final ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
+    final MajorType outerType = outer.getField().getType();
     assertEquals(1, outerType.getSubTypeCount());
     assertEquals(MinorType.LIST, outerType.getSubType(0));
     assertEquals(1, outer.getField().getChildren().size());
 
-    ListVector inner = (ListVector) outer.getDataVector();
+    final ListVector inner = (ListVector) outer.getDataVector();
     assertSame(inner.getField(), outer.getField().getChildren().iterator().next());
-    MajorType innerType = inner.getField().getType();
+    final MajorType innerType = inner.getField().getType();
     assertEquals(1, innerType.getSubTypeCount());
     assertEquals(MinorType.BIGINT, innerType.getSubType(0));
     assertEquals(1, inner.getField().getChildren().size());
 
-    ValueVector data = inner.getDataVector();
+    final ValueVector data = inner.getDataVector();
     assertSame(data.getField(), inner.getField().getChildren().iterator().next());
     assertEquals(MinorType.BIGINT, data.getField().getType().getMinorType());
     assertEquals(DataMode.OPTIONAL, data.getField().getType().getMode());
     assertTrue(data instanceof NullableBigIntVector);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addList()
             .addType(MinorType.BIGINT)
             .buildNested()
           .resumeSchema()
         .buildSchema();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(1L, 2L), listValue(3L, 4L)))
         .build();
     RowSetUtilities.verify(expected, results);
@@ -326,29 +319,26 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testListofListofScalarWithNulls() {
-    String json =
+    final String json =
         "{a: null}\n" +
         "{a: []}\n" +
         "{a: [null]}\n" +
         "{a: [[]]}\n" +
         "{a: [[null]]}\n" +
         "{a: [null, [\"a\", \"string\"]]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addList()
             .addType(MinorType.VARCHAR)
             .buildNested()
           .resumeSchema()
         .buildSchema();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(null)
         .addSingleCol(listValue())
         .addSingleCol(singleList(null))
@@ -361,18 +351,15 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testListofListofObject() {
-    String json =
+    final String json =
         "{a: [[{a: 1, b: 2}, {a: 3, b: 4}],\n" +
              "[{a: 5, b: 6}, {a: 7, b: 8}]]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addList()
             .addMap()
@@ -382,7 +369,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
             .buildNested()
           .resumeSchema()
         .buildSchema();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(mapValue(1L, 2L), mapValue(3L, 4L)),
                                 listValue(mapValue(5L, 6L), mapValue(7L, 8L))))
         .build();
@@ -391,21 +378,18 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   @Test
   public void testListofListofObjectWithNulls() {
-    String json =
+    final String json =
         "{a: [[{a: null, b: null}, {a: 1, b: 2}, null, {a: 3}],\n" +
              "null, [{b: 6}]]}\n" +
         "{a: null}\n" +
         "{a: []}\n" +
         "{a: [[], null]}";
-    JsonOptions options = new JsonOptions();
-    JsonTester tester = jsonTester(options);
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
     options.useListType = true;
-    RowSet results = tester.parse(json);
+    final RowSet results = tester.parse(json);
 
-    // Note use of TupleMetadata: BatchSchema can't hold the
-    // structure of a list.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
+    final TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addList()
             .addMap()

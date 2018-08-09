@@ -39,12 +39,10 @@ import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.WriterRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
-import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderCreator;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
@@ -122,7 +120,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   public static class ClassicScanBatchCreator implements ScanBatchCreator {
 
-    private EasyFormatPlugin<? extends FormatPluginConfig> plugin;
+    private final EasyFormatPlugin<? extends FormatPluginConfig> plugin;
 
     public ClassicScanBatchCreator(EasyFormatPlugin<? extends FormatPluginConfig> plugin) {
       this.plugin = plugin;
@@ -140,21 +138,23 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         scan.setOperatorId(scan.getOperatorId());
       }
 
-      OperatorContext oContext = context.newOperatorContext(scan);
+      final OperatorContext oContext = context.newOperatorContext(scan);
       final DrillFileSystem dfs;
       try {
         dfs = oContext.newFileSystem(plugin.easyConfig().fsConf);
-      } catch (IOException e) {
+      } catch (final IOException e) {
         throw new ExecutionSetupException(String.format("Failed to create FileSystem: %s", e.getMessage()), e);
       }
 
-      List<RecordReader> readers = Lists.newArrayList();
-      List<Map<String, String>> implicitColumns = Lists.newArrayList();
+      final List<RecordReader> readers = new LinkedList<>();
+      final List<Map<String, String>> implicitColumns = Lists.newArrayList();
       Map<String, String> mapWithMaxColumns = Maps.newLinkedHashMap();
-      for(FileWork work : scan.getWorkUnits()){
-        RecordReader recordReader = getRecordReader(plugin, context, dfs, work, scan.getColumns(), scan.getUserName());
+      final boolean supportsFileImplicitColumns = scan.getSelectionRoot() != null;
+      for(final FileWork work : scan.getWorkUnits()){
+        final RecordReader recordReader = getRecordReader(plugin, context, dfs, work, scan.getColumns(), scan.getUserName());
         readers.add(recordReader);
-        Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(work, scan.getSelectionRoot());
+        final List<String> partitionValues = ColumnExplorer.listPartitionValues(work.getPath(), scan.getSelectionRoot());
+        final Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(work.getPath(), partitionValues, supportsFileImplicitColumns);
         implicitColumns.add(implicitValues);
         if (implicitValues.size() > mapWithMaxColumns.size()) {
           mapWithMaxColumns = implicitValues;
@@ -162,8 +162,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       }
 
       // all readers should have the same number of implicit columns, add missing ones with value null
-      Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
-      for (Map<String, String> map : implicitColumns) {
+      final Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
+      for (final Map<String, String> map : implicitColumns) {
         map.putAll(Maps.difference(map, diff).entriesOnlyOnRight());
       }
 
@@ -225,8 +225,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       // Assemble the scan operator and its wrapper.
 
       try {
-        BaseFileScanFramework<?> framework = buildFramework(scan);
-        String selectionRoot = scan.getSelectionRoot();
+        final BaseFileScanFramework<?> framework = buildFramework(scan);
+        final String selectionRoot = scan.getSelectionRoot();
         if (! Strings.isEmpty(selectionRoot)) {
           framework.setSelectionRoot(new Path(selectionRoot));
         }
@@ -235,10 +235,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
             context, scan,
             new ScanOperatorExec(
                 framework));
-      } catch (UserException e) {
+      } catch (final UserException e) {
         // Rethrow user exceptions directly
         throw e;
-      } catch (Throwable e) {
+      } catch (final Throwable e) {
         // Wrap all others
         throw new ExecutionSetupException(e);
       }
@@ -268,7 +268,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     protected FileScanFramework buildFramework(
         EasySubScan scan) throws ExecutionSetupException {
 
-      FileScanFramework framework = new FileScanFramework(
+      final FileScanFramework framework = new FileScanFramework(
               scan.getColumns(),
               scan.getWorkUnits(),
               plugin.easyConfig().fsConf,
@@ -418,7 +418,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       throws ExecutionSetupException {
     try {
       return new WriterRecordBatch(writer, incoming, context, getRecordWriter(context, writer));
-    } catch(IOException e) {
+    } catch(final IOException e) {
       throw new ExecutionSetupException(String.format("Failed to create the WriterRecordBatch. %s", e.getMessage()), e);
     }
   }

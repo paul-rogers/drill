@@ -27,7 +27,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
@@ -95,7 +94,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
       if (vector == null) {
         return false;
       }
-      MaterializedField vectorSchema = vector.getField();
+      final MaterializedField vectorSchema = vector.getField();
       if (permissive) {
         return colSchema.isPromotableTo(vectorSchema, true);
       } else {
@@ -136,26 +135,26 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
   public BufferAllocator allocator() { return allocator; }
 
   public void predefine(List<String> selected) {
-    for (String colName : selected) {
+    for (final String colName : selected) {
       addVector(colName);
     }
   }
 
   private VectorState addVector(String colName) {
-    VectorState vs = new VectorState(colName);
+    final VectorState vs = new VectorState(colName);
     vectors.put(vs.name, vs);
     return vs;
   }
 
   public void newBatch() {
-    for (VectorState vs : vectors.values()) {
+    for (final VectorState vs : vectors.values()) {
       vs.touched = false;
     }
   }
 
   public void trimUnused() {
-    List<VectorState> unused = new ArrayList<>();
-    for (VectorState vs : vectors.values()) {
+    final List<VectorState> unused = new ArrayList<>();
+    for (final VectorState vs : vectors.values()) {
       if (! vs.touched) {
         unused.add(vs);
       }
@@ -163,7 +162,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
     if (unused.isEmpty()) {
       return;
     }
-    for (VectorState vs : unused) {
+    for (final VectorState vs : unused) {
       vectors.remove(vs.name);
     }
   }
@@ -199,7 +198,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
 
   @Override
   public MajorType getType(String name) {
-    VectorState vs = vectors.get(name);
+    final VectorState vs = vectors.get(name);
     if (vs == null || vs.vector == null) {
       return null;
     }
@@ -207,12 +206,12 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
   }
 
   public void close() {
-    for (VectorState vs : vectors.values()) {
+    for (final VectorState vs : vectors.values()) {
       vs.vector.close();
     }
     vectors.clear();
     if (children != null) {
-      for (ResultVectorCacheImpl child : children.values()) {
+      for (final ResultVectorCacheImpl child : children.values()) {
         child.close();
       }
       children = null;
@@ -227,7 +226,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
     if (children == null) {
       children = new HashMap<>();
     }
-    String key = colName.toLowerCase();
+    final String key = colName.toLowerCase();
     ResultVectorCacheImpl child = children.get(key);
     if (child == null) {
       child = new ResultVectorCacheImpl(allocator);
