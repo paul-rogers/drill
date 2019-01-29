@@ -21,8 +21,8 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.UnionShim;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
@@ -191,5 +191,17 @@ public class SimpleListShim implements UnionShim {
   @Override
   public int rowStartIndex() {
     return colWriter.rowStartIndex();
+  }
+
+  @Override
+  public int writeIndex() {
+    return colWriter.writeIndex();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.startObject(this).attribute("colWriter");
+    colWriter.dump(format);
+    format.endObject();
   }
 }

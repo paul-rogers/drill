@@ -20,11 +20,9 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
-import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
 /**
@@ -60,31 +58,6 @@ public class AbstractWriteConvertor extends ConcreteWriter {
   }
 
   @Override
-  public int lastWriteIndex() {
-    return baseWriter.lastWriteIndex();
-  }
-
-  @Override
-  public void restartRow() {
-    baseWriter.restartRow();
-  }
-
-  @Override
-  public void endWrite() {
-    baseWriter.endWrite();
-  }
-
-  @Override
-  public void preRollover() {
-    baseWriter.preRollover();
-  }
-
-  @Override
-  public void postRollover() {
-    baseWriter.postRollover();
-  }
-
-  @Override
   public ObjectType type() {
     return baseWriter.type();
   }
@@ -102,46 +75,6 @@ public class AbstractWriteConvertor extends ConcreteWriter {
   @Override
   public void setNull() {
     baseWriter.setNull();
-  }
-
-  @Override
-  public int rowStartIndex() {
-    return baseWriter.rowStartIndex();
-  }
-
-  @Override
-  public int writeIndex() {
-    return baseWriter.writeIndex();
-  }
-
-  @Override
-  public void bindListener(ColumnWriterListener listener) {
-    baseWriter.bindListener(listener);
-  }
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) {
-    baseWriter.bindIndex(index);
-  }
-
-  @Override
-  public void startWrite() {
-    baseWriter.startWrite();
-  }
-
-  @Override
-  public void startRow() {
-    baseWriter.startRow();
-  }
-
-  @Override
-  public void endArrayValue() {
-    baseWriter.endArrayValue();
-  }
-
-  @Override
-  public void saveRow() {
-    baseWriter.saveRow();
   }
 
   @Override
@@ -177,10 +110,5 @@ public class AbstractWriteConvertor extends ConcreteWriter {
   @Override
   public void setPeriod(Period value) {
     baseWriter.setPeriod(value);
-  }
-
-  @Override
-  public void dump(HierarchicalFormatter format) {
-    baseWriter.dump(format);
   }
 }

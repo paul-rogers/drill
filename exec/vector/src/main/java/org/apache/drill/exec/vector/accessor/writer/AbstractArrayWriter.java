@@ -95,7 +95,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   public static class ArrayObjectWriter extends AbstractObjectWriter {
 
-    private AbstractArrayWriter arrayWriter;
+    private final AbstractArrayWriter arrayWriter;
 
     public ArrayObjectWriter(AbstractArrayWriter arrayWriter) {
       this.arrayWriter = arrayWriter;
@@ -342,6 +342,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   public OffsetVectorWriter offsetWriter() { return offsetsWriter; }
 
+  @Override
   public void dump(HierarchicalFormatter format) {
     format
       .startObject(this)

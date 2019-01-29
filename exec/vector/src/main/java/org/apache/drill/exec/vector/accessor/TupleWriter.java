@@ -21,7 +21,6 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.ColumnWriter.TupleListenable;
 
 /**
  * Writer for a tuple. A tuple is composed of columns with a fixed order and
@@ -52,7 +51,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriter.TupleListenable;
  * @see {@link SingleMapWriter}, the class which this class replaces
  */
 
-public interface TupleWriter extends ColumnWriter, TupleListenable {
+public interface TupleWriter extends ColumnWriter {
 
   /**
    * Listener (callback) to handle requests to add a new column to a tuple (row
@@ -163,4 +162,14 @@ public interface TupleWriter extends ColumnWriter, TupleListenable {
    */
 
   void set(int colIndex, Object value);
+
+  /**
+   * Bind a listener to the underlying map or map array column. Not valid if the
+   * underlying writer is a scalar or scalar array.
+   *
+   * @param listener
+   *          the tuple listener to bind
+   */
+
+  void bindListener(TupleWriterListener listener);
 }

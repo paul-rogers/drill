@@ -27,7 +27,6 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractWriteConvertor;
-import org.apache.drill.exec.vector.accessor.writer.ConcreteWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
@@ -60,8 +59,8 @@ public class TestColumnConvertor extends SubOperatorTest {
     public static ColumnConversionFactory factory() {
       return new ColumnConversionFactory() {
         @Override
-        public ConcreteWriter newWriter(ColumnMetadata colDefn,
-            ConcreteWriter baseWriter) {
+        public ScalarWriter newWriter(ColumnMetadata colDefn,
+            ScalarWriter baseWriter) {
            return new TestConvertor(baseWriter);
         }
       };

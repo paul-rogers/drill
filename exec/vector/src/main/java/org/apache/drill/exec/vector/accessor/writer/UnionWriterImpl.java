@@ -55,8 +55,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
     ObjectWriter member(MinorType type);
     void setType(MinorType type);
-    int lastWriteIndex();
-    int rowStartIndex();
     AbstractObjectWriter addMember(ColumnMetadata colSchema);
     AbstractObjectWriter addMember(MinorType type);
     void addMember(AbstractObjectWriter colWriter);
@@ -192,7 +190,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     // conversion. Then set the type because, if the conversion is
     // done, the type vector exists only after creating the member.
 
-    ObjectWriter writer = shim.member(type);
+    final ObjectWriter writer = shim.member(type);
     setType(type);
     return writer;
   }
@@ -222,7 +220,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
    */
 
   protected void addMember(AbstractObjectWriter writer) {
-    MinorType type = writer.schema().type();
+    final MinorType type = writer.schema().type();
 
     // If the metadata has not yet been added to the variant
     // schema, do so now. (Unfortunately, the default listener
@@ -334,7 +332,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
       // Can look for exactly one period type as is done for Object[] below
       throw new IllegalArgumentException("Period is ambiguous, please use scalar(type)");
     } else if (value instanceof byte[]) {
-      byte[] bytes = (byte[]) value;
+      final byte[] bytes = (byte[]) value;
       scalar(MinorType.VARBINARY).setBytes(bytes, bytes.length);
     } else if (value instanceof Byte) {
       scalar(MinorType.TINYINT).setInt((Byte) value);
@@ -361,6 +359,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     }
   }
 
+  @Override
   public void dump(HierarchicalFormatter format) {
     // TODO Auto-generated method stub
 

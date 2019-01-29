@@ -60,8 +60,6 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
     throw new UnsupportedOperationException();
   }
 
-  public abstract WriterEvents events();
-
   public ColumnWriter baseWriter() {
     return (ColumnWriter) events();
   }
@@ -86,16 +84,16 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
 
   @Override
   public int rowStartIndex() {
-    return baseWriter().rowStartIndex();
+    return events().rowStartIndex();
   }
 
   @Override
   public int lastWriteIndex() {
-    return baseWriter().lastWriteIndex();
+    return events().lastWriteIndex();
   }
 
   @Override
   public int writeIndex() {
-    return baseWriter().writeIndex();
+    return events().writeIndex();
   }
 }

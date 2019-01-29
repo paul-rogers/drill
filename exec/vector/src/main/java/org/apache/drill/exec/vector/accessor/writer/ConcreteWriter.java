@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
-import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
 /**
@@ -29,7 +28,7 @@ import org.joda.time.Period;
  * writers, wrappers for nullable types, and shims used to convert types.
  */
 
-public abstract class ConcreteWriter implements ScalarWriter, WriterEvents {
+public abstract class ConcreteWriter implements ScalarWriter {
 
   @Override
   public void setObject(Object value) {
@@ -64,6 +63,4 @@ public abstract class ConcreteWriter implements ScalarWriter, WriterEvents {
   protected UnsupportedConversionError conversionError(String javaType) {
     return UnsupportedConversionError.writeError(schema(), javaType);
   }
-
-  abstract void dump(HierarchicalFormatter format);
 }

@@ -29,8 +29,8 @@ import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.IntColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.ValueType;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ColumnWriterListener;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 

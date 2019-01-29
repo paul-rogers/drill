@@ -22,9 +22,10 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ColumnWriterListener;
 
 /**
  * Represents the write-time state for a column including the writer and the (optional)
@@ -59,7 +60,7 @@ public abstract class ColumnState {
       } else {
         scalarWriter = writer.scalar();
       }
-      scalarWriter.bindListener(this);
+      ((AbstractScalarWriter) scalarWriter.events()).bindListener(this);
     }
 
     @Override
