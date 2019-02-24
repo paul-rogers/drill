@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.easy.text.compliant;
 
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import com.google.common.base.Charsets;
 
 public class TextParsingSettings {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextParsingSettings.class);
@@ -43,7 +43,7 @@ public class TextParsingSettings {
 
   private boolean headerExtractionEnabled = false;
   private boolean useRepeatedVarChar = true;
-  private int numberOfRecordsToRead = -1;
+//  private int numberOfRecordsToRead = -1;
 
   public void set(TextFormatConfig config){
     this.quote = bSafe(config.getQuote(), "quote");
@@ -232,21 +232,21 @@ public class TextParsingSettings {
     this.headerExtractionEnabled = headerExtractionEnabled;
   }
 
-  /**
-   * The number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
-   * @return the number of records to read before stopping the parsing process.
-   */
-  public int getNumberOfRecordsToRead() {
-    return numberOfRecordsToRead;
-  }
-
-  /**
-   * Defines the number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
-   * @param numberOfRecordsToRead the number of records to read before stopping the parsing process.
-   */
-  public void setNumberOfRecordsToRead(int numberOfRecordsToRead) {
-    this.numberOfRecordsToRead = numberOfRecordsToRead;
-  }
+//  /**
+//   * The number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
+//   * @return the number of records to read before stopping the parsing process.
+//   */
+//  public int getNumberOfRecordsToRead() {
+//    return numberOfRecordsToRead;
+//  }
+//
+//  /**
+//   * Defines the number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
+//   * @param numberOfRecordsToRead the number of records to read before stopping the parsing process.
+//   */
+//  public void setNumberOfRecordsToRead(int numberOfRecordsToRead) {
+//    this.numberOfRecordsToRead = numberOfRecordsToRead;
+//  }
 
   public long getMaxCharsPerColumn() {
     return maxCharsPerColumn;

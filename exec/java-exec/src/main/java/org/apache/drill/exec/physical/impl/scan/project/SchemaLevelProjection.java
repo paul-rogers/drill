@@ -97,6 +97,8 @@ public class SchemaLevelProjection {
         return;
       }
     }
-    throw new IllegalStateException("No resolver for column: " + col.nodeType());
+    throw new IllegalStateException(
+        String.format("No resolver for column `%s` of type %d",
+            col.name(), col.nodeType()));
   }
 }

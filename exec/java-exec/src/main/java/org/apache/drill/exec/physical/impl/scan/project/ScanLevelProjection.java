@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
@@ -100,7 +101,7 @@ import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 
 public class ScanLevelProjection {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
 
   /**
    * Interface for add-on parsers, avoids the need to create
@@ -284,7 +285,10 @@ public class ScanLevelProjection {
       switch (outCol.nodeType()) {
       case UnresolvedColumn.UNRESOLVED:
         if (hasWildcard()) {
-          throw new IllegalArgumentException("Cannot select table columns and * together");
+          throw UserException.validationError()
+            .message("Cannot select table columns and * together")
+            .addContext("Column", outCol.name())
+            .build(LOG);
         }
         break;
       default:

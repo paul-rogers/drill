@@ -118,5 +118,9 @@ class TextParsingContext implements ParsingContext {
   public boolean columnsReordered() {
     return false;
   }
+
+  public boolean isFull() {
+    return output.isFull();
+  }
 }
 

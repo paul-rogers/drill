@@ -25,8 +25,9 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.hadoop.fs.Path;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import com.google.common.base.Charsets;
 
 /**
  * Text output that implements a header reader/parser.
@@ -45,6 +46,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 // value vectors and direct memory for this task.
 
 public class HeaderBuilder extends TextOutput {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HeaderBuilder.class);
 
   /**
    * Maximum Drill symbol length, as enforced for headers.
@@ -69,8 +71,13 @@ public class HeaderBuilder extends TextOutput {
 
   public static final String ANONYMOUS_COLUMN_PREFIX = "column_";
 
+  public final Path filePath;
   public final List<String> headers = new ArrayList<>();
   public final ByteBuffer currentField = ByteBuffer.allocate(MAX_HEADER_LEN);
+
+  public HeaderBuilder(Path filePath) {
+    this.filePath = filePath;
+  }
 
   @Override
   public void startField(int index) {
@@ -191,6 +198,7 @@ public class HeaderBuilder extends TextOutput {
     } catch (BufferOverflowException e) {
       throw UserException.dataReadError()
         .message("Column exceeds maximum length of %d", MAX_HEADER_LEN)
+        .addContext("File Path", filePath.toString())
         .build(logger);
     }
   }
@@ -199,8 +207,9 @@ public class HeaderBuilder extends TextOutput {
   public void finishRecord() {
     if (headers.isEmpty()) {
       throw UserException.dataReadError()
-        .message("The file must define at least one header.")
-        .build(logger);
+          .message("The file must define at least one header.")
+          .addContext("File Path", filePath.toString())
+          .build(logger);
     }
 
     // Force headers to be unique.
@@ -224,7 +233,7 @@ public class HeaderBuilder extends TextOutput {
         // "col", "col_2", "col_2_2", "col_2_2_2".
         // No mapping scheme is perfect...
 
-        for (int l = 2;; l++) {
+        for (int l = 2;  ; l++) {
           final String rewritten = header + "_" + l;
           key = rewritten.toLowerCase();
           if (! idents.contains(key)) {
@@ -238,18 +247,7 @@ public class HeaderBuilder extends TextOutput {
   }
 
   @Override
-  public long getRecordCount() { return 1; }
-
-  @Override
-  public void startBatch() { }
-
-  @Override
-  public void finishBatch() { }
-
-  @Override
-  public boolean rowHasData() {
-    return ! headers.isEmpty();
-  }
+  public void startRecord() { }
 
   public String[] getHeaders() {
 
@@ -260,4 +258,10 @@ public class HeaderBuilder extends TextOutput {
     return headers.toArray(array);
   }
 
+  // Not used.
+  @Override
+  public long getRecordCount() { return 0; }
+
+  @Override
+  public boolean isFull() { return false; }
 }
