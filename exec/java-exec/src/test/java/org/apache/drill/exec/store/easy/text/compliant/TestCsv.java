@@ -254,21 +254,39 @@ public class TestCsv extends ClusterTest {
    * they still be defined, but set to a null Nullable VARCHAR?
    */
   @Test
-  @Ignore("Project adds unwanted dir00, dir05 columns")
   public void testPartitionColsWildcard() throws IOException {
-    String sql = "SELECT *, dir0, dir5 FROM `dfs.data`.`%s`";
+    String sql = "SELECT *, dir0 FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    actual.print();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
         .add("c", MinorType.VARCHAR)
         .addNullable("dir0", MinorType.VARCHAR)
-        .addNullable("dir5", MinorType.VARCHAR)
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", null, null)
+        .addRow("10", "foo", "bar", null)
+        .build();
+    RowSetUtilities.verify(expected, actual);
+  }
+
+  @Test
+  public void testImplicitColWildcard() throws IOException {
+    String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    actual.print();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("c", MinorType.VARCHAR)
+        .add("filename", MinorType.VARCHAR)
+        .buildSchema();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+        .addRow("10", "foo", "bar", CASE2_FILE_NAME)
         .build();
     RowSetUtilities.verify(expected, actual);
   }
