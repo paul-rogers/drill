@@ -61,8 +61,6 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 public class SchemaLevelProjection {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SchemaLevelProjection.class);
-
   /**
    * Schema-level projection is customizable. Implement this interface, and
    * add an instance to the scan orchestrator, to perform custom mappings
@@ -81,10 +79,7 @@ public class SchemaLevelProjection {
 
   protected SchemaLevelProjection(
         List<SchemaProjectionResolver> resolvers) {
-    if (resolvers == null) {
-      resolvers = new ArrayList<>();
-    }
-    this.resolvers = resolvers;
+    this.resolvers = resolvers == null ? new ArrayList<>() : resolvers;
     for (SchemaProjectionResolver resolver : resolvers) {
       resolver.startResolution();
     }

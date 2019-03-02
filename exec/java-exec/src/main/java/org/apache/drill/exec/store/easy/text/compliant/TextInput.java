@@ -53,9 +53,6 @@ final class TextInput {
   private final long startPos;
   private final long endPos;
 
-  private int bufferMark;
-  private long streamMark;
-
   private long streamPos;
 
   private final Seekable seekable;
@@ -140,7 +137,7 @@ final class TextInput {
 
     updateBuffer();
     if (length > 0) {
-      if(startPos > 0 || settings.isSkipFirstLine()){
+      if (startPos > 0 || settings.isSkipFirstLine()) {
 
         // move to next full record.
         skipLines(1);
@@ -159,14 +156,11 @@ final class TextInput {
     return " ";
   }
 
-  long getPos(){
+  long getPos() {
     return streamPos + bufferPtr;
   }
 
-  public void mark(){
-    streamMark = streamPos;
-    bufferMark = bufferPtr;
-  }
+  public void mark() { }
 
   /**
    * read some more bytes from the stream.  Uses the zero copy interface if available.  Otherwise, does byte copy.
@@ -175,7 +169,7 @@ final class TextInput {
   private void read() throws IOException {
     if(bufferReadable){
 
-      if(remByte != -1){
+      if (remByte != -1) {
         for (int i = 0; i <= remByte; i++) {
           underlyingBuffer.put(lineSeparator[i]);
         }
@@ -183,15 +177,14 @@ final class TextInput {
       }
       length = inputFS.read(underlyingBuffer);
 
-    }else{
-
+    } else {
       byte[] b = new byte[underlyingBuffer.capacity()];
-      if(remByte != -1){
+      if (remByte != -1){
         int remBytesNum = remByte + 1;
         System.arraycopy(lineSeparator, 0, b, 0, remBytesNum);
         length = input.read(b, remBytesNum, b.length - remBytesNum);
         remByte = -1;
-      }else{
+      } else {
         length = input.read(b);
       }
       underlyingBuffer.put(b);
@@ -207,7 +200,7 @@ final class TextInput {
     streamPos = seekable.getPos();
     underlyingBuffer.clear();
 
-    if(endFound){
+    if (endFound) {
       length = -1;
       return;
     }
@@ -215,7 +208,7 @@ final class TextInput {
     read();
 
     // check our data read allowance.
-    if(streamPos + length >= this.endPos){
+    if (streamPos + length >= this.endPos) {
       updateLengthBasedOnConstraint();
     }
 
@@ -224,7 +217,6 @@ final class TextInput {
 
     buffer.writerIndex(underlyingBuffer.limit());
     buffer.readerIndex(underlyingBuffer.position());
-
   }
 
   /**
@@ -234,7 +226,7 @@ final class TextInput {
    */
   private void updateLengthBasedOnConstraint() {
     final long max = bStart + length;
-    for(long m = bStart + (endPos - streamPos); m < max; m++) {
+    for (long m = bStart + (endPos - streamPos); m < max; m++) {
       for (int i = 0; i < lineSeparator.length; i++) {
         long mPlus = m + i;
         if (mPlus < max) {
@@ -264,27 +256,27 @@ final class TextInput {
     byte byteChar = nextCharNoNewLineCheck();
     int bufferPtrTemp = bufferPtr - 1;
     if (byteChar == lineSeparator[0]) {
-       for (int i = 1; i < lineSeparator.length; i++, bufferPtrTemp++) {
-         if (lineSeparator[i] != buffer.getByte(bufferPtrTemp)) {
-           return byteChar;
-         }
-       }
+      for (int i = 1; i < lineSeparator.length; i++, bufferPtrTemp++) {
+        if (lineSeparator[i] != buffer.getByte(bufferPtrTemp)) {
+          return byteChar;
+        }
+      }
 
-        lineCount++;
-        byteChar = normalizedLineSeparator;
+      lineCount++;
+      byteChar = normalizedLineSeparator;
 
-        // we don't need to update buffer position if line separator is one byte long
-        if (lineSeparator.length > 1) {
-          bufferPtr += (lineSeparator.length - 1);
-          if (bufferPtr >= length) {
-            if (length != -1) {
-              updateBuffer();
-            } else {
-              throw StreamFinishedPseudoException.INSTANCE;
-            }
+      // we don't need to update buffer position if line separator is one byte long
+      if (lineSeparator.length > 1) {
+        bufferPtr += (lineSeparator.length - 1);
+        if (bufferPtr >= length) {
+          if (length != -1) {
+            updateBuffer();
+          } else {
+            throw StreamFinishedPseudoException.INSTANCE;
           }
         }
       }
+    }
 
     return byteChar;
   }
@@ -315,7 +307,6 @@ final class TextInput {
     }
 
     bufferPtr++;
-
     return byteChar;
   }
 

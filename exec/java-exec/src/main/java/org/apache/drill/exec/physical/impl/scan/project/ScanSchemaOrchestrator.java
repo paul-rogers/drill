@@ -155,7 +155,7 @@ public class ScanSchemaOrchestrator {
   public static final int MAX_BATCH_ROW_COUNT = ValueVector.MAX_ROW_COUNT;
 
   /**
-   * Orchestrates projection tasks for a single reader with the set that the
+   * Orchestrates projection tasks for a single reader within the set that the
    * scan operator manages. Vectors are reused across readers, but via a vector
    * cache. All other state is distinct between readers.
    */
@@ -493,13 +493,6 @@ public class ScanSchemaOrchestrator {
 
     ScanProjectionParser parser = metadataManager.projectionParser();
     if (parser != null) {
-
-      // For compatibility with Drill 1.12, insert the file metadata
-      // parser before others so that, in a wildcard query, metadata
-      // columns appear before others (such as the `columns` column.)
-      // This is temporary and should be removed once the test framework
-      // is restored to Drill 1.11 functionality.
-
       parsers.add(parser);
     }
 

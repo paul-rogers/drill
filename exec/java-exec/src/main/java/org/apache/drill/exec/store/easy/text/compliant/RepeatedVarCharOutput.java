@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -29,6 +28,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
  * value within the vector containing all the fields in the record as individual array elements.
  */
 public class RepeatedVarCharOutput extends BaseFieldOutput {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseFieldOutput.class);
 
   private final ScalarWriter columnWriter;
   private final ArrayWriter arrayWriter;

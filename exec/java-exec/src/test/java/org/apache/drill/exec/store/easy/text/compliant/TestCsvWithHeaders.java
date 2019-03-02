@@ -25,6 +25,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -35,8 +36,8 @@ import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * SQL-level tests for CSV headers. See
@@ -45,9 +46,28 @@ import org.junit.Test;
  * from the unit tests; instead it just does a sanity check.
  */
 
-public class TestCsv extends ClusterTest {
+// CSV reader now hosted on the row set framework
+@Category(RowSetTests.class)
+public class TestCsvWithHeaders extends ClusterTest {
 
-  private static final String CASE2_FILE_NAME = "case2.csv";
+  // TODO: Read, but ignore, headers
+
+  private static final String TEST_FILE_NAME = "case2.csv";
+
+  private static String invalidHeaders[] = {
+      "$,,9b,c,c,c_2",
+      "10,foo,bar,fourth,fifth,sixth"
+  };
+
+  private static String emptyHeaders[] = {
+      "",
+      "10,foo,bar"
+  };
+
+  private static String validHeaders[] = {
+      "a,b,c",
+      "10,foo,bar"
+  };
 
   private static File testDir;
 
@@ -63,13 +83,8 @@ public class TestCsv extends ClusterTest {
     csvFormat.extractHeader = true;
 
     testDir = cluster.makeDataDir("data", "csv", csvFormat);
-    buildFile(CASE2_FILE_NAME, validHeaders);
+    buildFile(TEST_FILE_NAME, validHeaders);
   }
-
-  private static String emptyHeaders[] = {
-      "",
-      "10,foo,bar"
-  };
 
   @Test
   public void testEmptyCsvHeaders() throws IOException {
@@ -83,14 +98,9 @@ public class TestCsv extends ClusterTest {
     }
   }
 
-  private static String validHeaders[] = {
-      "a,b,c",
-      "10,foo,bar"
-  };
-
   @Test
   public void testValidCsvHeaders() throws IOException {
-    RowSet actual = client.queryBuilder().sql(makeStatement(CASE2_FILE_NAME)).rowSet();
+    RowSet actual = client.queryBuilder().sql(makeStatement(TEST_FILE_NAME)).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -102,11 +112,6 @@ public class TestCsv extends ClusterTest {
         .build();
     RowSetUtilities.verify(expected, actual);
   }
-
-  private static String invalidHeaders[] = {
-      "$,,9b,c,c,c_2",
-      "10,foo,bar,fourth,fifth,sixth"
-  };
 
   @Test
   public void testInvalidCsvHeaders() throws IOException {
@@ -132,7 +137,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testCsvHeadersCaseInsensitive() throws IOException {
     String sql = "SELECT A, b, C FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("A", MinorType.VARCHAR)
@@ -150,8 +155,12 @@ public class TestCsv extends ClusterTest {
     return "SELECT * FROM `dfs.data`.`" + fileName + "`";
   }
 
-  private static void buildFile(String fileName, String[] data) throws IOException {
-    try(PrintWriter out = new PrintWriter(new FileWriter(new File(testDir, fileName)))) {
+  static void buildFile(String fileName, String[] data) throws IOException {
+    buildFile(new File(testDir, fileName), data);
+  }
+
+  static void buildFile(File file, String[] data) throws IOException {
+    try(PrintWriter out = new PrintWriter(new FileWriter(file))) {
       for (String line : data) {
         out.println(line);
       }
@@ -165,7 +174,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testWildcard() throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -186,7 +195,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testImplicitColsExplicitSelect() throws IOException {
     String sql = "SELECT A, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("A", MinorType.VARCHAR)
@@ -194,7 +203,7 @@ public class TestCsv extends ClusterTest {
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", CASE2_FILE_NAME)
+        .addRow("10", TEST_FILE_NAME)
         .build();
     RowSetUtilities.verify(expected, actual);
   }
@@ -206,7 +215,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testImplicitColsWildcard() throws IOException {
     String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -216,7 +225,7 @@ public class TestCsv extends ClusterTest {
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", CASE2_FILE_NAME)
+        .addRow("10", "foo", "bar", TEST_FILE_NAME)
         .build();
     RowSetUtilities.verify(expected, actual);
   }
@@ -226,10 +235,9 @@ public class TestCsv extends ClusterTest {
    * of just one implicit column.
    */
   @Test
-  @Ignore("Not supposed to be valid, but gets past the planner")
   public void testColsWithWildcard() throws IOException {
     String sql = "SELECT *, a as d FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -244,19 +252,10 @@ public class TestCsv extends ClusterTest {
     RowSetUtilities.verify(expected, actual);
   }
 
-  /**
-   * CSV does not allow explicit use of dir0, dir1, etc. columns. Treated
-   * as undefined nullable int columns.
-   * <p>
-   * Note that the class path storage plugin does not support directories
-   * (partitions). It is unclear if that should show up here as the
-   * partition column names being undefined (hence Nullable INT) or should
-   * they still be defined, but set to a null Nullable VARCHAR?
-   */
   @Test
   public void testPartitionColsWildcard() throws IOException {
     String sql = "SELECT *, dir0 FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
     actual.print();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
@@ -275,7 +274,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testImplicitColWildcard() throws IOException {
     String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
     actual.print();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
@@ -286,7 +285,7 @@ public class TestCsv extends ClusterTest {
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", CASE2_FILE_NAME)
+        .addRow("10", "foo", "bar", TEST_FILE_NAME)
         .build();
     RowSetUtilities.verify(expected, actual);
   }
@@ -298,7 +297,7 @@ public class TestCsv extends ClusterTest {
   @Test
   public void testPartitionColsExplicit() throws IOException {
     String sql = "SELECT a, dir0, dir5 FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, CASE2_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -308,6 +307,23 @@ public class TestCsv extends ClusterTest {
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
         .addRow("10", null, null)
+        .build();
+    RowSetUtilities.verify(expected, actual);
+  }
+
+  @Test
+  public void testDupColumn() throws IOException {
+    String sql = "SELECT a, b, a FROM `dfs.data`.`%s`";
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("a0", MinorType.VARCHAR)
+        .buildSchema();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+        .addRow("10", "foo", "10")
         .build();
     RowSetUtilities.verify(expected, actual);
   }

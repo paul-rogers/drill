@@ -22,17 +22,17 @@ import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 
 public abstract class BaseFieldOutput extends TextOutput {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseFieldOutput.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseFieldOutput.class);
+  private static final int MAX_FIELD_LENGTH = 1024 * 64;
 
   // track which field is getting appended
   protected int currentFieldIndex = -1;
   // track chars within field
-  protected int currentDataPointer = 0;
+  protected int currentDataPointer;
   // track if field is still getting appended
   private boolean fieldOpen = true;
   // holds chars for a field
   protected byte[] fieldBytes;
-  private static final int MAX_FIELD_LENGTH = 1024 * 64;
   protected final RowSetLoader writer;
   private final boolean[] projectionMask;
   protected final int maxField;

@@ -184,35 +184,37 @@ public class TestScanLevelProjection extends SubOperatorTest {
   }
 
   /**
-   * Can't include both a wildcard and a column name.
+   * Can include both a wildcard and a column name. The Project
+   * operator will fill in the column, the scan framework just ignores
+   * the extra column.
    */
 
   @Test
-  public void testErrorWildcardAndColumns() {
-    try {
-      new ScanLevelProjection(
+  public void testWildcardAndColumns() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
           RowSetTestUtils.projectList(SchemaPath.DYNAMIC_STAR, "a"),
           ScanTestUtils.parsers());
-      fail();
-    } catch (final IllegalArgumentException e) {
-      // Expected
-    }
+
+    assertTrue(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
+    assertEquals(2, scanProj.requestedCols().size());
+    assertEquals(1, scanProj.columns().size());
   }
 
   /**
-   * Can't include both a column name and a wildcard.
+   * Test a column name and a wildcard.
    */
 
   @Test
-  public void testErrorColumnAndWildcard() {
-    try {
-      new ScanLevelProjection(
+  public void testColumnAndWildcard() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
           RowSetTestUtils.projectList("a", SchemaPath.DYNAMIC_STAR),
           ScanTestUtils.parsers());
-      fail();
-    } catch (final IllegalArgumentException e) {
-      // Expected
-    }
+
+    assertTrue(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
+    assertEquals(2, scanProj.requestedCols().size());
+    assertEquals(1, scanProj.columns().size());
   }
 
   /**

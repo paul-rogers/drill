@@ -27,7 +27,7 @@ import java.util.Set;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.hadoop.fs.Path;
 
-import com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
 /**
  * Text output that implements a header reader/parser.

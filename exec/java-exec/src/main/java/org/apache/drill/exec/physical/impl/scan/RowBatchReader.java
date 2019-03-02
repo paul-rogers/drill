@@ -84,8 +84,6 @@ import org.apache.drill.exec.record.VectorContainer;
 
 public interface RowBatchReader {
 
-  enum Result { OK, LAST_BATCH, EOF }
-
   /**
    * Name used when reporting errors. Can simply be the class name.
    *

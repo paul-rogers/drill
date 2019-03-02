@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
@@ -101,8 +100,6 @@ import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 
 public class ScanLevelProjection {
 
-  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
-
   /**
    * Interface for add-on parsers, avoids the need to create
    * a single, tightly-coupled parser for all types of columns.
@@ -129,6 +126,7 @@ public class ScanLevelProjection {
 
   // Internal state
 
+  protected boolean includesWildcard;
   protected boolean sawWildcard;
 
   // Output
@@ -159,6 +157,18 @@ public class ScanLevelProjection {
     for (ScanProjectionParser parser : parsers) {
       parser.bind(this);
     }
+
+    // First pass: check if a wildcard exists.
+
+    for (RequestedColumn inCol : outputProjection.projections()) {
+      if (inCol.isWildcard()) {
+        includesWildcard = true;
+        break;
+      }
+    }
+
+    // Second pass: process remaining columns.
+
     for (RequestedColumn inCol : outputProjection.projections()) {
       if (inCol.isWildcard()) {
         mapWildcard(inCol);
@@ -182,6 +192,7 @@ public class ScanLevelProjection {
 
     // Wildcard column: this is a SELECT * query.
 
+    assert includesWildcard;
     if (sawWildcard) {
       throw new IllegalArgumentException("Duplicate * entry in project list");
     }
@@ -246,6 +257,15 @@ public class ScanLevelProjection {
       }
     }
 
+    // If the project list has a wildcard, and the column is not one recognized
+    // by the specialized parsers above, then just ignore it. It is likely a duplicate
+    // column name. In any event, it will be processed by the Project operator on
+    // top of this scan.
+
+    if (includesWildcard) {
+      return;
+    }
+
     // This is a desired table column.
 
     addTableColumn(
@@ -281,18 +301,6 @@ public class ScanLevelProjection {
     for (ColumnProjection outCol : outputCols) {
       for (ScanProjectionParser parser : parsers) {
         parser.validateColumn(outCol);
-      }
-      switch (outCol.nodeType()) {
-      case UnresolvedColumn.UNRESOLVED:
-        if (hasWildcard()) {
-          throw UserException.validationError()
-            .message("Cannot select table columns and * together")
-            .addContext("Column", outCol.name())
-            .build(LOG);
-        }
-        break;
-      default:
-        break;
       }
     }
   }

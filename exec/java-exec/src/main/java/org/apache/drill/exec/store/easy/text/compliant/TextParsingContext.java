@@ -25,9 +25,9 @@ class TextParsingContext implements ParsingContext {
 
   private final TextInput input;
   private final TextOutput output;
-  protected boolean stopped = false;
+  protected boolean stopped;
 
-  private int[] extractedIndexes = null;
+  private int[] extractedIndexes;
 
   public TextParsingContext(TextInput input, TextOutput output) {
     this.input = input;

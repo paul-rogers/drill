@@ -44,7 +44,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
-import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderCreator;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
@@ -77,24 +77,32 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements FormatPlugin {
 
+  /**
+   * Defines the static, programmer-defined options for this plugin. These
+   * options are attributes of how the plugin works. The plugin config,
+   * defined in the class definition, provides user-defined options that can
+   * vary across uses of the plugin.
+   */
+
   public static class EasyFormatConfig {
     public BasicFormatMatcher matcher;
     public boolean readable = true;
     public boolean writable;
     public boolean blockSplittable;
     public boolean compressible;
-
-    /**
-     * Does this plugin support projection push down?
-     * Most Drill 1.12 and earlier plugins override a method
-     * to report this; those plugins should be migrated to
-     * use this setting instead.
-     */
-
-    public boolean supportsProjectPushdown;
     public Configuration fsConf;
     public List<String> extensions;
     public String defaultName;
+
+    // Config options that, prior to Drill 1.15, required the plugin to
+    // override methods. Moving forward, plugins should be migrated to
+    // use this simpler form. New plugins should use these options
+    // instead of overriding methods.
+
+    public boolean supportsProjectPushdown;
+    public boolean supportsAutoPartitioning;
+    public int readerOperatorType = -1;
+    public int writerOperatorType = -1;
   }
 
   /**
@@ -114,7 +122,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * Use the original scanner based on the {@link RecordReader} interface.
    * Requires that the storage plugin roll its own solutions for null columns.
    * Is not able to limit vector or batch sizes. Retained or backward
-   * compatibility with Drill 1.11 and earlier format plugins.
+   * compatibility with "classic" format plugins which have not yet been
+   * upgraded to use the new framework.
    */
 
   public static class ClassicScanBatchCreator implements ScanBatchCreator {
@@ -248,6 +257,19 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       }
     }
 
+    /**
+     * Create the plugin-specific framework that manages the scan. The framework
+     * creates batch readers one by one for each file or block. It defines semantic
+     * rules for projection. It handles "early" or "late" schema readers. A typical
+     * framework builds on standardized frameworks for files in general or text
+     * files in particular.
+     *
+     * @param scan the physical operation definition for the scan operation. Contains
+     * one or more files to read. (The Easy format plugin works only for files.)
+     * @return the scan framework which orchestrates the scan operation across
+     * potentially many files
+     * @throws ExecutionSetupException for all setup failures
+     */
     protected abstract BaseFileScanFramework<?> buildFramework(
         EasySubScan scan) throws ExecutionSetupException;
   }
@@ -260,10 +282,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   public abstract static class FileScanFrameworkCreator extends ScanFrameworkCreator {
 
-    private final FileReaderCreator readerCreator;
+    private final FileReaderFactory readerCreator;
 
     public FileScanFrameworkCreator(EasyFormatPlugin<? extends FormatPluginConfig> plugin,
-        FileReaderCreator readerCreator) {
+        FileReaderFactory readerCreator) {
       super(plugin);
       this.readerCreator = readerCreator;
     }
@@ -289,18 +311,6 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   /**
    * Legacy constructor.
-   *
-   * @param name
-   * @param context
-   * @param fsConf
-   * @param storageConfig
-   * @param formatConfig
-   * @param readable
-   * @param writable
-   * @param blockSplittable
-   * @param compressible
-   * @param extensions
-   * @param defaultName
    */
   protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
       StoragePluginConfig storageConfig, T formatConfig, boolean readable, boolean writable,
@@ -322,11 +332,16 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   /**
    * Revised constructor in which settings are gathered into a configuration object.
    *
-   * @param config
-   * @param context
-   * @param storageConfig
-   * @param formatConfig
+   * @param name name of the plugin
+   * @param config configuration options for this plugin which determine
+   * developer-defined runtime behavior
+   * @param context the global server-wide drillbit context
+   * @param storageConfig the configuration for the storage plugin that owns this
+   * foramt plugin
+   * @param formatConfig the Jackson-serialized format configuration as created
+   * by the user in the Drill web console. Holds user-defined options.
    */
+
   protected EasyFormatPlugin(String name, EasyFormatConfig config, DrillbitContext context,
       StoragePluginConfig storageConfig, T formatConfig) {
     this.name = name;
@@ -461,7 +476,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public boolean supportsWrite() { return easyConfig.writable; }
 
   @Override
-  public boolean supportsAutoPartitioning() { return false; }
+  public boolean supportsAutoPartitioning() { return easyConfig.supportsAutoPartitioning; }
 
   @Override
   public FormatMatcher getMatcher() { return easyConfig.matcher; }
@@ -471,7 +486,6 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     return ImmutableSet.of();
   }
 
-  public abstract int getReaderOperatorType();
-  public abstract int getWriterOperatorType();
-
+  public int getReaderOperatorType() { return easyConfig.readerOperatorType; }
+  public int getWriterOperatorType() { return easyConfig.writerOperatorType; }
 }

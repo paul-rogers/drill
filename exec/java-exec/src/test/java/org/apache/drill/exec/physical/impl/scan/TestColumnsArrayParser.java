@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
@@ -35,9 +36,10 @@ import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
-
+import org.junit.experimental.categories.Category;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
+@Category(RowSetTests.class)
 public class TestColumnsArrayParser extends SubOperatorTest {
 
   /**
@@ -254,6 +256,4 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertEquals(UnresolvedColumnsArrayColumn.ID, scanProj.columns().get(1).nodeType());
     assertEquals(FileMetadataColumn.ID, scanProj.columns().get(2).nodeType());
   }
-
-  // TODO: Test Columns element projection
 }

@@ -229,6 +229,8 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
+    config.readerOperatorType = CoreOperatorType.TEXT_SUB_SCAN_VALUE;
+    config.writerOperatorType = CoreOperatorType.TEXT_WRITER_VALUE;
     return config;
   }
 
@@ -270,16 +272,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     recordWriter.init(options);
 
     return recordWriter;
-  }
-
-  @Override
-  public int getReaderOperatorType() {
-    return CoreOperatorType.TEXT_SUB_SCAN_VALUE;
-  }
-
-  @Override
-  public int getWriterOperatorType() {
-    return CoreOperatorType.TEXT_WRITER_VALUE;
   }
 
   @Override

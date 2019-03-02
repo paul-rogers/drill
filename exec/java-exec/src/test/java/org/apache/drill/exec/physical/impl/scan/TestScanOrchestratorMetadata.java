@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -38,7 +39,7 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
-
+import org.junit.experimental.categories.Category;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 /**
@@ -46,6 +47,7 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
  * with implicit file columns provided by the file metadata manager.
  */
 
+@Category(RowSetTests.class)
 public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
   /**

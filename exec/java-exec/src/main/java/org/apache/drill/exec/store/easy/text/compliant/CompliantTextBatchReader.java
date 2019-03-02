@@ -43,7 +43,7 @@ import io.netty.buffer.DrillBuf;
  * New text reader, complies with the RFC 4180 standard for text/csv files
  */
 public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNegotiator> {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextBatchReader.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextBatchReader.class);
 
   private static final int MAX_RECORDS_PER_BATCH = 8096;
   private static final int READ_BUFFER = 1024*1024;
@@ -181,10 +181,9 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
   private void openReader(TextOutput output) throws IOException {
     logger.trace("Opening file {}", split.getPath());
-    @SuppressWarnings("resource")
-    final
-    InputStream stream = dfs.openPossiblyCompressedStream(split.getPath());
-    final TextInput input = new TextInput(settings, stream, readBuffer, split.getStart(), split.getStart() + split.getLength());
+    final InputStream stream = dfs.openPossiblyCompressedStream(split.getPath());
+    final TextInput input = new TextInput(settings, stream, readBuffer,
+        split.getStart(), split.getStart() + split.getLength());
 
     // setup Reader using Input and Output
     reader = new TextReader(settings, input, output, whitespaceBuffer);
@@ -198,7 +197,6 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
    * @return field name strings
    */
 
-  @SuppressWarnings("resource")
   private String [] extractHeader() throws IOException {
     assert settings.isHeaderExtractionEnabled();
 
@@ -234,7 +232,6 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
   /**
    * Generates the next record batch
    * @return  number of records in the batch
-   *
    */
 
   @Override
@@ -243,7 +240,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
     try {
       while (! writer.isFull() && reader.parseNext()) {
-        ;
+        // Empty
       }
       reader.finishBatch();
       return writer.rowCount() > 0;

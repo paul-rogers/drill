@@ -89,6 +89,12 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     if (! inCol.nameEquals(ColumnsArrayManager.COLUMNS_COL)) {
       return false;
     }
+    if (builder.hasWildcard()) {
+      throw UserException
+        .validationError()
+        .message("Cannot select both * and `columns`")
+        .build(logger);
+    }
 
     // The columns column cannot be a map. That is, the following is
     // not allowed: columns.foo.
@@ -131,7 +137,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     if (columnsArrayCol != null) {
       throw UserException
         .validationError()
-        .message("Cannot select columns[] and `*` together")
+        .message("Cannot select both `columns` and *")
         .build(logger);
     }
     columnsArrayCol = new UnresolvedColumnsArrayColumn(
@@ -140,14 +146,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public void validate() {
-    if (builder.hasWildcard() && columnsArrayCol != null) {
-      throw UserException
-        .validationError()
-        .message("Cannot select `columns` and `*` together")
-        .build(logger);
-    }
-  }
+  public void validate() { }
 
   @Override
   public void validateColumn(ColumnProjection col) {

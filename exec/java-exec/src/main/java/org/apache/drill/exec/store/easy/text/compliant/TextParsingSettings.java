@@ -19,10 +19,9 @@ package org.apache.drill.exec.store.easy.text.compliant;
 
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
 
-import com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
 public class TextParsingSettings {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextParsingSettings.class);
 
   public static final TextParsingSettings DEFAULT = new TextParsingSettings();
 
@@ -36,14 +35,13 @@ public class TextParsingSettings {
   private long maxCharsPerColumn = Character.MAX_VALUE;
   private byte normalizedNewLine = b('\n');
   private byte[] newLineDelimiter = {normalizedNewLine};
-  private boolean ignoreLeadingWhitespaces = false;
-  private boolean ignoreTrailingWhitespaces = false;
+  private boolean ignoreLeadingWhitespaces;
+  private boolean ignoreTrailingWhitespaces;
   private String lineSeparatorString = "\n";
-  private boolean skipFirstLine = false;
+  private boolean skipFirstLine;
 
-  private boolean headerExtractionEnabled = false;
+  private boolean headerExtractionEnabled;
   private boolean useRepeatedVarChar = true;
-//  private int numberOfRecordsToRead = -1;
 
   public void set(TextFormatConfig config){
     this.quote = bSafe(config.getQuote(), "quote");
@@ -79,7 +77,6 @@ public class TextParsingSettings {
     this.useRepeatedVarChar = useRepeatedVarChar;
   }
 
-
   private static byte bSafe(char c, String name){
     if(c > Byte.MAX_VALUE) {
       throw new IllegalArgumentException(String.format("Failure validating configuration option %s.  Expected a "
@@ -97,7 +94,9 @@ public class TextParsingSettings {
   }
 
   /**
-   * Returns the character used for escaping values where the field delimiter is part of the value. Defaults to '"'
+   * Returns the character used for escaping values where the field delimiter is
+   * part of the value. Defaults to '"'
+   *
    * @return the quote character
    */
   public byte getQuote() {
@@ -105,8 +104,11 @@ public class TextParsingSettings {
   }
 
   /**
-   * Defines the character used for escaping values where the field delimiter is part of the value. Defaults to '"'
-   * @param quote the quote character
+   * Defines the character used for escaping values where the field delimiter is
+   * part of the value. Defaults to '"'
+   *
+   * @param quote
+   *          the quote character
    */
   public void setQuote(byte quote) {
     this.quote = quote;
@@ -116,11 +118,14 @@ public class TextParsingSettings {
     return lineSeparatorString;
   }
 
-
   /**
-   * Identifies whether or not a given character is used for escaping values where the field delimiter is part of the value
-   * @param ch the character to be verified
-   * @return true if the given character is the character used for escaping values, false otherwise
+   * Identifies whether or not a given character is used for escaping values
+   * where the field delimiter is part of the value
+   *
+   * @param ch
+   *          the character to be verified
+   * @return true if the given character is the character used for escaping
+   *         values, false otherwise
    */
   public boolean isQuote(byte ch) {
     return this.quote == ch;
@@ -135,17 +140,24 @@ public class TextParsingSettings {
   }
 
   /**
-   * Defines the character used for escaping quotes inside an already quoted value. Defaults to '"'
-   * @param quoteEscape the quote escape character
+   * Defines the character used for escaping quotes inside an already quoted
+   * value. Defaults to '"'
+   *
+   * @param quoteEscape
+   *          the quote escape character
    */
   public void setQuoteEscape(byte quoteEscape) {
     this.quoteEscape = quoteEscape;
   }
 
   /**
-   * Identifies whether or not a given character is used for escaping quotes inside an already quoted value.
-   * @param ch the character to be verified
-   * @return true if the given character is the quote escape character, false otherwise
+   * Identifies whether or not a given character is used for escaping quotes
+   * inside an already quoted value.
+   *
+   * @param ch
+   *          the character to be verified
+   * @return true if the given character is the quote escape character, false
+   *         otherwise
    */
   public boolean isQuoteEscape(byte ch) {
     return this.quoteEscape == ch;
@@ -179,7 +191,9 @@ public class TextParsingSettings {
   /**
    * Returns the String representation of an empty value (defaults to null)
    *
-   * <p>When reading, if the parser does not read any character from the input, and the input is within quotes, the empty is used instead of an empty string
+   * <p>
+   * When reading, if the parser does not read any character from the input, and
+   * the input is within quotes, the empty is used instead of an empty string
    *
    * @return the String representation of an empty value
    */
@@ -190,63 +204,67 @@ public class TextParsingSettings {
   /**
    * Sets the String representation of an empty value (defaults to null)
    *
-   * <p>When reading, if the parser does not read any character from the input, and the input is within quotes, the empty is used instead of an empty string
+   * <p>
+   * When reading, if the parser does not read any character from the input, and
+   * the input is within quotes, the empty is used instead of an empty string
    *
-   * @param emptyValue the String representation of an empty value
+   * @param emptyValue
+   *          the String representation of an empty value
    */
   public void setEmptyValue(String emptyValue) {
     this.emptyValue = emptyValue;
   }
 
-
   /**
-   * Indicates whether the CSV parser should accept unescaped quotes inside quoted values and parse them normally. Defaults to {@code true}.
-   * @return a flag indicating whether or not the CSV parser should accept unescaped quotes inside quoted values.
+   * Indicates whether the CSV parser should accept unescaped quotes inside
+   * quoted values and parse them normally. Defaults to {@code true}.
+   *
+   * @return a flag indicating whether or not the CSV parser should accept
+   *         unescaped quotes inside quoted values.
    */
   public boolean isParseUnescapedQuotes() {
     return parseUnescapedQuotes;
   }
 
   /**
-   * Configures how to handle unescaped quotes inside quoted values. If set to {@code true}, the parser will parse the quote normally as part of the value.
-   * If set the {@code false}, a {@link com.univocity.parsers.common.TextParsingException} will be thrown. Defaults to {@code true}.
-   * @param parseUnescapedQuotes indicates whether or not the CSV parser should accept unescaped quotes inside quoted values.
+   * Configures how to handle unescaped quotes inside quoted values. If set to
+   * {@code true}, the parser will parse the quote normally as part of the
+   * value. If set the {@code false}, a
+   * {@link com.univocity.parsers.common.TextParsingException} will be thrown.
+   * Defaults to {@code true}.
+   *
+   * @param parseUnescapedQuotes
+   *          indicates whether or not the CSV parser should accept unescaped
+   *          quotes inside quoted values.
    */
   public void setParseUnescapedQuotes(boolean parseUnescapedQuotes) {
     this.parseUnescapedQuotes = parseUnescapedQuotes;
   }
 
   /**
-   * Indicates whether or not the first valid record parsed from the input should be considered as the row containing the names of each column
-   * @return true if the first valid record parsed from the input should be considered as the row containing the names of each column, false otherwise
+   * Indicates whether or not the first valid record parsed from the input
+   * should be considered as the row containing the names of each column
+   *
+   * @return true if the first valid record parsed from the input should be
+   *         considered as the row containing the names of each column, false
+   *         otherwise
    */
   public boolean isHeaderExtractionEnabled() {
     return headerExtractionEnabled;
   }
 
   /**
-   * Defines whether or not the first valid record parsed from the input should be considered as the row containing the names of each column
-   * @param headerExtractionEnabled a flag indicating whether the first valid record parsed from the input should be considered as the row containing the names of each column
+   * Defines whether or not the first valid record parsed from the input should
+   * be considered as the row containing the names of each column
+   *
+   * @param headerExtractionEnabled
+   *          a flag indicating whether the first valid record parsed from the
+   *          input should be considered as the row containing the names of each
+   *          column
    */
   public void setHeaderExtractionEnabled(boolean headerExtractionEnabled) {
     this.headerExtractionEnabled = headerExtractionEnabled;
   }
-
-//  /**
-//   * The number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
-//   * @return the number of records to read before stopping the parsing process.
-//   */
-//  public int getNumberOfRecordsToRead() {
-//    return numberOfRecordsToRead;
-//  }
-//
-//  /**
-//   * Defines the number of valid records to be parsed before the process is stopped. A negative value indicates there's no limit (defaults to -1).
-//   * @param numberOfRecordsToRead the number of records to read before stopping the parsing process.
-//   */
-//  public void setNumberOfRecordsToRead(int numberOfRecordsToRead) {
-//    this.numberOfRecordsToRead = numberOfRecordsToRead;
-//  }
 
   public long getMaxCharsPerColumn() {
     return maxCharsPerColumn;
@@ -283,9 +301,4 @@ public class TextParsingSettings {
   public void setIgnoreTrailingWhitespaces(boolean ignoreTrailingWhitespaces) {
     this.ignoreTrailingWhitespaces = ignoreTrailingWhitespaces;
   }
-
-
-
-
-
 }
