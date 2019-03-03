@@ -103,7 +103,7 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     @Override
     public boolean open(ColumnsSchemaNegotiator negotiator) {
       this.negotiator = negotiator;
-      negotiator.setTableSchema(schema);
+      negotiator.setTableSchema(schema, true);
       negotiator.build();
       return true;
     }
@@ -116,6 +116,11 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     @Override
     public void close() { }
   }
+
+  /**
+   * Test including a column other than "columns". Occurs when
+   * using implicit columns.
+   */
 
   @Test
   public void testNonColumnsProjection() {
@@ -145,6 +150,10 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     scanFixture.close();
   }
 
+  /**
+   * Test projecting just the `columns` column.
+   */
+
   @Test
   public void testColumnsProjection() {
 
@@ -173,6 +182,10 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     scanFixture.close();
   }
 
+  /**
+   * Test including a specific index of `columns` such as
+   * `columns`[1].
+   */
   @Test
   public void testColumnsIndexProjection() {
 

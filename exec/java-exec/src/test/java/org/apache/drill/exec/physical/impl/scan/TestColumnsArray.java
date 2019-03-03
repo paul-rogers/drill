@@ -94,6 +94,10 @@ public class TestColumnsArray extends SubOperatorTest {
         .buildSchema();
 
     mock.loader = mock.reader.makeTableLoader(tableSchema);
+
+    // First empty batch
+
+    mock.reader.defineSchema();
     return mock;
   }
 
@@ -193,7 +197,8 @@ public class TestColumnsArray extends SubOperatorTest {
   @Test
   public void testWildcardAndFileMetadata() {
 
-    MockScanner mock = buildScanner(RowSetTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
+    MockScanner mock = buildScanner(RowSetTestUtils.projectList(
+        ScanTestUtils.FILE_NAME_COL,
         SchemaPath.DYNAMIC_STAR,
         ScanTestUtils.partitionColName(0)));
 
@@ -269,6 +274,7 @@ public class TestColumnsArray extends SubOperatorTest {
     try {
       ReaderSchemaOrchestrator reader = scanner.startReader();
       reader.makeTableLoader(tableSchema);
+      reader.defineSchema();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -289,6 +295,7 @@ public class TestColumnsArray extends SubOperatorTest {
     try {
       ReaderSchemaOrchestrator reader = scanner.startReader();
       reader.makeTableLoader(tableSchema);
+      reader.defineSchema();
       fail();
     } catch (IllegalStateException e) {
       // Expected

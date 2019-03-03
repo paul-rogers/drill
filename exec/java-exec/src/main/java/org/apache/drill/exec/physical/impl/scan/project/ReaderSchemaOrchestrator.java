@@ -80,20 +80,16 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // Create the table loader
 
     tableLoader = new ResultSetLoaderImpl(scanOrchestrator.allocator, options.build());
-
-    // If a schema is given, create a zero-row batch to announce the
-    // schema downstream in the form of an empty batch.
-
-    if (tableSchema != null) {
-      tableLoader.startEmptyBatch();
-      endBatch();
-    }
-
     return tableLoader;
   }
 
   public boolean hasSchema() {
     return prevTableSchemaVersion >= 0;
+  }
+
+  public void defineSchema() {
+    tableLoader.startEmptyBatch();
+    endBatch();
   }
 
   public void startBatch() {

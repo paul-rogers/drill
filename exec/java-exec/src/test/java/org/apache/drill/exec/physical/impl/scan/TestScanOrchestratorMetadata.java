@@ -36,7 +36,7 @@ import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -106,8 +106,8 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         .addRow(2, "wilma", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "x", "y")
         .build();
 
-    new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanner.output()));
+    RowSetUtilities.verify(expected,
+        fixture.wrap(scanner.output()));
 
     scanner.close();
   }
@@ -148,19 +148,9 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
-    // Verify empty batch.
-
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("c", MinorType.INT)
         .build();
-    {
-      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-         .build();
-
-      assertNotNull(scanner.output());
-      new RowSetComparison(expected)
-         .verifyAndClearAll(fixture.wrap(scanner.output()));
-    }
 
     // Create a batch of data.
 
@@ -172,15 +162,13 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // Verify
 
-    {
-      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addSingleCol(null)
-        .addSingleCol(null)
-        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+      .addSingleCol(null)
+      .addSingleCol(null)
+      .build();
 
-      new RowSetComparison(expected)
-          .verifyAndClearAll(fixture.wrap(scanner.output()));
-    }
+    RowSetUtilities.verify(expected,
+        fixture.wrap(scanner.output()));
 
     scanner.close();
   }
@@ -231,6 +219,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // Verify empty batch.
 
+    reader.defineSchema();
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
@@ -242,8 +231,8 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
          .build();
 
       assertNotNull(scanner.output());
-      new RowSetComparison(expected)
-         .verifyAndClearAll(fixture.wrap(scanner.output()));
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scanner.output()));
     }
 
     // Create a batch of data.
@@ -262,8 +251,8 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         .addRow(2, "wilma", "x", "csv")
         .build();
 
-      new RowSetComparison(expected)
-          .verifyAndClearAll(fixture.wrap(scanner.output()));
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scanner.output()));
     }
 
     scanner.close();
@@ -304,22 +293,12 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
-    // Verify empty batch.
-
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("dir0", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
         .add("suffix", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
         .build();
-    {
-      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-         .build();
-
-      assertNotNull(scanner.output());
-      new RowSetComparison(expected)
-         .verifyAndClearAll(fixture.wrap(scanner.output()));
-    }
 
     // Create a batch of data.
 
@@ -331,15 +310,13 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
 
     // Verify
 
-    {
-      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow("x", "fred", "csv", null)
-        .addRow("x", "wilma", "csv", null)
-        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+      .addRow("x", "fred", "csv", null)
+      .addRow("x", "wilma", "csv", null)
+      .build();
 
-      new RowSetComparison(expected)
-          .verifyAndClearAll(fixture.wrap(scanner.output()));
-    }
+    RowSetUtilities.verify(expected,
+        fixture.wrap(scanner.output()));
 
     scanner.close();
   }
@@ -405,8 +382,8 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
           .addRow("x", "y", "a.csv", "fred")
           .addRow("x", "y", "a.csv", "wilma")
           .build();
-      new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanner.output()));
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scanner.output()));
 
       // Do explicit close (as in real code) to avoid an implicit
       // close which will blow away the current file info...
@@ -433,8 +410,8 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
           .addRow("x", null, "b.csv", "bambam")
           .addRow("x", null, "b.csv", "betty")
           .build();
-      new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanner.output()));
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scanner.output()));
 
       scanner.closeReader();
     }

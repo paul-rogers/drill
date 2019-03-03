@@ -256,4 +256,46 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertEquals(UnresolvedColumnsArrayColumn.ID, scanProj.columns().get(1).nodeType());
     assertEquals(FileMetadataColumn.ID, scanProj.columns().get(2).nodeType());
   }
+
+  /**
+   * If a query is of the form:
+   * <pre><code>
+   * select * from dfs.`multilevel/csv` where columns[1] < 1000
+   * </code><pre>
+   * Then the projection list passed to the scan operator
+   * includes both the wildcard and the `columns` array.
+   * We can ignore one of them.
+   */
+
+  @Test
+  public void testWildcardAndColumns() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectList(
+            SchemaPath.DYNAMIC_STAR,
+            ColumnsArrayManager.COLUMNS_COL),
+        ScanTestUtils.parsers(new ColumnsArrayParser(true)));
+
+    assertFalse(scanProj.projectAll());
+    assertEquals(2, scanProj.requestedCols().size());
+
+    assertEquals(1, scanProj.columns().size());
+    assertEquals(ColumnsArrayManager.COLUMNS_COL, scanProj.columns().get(0).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedColumnsArrayColumn.ID, scanProj.columns().get(0).nodeType());
+  }
+
+  @Test
+  public void testColumnsAsMap() {
+    try {
+        new ScanLevelProjection(
+          RowSetTestUtils.projectList("columns.x"),
+          ScanTestUtils.parsers(new ColumnsArrayParser(true)));
+        fail();
+    }
+    catch (UserException e) {
+      // Expected
+    }
+  }
 }

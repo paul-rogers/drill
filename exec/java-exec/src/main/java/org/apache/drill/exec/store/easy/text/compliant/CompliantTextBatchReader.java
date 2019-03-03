@@ -147,7 +147,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
             .setMode(DataMode.REQUIRED)
             .build()));
     }
-    schemaNegotiator.setTableSchema(schema);
+    schemaNegotiator.setTableSchema(schema, true);
     writer = schemaNegotiator.build().writer();
     return new FieldVarCharOutput(writer);
   }
@@ -167,7 +167,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.REPEATED)
           .build()));
-    schemaNegotiator.setTableSchema(schema);
+    schemaNegotiator.setTableSchema(schema, true);
     writer = schemaNegotiator.build().writer();
     return new RepeatedVarCharOutput(writer, schemaNegotiator.projectedIndexes());
   }
@@ -239,11 +239,19 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
     reader.resetForNextBatch();
 
     try {
-      while (! writer.isFull() && reader.parseNext()) {
-        // Empty
+      boolean more = false;
+      while (! writer.isFull()) {
+        more = reader.parseNext();
+        if (! more) {
+          break;
+        }
       }
       reader.finishBatch();
-      return writer.rowCount() > 0;
+
+      // Return false on the batch that hits EOF. The scan operator
+      // knows to process any rows in this final batch.
+
+      return more && writer.rowCount() > 0;
     } catch (IOException | TextParsingException e) {
       if (e.getCause() != null  && e.getCause() instanceof UserException) {
         throw (UserException) e.getCause();

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -24,6 +26,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Iterator;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -32,8 +35,10 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -51,6 +56,7 @@ import org.junit.experimental.categories.Category;
 public class TestCsvWithHeaders extends ClusterTest {
 
   private static final String TEST_FILE_NAME = "case2.csv";
+  private static final String PART_DIR = "root";
 
   private static String invalidHeaders[] = {
       "$,,9b,c,c,c_2",
@@ -74,6 +80,11 @@ public class TestCsvWithHeaders extends ClusterTest {
       "30"
   };
 
+  private static String secondFile[] = {
+      "a,b,c",
+      "20,fred,wilma"
+  };
+
   private static File testDir;
 
   @BeforeClass
@@ -89,6 +100,15 @@ public class TestCsvWithHeaders extends ClusterTest {
 
     testDir = cluster.makeDataDir("data", "csv", csvFormat);
     buildFile(TEST_FILE_NAME, validHeaders);
+
+    // Two-level partitioned table
+
+    File rootDir = new File(testDir, PART_DIR);
+    rootDir.mkdir();
+    buildFile(new File(rootDir, "first.csv"), validHeaders);
+    File nestedDir = new File(rootDir, "nested");
+    nestedDir.mkdir();
+    buildFile(new File(nestedDir, "second.csv"), secondFile);
   }
 
   @Test
@@ -350,5 +370,62 @@ public class TestCsvWithHeaders extends ClusterTest {
         .addRow("30", "", "")
         .build();
     RowSetUtilities.verify(expected, actual);
+  }
+
+  /**
+   * Test partition expansion. The reader expands partitions, but projection
+   * removes them since they are not referenced.
+   * <p>
+   * This test is tricky because it will return two data batches
+   * (preceded by an empty schema batch.) File read order is random
+   * so we have to expect the files in either order. If we read the
+   * root file first, it will contain no dir0 column. That column
+   * will appear in the second batch once the reader decends down
+   * one level. (Or, the order will be reversed with the deeper file
+   * read first, with the shallow file second. In this case the
+   * dir0 won't disappear.)
+   */
+  @Test
+  public void testPartitionExpansionRemoval() throws IOException {
+    String sql = "SELECT * FROM `dfs.data`.`%s`";
+    Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+
+    assertTrue(iter.hasNext());
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("c", MinorType.VARCHAR)
+        .buildSchema();
+
+    // First batch is empty; just carries the schema.
+
+    RowSet rowSet = iter.next();
+    assertEquals(0, rowSet.rowCount());
+    rowSet.clear();
+
+    // Read the other two batches.
+
+    for (int i = 0; i < 2; i++) {
+      assertTrue(iter.hasNext());
+      rowSet = iter.next();
+
+      // Figure out which record this is and test accordingly.
+
+      RowSetReader reader = rowSet.reader();
+      assertTrue(reader.next());
+      String col1 = reader.scalar(0).getString();
+      if (col1.equals("10")) {
+        RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+            .addRow("10", "foo", "bar")
+            .build();
+        RowSetUtilities.verify(expected, rowSet);
+      } else {
+        RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+            .addRow("20", "fred", "wilma")
+            .build();
+        RowSetUtilities.verify(expected, rowSet);
+      }
+    }
+    assertFalse(iter.hasNext());
   }
 }

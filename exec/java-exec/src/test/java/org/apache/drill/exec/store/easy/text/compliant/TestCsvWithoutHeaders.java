@@ -140,6 +140,23 @@ public class TestCsvWithoutHeaders extends ClusterTest {
   }
 
   @Test
+  public void testSpecificColumns() throws IOException {
+    String sql = "SELECT columns[0], columns[2] FROM `dfs.data`.`%s`";
+    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("EXPR$0", MinorType.VARCHAR)
+        .addNullable("EXPR$1", MinorType.VARCHAR)
+        .buildSchema();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+        .addRow("10", "bar")
+        .addRow("20", "wilma")
+        .build();
+    RowSetUtilities.verify(expected, actual);
+  }
+
+  @Test
   public void testRaggedRows() throws IOException {
     String fileName = "ragged.csv";
     TestCsvWithHeaders.buildFile(new File(testDir, fileName), raggedRows);

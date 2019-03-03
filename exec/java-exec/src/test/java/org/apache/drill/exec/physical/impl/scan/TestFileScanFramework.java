@@ -255,7 +255,7 @@ public class TestFileScanFramework extends SubOperatorTest {
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -489,7 +489,7 @@ public class TestFileScanFramework extends SubOperatorTest {
             .add("b", MinorType.INT)
             .resumeSchema()
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
       return true;
     }

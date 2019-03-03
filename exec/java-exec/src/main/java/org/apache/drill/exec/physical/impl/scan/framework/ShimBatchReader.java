@@ -44,6 +44,7 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
   protected final AbstractScanFramework<T> manager;
   protected final ManagedReader<T> reader;
   protected final ReaderSchemaOrchestrator readerOrchestrator;
+  protected SchemaNegotiatorImpl schemaNegotiator;
   protected ResultSetLoader tableLoader;
 
   /**
@@ -96,10 +97,19 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
   }
 
   @Override
+  public boolean defineSchema() {
+    if (schemaNegotiator.isSchemaComplete()) {
+      readerOrchestrator.defineSchema();
+      return true;
+    }
+    return false;
+  }
+
+  @Override
   public boolean next() {
 
     // The reader may report EOF, but the result set loader might
-    // have a lookhead row.
+    // have a lookahead row.
 
     if (eof && ! tableLoader.hasRows()) {
       return false;
@@ -181,6 +191,7 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
   }
 
   public ResultSetLoader build(SchemaNegotiatorImpl schemaNegotiator) {
+    this.schemaNegotiator = schemaNegotiator;
     readerOrchestrator.setBatchSize(schemaNegotiator.batchSize);
     tableLoader = readerOrchestrator.makeTableLoader(schemaNegotiator.tableSchema);
     return tableLoader;

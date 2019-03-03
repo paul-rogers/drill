@@ -190,7 +190,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -216,7 +216,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .add("a", MinorType.VARCHAR)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       schemaNegotiator.build();
       tableLoader = schemaNegotiator.build();
       return true;
@@ -1370,7 +1370,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.VARCHAR)
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -1496,7 +1496,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
-      schemaNegotiator.setTableSchema(schema);
+      schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
       return true;
     }
