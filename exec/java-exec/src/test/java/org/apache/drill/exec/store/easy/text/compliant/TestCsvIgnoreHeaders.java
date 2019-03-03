@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import java.io.File;
 import java.io.IOException;
 
@@ -30,24 +31,22 @@ import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-
-import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 //CSV reader now hosted on the row set framework
 @Category(RowSetTests.class)
-public class TestCsvWithoutHeaders extends ClusterTest {
+public class TestCsvIgnoreHeaders  extends ClusterTest{
 
-  private static final String TEST_FILE_NAME = "simple.csv";
-
-  private static String sampleData[] = {
+  private static String withHeaders[] = {
+      "a,b,c",
       "10,foo,bar",
       "20,fred,wilma"
   };
 
   private static String raggedRows[] = {
+      "a,b,c",
       "10,dino",
       "20,foo,bar",
       "30"
@@ -59,40 +58,22 @@ public class TestCsvWithoutHeaders extends ClusterTest {
   public static void setup() throws Exception {
     startCluster(ClusterFixture.builder(dirTestWatcher).maxParallelization(1));
 
-    // Set up CSV storage plugin without headers.
+    // Set up CSV storage plugin skipping headers.
 
     TextFormatConfig csvFormat = new TextFormatConfig();
     csvFormat.fieldDelimiter = ',';
-    csvFormat.skipFirstLine = false;
+    csvFormat.skipFirstLine = true;
     csvFormat.extractHeader = false;
 
     testDir = cluster.makeDataDir("data", "csv", csvFormat);
-    TestCsvWithHeaders.buildFile(new File(testDir, TEST_FILE_NAME), sampleData);
-  }
-
-  /**
-   * Verify that the wildcard expands to the `columns` array
-   */
-  @Test
-  public void testWildcard() throws IOException {
-    String sql = "SELECT * FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("columns", MinorType.VARCHAR)
-        .buildSchema();
-
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addSingleCol(strArray("10", "foo", "bar"))
-        .addSingleCol(strArray("20", "fred", "wilma"))
-        .build();
-    RowSetUtilities.verify(expected, actual);
   }
 
   @Test
   public void testColumns() throws IOException {
+    String fileName = "simple.csv";
+    TestCsvWithHeaders.buildFile(new File(testDir, fileName), withHeaders);
     String sql = "SELECT columns FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+    RowSet actual = client.queryBuilder().sql(sql, fileName).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .addArray("columns", MinorType.VARCHAR)
@@ -101,40 +82,6 @@ public class TestCsvWithoutHeaders extends ClusterTest {
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
         .addSingleCol(strArray("10", "foo", "bar"))
         .addSingleCol(strArray("20", "fred", "wilma"))
-        .build();
-    RowSetUtilities.verify(expected, actual);
-  }
-
-  @Test
-  public void testWildcardAndMetadata() throws IOException {
-    String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("columns", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
-
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
-        .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
-  }
-
-  @Test
-  public void testColumnsAndMetadata() throws IOException {
-    String sql = "SELECT columns, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("columns", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
-
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
-        .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
         .build();
     RowSetUtilities.verify(expected, actual);
   }

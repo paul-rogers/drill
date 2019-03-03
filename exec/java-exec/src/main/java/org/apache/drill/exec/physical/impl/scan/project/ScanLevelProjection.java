@@ -132,7 +132,20 @@ public class ScanLevelProjection {
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
+
+  /**
+   * Projection definition for the scan a whole. Parsed form of the input
+   * projection list.
+   */
+
   protected RequestedTuple outputProjection;
+
+  /**
+   * Projection definition passed to each reader. This is the set of
+   * columns that the reader is asked to provide.
+   */
+
+  protected RequestedTuple readerProjection;
   protected boolean hasWildcard;
   protected boolean emptyProjection = true;
 
@@ -180,6 +193,23 @@ public class ScanLevelProjection {
     for (ScanProjectionParser parser : parsers) {
       parser.build();
     }
+
+    // Create the reader projection which includes either all columns
+    // (saw a wildcard) or just the unresolved columns (which excludes
+    // implicit columns.)
+
+    List<RequestedColumn> outputProj;
+    if (hasWildcard()) {
+      outputProj = null;
+    } else {
+      outputProj = new ArrayList<>();
+      for (ColumnProjection col : outputCols) {
+        if (col instanceof UnresolvedColumn) {
+          outputProj.add(((UnresolvedColumn) col).element());
+        }
+      }
+    }
+    readerProjection = RequestedTupleImpl.build(outputProj);
   }
 
   /**
@@ -344,6 +374,8 @@ public class ScanLevelProjection {
   public boolean projectNone() { return emptyProjection; }
 
   public RequestedTuple rootProjection() { return outputProjection; }
+
+  public RequestedTuple readerProjection() { return readerProjection; }
 
   @Override
   public String toString() {

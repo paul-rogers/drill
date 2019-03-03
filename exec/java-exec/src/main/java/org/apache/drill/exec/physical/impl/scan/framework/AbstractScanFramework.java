@@ -56,7 +56,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
  * provide. (Drill allows such columns and fills in null values: traditionally
  * nullable Int, but customizable here.)
  * <li>Various other options.</li>
- * <ul>
+ * </ul>
  *
  * <h4>Orchestration</h4>
  *
@@ -105,12 +105,12 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
  * reader simply tells the result set loader to create a new column reader
  * on the fly. The framework will work out if that new column is to be
  * projected and will return either a real column writer (projected column)
- * or a dummy column writer (unprojected column.)</ul>
- * <ul>The reader then reads batches of data until all data is read. The
+ * or a dummy column writer (unprojected column.)</li>
+ * <li>The reader then reads batches of data until all data is read. The
  * result set loader signals when a batch is full; the reader should not
- * worry about this detail itself.</ul>
- * <ul>The reader then releases its resources.</ul>
- * </li>
+ * worry about this detail itself.</li>
+ * <li>The reader then releases its resources.</li>
+ * </ul>
  */
 
 public abstract class AbstractScanFramework<T extends SchemaNegotiator> implements ScanOperatorEvents {

@@ -50,8 +50,6 @@ import org.junit.experimental.categories.Category;
 @Category(RowSetTests.class)
 public class TestCsvWithHeaders extends ClusterTest {
 
-  // TODO: Read, but ignore, headers
-
   private static final String TEST_FILE_NAME = "case2.csv";
 
   private static String invalidHeaders[] = {
@@ -67,6 +65,13 @@ public class TestCsvWithHeaders extends ClusterTest {
   private static String validHeaders[] = {
       "a,b,c",
       "10,foo,bar"
+  };
+
+  private static String raggedRows[] = {
+      "a,b,c",
+      "10,dino",
+      "20,foo,bar",
+      "30"
   };
 
   private static File testDir;
@@ -324,6 +329,25 @@ public class TestCsvWithHeaders extends ClusterTest {
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
         .addRow("10", "foo", "10")
+        .build();
+    RowSetUtilities.verify(expected, actual);
+  }
+
+  @Test
+  public void testRaggedRows() throws IOException {
+    String fileName = "case4.csv";
+    buildFile(fileName, raggedRows);
+    RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("c", MinorType.VARCHAR)
+        .buildSchema();
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+        .addRow("10", "dino", "")
+        .addRow("20", "foo", "bar")
+        .addRow("30", "", "")
         .build();
     RowSetUtilities.verify(expected, actual);
   }
