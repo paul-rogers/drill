@@ -23,19 +23,13 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Iterator;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
-import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
@@ -55,7 +49,7 @@ import org.junit.experimental.categories.Category;
 
 // CSV reader now hosted on the row set framework
 @Category(RowSetTests.class)
-public class TestCsvWithHeaders extends ClusterTest {
+public class TestCsvWithHeaders extends BaseCsvTest {
 
   private static final String TEST_FILE_NAME = "case2.csv";
   private static final String PART_DIR = "root";
@@ -67,11 +61,6 @@ public class TestCsvWithHeaders extends ClusterTest {
 
   private static String emptyHeaders[] = {
       "",
-      "10,foo,bar"
-  };
-
-  private static String validHeaders[] = {
-      "a,b,c",
       "10,foo,bar"
   };
 
@@ -87,20 +76,9 @@ public class TestCsvWithHeaders extends ClusterTest {
       "20,fred,wilma"
   };
 
-  private static File testDir;
-
   @BeforeClass
   public static void setup() throws Exception {
-    startCluster(ClusterFixture.builder(dirTestWatcher).maxParallelization(1));
-
-    // Set up CSV storage plugin using headers.
-
-    TextFormatConfig csvFormat = new TextFormatConfig();
-    csvFormat.fieldDelimiter = ',';
-    csvFormat.skipFirstLine = false;
-    csvFormat.extractHeader = true;
-
-    testDir = cluster.makeDataDir("data", "csv", csvFormat);
+    BaseCsvTest.setup(false,  true);
     buildFile(TEST_FILE_NAME, validHeaders);
 
     // Two-level partitioned table
@@ -111,14 +89,6 @@ public class TestCsvWithHeaders extends ClusterTest {
     File nestedDir = new File(rootDir, "nested");
     nestedDir.mkdir();
     buildFile(new File(nestedDir, "second.csv"), secondFile);
-  }
-
-  private void enableV3(boolean enable) {
-    client.alterSession(ExecConstants.ENABLE_V3_TEXT_READER_KEY, enable);
-  }
-
-  private void resetV3() {
-    client.resetSession(ExecConstants.ENABLE_V3_TEXT_READER_KEY);
   }
 
   @Test
@@ -232,18 +202,6 @@ public class TestCsvWithHeaders extends ClusterTest {
 
   private String makeStatement(String fileName) {
     return "SELECT * FROM `dfs.data`.`" + fileName + "`";
-  }
-
-  static void buildFile(String fileName, String[] data) throws IOException {
-    buildFile(new File(testDir, fileName), data);
-  }
-
-  static void buildFile(File file, String[] data) throws IOException {
-    try(PrintWriter out = new PrintWriter(new FileWriter(file))) {
-      for (String line : data) {
-        out.println(line);
-      }
-    }
   }
 
   @Test
@@ -626,6 +584,7 @@ public class TestCsvWithHeaders extends ClusterTest {
    * read first, with the shallow file second. In this case the
    * dir0 won't disappear.)
    */
+  
   private void doTestPartitionExpansionRemoval(boolean isV3) throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
     Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();

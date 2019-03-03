@@ -17,16 +17,12 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import java.io.File;
 import java.io.IOException;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
-import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
@@ -36,9 +32,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-//CSV reader now hosted on the row set framework
+// CSV reader now hosted on the row set framework
 @Category(RowSetTests.class)
-public class TestCsvWithoutHeaders extends ClusterTest {
+public class TestCsvWithoutHeaders extends BaseCsvTest {
 
   private static final String TEST_FILE_NAME = "simple.csv";
 
@@ -53,28 +49,30 @@ public class TestCsvWithoutHeaders extends ClusterTest {
       "30"
   };
 
-  private static File testDir;
-
   @BeforeClass
   public static void setup() throws Exception {
-    startCluster(ClusterFixture.builder(dirTestWatcher).maxParallelization(1));
+    BaseCsvTest.setup(false,  false);
 
-    // Set up CSV storage plugin without headers.
+    buildFile(TEST_FILE_NAME, sampleData);
+  }
 
-    TextFormatConfig csvFormat = new TextFormatConfig();
-    csvFormat.fieldDelimiter = ',';
-    csvFormat.skipFirstLine = false;
-    csvFormat.extractHeader = false;
-
-    testDir = cluster.makeDataDir("data", "csv", csvFormat);
-    TestCsvWithHeaders.buildFile(new File(testDir, TEST_FILE_NAME), sampleData);
+  @Test
+  public void testWildcard() throws IOException {
+    try {
+      enableV3(false);
+      doTestWildcard();
+      enableV3(true);
+      doTestWildcard();
+    } finally {
+      resetV3();
+    }
   }
 
   /**
    * Verify that the wildcard expands to the `columns` array
    */
-  @Test
-  public void testWildcard() throws IOException {
+
+  private void doTestWildcard() throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -91,6 +89,17 @@ public class TestCsvWithoutHeaders extends ClusterTest {
 
   @Test
   public void testColumns() throws IOException {
+    try {
+      enableV3(false);
+      doTestColumns();
+      enableV3(true);
+      doTestColumns();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestColumns() throws IOException {
     String sql = "SELECT columns FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -106,41 +115,106 @@ public class TestCsvWithoutHeaders extends ClusterTest {
   }
 
   @Test
-  public void testWildcardAndMetadata() throws IOException {
-    String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+  public void doTestWildcardAndMetadataV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("columns", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addArray("columns", MinorType.VARCHAR)
+          .addNullable("filename", MinorType.VARCHAR)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
-        .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
+          .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   @Test
-  public void testColumnsAndMetadata() throws IOException {
-    String sql = "SELECT columns, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+  public void doTestWildcardAndMetadataV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("columns", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addArray("columns", MinorType.VARCHAR)
+          .add("filename", MinorType.VARCHAR)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
-        .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
+          .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testColumnsAndMetadataV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT columns, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addArray("columns", MinorType.VARCHAR)
+          .addNullable("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
+          .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testColumnsAndMetadataV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT columns, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addArray("columns", MinorType.VARCHAR)
+          .add("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow(strArray("10", "foo", "bar"), TEST_FILE_NAME)
+          .addRow(strArray("20", "fred", "wilma"), TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   @Test
   public void testSpecificColumns() throws IOException {
+    try {
+      enableV3(false);
+      doTestSpecificColumns();
+      enableV3(true);
+      doTestSpecificColumns();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestSpecificColumns() throws IOException {
     String sql = "SELECT columns[0], columns[2] FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -158,8 +232,19 @@ public class TestCsvWithoutHeaders extends ClusterTest {
 
   @Test
   public void testRaggedRows() throws IOException {
+    try {
+      enableV3(false);
+      doTestRaggedRows();
+      enableV3(true);
+      doTestRaggedRows();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestRaggedRows() throws IOException {
     String fileName = "ragged.csv";
-    TestCsvWithHeaders.buildFile(new File(testDir, fileName), raggedRows);
+    buildFile(fileName, raggedRows);
     String sql = "SELECT columns FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, fileName).rowSet();
 

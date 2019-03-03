@@ -25,9 +25,6 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
-import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
@@ -35,9 +32,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-//CSV reader now hosted on the row set framework
+// CSV reader now hosted on the row set framework
 @Category(RowSetTests.class)
-public class TestCsvIgnoreHeaders  extends ClusterTest{
+public class TestCsvIgnoreHeaders  extends BaseCsvTest{
 
   private static String withHeaders[] = {
       "a,b,c",
@@ -52,26 +49,26 @@ public class TestCsvIgnoreHeaders  extends ClusterTest{
       "30"
   };
 
-  private static File testDir;
-
   @BeforeClass
   public static void setup() throws Exception {
-    startCluster(ClusterFixture.builder(dirTestWatcher).maxParallelization(1));
-
-    // Set up CSV storage plugin skipping headers.
-
-    TextFormatConfig csvFormat = new TextFormatConfig();
-    csvFormat.fieldDelimiter = ',';
-    csvFormat.skipFirstLine = true;
-    csvFormat.extractHeader = false;
-
-    testDir = cluster.makeDataDir("data", "csv", csvFormat);
+    BaseCsvTest.setup(true,  false);
   }
 
   @Test
   public void testColumns() throws IOException {
+    try {
+      enableV3(false);
+      doTestColumns();
+      enableV3(true);
+      doTestColumns();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestColumns() throws IOException {
     String fileName = "simple.csv";
-    TestCsvWithHeaders.buildFile(new File(testDir, fileName), withHeaders);
+    buildFile(fileName, withHeaders);
     String sql = "SELECT columns FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, fileName).rowSet();
 
@@ -88,6 +85,17 @@ public class TestCsvIgnoreHeaders  extends ClusterTest{
 
   @Test
   public void testRaggedRows() throws IOException {
+    try {
+      enableV3(false);
+      doTestRaggedRows();
+      enableV3(true);
+      doTestRaggedRows();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestRaggedRows() throws IOException {
     String fileName = "ragged.csv";
     TestCsvWithHeaders.buildFile(new File(testDir, fileName), raggedRows);
     String sql = "SELECT columns FROM `dfs.data`.`%s`";
