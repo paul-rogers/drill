@@ -50,7 +50,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
   private static final int WHITE_SPACE_BUFFER = 64*1024;
 
   // settings to be used while parsing
-  private final TextParsingSettings settings;
+  private final TextParsingSettingsV3 settings;
   // Chunk of the file to be read by this reader
   private final FileSplit split;
   // text reader implementation
@@ -63,7 +63,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
   private RowSetLoader writer;
 
-  public CompliantTextBatchReader(FileSplit split, DrillFileSystem dfs, TextParsingSettings settings) {
+  public CompliantTextBatchReader(FileSplit split, DrillFileSystem dfs, TextParsingSettingsV3 settings) {
     this.split = split;
     this.settings = settings;
     this.dfs = dfs;

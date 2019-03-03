@@ -21,9 +21,10 @@ import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
-public class TextParsingSettings {
+// TODO: Remove the "V3" suffix once the V2 version is retired.
+public class TextParsingSettingsV3 {
 
-  public static final TextParsingSettings DEFAULT = new TextParsingSettings();
+  public static final TextParsingSettingsV3 DEFAULT = new TextParsingSettingsV3();
 
   private String emptyValue = null;
   private boolean parseUnescapedQuotes = true;

@@ -30,6 +30,7 @@ import java.util.Iterator;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
@@ -45,10 +46,11 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 /**
- * SQL-level tests for CSV headers. See
- * {@link TestHeaderBuilder} for detailed unit tests.
- * This test does not attempt to duplicate all the cases
- * from the unit tests; instead it just does a sanity check.
+ * Sanity test of CSV files with headers. Tests both the original
+ * "compliant" version and the V3 version based on the row set
+ * framework.
+ *
+ * @see {@link TestHeaderBuilder}
  */
 
 // CSV reader now hosted on the row set framework
@@ -111,8 +113,27 @@ public class TestCsvWithHeaders extends ClusterTest {
     buildFile(new File(nestedDir, "second.csv"), secondFile);
   }
 
+  private void enableV3(boolean enable) {
+    client.alterSession(ExecConstants.ENABLE_V3_TEXT_READER_KEY, enable);
+  }
+
+  private void resetV3() {
+    client.resetSession(ExecConstants.ENABLE_V3_TEXT_READER_KEY);
+  }
+
   @Test
   public void testEmptyCsvHeaders() throws IOException {
+    try {
+      enableV3(false);
+      doTestEmptyCsvHeaders();
+      enableV3(true);
+      doTestEmptyCsvHeaders();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestEmptyCsvHeaders() throws IOException {
     String fileName = "case1.csv";
     buildFile(fileName, emptyHeaders);
     try {
@@ -125,6 +146,17 @@ public class TestCsvWithHeaders extends ClusterTest {
 
   @Test
   public void testValidCsvHeaders() throws IOException {
+    try {
+      enableV3(false);
+      doTestValidCsvHeaders();
+      enableV3(true);
+      doTestValidCsvHeaders();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestValidCsvHeaders() throws IOException {
     RowSet actual = client.queryBuilder().sql(makeStatement(TEST_FILE_NAME)).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
@@ -140,6 +172,17 @@ public class TestCsvWithHeaders extends ClusterTest {
 
   @Test
   public void testInvalidCsvHeaders() throws IOException {
+    try {
+      enableV3(false);
+      doTestInvalidCsvHeaders();
+      enableV3(true);
+      doTestInvalidCsvHeaders();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestInvalidCsvHeaders() throws IOException {
     String fileName = "case3.csv";
     buildFile(fileName, invalidHeaders);
     RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
@@ -158,9 +201,20 @@ public class TestCsvWithHeaders extends ClusterTest {
     RowSetUtilities.verify(expected, actual);
   }
 
-  // Test fix for DRILL-5590
   @Test
   public void testCsvHeadersCaseInsensitive() throws IOException {
+    try {
+      enableV3(false);
+      doTestCsvHeadersCaseInsensitive();
+      enableV3(true);
+      doTestCsvHeadersCaseInsensitive();
+    } finally {
+      resetV3();
+    }
+  }
+
+  // Test fix for DRILL-5590
+  private void doTestCsvHeadersCaseInsensitive() throws IOException {
     String sql = "SELECT A, b, C FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -192,12 +246,23 @@ public class TestCsvWithHeaders extends ClusterTest {
     }
   }
 
+  @Test
+  public void testWildcard() throws IOException {
+    try {
+      enableV3(false);
+      doTestWildcard();
+      enableV3(true);
+      doTestWildcard();
+    } finally {
+      resetV3();
+    }
+  }
+
   /**
    * Verify that the wildcard expands columns to the header names, including
    * case
    */
-  @Test
-  public void testWildcard() throws IOException {
+  private void doTestWildcard() throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -217,50 +282,113 @@ public class TestCsvWithHeaders extends ClusterTest {
    * Verify that implicit columns are recognized and populated. Sanity test
    * of just one implicit column.
    */
+
   @Test
-  public void testImplicitColsExplicitSelect() throws IOException {
-    String sql = "SELECT A, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+  public void testImplicitColsExplicitSelectV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT A, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("A", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("A", MinorType.VARCHAR)
+          .addNullable("filename", MinorType.VARCHAR)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testImplicitColsExplicitSelectV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT A, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("A", MinorType.VARCHAR)
+          .add("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   /**
    * Verify that implicit columns are recognized and populated. Sanity test
    * of just one implicit column.
    */
+
   @Test
-  public void testImplicitColsWildcard() throws IOException {
-    String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+  public void testImplicitColsWildcardV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("filename", MinorType.VARCHAR)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
-  /**
-   * Verify that implicit columns are recognized and populated. Sanity test
-   * of just one implicit column.
-   */
+  @Test
+  public void testImplicitColsWildcardV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .add("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
   @Test
   public void testColsWithWildcard() throws IOException {
+    try {
+      enableV3(false);
+      doTestColsWithWildcard();
+      enableV3(true);
+      doTestColsWithWildcard();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestColsWithWildcard() throws IOException {
     String sql = "SELECT *, a as d FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -278,66 +406,159 @@ public class TestCsvWithHeaders extends ClusterTest {
   }
 
   @Test
-  public void testPartitionColsWildcard() throws IOException {
-    String sql = "SELECT *, dir0 FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
-    actual.print();
+  public void testPartitionColsWildcardV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT *, dir0 FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .addNullable("dir0", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.INT)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", null)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", null)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   @Test
-  public void testImplicitColWildcard() throws IOException {
-    String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
-    actual.print();
+  public void testPartitionColsWildcardV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT *, dir0 FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.VARCHAR)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", TEST_FILE_NAME)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", null)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testImplicitColWildcardV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testImplicitColWildcardV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT *, filename FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .add("filename", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "foo", "bar", TEST_FILE_NAME)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   /**
    * CSV does not allow explicit use of dir0, dir1, etc. columns. Treated
    * as undefined nullable int columns.
    */
+
   @Test
-  public void testPartitionColsExplicit() throws IOException {
-    String sql = "SELECT a, dir0, dir5 FROM `dfs.data`.`%s`";
-    RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+  public void testPartitionColsExplicitV2() throws IOException {
+    try {
+      enableV3(false);
+      String sql = "SELECT a, dir0, dir5 FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .addNullable("dir0", MinorType.VARCHAR)
-        .addNullable("dir5", MinorType.VARCHAR)
-        .buildSchema();
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.INT)
+          .addNullable("dir5", MinorType.INT)
+          .buildSchema();
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", null, null)
-        .build();
-    RowSetUtilities.verify(expected, actual);
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", null, null)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testPartitionColsExplicitV3() throws IOException {
+    try {
+      enableV3(true);
+      String sql = "SELECT a, dir0, dir5 FROM `dfs.data`.`%s`";
+      RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.VARCHAR)
+          .addNullable("dir5", MinorType.VARCHAR)
+          .buildSchema();
+
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", null, null)
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
   }
 
   @Test
   public void testDupColumn() throws IOException {
+    try {
+      enableV3(false);
+      doTestDupColumn();
+      enableV3(true);
+      doTestDupColumn();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestDupColumn() throws IOException {
     String sql = "SELECT a, b, a FROM `dfs.data`.`%s`";
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
@@ -353,23 +574,43 @@ public class TestCsvWithHeaders extends ClusterTest {
     RowSetUtilities.verify(expected, actual);
   }
 
-  @Test
-  public void testRaggedRows() throws IOException {
-    String fileName = "case4.csv";
-    buildFile(fileName, raggedRows);
-    RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
+  // This test cannot be run for V2. The data gets corrupted and we get
+  // internal errors.
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .buildSchema();
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "dino", "")
-        .addRow("20", "foo", "bar")
-        .addRow("30", "", "")
-        .build();
-    RowSetUtilities.verify(expected, actual);
+  @Test
+  public void testRaggedRowsV3() throws IOException {
+    try {
+      enableV3(true);
+      String fileName = "case4.csv";
+      buildFile(fileName, raggedRows);
+      RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .buildSchema();
+      RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+          .addRow("10", "dino", "")
+          .addRow("20", "foo", "bar")
+          .addRow("30", "", "")
+          .build();
+      RowSetUtilities.verify(expected, actual);
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void testPartitionExpansionRemoval() throws IOException {
+    try {
+      enableV3(false);
+      doTestPartitionExpansionRemoval(false);
+      enableV3(true);
+      doTestPartitionExpansionRemoval(true);
+    } finally {
+      resetV3();
+    }
   }
 
   /**
@@ -380,17 +621,15 @@ public class TestCsvWithHeaders extends ClusterTest {
    * (preceded by an empty schema batch.) File read order is random
    * so we have to expect the files in either order. If we read the
    * root file first, it will contain no dir0 column. That column
-   * will appear in the second batch once the reader decends down
+   * will appear in the second batch once the reader descends down
    * one level. (Or, the order will be reversed with the deeper file
    * read first, with the shallow file second. In this case the
    * dir0 won't disappear.)
    */
-  @Test
-  public void testPartitionExpansionRemoval() throws IOException {
+  private void doTestPartitionExpansionRemoval(boolean isV3) throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
     Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
 
-    assertTrue(iter.hasNext());
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
@@ -399,15 +638,18 @@ public class TestCsvWithHeaders extends ClusterTest {
 
     // First batch is empty; just carries the schema.
 
-    RowSet rowSet = iter.next();
-    assertEquals(0, rowSet.rowCount());
-    rowSet.clear();
+    if (isV3) {
+      assertTrue(iter.hasNext());
+      RowSet rowSet = iter.next();
+      assertEquals(0, rowSet.rowCount());
+      rowSet.clear();
+    }
 
     // Read the other two batches.
 
     for (int i = 0; i < 2; i++) {
       assertTrue(iter.hasNext());
-      rowSet = iter.next();
+      RowSet rowSet = iter.next();
 
       // Figure out which record this is and test accordingly.
 
