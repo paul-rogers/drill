@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.text.compliant;
+package org.apache.drill.exec.store.easy.text.compliant.v3;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;

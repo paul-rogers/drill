@@ -42,6 +42,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
@@ -49,8 +50,8 @@ import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
-import org.apache.drill.exec.store.easy.text.compliant.CompliantTextBatchReader;
-import org.apache.drill.exec.store.easy.text.compliant.TextParsingSettings;
+import org.apache.drill.exec.store.easy.text.compliant.v3.CompliantTextBatchReader;
+import org.apache.drill.exec.store.easy.text.compliant.v3.TextParsingSettings;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
 import org.apache.drill.exec.store.text.DrillTextRecordWriter;
 import org.apache.hadoop.conf.Configuration;
@@ -235,7 +236,7 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  protected ScanBatchCreator scanBatchCreator() {
+  protected ScanBatchCreator scanBatchCreator(OptionManager options) {
     return new TextScanBatchCreator(this, this);
   }
 
@@ -255,6 +256,24 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     final double estRowCount = data / estimatedRowSize;
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, (long) estRowCount, 1, data);
   }
+
+//  public RecordReader getRecordReader(FragmentContext context,
+//                                      DrillFileSystem dfs,
+//                                      FileWork fileWork,
+//                                      List<SchemaPath> columns,
+//                                      String userName) {
+//    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
+//    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
+//
+//    if (context.getOptions().getBoolean(ExecConstants.ENABLE_NEW_TEXT_READER_KEY)) {
+//      TextParsingSettings settings = new TextParsingSettings();
+//      settings.set(formatConfig);
+//      return new CompliantTextRecordReader(split, dfs, settings, columns);
+//    } else {
+//      char delim = formatConfig.getFieldDelimiter();
+//      return new DrillTextRecordReader(split, dfs.getConf(), context, delim, columns);
+//    }
+//  }
 
   @Override
   public RecordWriter getRecordWriter(final FragmentContext context, final EasyWriter writer) throws IOException {

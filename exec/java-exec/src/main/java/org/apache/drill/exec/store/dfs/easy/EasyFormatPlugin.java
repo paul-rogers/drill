@@ -49,6 +49,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
@@ -416,7 +417,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   protected CloseableRecordBatch getReaderBatch(final FragmentContext context,
       final EasySubScan scan) throws ExecutionSetupException {
-    return scanBatchCreator().buildScan(context, scan);
+    return scanBatchCreator(context.getOptions()).buildScan(context, scan);
   }
 
   /**
@@ -427,7 +428,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * @return the strategy for creating the scan batch for this plugin
    */
 
-  protected ScanBatchCreator scanBatchCreator() {
+  protected ScanBatchCreator scanBatchCreator(OptionManager options) {
     return new ClassicScanBatchCreator(this);
   }
 
