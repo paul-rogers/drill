@@ -140,7 +140,11 @@ public class ColumnExplorer {
 
   public boolean isImplicitColumn(String name) {
     return isPartitionColumn(partitionDesignator, name) ||
-        allImplicitColumns.get(name) != null;
+           isImplicitFileColumn(name);
+  }
+
+  public boolean isImplicitFileColumn(String name) {
+    return allImplicitColumns.get(name) != null;
   }
 
   /**

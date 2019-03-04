@@ -586,7 +586,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   }
 
   private boolean isImplicitFileColumn(ValueVector vvIn) {
-    return columnExplorer.isImplicitColumn(vvIn.getField().getName());
+    return columnExplorer.isImplicitFileColumn(vvIn.getField().getName());
   }
 
   private List<NamedExpression> getExpressionList() {

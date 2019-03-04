@@ -76,9 +76,9 @@ public class TestImplicitFileColumns extends BaseTestQuery {
     testBuilder()
         .sqlQuery("select *, filename, suffix, fqn, filepath from dfs.`%s` order by filename", FILES)
         .ordered()
-        .baselineColumns("columns", "filename", "suffix", "fqn", "filepath")
-        .baselineValues(mainColumnValues, mainFile.getName(), CSV, mainFile.getCanonicalPath(), mainFile.getParentFile().getCanonicalPath())
-        .baselineValues(nestedColumnValues, NESTED_FILE, CSV, nestedFile.getCanonicalPath(), nestedFile.getParentFile().getCanonicalPath())
+        .baselineColumns("columns", "dir0", "filename", "suffix", "fqn", "filepath")
+        .baselineValues(mainColumnValues, null, mainFile.getName(), CSV, mainFile.getCanonicalPath(), mainFile.getParentFile().getCanonicalPath())
+        .baselineValues(nestedColumnValues, NESTED, NESTED_FILE, CSV, nestedFile.getCanonicalPath(), nestedFile.getParentFile().getCanonicalPath())
         .go();
   }
 
@@ -161,6 +161,7 @@ public class TestImplicitFileColumns extends BaseTestQuery {
   @Test
   public void testStarColumnJson() throws Exception {
     final BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("dir0", TypeProtos.MinorType.VARCHAR)
         .addNullable("id", TypeProtos.MinorType.BIGINT)
         .addNullable("name", TypeProtos.MinorType.VARCHAR)
         .build();
@@ -175,6 +176,8 @@ public class TestImplicitFileColumns extends BaseTestQuery {
   @Test
   public void testStarColumnParquet() throws Exception {
     final BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("dir0", TypeProtos.MinorType.VARCHAR)
+        .addNullable("dir1", TypeProtos.MinorType.VARCHAR)
         .add("o_orderkey", TypeProtos.MinorType.INT)
         .add("o_custkey", TypeProtos.MinorType.INT)
         .add("o_orderstatus", TypeProtos.MinorType.VARCHAR)
@@ -196,6 +199,8 @@ public class TestImplicitFileColumns extends BaseTestQuery {
   @Test
   public void testStarColumnCsv() throws Exception {
     final BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("dir0", TypeProtos.MinorType.VARCHAR)
+        .addNullable("dir1", TypeProtos.MinorType.VARCHAR)
         .addArray("columns", TypeProtos.MinorType.VARCHAR)
         .build();
 
