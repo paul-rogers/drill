@@ -698,6 +698,10 @@ public final class ExecConstants {
   public static final OptionValidator ENABLE_V3_TEXT_READER = new BooleanValidator(ENABLE_V3_TEXT_READER_KEY,
       new OptionDescription("Enables the row set based version of the text/csv reader."));
 
+  public static final String MIN_READER_WIDTH_KEY = "exec.storage.min_width";
+  public static final OptionValidator MIN_READER_WIDTH = new LongValidator(MIN_READER_WIDTH_KEY,
+      new OptionDescription("Min width for text readers, mostly for testing."));
+
   public static final String BOOTSTRAP_STORAGE_PLUGINS_FILE = "bootstrap-storage-plugins.json";
 
   public static final String DRILL_SYS_FILE_SUFFIX = ".sys.drill";

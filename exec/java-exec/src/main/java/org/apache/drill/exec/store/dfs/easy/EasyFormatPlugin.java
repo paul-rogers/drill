@@ -454,8 +454,6 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         return new WriterRecordBatch(writer, incoming, context, getRecordWriter(context, writer));
       }
     } catch(IOException e) {
-      return new WriterRecordBatch(writer, incoming, context, getRecordWriter(context, writer));
-    } catch (final IOException e) {
       throw new ExecutionSetupException(String.format("Failed to create the WriterRecordBatch. %s", e.getMessage()), e);
     }
   }

@@ -163,6 +163,8 @@ public class TestFileMetadataProjection extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partiton columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -249,6 +251,8 @@ public class TestFileMetadataProjection extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -300,6 +304,8 @@ public class TestFileMetadataProjection extends SubOperatorTest {
     Path filePath = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///x"),
         Lists.newArrayList(filePath));
 

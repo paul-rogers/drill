@@ -60,6 +60,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   private FileSelection selection;
   private final EasyFormatPlugin<?> formatPlugin;
   private int maxWidth;
+  private int minWidth = 1;
   private List<SchemaPath> columns;
 
   private ListMultimap<Integer, CompleteFileWork> mappings;
@@ -70,10 +71,10 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   @JsonCreator
   public EasyGroupScan(
       @JsonProperty("userName") String userName,
-      @JsonProperty("files") List<String> files, //
-      @JsonProperty("storage") StoragePluginConfig storageConfig, //
-      @JsonProperty("format") FormatPluginConfig formatConfig, //
-      @JacksonInject StoragePluginRegistry engineRegistry, //
+      @JsonProperty("files") List<String> files,
+      @JsonProperty("storage") StoragePluginConfig storageConfig,
+      @JsonProperty("format") FormatPluginConfig formatConfig,
+      @JacksonInject StoragePluginRegistry engineRegistry,
       @JsonProperty("columns") List<SchemaPath> columns,
       @JsonProperty("selectionRoot") String selectionRoot
       ) throws IOException, ExecutionSetupException {
@@ -91,8 +92,8 @@ public class EasyGroupScan extends AbstractFileGroupScan {
 
   public EasyGroupScan(
       String userName,
-      FileSelection selection, //
-      EasyFormatPlugin<?> formatPlugin, //
+      FileSelection selection,
+      EasyFormatPlugin<?> formatPlugin,
       List<SchemaPath> columns,
       String selectionRoot
       ) throws IOException{
@@ -102,6 +103,22 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     this.columns = columns == null ? ALL_COLUMNS : columns;
     this.selectionRoot = selectionRoot;
     initFromSelection(selection, formatPlugin);
+  }
+
+  public EasyGroupScan(
+      String userName,
+      FileSelection selection,
+      EasyFormatPlugin<?> formatPlugin,
+      List<SchemaPath> columns,
+      String selectionRoot,
+      int minWidth
+      ) throws IOException{
+    this(userName, selection, formatPlugin, columns, selectionRoot);
+
+    // Set the minimum width of this reader. Primarily used for testing
+    // to force parallelism even for small test files.
+    // See ExecConstants.MIN_READER_WIDTH
+    this.minWidth = Math.max(1, Math.min(minWidth, maxWidth));
   }
 
   @JsonIgnore
@@ -123,17 +140,17 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     chunks = that.chunks;
     endpointAffinities = that.endpointAffinities;
     maxWidth = that.maxWidth;
+    minWidth = that.minWidth;
     mappings = that.mappings;
   }
 
   private void initFromSelection(FileSelection selection, EasyFormatPlugin<?> formatPlugin) throws IOException {
-    @SuppressWarnings("resource")
     final DrillFileSystem dfs = ImpersonationUtil.createFileSystem(getUserName(), formatPlugin.getFsConf());
     this.selection = selection;
     BlockMapBuilder b = new BlockMapBuilder(dfs, formatPlugin.getContext().getBits());
-    this.chunks = b.generateFileWork(selection.getStatuses(dfs), formatPlugin.isBlockSplittable());
-    this.maxWidth = chunks.size();
-    this.endpointAffinities = AffinityCreator.getAffinityMap(chunks);
+    chunks = b.generateFileWork(selection.getStatuses(dfs), formatPlugin.isBlockSplittable());
+    maxWidth = chunks.size();
+    endpointAffinities = AffinityCreator.getAffinityMap(chunks);
   }
 
   public String getSelectionRoot() {
@@ -141,10 +158,15 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   }
 
   @Override
+  @JsonIgnore
+  public int getMinParallelizationWidth() {
+    return minWidth;
+  }
+
+  @Override
   public int getMaxParallelizationWidth() {
     return maxWidth;
   }
-
 
   @Override
   public ScanStats getScanStats(final PlannerSettings settings) {
@@ -168,7 +190,6 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     return columns;
   }
 
-
   @JsonIgnore
   public FileSelection getFileSelection() {
     return selection;
@@ -184,7 +205,6 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     assert children == null || children.isEmpty();
     return new EasyGroupScan(this);
   }
-
 
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
@@ -280,5 +300,4 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   public boolean canPushdownProjects(List<SchemaPath> columns) {
     return formatPlugin.supportsPushDown();
   }
-
 }

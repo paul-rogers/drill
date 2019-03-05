@@ -29,15 +29,32 @@ import org.apache.drill.test.ClusterTest;
 
 public class BaseCsvTest extends ClusterTest {
 
+  protected static final String PART_DIR = "root";
+  protected static final String NESTED_DIR = "nested";
+  protected static final String ROOT_FILE = "first.csv";
+  protected static final String NESTED_FILE = "second.csv";
+
   protected static String validHeaders[] = {
       "a,b,c",
       "10,foo,bar"
   };
 
+  protected static String secondFile[] = {
+      "a,b,c",
+      "20,fred,wilma"
+  };
+
   protected static File testDir;
 
   protected static void setup(boolean skipFirstLine, boolean extractHeader) throws Exception {
-    startCluster(ClusterFixture.builder(dirTestWatcher).maxParallelization(1));
+    setup(skipFirstLine, extractHeader, 1);
+  }
+
+  protected static void setup(boolean skipFirstLine, boolean extractHeader,
+      int maxParallelization) throws Exception {
+    startCluster(
+        ClusterFixture.builder(dirTestWatcher)
+        .maxParallelization(maxParallelization));
 
     // Set up CSV storage plugin using headers.
 
@@ -47,6 +64,18 @@ public class BaseCsvTest extends ClusterTest {
     csvFormat.extractHeader = extractHeader;
 
     testDir = cluster.makeDataDir("data", "csv", csvFormat);
+  }
+
+  protected static void buildNestedTable() throws IOException {
+
+    // Two-level partitioned table
+
+    File rootDir = new File(testDir, PART_DIR);
+    rootDir.mkdir();
+    buildFile(new File(rootDir, ROOT_FILE), validHeaders);
+    File nestedDir = new File(rootDir, NESTED_DIR);
+    nestedDir.mkdir();
+    buildFile(new File(nestedDir, NESTED_FILE), secondFile);
   }
 
   protected void enableV3(boolean enable) {

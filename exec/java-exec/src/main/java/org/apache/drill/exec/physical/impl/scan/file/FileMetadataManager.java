@@ -41,6 +41,26 @@ import org.apache.hadoop.fs.Path;
 
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
+/**
+ * Manages the insertion of file metadata (AKA "implicit" and partition) columns.
+ * Parses the file metadata columns from the projection list. Creates and loads
+ * the vectors that hold the data. If running in legacy mode, inserts partition
+ * columns when the query contains a wildcard. Supports renaming the columns via
+ * session options.
+ * <p>
+ * The lifecycle is that the manager is given the set of files for this scan
+ * operator so it can determine the partition depth. (Note that different scans
+ * may not agree on the depth. This is a known issue with Drill's implementation.)
+ * <p>
+ * Then, at the start of the scan, all projection columns are parsed. This class
+ * picks out the file metadata columns.
+ * <p>
+ * On each file (on each reader), the columns are "resolved." Here, that means
+ * that the columns are filled in with actual values based on the present file.
+ * <p>
+ * This is the successor to {@link ColumnExplorer}.
+ */
+
 public class FileMetadataManager implements MetadataManager, SchemaProjectionResolver, VectorSource {
 
   // Input
@@ -57,8 +77,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   /**
    * Indicates whether to expand partition columns when the query contains a wildcard.
    * Supports queries such as the following:<code><pre>
-   * select * from dfs.`partitioned-dir`
-   * </pre><code>
+   * select * from dfs.`partitioned-dir`</pre></code>
    * In which the output columns will be (columns, dir0) if the partitioned directory
    * has one level of nesting.
    *
@@ -146,11 +165,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     }
   }
 
-  public FileMetadataManager(OptionSet optionManager,
-      Path rootDir, List<Path> files) {
-    this(optionManager, false, false, rootDir, files);
-  }
-
   private int computeMaxPartition(List<Path> files) {
     int maxLen = 0;
     for (Path filePath : files) {
@@ -164,6 +178,16 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   public void bind(ResultVectorCache vectorCache) {
     this.vectorCache = vectorCache;
   }
+
+  /**
+   * Returns the file metadata column parser that:
+   * <ul>
+   * <li>Picks out the file metadata and parition columns,</li>
+   * <li>Inserts partition columns for a wildcard query, if the
+   * option to do so is set.</li>
+   *
+   * @see {{@link #useLegacyWildcardExpansion}
+   */
 
   @Override
   public ScanProjectionParser projectionParser() { return parser; }
@@ -223,6 +247,10 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     currentFile = null;
   }
 
+  /**
+   * Resolves metadata columns to concrete, materialized columns with the
+   * proper value for the present file.
+   */
   @Override
   public boolean resolveColumn(ColumnProjection col, ResolvedTuple tuple,
       TupleMetadata tableSchema) {

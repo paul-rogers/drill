@@ -250,14 +250,10 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  protected ScanStats getScanStats(final PlannerSettings settings, final EasyGroupScan scan) {
-    long data = 0;
-    for (final CompleteFileWork work : scan.getWorkIterable()) {
-      data += work.getTotalBytes();
-    }
-    final double estimatedRowSize = settings.getOptions().getOption(ExecConstants.TEXT_ESTIMATED_ROW_SIZE);
-    final double estRowCount = data / estimatedRowSize;
-    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, (long) estRowCount, 1, data);
+  public AbstractGroupScan getGroupScan(String userName, FileSelection selection,
+      List<SchemaPath> columns, OptionManager options) throws IOException {
+    return new EasyGroupScan(userName, selection, this, columns,
+        selection.selectionRoot, (int) options.getLong(ExecConstants.MIN_READER_WIDTH_KEY));
   }
 
   @Override
@@ -318,5 +314,30 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     TextParsingSettingsV3 settings = new TextParsingSettingsV3();
     settings.set(getConfig());
     return new CompliantTextBatchReader(split, dfs, settings);
+  }
+  @Override
+  public boolean supportsStatistics() {
+    return false;
+  }
+
+  @Override
+  public TableStatistics readStatistics(FileSystem fs, Path statsTablePath) throws IOException {
+    throw new UnsupportedOperationException("unimplemented");
+  }
+
+  @Override
+  public void writeStatistics(TableStatistics statistics, FileSystem fs, Path statsTablePath) throws IOException {
+    throw new UnsupportedOperationException("unimplemented");
+  }
+
+  @Override
+  protected ScanStats getScanStats(final PlannerSettings settings, final EasyGroupScan scan) {
+    long data = 0;
+    for (final CompleteFileWork work : scan.getWorkIterable()) {
+      data += work.getTotalBytes();
+    }
+    final double estimatedRowSize = settings.getOptions().getOption(ExecConstants.TEXT_ESTIMATED_ROW_SIZE);
+    final double estRowCount = data / estimatedRowSize;
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, (long) estRowCount, 1, data);
   }
 }

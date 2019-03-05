@@ -45,6 +45,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partiton columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -70,6 +72,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -114,6 +118,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -146,6 +152,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -262,6 +270,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 
@@ -394,6 +404,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
+        false, // Don't expand partition columns for wildcard
+        false, // N/A
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
 

@@ -19,10 +19,10 @@ package org.apache.drill.exec.store.easy.text.compliant;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 
@@ -52,7 +52,6 @@ import org.junit.experimental.categories.Category;
 public class TestCsvWithHeaders extends BaseCsvTest {
 
   private static final String TEST_FILE_NAME = "case2.csv";
-  private static final String PART_DIR = "root";
 
   private static String invalidHeaders[] = {
       "$,,9b,c,c,c_2",
@@ -71,28 +70,44 @@ public class TestCsvWithHeaders extends BaseCsvTest {
       "30"
   };
 
-  private static String secondFile[] = {
-      "a,b,c",
-      "20,fred,wilma"
-  };
-
   @BeforeClass
   public static void setup() throws Exception {
     BaseCsvTest.setup(false,  true);
     buildFile(TEST_FILE_NAME, validHeaders);
-
-    // Two-level partitioned table
-
-    File rootDir = new File(testDir, PART_DIR);
-    rootDir.mkdir();
-    buildFile(new File(rootDir, "first.csv"), validHeaders);
-    File nestedDir = new File(rootDir, "nested");
-    nestedDir.mkdir();
-    buildFile(new File(nestedDir, "second.csv"), secondFile);
+    buildNestedTable();
   }
+
+  private static final String EMPTY_FILE = "empty.csv";
+
+  @Test
+  public void testEmptyFile() throws IOException {
+    buildFile(EMPTY_FILE, new String[] {});
+    try {
+      enableV3(false);
+      doTestEmptyFile();
+      enableV3(true);
+      doTestEmptyFile();
+    } finally {
+      resetV3();
+    }
+  }
+
+  private void doTestEmptyFile() throws IOException {
+    RowSet rowSet = client.queryBuilder().sql(makeStatement(EMPTY_FILE)).rowSet();
+    assertNull(rowSet);
+    //assertEquals(0, rowSet.rowCount());
+//    rowSet.clear();
+  }
+
+  private static final String EMPTY_HEADERS_FILE = "noheaders.csv";
+
+  /**
+   * Trivial case: empty header. This case should fail.
+   */
 
   @Test
   public void testEmptyCsvHeaders() throws IOException {
+    buildFile(EMPTY_HEADERS_FILE, emptyHeaders);
     try {
       enableV3(false);
       doTestEmptyCsvHeaders();
@@ -104,10 +119,8 @@ public class TestCsvWithHeaders extends BaseCsvTest {
   }
 
   private void doTestEmptyCsvHeaders() throws IOException {
-    String fileName = "case1.csv";
-    buildFile(fileName, emptyHeaders);
     try {
-      client.queryBuilder().sql(makeStatement(fileName)).run();
+      client.queryBuilder().sql(makeStatement(EMPTY_HEADERS_FILE)).run();
       fail();
     } catch (Exception e) {
       assertTrue(e.getMessage().contains("must define at least one header"));
@@ -559,74 +572,258 @@ public class TestCsvWithHeaders extends BaseCsvTest {
     }
   }
 
+  /**
+   * Test partition expansion. Because the two files are read in the
+   * same scan operator, the schema is consistent. See
+   * {@link TestPartitionRace} for the multi-threaded race where all
+   * hell breaks loose.
+   */
   @Test
-  public void testPartitionExpansionRemoval() throws IOException {
+  public void testPartitionExpansionV2() throws IOException {
     try {
       enableV3(false);
-      doTestPartitionExpansionRemoval(false);
-      enableV3(true);
-      doTestPartitionExpansionRemoval(true);
+
+      String sql = "SELECT * FROM `dfs.data`.`%s`";
+      Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addNullable("dir0", MinorType.VARCHAR)
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .buildSchema();
+
+      // Read the two batches.
+
+      for (int i = 0; i < 2; i++) {
+        assertTrue(iter.hasNext());
+        RowSet rowSet = iter.next();
+
+        // Figure out which record this is and test accordingly.
+
+        RowSetReader reader = rowSet.reader();
+        assertTrue(reader.next());
+        String col2 = reader.scalar(1).getString();
+        if (col2.equals("10")) {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow(null, "10", "foo", "bar")
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        } else {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow(NESTED_DIR, "20", "fred", "wilma")
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        }
+      }
+      assertFalse(iter.hasNext());
     } finally {
       resetV3();
     }
   }
 
   /**
-   * Test partition expansion. The reader expands partitions, but projection
-   * removes them since they are not referenced.
+   * Test partition expansion.
    * <p>
    * This test is tricky because it will return two data batches
    * (preceded by an empty schema batch.) File read order is random
-   * so we have to expect the files in either order. If we read the
-   * root file first, it will contain no dir0 column. That column
-   * will appear in the second batch once the reader descends down
-   * one level. (Or, the order will be reversed with the deeper file
-   * read first, with the shallow file second. In this case the
-   * dir0 won't disappear.)
+   * so we have to expect the files in either order.
    */
-  
-  private void doTestPartitionExpansionRemoval(boolean isV3) throws IOException {
-    String sql = "SELECT * FROM `dfs.data`.`%s`";
-    Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+  @Test
+  public void testPartitionExpansionV3() throws IOException {
+    try {
+      enableV3(true);
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .buildSchema();
+      String sql = "SELECT * FROM `dfs.data`.`%s`";
+      Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
 
-    // First batch is empty; just carries the schema.
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.VARCHAR)
+          .buildSchema();
 
-    if (isV3) {
+      // First batch is empty; just carries the schema.
+
       assertTrue(iter.hasNext());
       RowSet rowSet = iter.next();
       assertEquals(0, rowSet.rowCount());
       rowSet.clear();
+
+      // Read the other two batches.
+
+      for (int i = 0; i < 2; i++) {
+        assertTrue(iter.hasNext());
+        rowSet = iter.next();
+
+        // Figure out which record this is and test accordingly.
+
+        RowSetReader reader = rowSet.reader();
+        assertTrue(reader.next());
+        String col1 = reader.scalar(0).getString();
+        if (col1.equals("10")) {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("10", "foo", "bar", null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        } else {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("20", "fred", "wilma", NESTED_DIR)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        }
+      }
+      assertFalse(iter.hasNext());
+    } finally {
+      resetV3();
     }
+  }
 
-    // Read the other two batches.
+  @Test
+  public void testWilcardAndPartitionsMultiFilesV2() throws IOException {
+    try {
+      enableV3(false);
 
-    for (int i = 0; i < 2; i++) {
+      String sql = "SELECT *, dir0, dir1 FROM `dfs.data`.`%s`";
+      Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .addNullable("dir0", MinorType.VARCHAR)
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir00", MinorType.VARCHAR)
+          .addNullable("dir1", MinorType.INT)
+          .buildSchema();
+
+      // Read the two batches.
+
+      for (int i = 0; i < 2; i++) {
+        assertTrue(iter.hasNext());
+        RowSet rowSet = iter.next();
+        rowSet.print();
+
+        // Figure out which record this is and test accordingly.
+
+        RowSetReader reader = rowSet.reader();
+        assertTrue(reader.next());
+        String aCol = reader.scalar("a").getString();
+        if (aCol.equals("10")) {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow(null, "10", "foo", "bar", null, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        } else {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow(NESTED_DIR, "20", "fred", "wilma", null, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        }
+      }
+      assertFalse(iter.hasNext());
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void doTestExplicitPartitionsMultiFilesV2() throws IOException {
+    try {
+      enableV3(false);
+
+      String sql = "SELECT a, b, c, dir0, dir1 FROM `dfs.data`.`%s`";
+      Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.VARCHAR)
+          .addNullable("dir1", MinorType.INT)
+          .buildSchema();
+
+      // Read the two batches.
+
+      for (int i = 0; i < 2; i++) {
+        assertTrue(iter.hasNext());
+        RowSet rowSet = iter.next();
+        rowSet.print();
+
+        // Figure out which record this is and test accordingly.
+
+        RowSetReader reader = rowSet.reader();
+        assertTrue(reader.next());
+        String aCol = reader.scalar("a").getString();
+        if (aCol.equals("10")) {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("10", "foo", "bar", null, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        } else {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("20", "fred", "wilma", NESTED_DIR, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        }
+      }
+      assertFalse(iter.hasNext());
+    } finally {
+      resetV3();
+    }
+  }
+
+  @Test
+  public void doTestExplicitPartitionsMultiFilesV3() throws IOException {
+    try {
+      enableV3(true);
+
+      String sql = "SELECT a, b, c, dir0, dir1 FROM `dfs.data`.`%s`";
+      Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .add("b", MinorType.VARCHAR)
+          .add("c", MinorType.VARCHAR)
+          .addNullable("dir0", MinorType.VARCHAR)
+          .addNullable("dir1", MinorType.VARCHAR)
+          .buildSchema();
+
+      // First batch is empty; just carries the schema.
+
       assertTrue(iter.hasNext());
       RowSet rowSet = iter.next();
+      assertEquals(0, rowSet.rowCount());
+      rowSet.clear();
 
-      // Figure out which record this is and test accordingly.
+      // Read the two batches.
 
-      RowSetReader reader = rowSet.reader();
-      assertTrue(reader.next());
-      String col1 = reader.scalar(0).getString();
-      if (col1.equals("10")) {
-        RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-            .addRow("10", "foo", "bar")
-            .build();
-        RowSetUtilities.verify(expected, rowSet);
-      } else {
-        RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-            .addRow("20", "fred", "wilma")
-            .build();
-        RowSetUtilities.verify(expected, rowSet);
+      for (int i = 0; i < 2; i++) {
+        assertTrue(iter.hasNext());
+        rowSet = iter.next();
+        rowSet.print();
+
+        // Figure out which record this is and test accordingly.
+
+        RowSetReader reader = rowSet.reader();
+        assertTrue(reader.next());
+        String aCol = reader.scalar("a").getString();
+        if (aCol.equals("10")) {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("10", "foo", "bar", null, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        } else {
+          RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+              .addRow("20", "fred", "wilma", NESTED_DIR, null)
+              .build();
+          RowSetUtilities.verify(expected, rowSet);
+        }
       }
+      assertFalse(iter.hasNext());
     }
-    assertFalse(iter.hasNext());
+    finally {
+      resetV3();
+    }
   }
 }

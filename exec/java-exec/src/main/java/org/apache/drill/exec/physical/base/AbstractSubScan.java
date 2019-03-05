@@ -25,7 +25,7 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.graph.GraphVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
-public abstract class AbstractSubScan extends AbstractBase implements SubScan{
+public abstract class AbstractSubScan extends AbstractBase implements SubScan {
 
   public AbstractSubScan(String userName) {
     super(userName);

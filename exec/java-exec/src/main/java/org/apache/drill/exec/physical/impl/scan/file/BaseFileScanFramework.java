@@ -122,6 +122,8 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
 
     metadataManager = new FileMetadataManager(
         context.getFragmentContext().getOptions(),
+        true, // Expand partition columns with wildcard
+        false, // Put partition columns after table columns
         scanRootDir,
         paths);
     scanOrchestrator.withMetadata(metadataManager);
