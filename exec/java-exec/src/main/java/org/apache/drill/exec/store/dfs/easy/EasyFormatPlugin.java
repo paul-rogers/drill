@@ -144,7 +144,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
       if (! columnExplorer.isStarQuery()) {
         scan = new EasySubScan(scan.getUserName(), scan.getWorkUnits(), scan.getFormatPlugin(),
-            columnExplorer.getTableColumns(), scan.getSelectionRoot());
+            columnExplorer.getTableColumns(), scan.getSelectionRoot(), scan.getPartitionDepth());
         scan.setOperatorId(scan.getOperatorId());
       }
 
@@ -245,7 +245,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         final BaseFileScanFramework<?> framework = buildFramework(scan);
         final String selectionRoot = scan.getSelectionRoot();
         if (! Strings.isNullOrEmpty(selectionRoot)) {
-          framework.setSelectionRoot(new Path(selectionRoot));
+          framework.setSelectionRoot(new Path(selectionRoot), scan.getPartitionDepth());
         }
         return new OperatorRecordBatch(
             context, scan,

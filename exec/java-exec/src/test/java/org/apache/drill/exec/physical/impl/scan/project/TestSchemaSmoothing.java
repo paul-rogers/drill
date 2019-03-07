@@ -105,6 +105,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePathA, filePathB));
 
     // Set up the scan level projection
@@ -585,6 +586,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePathA, filePathB));
 
     // Set up the scan level projection
@@ -635,6 +637,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePathA, filePathB));
 
     // Set up the scan level projection
@@ -685,6 +688,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePathA, filePathB));
 
     // Set up the scan level projection

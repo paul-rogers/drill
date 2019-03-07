@@ -67,6 +67,7 @@ public class TestColumnsArray extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePath));
 
     // ...and the columns array manager

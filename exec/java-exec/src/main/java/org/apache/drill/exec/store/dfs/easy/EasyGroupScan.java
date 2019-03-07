@@ -33,6 +33,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
@@ -57,8 +58,9 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 public class EasyGroupScan extends AbstractFileGroupScan {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
-  private FileSelection selection;
   private final EasyFormatPlugin<?> formatPlugin;
+  private FileSelection selection;
+  private int partitionDepth;
   private int maxWidth;
   private int minWidth = 1;
   private List<SchemaPath> columns;
@@ -119,6 +121,9 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     // to force parallelism even for small test files.
     // See ExecConstants.MIN_READER_WIDTH
     this.minWidth = Math.max(1, Math.min(minWidth, maxWidth));
+
+    // Compute the maximum partition depth across all files.
+    partitionDepth = ColumnExplorer.getPartitionDepth(selection);
   }
 
   @JsonIgnore
@@ -142,6 +147,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     maxWidth = that.maxWidth;
     minWidth = that.minWidth;
     mappings = that.mappings;
+    partitionDepth = that.partitionDepth;
   }
 
   private void initFromSelection(FileSelection selection, EasyFormatPlugin<?> formatPlugin) throws IOException {
@@ -242,7 +248,8 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     Preconditions.checkArgument(!filesForMinor.isEmpty(),
         String.format("MinorFragmentId %d has no read entries assigned", minorFragmentId));
 
-    EasySubScan subScan = new EasySubScan(getUserName(), convert(filesForMinor), formatPlugin, columns, selectionRoot);
+    EasySubScan subScan = new EasySubScan(getUserName(), convert(filesForMinor), formatPlugin,
+        columns, selectionRoot, partitionDepth);
     subScan.setOperatorId(this.getOperatorId());
     return subScan;
   }

@@ -43,6 +43,7 @@ public class EasySubScan extends AbstractSubScan{
   private final EasyFormatPlugin<?> formatPlugin;
   private final List<SchemaPath> columns;
   private final String selectionRoot;
+  private final int partitionDepth;
 
   @JsonCreator
   public EasySubScan(
@@ -52,7 +53,8 @@ public class EasySubScan extends AbstractSubScan{
       @JsonProperty("format") FormatPluginConfig formatConfig,
       @JacksonInject StoragePluginRegistry engineRegistry,
       @JsonProperty("columns") List<SchemaPath> columns,
-      @JsonProperty("selectionRoot") String selectionRoot
+      @JsonProperty("selectionRoot") String selectionRoot,
+      @JsonProperty("partitionDepth") int partitionDepth
       ) throws IOException, ExecutionSetupException {
     super(userName);
     this.formatPlugin = (EasyFormatPlugin<?>) engineRegistry.getFormatPlugin(storageConfig, formatConfig);
@@ -60,19 +62,24 @@ public class EasySubScan extends AbstractSubScan{
     this.files = files;
     this.columns = columns;
     this.selectionRoot = selectionRoot;
+    this.partitionDepth = partitionDepth;
   }
 
   public EasySubScan(String userName, List<FileWorkImpl> files, EasyFormatPlugin<?> plugin,
-      List<SchemaPath> columns, String selectionRoot) {
+      List<SchemaPath> columns, String selectionRoot, int partitionDepth) {
     super(userName);
     this.formatPlugin = plugin;
     this.files = files;
     this.columns = columns;
     this.selectionRoot = selectionRoot;
+    this.partitionDepth = partitionDepth;
   }
 
   @JsonProperty
   public String getSelectionRoot() { return selectionRoot; }
+
+  @JsonProperty
+  public int getPartitionDepth() { return partitionDepth; }
 
   @JsonIgnore
   public EasyFormatPlugin<?> getFormatPlugin() { return formatPlugin; }

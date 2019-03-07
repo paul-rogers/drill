@@ -62,6 +62,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePath));
 
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
@@ -129,6 +130,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
@@ -200,6 +202,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
@@ -278,6 +281,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
@@ -345,6 +349,7 @@ public class TestScanOrchestratorMetadata extends SubOperatorTest {
         false, // Don't expand partition columns for wildcard
         false, // N/A
         new Path("hdfs:///w"),
+        FileMetadataManager.AUTO_PARTITION_DEPTH,
         Lists.newArrayList(filePathA, filePathB));
     scanner.withMetadata(metadataManager);
 

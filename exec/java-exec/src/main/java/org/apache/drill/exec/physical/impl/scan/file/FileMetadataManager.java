@@ -63,16 +63,24 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
 
 public class FileMetadataManager implements MetadataManager, SchemaProjectionResolver, VectorSource {
 
+  /**
+   * Automatically compute partition depth from files. Use only
+   * for testing!
+   */
+
+  public static final int AUTO_PARTITION_DEPTH = -1;
+
   // Input
 
-  private Path scanRootDir;
+  private final Path scanRootDir;
+  private final int partitionCount;
   private FileMetadata currentFile;
 
   // Config
 
   protected final String partitionDesignator;
-  protected List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();
-  protected Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
+  protected final List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();
+  protected final Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
 
   /**
    * Indicates whether to expand partition columns when the query contains a wildcard.
@@ -105,7 +113,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   private final List<MetadataColumn> metadataColumns = new ArrayList<>();
   private ConstantColumnLoader loader;
   private VectorContainer outputContainer;
-  private final int partitionCount;
 
   /**
    * Specifies whether to plan based on the legacy meaning of "*". See
@@ -130,10 +137,11 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   public FileMetadataManager(OptionSet optionManager,
       boolean useLegacyWildcardExpansion,
       boolean useLegacyExpansionLocation,
-      Path rootDir, List<Path> files) {
+      Path rootDir,
+      int partitionCount,
+      List<Path> files) {
     this.useLegacyWildcardExpansion = useLegacyWildcardExpansion;
     this.useLegacyExpansionLocation = useLegacyExpansionLocation;
-    scanRootDir = rootDir;
 
     partitionDesignator = optionManager.getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
     for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
@@ -148,20 +156,29 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
 
     // The files and root dir are optional.
 
-    if (scanRootDir == null || files == null) {
-      partitionCount = 0;
+    if (rootDir == null || files == null) {
+      scanRootDir = null;
+      this.partitionCount = 0;
 
     // Special case in which the file is the same as the
     // root directory (occurs for a query with only one file.)
 
-    } else if (files.size() == 1 && scanRootDir.equals(files.get(0))) {
+    } else if (files.size() == 1 && rootDir.equals(files.get(0))) {
       scanRootDir = null;
-      partitionCount = 0;
+      this.partitionCount = 0;
     } else {
+      scanRootDir = rootDir;
 
-      // Compute the partitions.
+      // Compute the partitions. Normally the count is passed in.
+      // But, handle the case where the count is unknown. Note: use this
+      // convenience only in testing since, in production, it can result
+      // in different scans reporting different numbers of partitions.
 
-      partitionCount = computeMaxPartition(files);
+      if (partitionCount == -1) {
+        this.partitionCount = computeMaxPartition(files);
+      } else {
+        this.partitionCount = partitionCount;
+      }
     }
   }
 

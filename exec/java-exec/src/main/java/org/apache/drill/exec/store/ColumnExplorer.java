@@ -156,19 +156,7 @@ public class ColumnExplorer {
    * @return list with partition column names.
    */
   public static List<String> getPartitionColumnNames(FileSelection selection, SchemaConfig schemaConfig) {
-    int partitionsCount = 0;
-    // a depth of table root path
-    int rootDepth = new Path(selection.getSelectionRoot()).depth();
-
-    for (String file : selection.getFiles()) {
-      // Calculates partitions count for the concrete file:
-      // depth of file path - depth of table root path - 1.
-      // The depth of file path includes file itself,
-      // so we should subtract 1 to consider only directories.
-      int currentPartitionsCount = new Path(file).depth() - rootDepth - 1;
-      // max depth of files path should be used to handle all partitions
-      partitionsCount = Math.max(partitionsCount, currentPartitionsCount);
-    }
+    int partitionsCount = getPartitionDepth(selection);
 
     String partitionColumnLabel = schemaConfig.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
     List<String> partitions = Lists.newArrayList();
@@ -178,6 +166,23 @@ public class ColumnExplorer {
       partitions.add(partitionColumnLabel + i);
     }
     return partitions;
+  }
+
+  public static int getPartitionDepth(FileSelection selection) {
+    // a depth of table root path
+    int rootDepth = new Path(selection.getSelectionRoot()).depth();
+
+    int partitionsCount = 0;
+    for (String file : selection.getFiles()) {
+      // Calculates partitions count for the concrete file:
+      // depth of file path - depth of table root path - 1.
+      // The depth of file path includes file itself,
+      // so we should subtract 1 to consider only directories.
+      int currentPartitionsCount = new Path(file).depth() - rootDepth - 1;
+      // max depth of files path should be used to handle all partitions
+      partitionsCount = Math.max(partitionsCount, currentPartitionsCount);
+    }
+    return partitionsCount;
   }
 
   /**
