@@ -20,7 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
+import org.apache.drill.exec.vector.accessor.convert.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.writer.WriterEvents.ColumnWriterListener;
 import org.joda.time.Period;
 

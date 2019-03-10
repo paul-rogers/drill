@@ -15,14 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.writer;
+package org.apache.drill.exec.vector.accessor.convert;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.joda.time.Period;
 
 /**
@@ -38,10 +41,36 @@ import org.joda.time.Period;
 
 public class AbstractWriteConverter extends AbstractScalarWriter {
 
-  private final ScalarWriter baseWriter;
+  public static class SimpleWriterConverterFactory implements ColumnConversionFactory {
+    private Constructor<? extends AbstractWriteConverter> ctor;
+
+    SimpleWriterConverterFactory(Class<? extends AbstractWriteConverter> conversionClass) {
+      try {
+        ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class);
+      } catch (NoSuchMethodException | SecurityException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @Override
+    public AbstractWriteConverter newWriter(ScalarWriter baseWriter) {
+      try {
+        return ctor.newInstance(baseWriter);
+      } catch (InstantiationException | IllegalAccessException
+          | IllegalArgumentException | InvocationTargetException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
+  protected final ScalarWriter baseWriter;
 
   public AbstractWriteConverter(ScalarWriter baseWriter) {
     this.baseWriter = baseWriter;
+  }
+
+  public static ColumnConversionFactory factory(Class<? extends AbstractWriteConverter> converterClass) {
+    return new SimpleWriterConverterFactory(converterClass);
   }
 
   @Override

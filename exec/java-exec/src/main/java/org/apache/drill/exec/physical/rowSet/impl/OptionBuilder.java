@@ -25,10 +25,12 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetO
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Builder for the options for the row set loader. Reasonable defaults
- * are provided for all options; use these options for test code or
+ * are provided for all options; use the default options for test code or
  * for clients that don't need special settings.
  */
 
@@ -40,8 +42,11 @@ public class OptionBuilder {
   protected ResultVectorCache vectorCache;
   protected TupleMetadata schema;
   protected long maxBatchSize;
+  protected ColumnConversionFactory conversionFactory;
+  protected SchemaTransformer schemaTransformer;
 
   public OptionBuilder() {
+    // Start with the default option values.
     ResultSetOptions options = new ResultSetOptions();
     vectorSizeLimit = options.vectorSizeLimit;
     rowCountLimit = options.rowCountLimit;
@@ -52,8 +57,7 @@ public class OptionBuilder {
    * Specify the maximum number of rows per batch. Defaults to
    * {@link BaseValueVector#INITIAL_VALUE_ALLOCATION}. Batches end either
    * when this limit is reached, or when a vector overflows, whichever
-   * occurs first. The limit is capped at
-   * {@link ValueVector#MAX_ROW_COUNT}.
+   * occurs first. The limit is capped at {@link ValueVector#MAX_ROW_COUNT}.
    *
    * @param limit the row count limit
    * @return this builder
@@ -129,10 +133,60 @@ public class OptionBuilder {
     return this;
   }
 
+  /**
+   * Provide an optional column conversion factory. Can create a "shim"
+   * writer to convert from a type convenient for the client to the type
+   * required by the vector. Example: string-to-int conversion. The factory
+   * can inspect column metadata properties to decide what conversion, if
+   * any, to create.
+   * <p>
+   * A column conversion factory assumes that the data type of the output
+   * vector is the same as the data type of the column schema passed to
+   * the result set loader. It does allow inserting a type conversion or
+   * validation shim above the column writer specified by the column
+   * type.
+   * <p>
+   * The result set loader makes no assumptions about how the conversion
+   * factory works. It can follow the Drill schema definition patterns, or
+   * it could do something ad-hoc: such details are hidden inside the
+   * implementation.
+   * <p>
+   * Provide either a (lower-level) column conversion factory or a
+   * (higher level) column transformer, but not both. This form is used
+   * mostly for testing, but could also be used by operators other than
+   * scan,.
+   *
+   * @param factory a class which can inspect each writer as it is created
+   * and insert a new "shim" writer as desired
+   * @return this builder
+   */
+  public OptionBuilder setConversionFactory(ColumnConversionFactory factory) {
+    conversionFactory = factory;
+    return this;
+  }
+
+  /**
+   * Provide an optional higher-level schema transformer which can convert
+   * columns from one type to another. It is a more powerful version of the
+   * column conversion factory.
+   * <p>
+   * Provide either a (lower-level) column conversion factory or a
+   * (higher level) column transformer, but not both.
+   *
+   * @param transform the column conversion factory
+   * @return this builder
+   */
+  public OptionBuilder setSchemaTransform(SchemaTransformer transform) {
+    schemaTransformer = transform;
+    return this;
+  }
+
   // TODO: No setter for vector length yet: is hard-coded
   // at present in the value vector.
 
   public ResultSetOptions build() {
+    Preconditions.checkArgument(conversionFactory == null || schemaTransformer == null);
+    Preconditions.checkArgument(projection == null || projectionSet == null);
     return new ResultSetOptions(this);
   }
 }

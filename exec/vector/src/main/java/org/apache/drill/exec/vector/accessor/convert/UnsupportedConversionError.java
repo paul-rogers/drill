@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.convert;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
@@ -30,6 +30,10 @@ public class UnsupportedConversionError extends UnsupportedOperationException {
 
   public UnsupportedConversionError(String message) {
     super(message);
+  }
+
+  public UnsupportedConversionError(String message, Exception e) {
+    super(message, e);
   }
 
   public static UnsupportedConversionError readError(ColumnMetadata schema, String javaType) {

@@ -17,25 +17,22 @@
  */
 package org.apache.drill.test.rowSet.test;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 
 import org.apache.drill.categories.RowSetTests;
-
-import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
-
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractWriteConverter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.accessor.convert.AbstractWriteConverter;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -46,6 +43,13 @@ import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
 public class TestColumnConverter extends SubOperatorTest {
+
+  public static final String CONVERTER_PROP = "test.conversion";
+  public static final String CONVERT_TO_INT = "int";
+
+  public static void setConverterProp(ColumnMetadata colSchema, String value) {
+    colSchema.setProperty(CONVERTER_PROP, value);
+  }
 
   /**
    * Simple type converter that allows string-to-int conversions.
@@ -61,15 +65,24 @@ public class TestColumnConverter extends SubOperatorTest {
     public void setString(String value) {
       setInt(Integer.parseInt(value));
     }
+  }
 
-    public static ColumnConversionFactory factory() {
-      return new ColumnConversionFactory() {
-        @Override
-        public AbstractScalarWriter newWriter(ColumnMetadata colDefn,
-            ScalarWriter baseWriter) {
-           return new TestConverter(baseWriter);
-        }
-      };
+  /**
+   * Mock conversion factory that uses a property on the column metadata
+   * to indicate that a converter should be inserted.
+   */
+  public static class ConverterFactory implements ColumnConversionFactory {
+
+    @Override
+    public AbstractWriteConverter newWriter(ScalarWriter baseWriter) {
+      String value = baseWriter.schema().property(CONVERTER_PROP);
+      if (value == null) {
+        return null;
+      }
+      if (value.equals(CONVERT_TO_INT)) {
+        return new TestConverter(baseWriter);
+      }
+      return null;
     }
   }
 
@@ -86,12 +99,13 @@ public class TestColumnConverter extends SubOperatorTest {
     // Add a type converter. Passed in as a factory
     // since we must create a new one for each row set writer.
 
-    schema.metadata("n1").setTypeConverter(TestConverter.factory());
-    schema.metadata("n2").setTypeConverter(TestConverter.factory());
+    setConverterProp(schema.metadata("n1"), CONVERT_TO_INT);
+    setConverterProp(schema.metadata("n2"), CONVERT_TO_INT);
 
     // Write data as both a string as an integer
 
-    RowSet actual = new RowSetBuilder(fixture.allocator(), schema)
+    ConverterFactory conversionFactory = new ConverterFactory();
+    RowSet actual = new RowSetBuilder(fixture.allocator(), schema, conversionFactory)
         .addRow("123", "12")
         .addRow(234, 23)
         .build();
@@ -124,11 +138,12 @@ public class TestColumnConverter extends SubOperatorTest {
     // Add a type converter. Passed in as a factory
     // since we must create a new one for each row set writer.
 
-    schema.metadata("n").setTypeConverter(TestConverter.factory());
+    setConverterProp(schema.metadata("n"), CONVERT_TO_INT);
 
     // Write data as both a string as an integer
 
-    RowSet actual = new RowSetBuilder(fixture.allocator(), schema)
+    ConverterFactory conversionFactory = new ConverterFactory();
+    RowSet actual = new RowSetBuilder(fixture.allocator(), schema, conversionFactory)
         .addSingleCol(strArray("123", "124"))
         .addSingleCol(intArray(234, 235))
         .build();

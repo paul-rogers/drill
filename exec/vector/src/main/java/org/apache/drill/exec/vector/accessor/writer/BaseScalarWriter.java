@@ -19,7 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
+import org.apache.drill.exec.vector.accessor.convert.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 

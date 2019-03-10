@@ -23,6 +23,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -77,9 +78,11 @@ public class NullableScalarWriter extends AbstractScalarWriterImpl {
   }
 
   public static ScalarObjectWriter build(ColumnMetadata schema,
-      NullableVector nullableVector, BaseScalarWriter baseWriter) {
+      NullableVector nullableVector, BaseScalarWriter baseWriter,
+      ColumnConversionFactory conversionFactory) {
     return new ScalarObjectWriter(
-        new NullableScalarWriter(schema, nullableVector, baseWriter));
+        new NullableScalarWriter(schema, nullableVector, baseWriter),
+        conversionFactory);
   }
 
   public BaseScalarWriter bitsWriter() { return isSetWriter; }

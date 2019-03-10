@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
@@ -51,6 +52,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     public final RequestedTuple projectionSet;
     public final TupleMetadata schema;
     public final long maxBatchSize;
+    public final ColumnConversionFactory conversionFactory;
+    public final SchemaTransformer schemaTransformer;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
@@ -59,6 +62,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
+      conversionFactory = null;
+      schemaTransformer = null;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
@@ -67,6 +72,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = builder.vectorCache;
       schema = builder.schema;
       maxBatchSize = builder.maxBatchSize;
+      conversionFactory = builder.conversionFactory;
+      schemaTransformer = builder.schemaTransformer;
 
       // If projection, build the projection map.
       // The caller might have already built the map. If so,
@@ -179,6 +186,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   final BufferAllocator allocator;
 
   /**
+   * Builds columns (vector, writer, state).
+   */
+
+  final ColumnBuilder columnBuilder;
+
+  /**
    * Internal structure used to work with the vectors (real or dummy) used
    * by this loader.
    */
@@ -275,6 +288,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     this.options = options;
     targetRowCount = options.rowCountLimit;
     writerIndex = new WriterIndexImpl(this);
+    SchemaTransformer schemaTransform = options.schemaTransformer;
+    if (schemaTransform == null) {
+      schemaTransform = new DefaultSchemaTransformer(options.conversionFactory);
+    }
+    columnBuilder = new ColumnBuilder(schemaTransform);
 
     // Set the projections
 
@@ -829,4 +847,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   public int rowIndex() {
     return writerIndex().vectorIndex();
   }
+
+  @Override
+  public ColumnBuilder columnBuilder() { return columnBuilder; }
 }
