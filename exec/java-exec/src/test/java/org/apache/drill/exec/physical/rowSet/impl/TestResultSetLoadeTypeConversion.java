@@ -66,10 +66,11 @@ public class TestResultSetLoadeTypeConversion extends SubOperatorTest {
     TestColumnConverter.setConverterProp(schema.metadata("n3"),
         TestColumnConverter.CONVERT_TO_INT);
 
+    SchemaTransformer schemaTransform = new DefaultSchemaTransformer(new ConverterFactory());
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setConversionFactory(new ConverterFactory())
+        .setSchemaTransform(schemaTransform)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     rsLoader.startBatch();

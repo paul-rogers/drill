@@ -266,7 +266,7 @@ public class ColumnBuilder {
       buf.append("tuple array (a[n].x");
       break;
     default:
-      throw new IllegalStateException();
+      throw new IllegalStateException("Unexpected projection type: " + projType);
     }
     buf.append(" is not compatible with column `")
       .append(columnSchema.name())

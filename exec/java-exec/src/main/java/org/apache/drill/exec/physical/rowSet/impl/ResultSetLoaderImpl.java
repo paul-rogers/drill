@@ -29,7 +29,6 @@ import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
@@ -52,7 +51,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     public final RequestedTuple projectionSet;
     public final TupleMetadata schema;
     public final long maxBatchSize;
-    public final ColumnConversionFactory conversionFactory;
     public final SchemaTransformer schemaTransformer;
 
     public ResultSetOptions() {
@@ -62,7 +60,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
-      conversionFactory = null;
       schemaTransformer = null;
     }
 
@@ -72,7 +69,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = builder.vectorCache;
       schema = builder.schema;
       maxBatchSize = builder.maxBatchSize;
-      conversionFactory = builder.conversionFactory;
       schemaTransformer = builder.schemaTransformer;
 
       // If projection, build the projection map.
@@ -288,11 +284,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     this.options = options;
     targetRowCount = options.rowCountLimit;
     writerIndex = new WriterIndexImpl(this);
-    SchemaTransformer schemaTransform = options.schemaTransformer;
-    if (schemaTransform == null) {
-      schemaTransform = new DefaultSchemaTransformer(options.conversionFactory);
+    SchemaTransformer schemaTransformer = options.schemaTransformer;
+    if (schemaTransformer == null) {
+      schemaTransformer = new DefaultSchemaTransformer(null);
     }
-    columnBuilder = new ColumnBuilder(schemaTransform);
+    columnBuilder = new ColumnBuilder(schemaTransformer);
 
     // Set the projections
 

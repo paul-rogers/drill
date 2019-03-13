@@ -24,7 +24,7 @@ import java.time.format.DateTimeParseException;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
- * Convert a VARCHAR column to an TIMESAMP column following the Java rules
+ * Convert a VARCHAR column to an TIMESTAMP column following the Java rules
  * for parsing a date time, optionally using the formatter provided in
  * the column schema.
  */

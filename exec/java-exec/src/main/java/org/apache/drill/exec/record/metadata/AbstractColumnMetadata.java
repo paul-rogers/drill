@@ -191,8 +191,10 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
   @Override
   public int expectedElementCount() {
     if (isArray()) {
+      // Not set means default size
       return PropertyAccessor.getInt(this, EXPECTED_CARDINALITY_PROP, DEFAULT_ARRAY_SIZE);
     } else {
+      // Cardinality always 1 for optional, repeated modes
       return 1;
     }
   }
@@ -224,7 +226,7 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
 
   @Override
   public DateTimeFormatter dateTimeFormatter() {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Date/time not supported for non-scalar columns");
   }
 
   @Override
@@ -244,12 +246,12 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
 
   @Override
   public Object valueFromString(String value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Value conversion not supported for non-scalar columns");
   }
 
   @Override
   public String valueToString(Object value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Value conversion not supported for non-scalar columns");
   }
 
   @JsonProperty("properties")

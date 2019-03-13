@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.convert;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -47,7 +46,7 @@ public class AbstractWriteConverter extends AbstractScalarWriter {
     SimpleWriterConverterFactory(Class<? extends AbstractWriteConverter> conversionClass) {
       try {
         ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class);
-      } catch (NoSuchMethodException | SecurityException e) {
+      } catch (final ReflectiveOperationException e) {
         throw new IllegalStateException(e);
       }
     }
@@ -56,8 +55,7 @@ public class AbstractWriteConverter extends AbstractScalarWriter {
     public AbstractWriteConverter newWriter(ScalarWriter baseWriter) {
       try {
         return ctor.newInstance(baseWriter);
-      } catch (InstantiationException | IllegalAccessException
-          | IllegalArgumentException | InvocationTargetException e) {
+      } catch (final ReflectiveOperationException e) {
         throw new IllegalStateException(e);
       }
     }

@@ -115,7 +115,15 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
     this.outputSchema = outputSchema;
   }
 
-  protected ColumnTransformer nullTransform(ColumnMetadata inputSchema,
+  /**
+   * Creates a "null" or "no-op" transform: just uses the input schema
+   * as the output schema.
+   *
+   * @param inputSchema the input schema from the reader
+   * @param projType projection type
+   * @return a no-op transform
+   */
+  protected ColumnTransformer noOpTransform(ColumnMetadata inputSchema,
       ProjectionType projType) {
     return new PassThroughColumnTransform(inputSchema, projType);
   }
@@ -142,14 +150,14 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
 
     ColumnMetadata outputCol = outputSchema.metadata(inputSchema.name());
     if (outputCol == null) {
-      return nullTransform(inputSchema, projType);
+      return noOpTransform(inputSchema, projType);
     }
 
     // If the types and modes match, assume a pass-through transform
 
     if (outputCol.type() == inputSchema.type() &&
         outputCol.mode() == inputSchema.mode()) {
-      return nullTransform(inputSchema, projType);
+      return noOpTransform(inputSchema, projType);
     }
 
     return buildTransform(inputSchema, outputCol, projType);
@@ -158,10 +166,10 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
   /**
    * Overridden to provide a conversion between input an output types.
    *
-   * @param outputDefn the column schema for the output vector to be produced
-   * by this operator
    * @param inputDefn the column schema for the input column which the
    * client code (e.g. reader) wants to produce
+   * @param outputDefn the column schema for the output vector to be produced
+   * by this operator
    * @param projType the kind of projection requested for this column.
    * Generally just retained and returned, but not used
    * @return a column transformer to implement the conversion
@@ -178,9 +186,12 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
   /**
    * Simplified form of the above which returns the class to use for the transform.
    *
-   * @param outputDefn
-   * @param inputDefn
-   * @return
+   * @param inputDefn the column schema for the input column which the
+   * client code (e.g. reader) wants to produce
+   * @param outputDefn the column schema for the output vector to be produced
+   * by this operator
+   * @return the class to use to convert the input type to the output type.
+   * This class will be instantiated while creating the output column writer
    */
   protected abstract Class<? extends AbstractWriteConverter> transformClass(
       ColumnMetadata inputDefn, ColumnMetadata outputDefn);
@@ -188,8 +199,10 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
   /**
    * Create converters for standard cases.
    *
-   * @param inputDefn
-   * @param outputDefn
+   * @param inputDefn the column schema for the input column which the
+   * client code (e.g. reader) wants to produce
+   * @param outputDefn the column schema for the output vector to be produced
+   * by this operator
    * @return a standard conversion if one is available, or null if either no
    * conversion is needed or available
    */
