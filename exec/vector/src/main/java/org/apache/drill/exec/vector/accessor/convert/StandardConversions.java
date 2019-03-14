@@ -1,0 +1,238 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.vector.accessor.convert;
+
+import java.lang.reflect.Constructor;
+
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+
+/**
+ * Standard type conversion tools. Provides a mapping from input to output
+ * (vector) type. Handles implicit conversions (those done by the column
+ * writer itself) and explicit conversions for the Java string notation
+ * for various types. Readers must provide custom conversions or specialized
+ * formats.
+ * <p>
+ * Does not (yet) provide type-narrowing conversions such as BigInt-to-Int.
+ * These need a policy for handling overflow. Also, they should be code
+ * generated since they follow standard rules.
+ */
+public class StandardConversions {
+
+  /**
+   * Indicates the type of conversion needed.
+   */
+  public enum ConversionType {
+
+    /**
+     * No conversion needed. Readers generally don't provide converters
+     * in this case unless the meaning of a column must change, keeping
+     * the type, such as converting between units.
+     */
+    NONE,
+    /**
+     * Conversion is done by the column writers. Again, no converter
+     * is needed except for semantic reasons.
+     */
+    IMPLICIT,
+    /**
+     * Conversion is needed because there is no "natural",
+     * precision-preserving conversion. Conversions must be done on
+     * an ad-hoc basis.
+     */
+    EXPLICIT
+  }
+
+  /**
+   * Definition of a conversion including conversion type and the standard
+   * conversion class (if available.)
+   */
+  public static class ConversionDefn {
+    public final ConversionType type;
+    public final Class<? extends AbstractWriteConverter> conversionClass;
+
+    public ConversionDefn(ConversionType type) {
+      this.type = type;
+      conversionClass = null;
+    }
+
+    public ConversionDefn(Class<? extends AbstractWriteConverter> conversionClass) {
+      this.type = ConversionType.EXPLICIT;
+      this.conversionClass = conversionClass;
+    }
+  }
+
+  /**
+   * Column conversion factory for the case where a conversion class is provided.
+   */
+  public static class SimpleWriterConverterFactory implements ColumnConversionFactory {
+    private final Class<? extends AbstractWriteConverter> conversionClass;
+
+    SimpleWriterConverterFactory(Class<? extends AbstractWriteConverter> conversionClass) {
+      this.conversionClass = conversionClass;
+    }
+
+    @Override
+    public AbstractWriteConverter newWriter(ScalarWriter baseWriter) {
+      return newInstance(conversionClass, baseWriter);
+    }
+  }
+
+  public static ColumnConversionFactory factory(Class<? extends AbstractWriteConverter> converterClass) {
+    return new SimpleWriterConverterFactory(converterClass);
+  }
+
+  public static AbstractWriteConverter newInstance(
+      Class<? extends AbstractWriteConverter> conversionClass, ScalarWriter baseWriter) {
+    try {
+      final Constructor<? extends AbstractWriteConverter> ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class);
+      return ctor.newInstance(baseWriter);
+    } catch (final ReflectiveOperationException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Create converters for standard cases.
+   *
+   * @param inputDefn the column schema for the input column which the
+   * client code (e.g. reader) wants to produce
+   * @param outputDefn the column schema for the output vector to be produced
+   * by this operator
+   * @return a description of the conversion needed (if any), along with the
+   * standard conversion class, if available
+   */
+  public static ConversionDefn analyze(ColumnMetadata inputSchema, ColumnMetadata outputSchema) {
+    if (inputSchema.type().equals(outputSchema.type())) {
+      return new ConversionDefn(ConversionType.NONE);
+    }
+
+    switch (inputSchema.type()) {
+    case VARCHAR:
+      return new ConversionDefn(convertFromVarchar(outputSchema));
+    case TINYINT:
+      switch (outputSchema.type()) {
+      case SMALLINT:
+      case INT:
+      case BIGINT:
+      case FLOAT4:
+      case FLOAT8:
+      case DECIMAL18:
+      case DECIMAL28DENSE:
+      case DECIMAL28SPARSE:
+      case DECIMAL38DENSE:
+      case DECIMAL38SPARSE:
+      case DECIMAL9:
+      case VARDECIMAL:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    case SMALLINT:
+      switch (outputSchema.type()) {
+      case INT:
+      case BIGINT:
+      case FLOAT4:
+      case FLOAT8:
+      case DECIMAL18:
+      case DECIMAL28DENSE:
+      case DECIMAL28SPARSE:
+      case DECIMAL38DENSE:
+      case DECIMAL38SPARSE:
+      case DECIMAL9:
+      case VARDECIMAL:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    case INT:
+      switch (outputSchema.type()) {
+      case BIGINT:
+      case FLOAT8:
+      case DECIMAL18:
+      case DECIMAL28DENSE:
+      case DECIMAL28SPARSE:
+      case DECIMAL38DENSE:
+      case DECIMAL38SPARSE:
+      case DECIMAL9:
+      case VARDECIMAL:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    case BIGINT:
+      switch (outputSchema.type()) {
+      case DECIMAL18:
+      case DECIMAL28DENSE:
+      case DECIMAL28SPARSE:
+      case DECIMAL38DENSE:
+      case DECIMAL38SPARSE:
+      case DECIMAL9:
+      case VARDECIMAL:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    case FLOAT4:
+      switch (outputSchema.type()) {
+      case FLOAT8:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    default:
+      break;
+    }
+    return new ConversionDefn(ConversionType.EXPLICIT);
+  }
+
+  public static Class<? extends AbstractWriteConverter> convertFromVarchar(
+      ColumnMetadata outputDefn) {
+    switch (outputDefn.type()) {
+    case TINYINT:
+    case SMALLINT:
+    case INT:
+    case UINT1:
+    case UINT2:
+      return ConvertStringToInt.class;
+    case BIGINT:
+      return ConvertStringToLong.class;
+    case FLOAT4:
+    case FLOAT8:
+      return ConvertStringToDouble.class;
+    case DATE:
+      return ConvertStringToDate.class;
+    case TIME:
+      return ConvertStringToTime.class;
+    case TIMESTAMP:
+      return ConvertStringToTimeStamp.class;
+    case INTERVALYEAR:
+    case INTERVALDAY:
+    case INTERVAL:
+      return ConvertStringToInterval.class;
+    default:
+      return null;
+    }
+  }
+}

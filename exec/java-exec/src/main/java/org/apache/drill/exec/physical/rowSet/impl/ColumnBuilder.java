@@ -27,7 +27,7 @@ import org.apache.drill.exec.physical.rowSet.impl.ColumnState.PrimitiveColumnSta
 import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.RepeatedListState.RepeatedListColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.RepeatedListState.RepeatedListVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformer.ColumnTransformer;
+import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformer.ColumnTransform;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
@@ -95,7 +95,7 @@ public class ColumnBuilder {
    * ride, but don't do anything. They do not cause a vector to be materialized.
    * The client, however, can still write to them, though the data is ignored.
    */
-  public static class NoOpTransform implements ColumnTransformer {
+  public static class NoOpTransform implements ColumnTransform {
 
     private final ColumnMetadata columnSchema;
 
@@ -140,7 +140,7 @@ public class ColumnBuilder {
     // Indicate projection in the metadata.
 
     ProjectionType projType = parent.projectionType(columnSchema.name());
-    ColumnTransformer outputCol;
+    ColumnTransform outputCol;
     if (projType == ProjectionType.UNPROJECTED) {
       PropertyAccessor.set(columnSchema, ColumnMetadata.PROJECTED_PROP, false);
       outputCol = new NoOpTransform(columnSchema);
@@ -183,7 +183,7 @@ public class ColumnBuilder {
    * @return column state for the new column
    */
 
-  private ColumnState buildPrimitive(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildPrimitive(ContainerState parent, ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
@@ -287,7 +287,7 @@ public class ColumnBuilder {
    * @return column state for the map column
    */
 
-  private ColumnState buildMap(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildMap(ContainerState parent, ColumnTransform outputCol) {
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
     // When dynamically adding columns, must add the (empty)
@@ -306,7 +306,7 @@ public class ColumnBuilder {
     }
   }
 
-  private ColumnState buildSingleMap(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildSingleMap(ContainerState parent, ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
@@ -340,7 +340,7 @@ public class ColumnBuilder {
     return new MapColumnState(mapState, mapWriter, vectorState, parent.isVersioned());
   }
 
-  private ColumnState buildMapArray(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildMapArray(ContainerState parent, ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
@@ -412,7 +412,7 @@ public class ColumnBuilder {
    * @param columnSchema column schema
    * @return column
    */
-  private ColumnState buildUnion(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildUnion(ContainerState parent, ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
     assert columnSchema.isVariant() && ! columnSchema.isArray();
@@ -461,7 +461,7 @@ public class ColumnBuilder {
     return new UnionColumnState(parent.loader(), writer, vectorState, unionState);
   }
 
-  private ColumnState buildList(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildList(ContainerState parent, ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
@@ -505,7 +505,7 @@ public class ColumnBuilder {
    * @return the column state for the list
    */
 
-  private ColumnState buildSimpleList(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildSimpleList(ContainerState parent, ColumnTransform outputCol) {
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
     // The variant must have the one and only type.
@@ -565,7 +565,7 @@ public class ColumnBuilder {
    * @return the column state for the list
    */
 
-  private ColumnState buildUnionList(ContainerState parent, ColumnTransformer outputCol) {
+  private ColumnState buildUnionList(ContainerState parent, ColumnTransform outputCol) {
     ColumnMetadata columnSchema = outputCol.outputSchema();
 
     // The variant must start out empty.
@@ -614,7 +614,7 @@ public class ColumnBuilder {
   }
 
   private ColumnState buildRepeatedList(ContainerState parent,
-      ColumnTransformer outputCol) {
+      ColumnTransform outputCol) {
     ProjectionType projType = outputCol.projectionType();
     ColumnMetadata columnSchema = outputCol.outputSchema();
 

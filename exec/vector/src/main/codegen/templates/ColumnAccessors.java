@@ -117,7 +117,7 @@ public class ColumnAccessors {
     </#if>
     <#assign varWidth = drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary"  || drillType == "VarDecimal"/>
     <#assign decimal = drillType == "Decimal9" || drillType == "Decimal18" ||
-                       drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse"  || drillType == "VarDecimal"/>
+                       drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse" || drillType == "VarDecimal"/>
     <#if varWidth>
       <#assign accessorType = "byte[]">
       <#assign label = "Bytes">
@@ -345,13 +345,36 @@ public class ColumnAccessors {
       setBytes(bytes, bytes.length);
     }
 
-    <#elseif drillType = "VarDecimal">
+    <#elseif drillType == "VarDecimal">
 
     @Override
     public final void setDecimal(final BigDecimal bd) {
       byte[] barr = bd.unscaledValue().toByteArray();
       int len = barr.length;
       setBytes(barr, len);
+    }
+    <#elseif drillType == "BigInt">
+
+    @Override
+    public final void setInt(int value) {
+      setLong(value);
+    }
+    <#elseif drillType == "Float4" || drillType == "Float8">
+
+    @Override
+    public final void setInt(int value) {
+      setDouble(value);
+    }
+    <#elseif decimal>
+
+    @Override
+    public final void setInt(int value) {
+      setDecimal(BigDecimal.valueOf(value));
+    }
+
+    @Override
+    public final void setLong(long value) {
+      setDecimal(BigDecimal.valueOf(value));
     }
     </#if>
   }

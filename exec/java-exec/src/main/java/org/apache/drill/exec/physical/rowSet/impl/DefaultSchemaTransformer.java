@@ -31,7 +31,7 @@ import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
  */
 public class DefaultSchemaTransformer implements SchemaTransformer {
 
-  public class DefaultColumnTransformer implements ColumnTransformer {
+  public class DefaultColumnTransformer implements ColumnTransform {
 
     private final ColumnMetadata columnSchema;
     private final ProjectionType projType;
@@ -66,7 +66,7 @@ public class DefaultSchemaTransformer implements SchemaTransformer {
   }
 
   @Override
-  public ColumnTransformer transform(ColumnMetadata inputSchema,
+  public ColumnTransform transform(ColumnMetadata inputSchema,
       ProjectionType projType) {
     return new DefaultColumnTransformer(inputSchema, projType);
   }

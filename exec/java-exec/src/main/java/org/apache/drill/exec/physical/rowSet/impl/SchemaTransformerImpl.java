@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -30,6 +32,8 @@ import org.apache.drill.exec.vector.accessor.convert.ConvertStringToInterval;
 import org.apache.drill.exec.vector.accessor.convert.ConvertStringToLong;
 import org.apache.drill.exec.vector.accessor.convert.ConvertStringToTime;
 import org.apache.drill.exec.vector.accessor.convert.ConvertStringToTimeStamp;
+import org.apache.drill.exec.vector.accessor.convert.StandardConversions;
+import org.apache.drill.exec.vector.accessor.convert.StandardConversions.ConversionDefn;
 
 /**
  * Base class for plugin-specific type transforms. Handles basic type
@@ -39,13 +43,15 @@ import org.apache.drill.exec.vector.accessor.convert.ConvertStringToTimeStamp;
  * this policy. The subclass provides the actual per-column transform logic.
  */
 
-public abstract class AbstractSchemaTransformer implements SchemaTransformer {
+public class SchemaTransformerImpl implements SchemaTransformer {
+
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SchemaTransformerImpl.class);
 
   /**
    * A no-op transform that simply keeps the input column schema and
    * writer without any changes.
    */
-  public static class PassThroughColumnTransform implements ColumnTransformer {
+  public static class PassThroughColumnTransform implements ColumnTransform {
 
     private final ColumnMetadata colDefn;
     private final ProjectionType projType;
@@ -76,7 +82,7 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
    * two. The conversion writer factory is provided via composition,
    * not by subclassing this class.
    */
-  public static class ColumnTransformImpl implements ColumnTransformer {
+  public static class ColumnTransformImpl implements ColumnTransform {
 
     private final ColumnMetadata inputSchema;
     private final ColumnMetadata outputSchema;
@@ -111,7 +117,7 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
 
   protected final TupleMetadata outputSchema;
 
-  public AbstractSchemaTransformer(TupleMetadata outputSchema) {
+  public SchemaTransformerImpl(TupleMetadata outputSchema) {
     this.outputSchema = outputSchema;
   }
 
@@ -123,7 +129,7 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
    * @param projType projection type
    * @return a no-op transform
    */
-  protected ColumnTransformer noOpTransform(ColumnMetadata inputSchema,
+  protected ColumnTransform noOpTransform(ColumnMetadata inputSchema,
       ProjectionType projType) {
     return new PassThroughColumnTransform(inputSchema, projType);
   }
@@ -138,7 +144,7 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
    * another VARCHAR.)
    */
   @Override
-  public ColumnTransformer transform(ColumnMetadata inputSchema,
+  public ColumnTransform transform(ColumnMetadata inputSchema,
       ProjectionType projType) {
 
     // Should never get an unprojected column; should be handled
@@ -153,91 +159,46 @@ public abstract class AbstractSchemaTransformer implements SchemaTransformer {
       return noOpTransform(inputSchema, projType);
     }
 
-    // If the types and modes match, assume a pass-through transform
-
-    if (outputCol.type() == inputSchema.type() &&
-        outputCol.mode() == inputSchema.mode()) {
-      return noOpTransform(inputSchema, projType);
-    }
-
-    return buildTransform(inputSchema, outputCol, projType);
-  }
-
-  /**
-   * Overridden to provide a conversion between input an output types.
-   *
-   * @param inputDefn the column schema for the input column which the
-   * client code (e.g. reader) wants to produce
-   * @param outputDefn the column schema for the output vector to be produced
-   * by this operator
-   * @param projType the kind of projection requested for this column.
-   * Generally just retained and returned, but not used
-   * @return a column transformer to implement the conversion
-   * @throws UserException if the implementation does not support the
-   * requested transform, or if the column properties used are invalid
-   */
-  protected ColumnTransformer buildTransform(ColumnMetadata inputDefn,
-      ColumnMetadata outputDefn, ProjectionType projType) {
-    return new ColumnTransformImpl(inputDefn, outputDefn, projType,
-        AbstractWriteConverter.factory(
-            transformClass(inputDefn, outputDefn)));
-  }
-
-  /**
-   * Simplified form of the above which returns the class to use for the transform.
-   *
-   * @param inputDefn the column schema for the input column which the
-   * client code (e.g. reader) wants to produce
-   * @param outputDefn the column schema for the output vector to be produced
-   * by this operator
-   * @return the class to use to convert the input type to the output type.
-   * This class will be instantiated while creating the output column writer
-   */
-  protected abstract Class<? extends AbstractWriteConverter> transformClass(
-      ColumnMetadata inputDefn, ColumnMetadata outputDefn);
-
-  /**
-   * Create converters for standard cases.
-   *
-   * @param inputDefn the column schema for the input column which the
-   * client code (e.g. reader) wants to produce
-   * @param outputDefn the column schema for the output vector to be produced
-   * by this operator
-   * @return a standard conversion if one is available, or null if either no
-   * conversion is needed or available
-   */
-  protected Class<? extends AbstractWriteConverter> standardTransform(
-      ColumnMetadata inputDefn, ColumnMetadata outputDefn) {
-    switch (inputDefn.type()) {
-    case VARCHAR:
-      switch (outputDefn.type()) {
-      case TINYINT:
-      case SMALLINT:
-      case INT:
-      case UINT1:
-      case UINT2:
-        return ConvertStringToInt.class;
-      case BIGINT:
-        return ConvertStringToLong.class;
-      case FLOAT4:
-      case FLOAT8:
-        return ConvertStringToDouble.class;
-      case DATE:
-        return ConvertStringToDate.class;
-      case TIME:
-        return ConvertStringToTime.class;
-      case TIMESTAMP:
-        return ConvertStringToTimeStamp.class;
-      case INTERVALYEAR:
-      case INTERVALDAY:
-      case INTERVAL:
-        return ConvertStringToInterval.class;
-      default:
+    ConversionDefn defn = StandardConversions.analyze(inputSchema, outputCol);
+    ColumnConversionFactory factory = customTransform(inputSchema, outputCol, defn);
+    if (factory == null) {
+      switch (defn.type) {
+      case NONE:
+      case IMPLICIT:
+        return noOpTransform(inputSchema, projType);
+      case EXPLICIT:
+        if (defn.conversionClass == null) {
+          throw UserException.validationError()
+            .message("Runtime type conversion not available")
+            .addContext("Input type", inputSchema.typeString())
+            .addContext("Output type", outputCol.typeString())
+            .build(logger);
+        }
+        factory = StandardConversions.factory(defn.conversionClass);
         break;
+      default:
+        throw new IllegalStateException("Unexpected conversion type: " + defn.type);
       }
-    default:
-      break;
     }
+    return new ColumnTransformImpl(inputSchema, outputCol, projType, factory);
+  }
+
+  /**
+   * Overridden to provide a custom conversion between input an output types.
+   *
+   * @param inputDefn the column schema for the input column which the
+   * client code (e.g. reader) wants to produce
+   * @param outputDefn the column schema for the output vector to be produced
+   * by this operator
+   * @param defn a description of the required conversion. This method is
+   * required to do nothing of conversion type is
+   * {@link ProjectionType.EXPLICIT} and the conversion class is null, meaning
+   * that no standard conversion is available
+   * @return a column transformer factory to implement a custom conversion,
+   * or null to use the standard conversion 
+   */
+  private ColumnConversionFactory customTransform(ColumnMetadata inputDefn,
+      ColumnMetadata outputDefn, ConversionDefn defn) {
     return null;
   }
 }

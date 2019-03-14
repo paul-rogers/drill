@@ -99,7 +99,7 @@ public class TestResultSetLoadeTypeConversion extends SubOperatorTest {
     RowSetUtilities.verify(expected, actual);
   }
 
-  private static class MockSchemaTransformer extends AbstractSchemaTransformer {
+  private static class MockSchemaTransformer extends SchemaTransformerImpl {
 
     public MockSchemaTransformer(TupleMetadata outputSchema) {
       super(outputSchema);

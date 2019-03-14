@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.convert;
 
-import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -40,35 +39,10 @@ import org.joda.time.Period;
 
 public class AbstractWriteConverter extends AbstractScalarWriter {
 
-  public static class SimpleWriterConverterFactory implements ColumnConversionFactory {
-    private Constructor<? extends AbstractWriteConverter> ctor;
-
-    SimpleWriterConverterFactory(Class<? extends AbstractWriteConverter> conversionClass) {
-      try {
-        ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class);
-      } catch (final ReflectiveOperationException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    @Override
-    public AbstractWriteConverter newWriter(ScalarWriter baseWriter) {
-      try {
-        return ctor.newInstance(baseWriter);
-      } catch (final ReflectiveOperationException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-  }
-
   protected final ScalarWriter baseWriter;
 
   public AbstractWriteConverter(ScalarWriter baseWriter) {
     this.baseWriter = baseWriter;
-  }
-
-  public static ColumnConversionFactory factory(Class<? extends AbstractWriteConverter> converterClass) {
-    return new SimpleWriterConverterFactory(converterClass);
   }
 
   @Override

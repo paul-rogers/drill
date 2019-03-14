@@ -30,11 +30,15 @@ import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
  */
 public interface SchemaTransformer {
 
-  public interface ColumnTransformer extends ColumnConversionFactory {
+  /**
+   * Describes how to transform a column from input type to output type,
+   * including the associated projection type
+   */
+  public interface ColumnTransform extends ColumnConversionFactory {
     ProjectionType projectionType();
     ColumnMetadata inputSchema();
     ColumnMetadata outputSchema();
   }
 
-  ColumnTransformer transform(ColumnMetadata inputSchema, ProjectionType projType);
+  ColumnTransform transform(ColumnMetadata inputSchema, ProjectionType projType);
 }
