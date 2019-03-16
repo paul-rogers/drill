@@ -110,6 +110,8 @@ public class StandardConversions {
 
   /**
    * Create converters for standard cases.
+   * <p>
+   * Does not support any of the "legacy" decimal types.
    *
    * @param inputDefn the column schema for the input column which the
    * client code (e.g. reader) wants to produce
@@ -133,12 +135,6 @@ public class StandardConversions {
       case BIGINT:
       case FLOAT4:
       case FLOAT8:
-      case DECIMAL18:
-      case DECIMAL28DENSE:
-      case DECIMAL28SPARSE:
-      case DECIMAL38DENSE:
-      case DECIMAL38SPARSE:
-      case DECIMAL9:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:
@@ -151,12 +147,6 @@ public class StandardConversions {
       case BIGINT:
       case FLOAT4:
       case FLOAT8:
-      case DECIMAL18:
-      case DECIMAL28DENSE:
-      case DECIMAL28SPARSE:
-      case DECIMAL38DENSE:
-      case DECIMAL38SPARSE:
-      case DECIMAL9:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:
@@ -167,12 +157,6 @@ public class StandardConversions {
       switch (outputSchema.type()) {
       case BIGINT:
       case FLOAT8:
-      case DECIMAL18:
-      case DECIMAL28DENSE:
-      case DECIMAL28SPARSE:
-      case DECIMAL38DENSE:
-      case DECIMAL38SPARSE:
-      case DECIMAL9:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:
@@ -181,12 +165,6 @@ public class StandardConversions {
       break;
     case BIGINT:
       switch (outputSchema.type()) {
-      case DECIMAL18:
-      case DECIMAL28DENSE:
-      case DECIMAL28SPARSE:
-      case DECIMAL38DENSE:
-      case DECIMAL38SPARSE:
-      case DECIMAL9:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:

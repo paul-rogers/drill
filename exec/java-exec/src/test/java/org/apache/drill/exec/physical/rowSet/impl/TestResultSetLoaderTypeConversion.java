@@ -23,11 +23,9 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.convert.AbstractWriteConverter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
@@ -38,7 +36,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
-public class TestResultSetLoadeTypeConversion extends SubOperatorTest {
+public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
 
   /**
    * Test the use of a column type converter in the result set loader for
@@ -99,28 +97,6 @@ public class TestResultSetLoadeTypeConversion extends SubOperatorTest {
     RowSetUtilities.verify(expected, actual);
   }
 
-  private static class MockSchemaTransformer extends SchemaTransformerImpl {
-
-    public MockSchemaTransformer(TupleMetadata outputSchema) {
-      super(outputSchema);
-    }
-
-    @Override
-    protected Class<? extends AbstractWriteConverter> transformClass(
-        ColumnMetadata inputDefn, ColumnMetadata outputDefn) {
-
-      // The mock only knows how to convert from VARCHAR to INT
-
-      if (outputDefn.type() != MinorType.INT || inputDefn.type() != MinorType.VARCHAR) {
-        throw new UnsupportedOperationException();
-      }
-
-      // Use the standard converter to do the work.
-
-      return standardTransform(inputDefn, outputDefn);
-    }
-  }
-
   /**
    * Test full-blown type conversion using the standard Drill properties.
    */
@@ -142,7 +118,7 @@ public class TestResultSetLoadeTypeConversion extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(inputSchema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setSchemaTransform(new MockSchemaTransformer(outputSchema))
+        .setSchemaTransform(new SchemaTransformerImpl(outputSchema))
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     rsLoader.startBatch();

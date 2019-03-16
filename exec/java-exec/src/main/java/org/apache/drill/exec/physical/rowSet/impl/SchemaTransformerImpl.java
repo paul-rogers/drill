@@ -18,20 +18,12 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.convert.AbstractWriteConverter;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToDate;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToDouble;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToInt;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToInterval;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToLong;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToTime;
-import org.apache.drill.exec.vector.accessor.convert.ConvertStringToTimeStamp;
 import org.apache.drill.exec.vector.accessor.convert.StandardConversions;
 import org.apache.drill.exec.vector.accessor.convert.StandardConversions.ConversionDefn;
 
@@ -45,7 +37,8 @@ import org.apache.drill.exec.vector.accessor.convert.StandardConversions.Convers
 
 public class SchemaTransformerImpl implements SchemaTransformer {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SchemaTransformerImpl.class);
+  private static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(SchemaTransformerImpl.class);
 
   /**
    * A no-op transform that simply keeps the input column schema and
@@ -195,7 +188,7 @@ public class SchemaTransformerImpl implements SchemaTransformer {
    * {@link ProjectionType.EXPLICIT} and the conversion class is null, meaning
    * that no standard conversion is available
    * @return a column transformer factory to implement a custom conversion,
-   * or null to use the standard conversion 
+   * or null to use the standard conversion
    */
   private ColumnConversionFactory customTransform(ColumnMetadata inputDefn,
       ColumnMetadata outputDefn, ConversionDefn defn) {
