@@ -29,9 +29,15 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
  * for various types. Readers must provide custom conversions or specialized
  * formats.
  * <p>
- * Does not (yet) provide type-narrowing conversions such as BigInt-to-Int.
- * These need a policy for handling overflow. Also, they should be code
- * generated since they follow standard rules.
+ * Type-narrowing operations are supported by the column writers using
+ * "Java semantics". Long-to-int overflow is caught, double-to-long conversion
+ * sets the maximum or minimum long values, Double-to-int will overflow (on
+ * the int conversion.) Messy, but the goal is not to handle invalid data,
+ * rather it is to provide convenience for valid data.
+ * <p>
+ * The semantics of invalid conversions can be refined (set to null?
+ * different exceptions) without affecting the behavior of queries with
+ * valid data.
  */
 public class StandardConversions {
 
@@ -51,6 +57,14 @@ public class StandardConversions {
      * is needed except for semantic reasons.
      */
     IMPLICIT,
+    /**
+     * Conversion is done by the column writers. No converter is needed.
+     * However, the value is subject to overflow as this is a narrowing
+     * operation. Depending on the implementation, the operation may
+     * either raise an error, or produce a value limited by the range
+     * of the target type.
+     */
+    IMPLICIT_UNSAFE,
     /**
      * Conversion is needed because there is no "natural",
      * precision-preserving conversion. Conversions must be done on
@@ -143,6 +157,8 @@ public class StandardConversions {
       break;
     case SMALLINT:
       switch (outputSchema.type()) {
+      case TINYINT:
+        return new ConversionDefn(ConversionType.IMPLICIT_UNSAFE);
       case INT:
       case BIGINT:
       case FLOAT4:
@@ -155,7 +171,11 @@ public class StandardConversions {
       break;
     case INT:
       switch (outputSchema.type()) {
+      case TINYINT:
+      case SMALLINT:
+        return new ConversionDefn(ConversionType.IMPLICIT_UNSAFE);
       case BIGINT:
+      case FLOAT4:
       case FLOAT8:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
@@ -165,6 +185,12 @@ public class StandardConversions {
       break;
     case BIGINT:
       switch (outputSchema.type()) {
+      case TINYINT:
+      case SMALLINT:
+      case INT:
+        return new ConversionDefn(ConversionType.IMPLICIT_UNSAFE);
+      case FLOAT4:
+      case FLOAT8:
       case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:
@@ -173,7 +199,27 @@ public class StandardConversions {
       break;
     case FLOAT4:
       switch (outputSchema.type()) {
+      case TINYINT:
+      case SMALLINT:
+      case INT:
+      case BIGINT:
+        return new ConversionDefn(ConversionType.IMPLICIT_UNSAFE);
       case FLOAT8:
+      case VARDECIMAL:
+        return new ConversionDefn(ConversionType.IMPLICIT);
+      default:
+        break;
+      }
+      break;
+    case FLOAT8:
+      switch (outputSchema.type()) {
+      case TINYINT:
+      case SMALLINT:
+      case INT:
+      case BIGINT:
+      case FLOAT4:
+        return new ConversionDefn(ConversionType.IMPLICIT_UNSAFE);
+      case VARDECIMAL:
         return new ConversionDefn(ConversionType.IMPLICIT);
       default:
         break;

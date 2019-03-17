@@ -15,13 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.convert;
+package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
  * Raised when a column accessor reads or writes the value using the wrong
  * Java type (which may indicate an data inconsistency in the input data.)
+ * <p>
+ * Also raised during setup if no conversion is available between input
+ * and output types.
+ * <p>
+ * This exception means that there is no conversion <i>in principal</i>:
+ * it is a static error due to the schema provided or the implementation
+ * of the code.
+ *
+ * @see {InvalidConversionError} for a runtime exception where the conversion
+ * is supported, but a specific value is invalid for that conversion.
  */
 
 public class UnsupportedConversionError extends UnsupportedOperationException {
@@ -45,7 +55,7 @@ public class UnsupportedConversionError extends UnsupportedOperationException {
   public static UnsupportedConversionError writeError(ColumnMetadata schema, String javaType) {
     return new UnsupportedConversionError(
         String.format("Column `%s`: Unsupported conversion from Java type %s to Drill type %s",
-            schema.name(), schema.type().name(), javaType));
+            schema.name(), javaType, schema.type().name()));
   }
 
   public static UnsupportedConversionError nullError(ColumnMetadata schema) {

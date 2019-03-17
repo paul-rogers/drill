@@ -24,6 +24,9 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.joda.time.Instant;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalTime;
 import org.joda.time.Period;
 
 /**
@@ -103,5 +106,20 @@ public class AbstractWriteConverter extends AbstractScalarWriter {
   @Override
   public void setPeriod(Period value) {
     baseWriter.setPeriod(value);
+  }
+
+  @Override
+  public void setDate(LocalDate value) {
+    baseWriter.setDate(value);
+  }
+
+  @Override
+  public void setTime(LocalTime value) {
+    baseWriter.setTime(value);
+  }
+
+  @Override
+  public void setTimestamp(Instant value) {
+    baseWriter.setTimestamp(value);
   }
 }

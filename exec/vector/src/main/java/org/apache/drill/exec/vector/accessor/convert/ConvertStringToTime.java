@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 import org.apache.drill.exec.vector.DateUtilities;
+import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
@@ -48,8 +49,7 @@ public class ConvertStringToTime extends AbstractWriteConverter {
         baseWriter.setInt(DateUtilities.toTime(dt));
       }
       catch (final DateTimeParseException e) {
-        throw new UnsupportedConversionError(
-            "String-to-local date conversion failed for value: \"" + value + "\"", e);
+        throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
   }

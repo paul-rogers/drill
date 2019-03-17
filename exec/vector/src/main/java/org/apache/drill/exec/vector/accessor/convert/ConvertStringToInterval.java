@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.convert;
 
 import java.time.format.DateTimeParseException;
 
+import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.joda.time.Period;
 
@@ -41,8 +42,7 @@ public class ConvertStringToInterval extends AbstractWriteConverter {
         baseWriter.setPeriod(Period.parse(value));
       }
       catch (final DateTimeParseException e) {
-        throw new UnsupportedConversionError(
-            "String-to-period conversion failed for value: \"" + value + "\"", e);
+        throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
   }

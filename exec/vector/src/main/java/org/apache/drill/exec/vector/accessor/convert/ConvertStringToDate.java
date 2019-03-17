@@ -18,9 +18,11 @@
 package org.apache.drill.exec.vector.accessor.convert;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
+import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
@@ -30,6 +32,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
  */
 public class ConvertStringToDate extends AbstractWriteConverter {
 
+  private static ZoneId UTC = ZoneId.of("Z");
   private final DateTimeFormatter dateTimeFormatter;
 
   public ConvertStringToDate(ScalarWriter baseWriter) {
@@ -44,11 +47,10 @@ public class ConvertStringToDate extends AbstractWriteConverter {
     } else {
       try {
         final LocalDate dt = LocalDate.parse(value, dateTimeFormatter);
-        baseWriter.setLong(dt.toEpochDay());
+        baseWriter.setLong(dt.atStartOfDay(UTC).toInstant().toEpochMilli());
       }
       catch (final DateTimeParseException e) {
-        throw new UnsupportedConversionError(
-            "String-to-local date conversion failed for value: \"" + value + "\"", e);
+        throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
   }

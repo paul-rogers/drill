@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.convert;
 
+import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
@@ -39,8 +40,7 @@ public class ConvertStringToInt extends AbstractWriteConverter {
         baseWriter.setInt(Integer.parseInt(value));
       }
       catch (final NumberFormatException e) {
-        throw new UnsupportedConversionError(
-            "String-to-int conversion failed for value: \"" + value + "\"", e);
+        throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
   }

@@ -196,6 +196,6 @@ public class DateUtilities {
    * @return Drill form of the time
    */
   public static int toTime(LocalTime localTime) {
-    return (int) ((localTime.toNanoOfDay() + 500000L) / 1000000L); // round to milliseconds
+    return (int) ((localTime.toNanoOfDay() + 500_000L) / 1_000_000L); // round to milliseconds
   }
 }

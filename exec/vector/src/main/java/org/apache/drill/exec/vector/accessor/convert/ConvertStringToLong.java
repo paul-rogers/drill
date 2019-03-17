@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.convert;
 
+import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
@@ -38,8 +39,7 @@ public class ConvertStringToLong extends AbstractWriteConverter {
         baseWriter.setLong(Long.parseLong(value));
       }
       catch (final NumberFormatException e) {
-        throw new UnsupportedConversionError(
-            "String-to-long conversion failed for value: \"" + value + "\"", e);
+        throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
   }
