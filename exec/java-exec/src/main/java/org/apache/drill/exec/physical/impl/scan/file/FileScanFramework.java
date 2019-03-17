@@ -17,17 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import java.util.List;
-
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.impl.scan.framework.ShimBatchReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.drill.exec.store.dfs.easy.FileWork;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.FileSplit;
 
 /**
@@ -49,7 +44,7 @@ import org.apache.hadoop.mapred.FileSplit;
  * @See {AbstractScanFramework} for details.
  */
 
-public class FileScanFramework extends BaseFileScanFramework<FileSchemaNegotiator> {
+public class FileScanFramework extends BaseFileScanFramework<T> {
 
   /**
    * Creates a batch reader on demand. Unlike earlier versions of Drill,
@@ -62,10 +57,24 @@ public class FileScanFramework extends BaseFileScanFramework<FileSchemaNegotiato
    * file-specific reader on demand.
    */
 
-  public interface FileReaderFactory {
-    ManagedReader<FileSchemaNegotiator> makeBatchReader(
+  public interface FileReaderFactory<T extends FileSchemaNegotiator> {
+    ManagedReader<T> makeBatchReader(
         DrillFileSystem dfs,
         FileSplit split) throws ExecutionSetupException;
+
+    T makeSchemaNegotiator();
+  }
+
+  /**
+   * Options for a file-based scan.
+   */
+
+  public static class FileScanBuilder<T extends FileSchemaNegotiator> extends BaseFileScanBuilder {
+    private FileReaderFactory<T> readerCreator;
+
+    public void setReaderCreator(FileReaderFactory<T> readerCreator) {
+      this.readerCreator = readerCreator;
+    }
   }
 
   /**
@@ -76,30 +85,26 @@ public class FileScanFramework extends BaseFileScanFramework<FileSchemaNegotiato
 
   public static class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
       implements FileSchemaNegotiator {
-
-    public FileSchemaNegotiatorImpl(BaseFileScanFramework<?> framework, ShimBatchReader<? extends FileSchemaNegotiator> shim) {
-      super(framework, shim);
-    }
   }
 
-  private final FileReaderFactory readerCreator;
+  private final FileReaderFactory<T> readerCreator;
 
-  public FileScanFramework(List<SchemaPath> projection,
-      List<? extends FileWork> files,
-      Configuration fsConf,
-      FileReaderFactory readerCreator) {
-    super(projection, files, fsConf);
-    this.readerCreator = readerCreator;
+  public FileScanFramework(FileScanBuilder<T> builder) {
+    super(builder);
+    readerCreator = builder.readerCreator;
+    assert readerCreator != null;
   }
 
   @Override
-  protected ManagedReader<FileSchemaNegotiator> newReader(FileSplit split) throws ExecutionSetupException {
+  protected ManagedReader<T> newReader(FileSplit split) throws ExecutionSetupException {
     return readerCreator.makeBatchReader(dfs, split);
   }
 
+  // Works for the
+  @SuppressWarnings("unchecked")
   @Override
-  public boolean openReader(ShimBatchReader<FileSchemaNegotiator> shim, ManagedReader<FileSchemaNegotiator> reader) {
-    return reader.open(
+  public boolean openReader(ShimBatchReader<T> shim, ManagedReader<T> reader) {
+    return ((ManagedReader<FileSchemaNegotiator>) reader).open(
         new FileSchemaNegotiatorImpl(this, shim));
   }
 }

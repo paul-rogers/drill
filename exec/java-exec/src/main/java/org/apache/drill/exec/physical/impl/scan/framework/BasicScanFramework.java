@@ -18,10 +18,8 @@
 package org.apache.drill.exec.physical.impl.scan.framework;
 
 import java.util.Iterator;
-import java.util.List;
-
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 
 /**
  * Basic scan framework for simple non-file readers. Includes only
@@ -34,9 +32,9 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
 
   private Iterator<ManagedReader<SchemaNegotiator>> iterator;
 
-  public BasicScanFramework(List<SchemaPath> projection,
+  public BasicScanFramework(ScanOrchestratorBuilder builder,
       Iterator<ManagedReader<SchemaNegotiator>> iterator) {
-    super(projection);
+    super(builder);
     this.iterator = iterator;
   }
 

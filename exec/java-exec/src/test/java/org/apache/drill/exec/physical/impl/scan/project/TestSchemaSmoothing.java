@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
@@ -821,9 +822,10 @@ public class TestSchemaSmoothing extends SubOperatorTest {
 
   @Test
   public void testWildcardSmoothing() {
-    final ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator());
-    projector.enableSchemaSmoothing(true);
-    projector.build(RowSetTestUtils.projectAll());
+    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    builder.enableSchemaSmoothing(true);
+    builder.setProjection(RowSetTestUtils.projectAll());
+    final ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator(), builder);
 
     final TupleMetadata firstSchema = new SchemaBuilder()
         .add("a", MinorType.INT)

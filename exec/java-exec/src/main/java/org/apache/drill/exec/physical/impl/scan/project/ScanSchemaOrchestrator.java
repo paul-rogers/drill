@@ -149,36 +149,138 @@ public class ScanSchemaOrchestrator {
   public static final int DEFAULT_BATCH_BYTE_COUNT = ValueVector.MAX_BUFFER_SIZE;
   public static final int MAX_BATCH_ROW_COUNT = ValueVector.MAX_ROW_COUNT;
 
+  public static class ScanOrchestratorBuilder {
+
+    private MajorType nullType;
+    private MetadataManager metadataManager;
+    private int scanBatchRecordLimit = DEFAULT_BATCH_ROW_COUNT;
+    private int scanBatchByteLimit = DEFAULT_BATCH_BYTE_COUNT;
+    private List<ScanProjectionParser> parsers = new ArrayList<>();
+    private List<SchemaProjectionResolver> schemaResolvers = new ArrayList<>();
+    private boolean useSchemaSmoothing;
+    private boolean allowRequiredNullColumns;
+    private List<SchemaPath> projection;
+
+    /**
+     * Specify an optional metadata manager. Metadata is a set of constant
+     * columns with per-reader values. For file-based sources, this is usually
+     * the implicit and partition columns; but it could be other items for other
+     * data sources.
+     *
+     * @param metadataMgr the application-specific metadata manager to use
+     * for this scan
+     */
+
+    public void withMetadata(MetadataManager metadataMgr) {
+      metadataManager = metadataMgr;
+      schemaResolvers.add(metadataManager.resolver());
+    }
+
+    /**
+     * Specify a custom batch record count. This is the maximum number of records
+     * per batch for this scan. Readers can adjust this, but the adjustment is capped
+     * at the value specified here
+     *
+     * @param scanBatchSize maximum records per batch
+     */
+
+    public void setBatchRecordLimit(int batchRecordLimit) {
+      scanBatchRecordLimit = Math.max(1,
+          Math.min(batchRecordLimit, ValueVector.MAX_ROW_COUNT));
+    }
+
+    public void setBatchByteLimit(int byteLimit) {
+      scanBatchByteLimit = Math.max(MIN_BATCH_BYTE_SIZE,
+          Math.min(byteLimit, MAX_BATCH_BYTE_SIZE));
+    }
+
+    /**
+     * Specify the type to use for null columns in place of the standard
+     * nullable int. This type is used for all missing columns. (Readers
+     * that need per-column control need a different mechanism.)
+     *
+     * @param nullType
+     */
+
+    public void setNullType(MajorType nullType) {
+      this.nullType = nullType;
+    }
+
+    /**
+     * Enable schema smoothing: introduces an addition level of schema
+     * resolution each time a schema changes from a reader.
+     *
+     * @param flag true to enable schema smoothing, false to disable
+     */
+
+    public void enableSchemaSmoothing(boolean flag) {
+      useSchemaSmoothing = flag;
+   }
+
+    public void allowRequiredNullColumns(boolean flag) {
+      allowRequiredNullColumns = flag;
+    }
+
+    public void addParser(ScanProjectionParser parser) {
+      parsers.add(parser);
+    }
+
+    public void addResolver(SchemaProjectionResolver resolver) {
+      schemaResolvers.add(resolver);
+    }
+
+    public void setProjection(List<SchemaPath> projection) {
+      this.projection = projection;
+    }
+  }
+
+  public static class ScanSchemaOptions {
+
+    /**
+     * Custom null type, if provided by the operator. If
+     * not set, the null type is the Drill default.
+     */
+
+    public final MajorType nullType;
+    public final int scanBatchRecordLimit;
+    public final int scanBatchByteLimit;
+    public final List<ScanProjectionParser> parsers;
+
+    /**
+     * List of resolvers used to resolve projection columns for each
+     * new schema. Allows operators to introduce custom functionality
+     * as a plug-in rather than by copying code or subclassing this
+     * mechanism.
+     */
+
+    public final List<SchemaProjectionResolver> schemaResolvers;
+
+    public final List<SchemaPath> projection;
+    public final boolean useSchemaSmoothing;
+    public final boolean allowRequiredNullColumns;
+
+    protected ScanSchemaOptions(ScanOrchestratorBuilder builder) {
+      nullType = builder.nullType;
+      scanBatchRecordLimit = builder.scanBatchRecordLimit;
+      scanBatchByteLimit = builder.scanBatchByteLimit;
+      parsers = builder.parsers;
+      schemaResolvers = builder.schemaResolvers;
+      projection = builder.projection;
+      useSchemaSmoothing = builder.useSchemaSmoothing;
+      allowRequiredNullColumns = builder.allowRequiredNullColumns;
+    }
+  }
+
   // Configuration
 
-  /**
-   * Custom null type, if provided by the operator. If
-   * not set, the null type is the Drill default.
-   */
-
-  MajorType nullType;
+  protected final BufferAllocator allocator;
+  protected final ScanSchemaOptions options;
 
   /**
    * Creates the metadata (file and directory) columns, if needed.
    */
 
-  MetadataManager metadataManager;
-  final BufferAllocator allocator;
-  int scanBatchRecordLimit = DEFAULT_BATCH_ROW_COUNT;
-  int scanBatchByteLimit = DEFAULT_BATCH_BYTE_COUNT;
-  private final List<ScanProjectionParser> parsers = new ArrayList<>();
-
-  /**
-   * List of resolvers used to resolve projection columns for each
-   * new schema. Allows operators to introduce custom functionality
-   * as a plug-in rather than by copying code or subclassing this
-   * mechanism.
-   */
-
-  List<SchemaProjectionResolver> schemaResolvers = new ArrayList<>();
-
-  private boolean useSchemaSmoothing;
-  boolean allowRequiredNullColumns;
+  public final MetadataManager metadataManager;
 
   // Internal state
 
@@ -200,78 +302,19 @@ public class ScanSchemaOrchestrator {
 
   VectorContainer outputContainer;
 
-  public ScanSchemaOrchestrator(BufferAllocator allocator) {
+  public ScanSchemaOrchestrator(BufferAllocator allocator, ScanOrchestratorBuilder builder) {
     this.allocator = allocator;
-  }
+    this.options = new ScanSchemaOptions(builder);
 
-  /**
-   * Specify an optional metadata manager. Metadata is a set of constant
-   * columns with per-reader values. For file-based sources, this is usually
-   * the implicit and partition columns; but it could be other items for other
-   * data sources.
-   *
-   * @param metadataMgr the application-specific metadata manager to use
-   * for this scan
-   */
-
-  public void withMetadata(MetadataManager metadataMgr) {
-    metadataManager = metadataMgr;
-    schemaResolvers.add(metadataManager.resolver());
-  }
-
-  /**
-   * Specify a custom batch record count. This is the maximum number of records
-   * per batch for this scan. Readers can adjust this, but the adjustment is capped
-   * at the value specified here
-   *
-   * @param scanBatchSize maximum records per batch
-   */
-
-  public void setBatchRecordLimit(int batchRecordLimit) {
-    scanBatchRecordLimit = Math.max(1,
-        Math.min(batchRecordLimit, ValueVector.MAX_ROW_COUNT));
-  }
-
-  public void setBatchByteLimit(int byteLimit) {
-    scanBatchByteLimit = Math.max(MIN_BATCH_BYTE_SIZE,
-        Math.min(byteLimit, MAX_BATCH_BYTE_SIZE));
-  }
-
-  /**
-   * Specify the type to use for null columns in place of the standard
-   * nullable int. This type is used for all missing columns. (Readers
-   * that need per-column control need a different mechanism.)
-   *
-   * @param nullType
-   */
-
-  public void setNullType(MajorType nullType) {
-    this.nullType = nullType;
-  }
-
-  /**
-   * Enable schema smoothing: introduces an addition level of schema
-   * resolution each time a schema changes from a reader.
-   *
-   * @param flag true to enable schema smoothing, false to disable
-   */
-
-  public void enableSchemaSmoothing(boolean flag) {
-    useSchemaSmoothing = flag;
-  }
-
-  public void allowRequiredNullColumns(boolean flag) {
-    allowRequiredNullColumns = flag;
-  }
-
-  public void build(List<SchemaPath> projection) {
-    vectorCache = new ResultVectorCacheImpl(allocator, useSchemaSmoothing);
+    vectorCache = new ResultVectorCacheImpl(allocator, options.useSchemaSmoothing);
 
     // If no metadata manager was provided, create a mock
     // version just to keep code simple.
 
-    if (metadataManager == null) {
+    if (builder.metadataManager == null) {
       metadataManager = new NoOpMetadataManager();
+    } else {
+      metadataManager = builder.metadataManager;
     }
     metadataManager.bind(vectorCache);
 
@@ -284,27 +327,19 @@ public class ScanSchemaOrchestrator {
     if (parser != null) {
       // Insert in first position so that it is ensured to see
       // any wildcard that exists
-      parsers.add(0, parser);
+      options.parsers.add(0, parser);
     }
 
     // Parse the projection list.
 
-    scanProj = new ScanLevelProjection(projection, parsers);
-    if (scanProj.hasWildcard() && useSchemaSmoothing) {
-      schemaSmoother = new SchemaSmoother(scanProj, schemaResolvers);
+    scanProj = new ScanLevelProjection(options.projection, options.parsers);
+    if (scanProj.hasWildcard() && options.useSchemaSmoothing) {
+      schemaSmoother = new SchemaSmoother(scanProj, options.schemaResolvers);
     }
 
     // Build the output container.
 
     outputContainer = new VectorContainer(allocator);
-  }
-
-  public void addParser(ScanProjectionParser parser) {
-    parsers.add(parser);
-  }
-
-  public void addResolver(SchemaProjectionResolver resolver) {
-    schemaResolvers.add(resolver);
   }
 
   public ReaderSchemaOrchestrator startReader() {

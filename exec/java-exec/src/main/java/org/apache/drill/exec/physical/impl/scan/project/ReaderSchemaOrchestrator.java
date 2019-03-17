@@ -50,12 +50,12 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   public ReaderSchemaOrchestrator(ScanSchemaOrchestrator scanSchemaOrchestrator) {
     scanOrchestrator = scanSchemaOrchestrator;
-    readerBatchSize = scanOrchestrator.scanBatchRecordLimit;
+    readerBatchSize = scanOrchestrator.options.scanBatchRecordLimit;
   }
 
   public void setBatchSize(int size) {
     if (size > 0) {
-      readerBatchSize = Math.min(size, scanOrchestrator.scanBatchRecordLimit);
+      readerBatchSize = Math.min(size, scanOrchestrator.options.scanBatchRecordLimit);
     }
   }
 
@@ -63,7 +63,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     OptionBuilder options = new OptionBuilder();
     options.setRowCountLimit(readerBatchSize);
     options.setVectorCache(scanOrchestrator.vectorCache);
-    options.setBatchSizeLimit(scanOrchestrator.scanBatchByteLimit);
+    options.setBatchSizeLimit(scanOrchestrator.options.scanBatchByteLimit);
 
     // Set up a selection list if available and is a subset of
     // table columns. (Only needed for non-wildcard queries.)
@@ -165,7 +165,8 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   private void doSmoothedProjection(TupleMetadata tableSchema) {
     rootTuple = new ResolvedRow(
-        new NullColumnBuilder(scanOrchestrator.nullType, scanOrchestrator.allowRequiredNullColumns));
+        new NullColumnBuilder(scanOrchestrator.options.nullType,
+            scanOrchestrator.options.allowRequiredNullColumns));
     scanOrchestrator.schemaSmoother.resolve(tableSchema, rootTuple);
   }
 
@@ -177,7 +178,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
   private void doWildcardProjection(TupleMetadata tableSchema) {
     rootTuple = new ResolvedRow(null);
     new WildcardSchemaProjection(scanOrchestrator.scanProj,
-        tableSchema, rootTuple, scanOrchestrator.schemaResolvers);
+        tableSchema, rootTuple, scanOrchestrator.options.schemaResolvers);
   }
 
   /**
@@ -191,10 +192,11 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   private void doExplicitProjection(TupleMetadata tableSchema) {
     rootTuple = new ResolvedRow(
-        new NullColumnBuilder(scanOrchestrator.nullType, scanOrchestrator.allowRequiredNullColumns));
+        new NullColumnBuilder(scanOrchestrator.options.nullType,
+            scanOrchestrator.options.allowRequiredNullColumns));
     new ExplicitSchemaProjection(scanOrchestrator.scanProj,
             tableSchema, rootTuple,
-            scanOrchestrator.schemaResolvers);
+            scanOrchestrator.options.schemaResolvers);
   }
 
   @Override

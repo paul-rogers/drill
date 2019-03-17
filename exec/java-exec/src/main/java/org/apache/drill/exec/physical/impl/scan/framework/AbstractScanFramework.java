@@ -17,13 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.scan.framework;
 
-import java.util.List;
-
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 
 /**
  * Basic scan framework for a "managed" reader which uses the scan schema
@@ -113,48 +110,39 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
  * </ul>
  */
 
-public abstract class AbstractScanFramework<T extends SchemaNegotiator> implements ScanOperatorEvents {
+public abstract class AbstractScanFramework implements ScanOperatorEvents {
+
+  public static interface ReaderShim {
+    void bind(AbstractScanFramework framework);
+    ManagedReader<? extends SchemaNegotiator> newReader();
+  }
+
+  public static class ScanFrameworkBuilder extends ScanOrchestratorBuilder {
+    private ReaderShim readerShim;
+
+    public void setReaderDriver(ReaderShim shim) {
+      this.readerShim = shim;
+    }
+  }
 
   // Inputs
 
-  protected final List<SchemaPath> projection;
-  protected MajorType nullType;
-  protected int maxBatchRowCount;
-  protected int maxBatchByteCount;
+  protected final ScanFrameworkBuilder builder;
   protected OperatorContext context;
 
   // Internal state
 
   protected ScanSchemaOrchestrator scanOrchestrator;
 
-  public AbstractScanFramework(List<SchemaPath> projection) {
-    this.projection = projection;
-  }
-
-  /**
-   * Specify the type to use for projected columns that do not
-   * match any data source columns. Defaults to nullable int.
-   */
-
-  public void setNullType(MajorType type) {
-    this.nullType = type;
-  }
-
-  public void setMaxRowCount(int rowCount) {
-    maxBatchRowCount = rowCount;
-  }
-
-  public void setMaxBatchByteCount(int byteCount) {
-    maxBatchByteCount = byteCount;
+  public AbstractScanFramework(ScanFrameworkBuilder builder) {
+    this.builder = builder;
   }
 
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    scanOrchestrator = new ScanSchemaOrchestrator(context.getAllocator());
     configure();
-    assert projection != null;
-    scanOrchestrator.build(projection);
+    scanOrchestrator = new ScanSchemaOrchestrator(context.getAllocator(), builder);
   }
 
   public OperatorContext context() { return context; }
@@ -163,22 +151,9 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     return scanOrchestrator;
   }
 
-  protected void configure() {
+  protected void configure() { }
 
-    // Pass along config options if set.
-
-    if (maxBatchRowCount > 0) {
-      scanOrchestrator.setBatchRecordLimit(maxBatchRowCount);
-    }
-    if (maxBatchByteCount > 0) {
-      scanOrchestrator.setBatchByteLimit(maxBatchByteCount);
-    }
-    if (nullType != null) {
-      scanOrchestrator.setNullType(nullType);
-    }
-  }
-
-  public abstract boolean openReader(ShimBatchReader<T> shim, ManagedReader<T> reader);
+  public abstract boolean openReader(ShimBatchReader shim, ManagedReader reader);
 
   @Override
   public void close() {

@@ -37,12 +37,12 @@ import org.apache.drill.exec.record.VectorContainer;
  * of solutions as needed for different readers.
  */
 
-public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchReader {
+public class ShimBatchReader implements RowBatchReader {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ShimBatchReader.class);
 
-  protected final AbstractScanFramework<T> manager;
-  protected final ManagedReader<T> reader;
+  protected final AbstractScanFramework manager;
+  protected final ManagedReader<? extends SchemaNegotiator> reader;
   protected final ReaderSchemaOrchestrator readerOrchestrator;
   protected SchemaNegotiatorImpl schemaNegotiator;
   protected ResultSetLoader tableLoader;
@@ -54,7 +54,7 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
 
   private boolean eof;
 
-  public ShimBatchReader(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
+  public ShimBatchReader(AbstractScanFramework manager, ManagedReader<T> reader) {
     this.manager = manager;
     this.reader = reader;
     readerOrchestrator = manager.scanOrchestrator().startReader();

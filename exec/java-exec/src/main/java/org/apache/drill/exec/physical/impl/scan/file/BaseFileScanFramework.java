@@ -24,12 +24,12 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ShimBatchReader;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.hadoop.conf.Configuration;
@@ -45,8 +45,7 @@ import org.apache.hadoop.mapred.FileSplit;
  * reader creation, we have a file system, context and so on.
  */
 
-public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.FileSchemaNegotiator>
-    extends AbstractScanFramework<T> {
+public abstract class BaseFileScanFramework extends AbstractScanFramework {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseFileScanFramework.class);
 
@@ -64,8 +63,27 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
   public interface FileSchemaNegotiator extends SchemaNegotiator {
   }
 
+  /**
+   * Options for a file-based scan.
+   */
+
+  public static class BaseFileScanBuilder extends ScanOrchestratorBuilder {
+    private List<? extends FileWork> files;
+    private Configuration fsConf;
+
+    public void setFiles(Configuration fsConf, List<? extends FileWork> files) {
+      this.fsConf = fsConf;
+      this.files = files;
+    }
+  }
+
+  // Configuration
+
   private final List<? extends FileWork> files;
   private final Configuration fsConfig;
+
+  // Internal State
+
   private List<FileSplit> spilts = new ArrayList<>();
   private Iterator<FileSplit> splitIter;
   private Path scanRootDir;
@@ -73,12 +91,12 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
   protected DrillFileSystem dfs;
   private FileMetadataManager metadataManager;
 
-  public BaseFileScanFramework(List<SchemaPath> projection,
-      List<? extends FileWork> files,
-      Configuration fsConf) {
-    super(projection);
-    this.files = files;
-    this.fsConfig = fsConf;
+  public BaseFileScanFramework(BaseFileScanBuilder builder) {
+    super(builder);
+    this.files = builder.files;
+    this.fsConfig = builder.fsConf;
+    assert files != null;
+    assert fsConfig != null;
   }
 
   /**
@@ -134,7 +152,7 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
         scanRootDir,
         partitionDepth,
         paths);
-    scanOrchestrator.withMetadata(metadataManager);
+    builder.withMetadata(metadataManager);
   }
 
   @Override
@@ -164,7 +182,7 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
     }
   }
 
-  protected abstract ManagedReader<T> newReader(FileSplit split) throws ExecutionSetupException;
+  protected abstract ManagedReader<?> newReader(FileSplit split) throws ExecutionSetupException;
 
   protected void startFile(FileSplit split) {
 
