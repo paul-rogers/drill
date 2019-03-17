@@ -25,7 +25,7 @@ import java.util.List;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
-import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ShimBatchReader;
@@ -45,7 +45,7 @@ import org.apache.hadoop.mapred.FileSplit;
  * reader creation, we have a file system, context and so on.
  */
 
-public abstract class BaseFileScanFramework extends AbstractScanFramework {
+public abstract class BaseFileScanFramework extends ManagedScanFramework {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseFileScanFramework.class);
 

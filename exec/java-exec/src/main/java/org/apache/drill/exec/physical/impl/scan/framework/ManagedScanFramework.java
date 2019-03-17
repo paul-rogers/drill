@@ -18,7 +18,9 @@
 package org.apache.drill.exec.physical.impl.scan.framework;
 
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl.NegotiatorListener;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 
@@ -26,15 +28,15 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
  * Basic scan framework for a "managed" reader which uses the scan schema
  * mechanisms encapsulated in the scan schema orchestrator. Handles binding
  * scan events to the scan orchestrator so that the scan schema is evolved
- * as the scan progresses. Subclasses are responsible for creating the actual
- * reader, which requires a framework-specific schema negotiator to be passed
- * to the reader.
+ * as the scan progresses. Readers are created and managed via a reader
+ * factory class unique to each type of scan. The reader factory also provides
+ * the scan-specific schema negotiator to be passed to the reader.
  * <p>
  * This framework is a bridge between operator logic and the scan projection
- * internals. It gathers scan-specific options, then sets
- * them on the scan orchestrator at the right time. By abstracting out this
- * plumbing, a scan batch creator simply chooses the proper framework, passes
- * config options, and implements the matching "managed reader". All details
+ * internals. It gathers scan-specific options in a builder abstraction, then
+ * passes them on the scan orchestrator at the right time. By abstracting out this
+ * plumbing, a scan batch creator simply chooses the proper framework builder, passes
+ * config options, and implements the matching "managed reader" and factory. All details
  * of setup, projection, and so on are handled by the framework and the components
  * that the framework builds upon.
  *
@@ -42,17 +44,13 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
  *
  * At this basic level, a scan framework requires just a few simple inputs:
  * <ul>
- * <li>The projection list provided by the physical operator definition. This
- * list identifies the set of "output" columns whih this framework is obliged
- * to produce.</li>
+ * <li>The options defined by the scan projection framework such as the
+ * projection list.</li>
+ * <li>A reader factory to create a reader for each of the files or blocks
+ * to be scanned. (Readers are expected to be created one-by-one as files
+ * are read.)</li>
  * <li>The operator context which provides access to a memory allocator and
  * other plumbing items.</li>
- * <li>A method to create a reader for each of the files or blocks
- * defined above. (Readers are created one-by-one as files are read.)</li>
- * <li>The data type to use for projected columns which the reader cannot
- * provide. (Drill allows such columns and fills in null values: traditionally
- * nullable Int, but customizable here.)
- * <li>Various other options.</li>
  * </ul>
  *
  * <h4>Orchestration</h4>
@@ -62,7 +60,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
  * reader (created via the factory class) differs from one type of file to
  * another.
  * <p>
- * The framework achieves the work described below= by composing a large
+ * The framework achieves the work described below by composing a large
  * set of detailed classes, each of which performs some specific task. This
  * structure leaves the reader to simply infer schema and read data.
  * <p>
@@ -77,6 +75,8 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
  * data is decoded: all that is encapsulated in the reader. The only real
  * Interaction between the reader and the framework is:
  * <ul>
+ * <li>The reader factory creates a reader and the corresponding schema
+ * negotiator.</li>
  * <li>The reader "negotiates" a schema with the framework. The framework
  * knows the projection list from the query plan, knows something about
  * data types (whether a column should be scalar, a map or an array), and
@@ -110,32 +110,39 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
  * </ul>
  */
 
-public abstract class AbstractScanFramework implements ScanOperatorEvents {
+public class ManagedScanFramework implements ScanOperatorEvents {
 
-  public static interface ReaderShim {
-    void bind(AbstractScanFramework framework);
-    ManagedReader<? extends SchemaNegotiator> newReader();
+  /**
+   * Create and open managed readers for this scan.
+   */
+  public interface ReaderFactory {
+    void bind(ManagedScanFramework framework);
+    ManagedReader<? extends SchemaNegotiator> next();
+    boolean open(ManagedReader<? extends SchemaNegotiator> reader, NegotiatorListener listener);
   }
 
   public static class ScanFrameworkBuilder extends ScanOrchestratorBuilder {
-    private ReaderShim readerShim;
+    private ReaderFactory readerFactory;
 
-    public void setReaderDriver(ReaderShim shim) {
-      this.readerShim = shim;
+    public void setReaderDriver(ReaderFactory readerFactory) {
+      this.readerFactory = readerFactory;
     }
   }
 
   // Inputs
 
   protected final ScanFrameworkBuilder builder;
+  protected final ReaderFactory readerFactory;
   protected OperatorContext context;
 
   // Internal state
 
   protected ScanSchemaOrchestrator scanOrchestrator;
 
-  public AbstractScanFramework(ScanFrameworkBuilder builder) {
+  public ManagedScanFramework(ScanFrameworkBuilder builder) {
     this.builder = builder;
+    readerFactory = builder.readerFactory;
+    assert readerFactory != null;
   }
 
   @Override
@@ -143,6 +150,7 @@ public abstract class AbstractScanFramework implements ScanOperatorEvents {
     this.context = context;
     configure();
     scanOrchestrator = new ScanSchemaOrchestrator(context.getAllocator(), builder);
+    readerFactory.bind(this);
   }
 
   public OperatorContext context() { return context; }
@@ -153,7 +161,11 @@ public abstract class AbstractScanFramework implements ScanOperatorEvents {
 
   protected void configure() { }
 
-  public abstract boolean openReader(ShimBatchReader shim, ManagedReader reader);
+  @Override
+  public RowBatchReader nextReader() {
+    ManagedReader<? extends SchemaNegotiator> reader = readerFactory.next();
+    return reader == null ? null : new ShimBatchReader(this, reader);
+  }
 
   @Override
   public void close() {

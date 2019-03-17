@@ -29,7 +29,7 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.AbstractScanOpFixture;
+import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.ScanFixture;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
@@ -100,7 +100,7 @@ public class TestFileScanFramework extends SubOperatorTest {
    * since we are not actually doing real scans.
    */
 
-  public abstract static class BaseFileScanOpFixture extends AbstractScanOpFixture {
+  public abstract static class BaseFileScanOpFixture extends ScanFixture {
 
     protected Path selectionRoot = MOCK_ROOT_PATH;
     protected int partitionDepth = 3;
