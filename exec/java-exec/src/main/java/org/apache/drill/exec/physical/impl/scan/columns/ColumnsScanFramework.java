@@ -41,6 +41,11 @@ public class ColumnsScanFramework extends FileScanFramework {
     public void requireColumnsArray(boolean flag) {
       requireColumnsArray = flag;
     }
+
+    @Override
+    public FileScanFramework buildFileFramework() {
+      return new ColumnsScanFramework(this);
+    }
   }
 
   /**

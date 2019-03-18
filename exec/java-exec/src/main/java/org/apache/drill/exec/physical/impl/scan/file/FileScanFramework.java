@@ -107,6 +107,10 @@ public class FileScanFramework extends ManagedScanFramework {
     }
 
     public FileMetadataOptions metadataOptions() { return metadataOptions; }
+
+    public FileScanFramework buildFileFramework() {
+      return new FileScanFramework(this);
+    }
   }
 
   public abstract static class FileReaderFactory implements ReaderFactory {
@@ -126,6 +130,8 @@ public class FileScanFramework extends ManagedScanFramework {
       }
       return newReader(split);
     }
+
+    protected DrillFileSystem fileSystem() { return fileFramework.dfs; }
 
     public abstract ManagedReader<? extends FileSchemaNegotiator> newReader(FileSplit split);
   }
