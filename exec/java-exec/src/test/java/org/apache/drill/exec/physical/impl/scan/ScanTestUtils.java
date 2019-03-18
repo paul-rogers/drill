@@ -77,6 +77,10 @@ public class ScanTestUtils {
       builder().setProjection(RowSetTestUtils.projectList(projCols));
     }
 
+    public void setProjection(List<SchemaPath> projection) {
+      builder().setProjection(projection);
+    }
+
     protected abstract ManagedScanFramework newFramework();
 
     public ScanFixture build() {

@@ -30,6 +30,7 @@ import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataOptions;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
@@ -88,6 +89,14 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 @Category(RowSetTests.class)
 public class TestSchemaSmoothing extends SubOperatorTest {
 
+  private FileMetadataOptions standardOptions(List<Path> files) {
+    FileMetadataOptions options = new FileMetadataOptions();
+    options.useLegacyWildcardExpansion(false); // Don't expand partition columns for wildcard
+    options.setSelectionRoot(new Path("hdfs:///w"));
+    options.setFiles(files);
+    return options;
+  }
+
   /**
    * Sanity test for the simple, discrete case. The purpose of
    * discrete is just to run the basic lifecycle in a way that
@@ -103,11 +112,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     Path filePathB = new Path("hdfs:///w/x/y/b.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
-        false, // Don't expand partition columns for wildcard
-        false, // N/A
-        new Path("hdfs:///w"),
-        FileMetadataManager.AUTO_PARTITION_DEPTH,
-        Lists.newArrayList(filePathA, filePathB));
+        standardOptions(Lists.newArrayList(filePathA, filePathB)));
 
     // Set up the scan level projection
 
@@ -584,11 +589,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     Path filePathB = new Path("hdfs:///w/x/y/b.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
-        false, // Don't expand partition columns for wildcard
-        false, // N/A
-        new Path("hdfs:///w"),
-        FileMetadataManager.AUTO_PARTITION_DEPTH,
-        Lists.newArrayList(filePathA, filePathB));
+        standardOptions(Lists.newArrayList(filePathA, filePathB)));
 
     // Set up the scan level projection
 
@@ -635,11 +636,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     Path filePathB = new Path("hdfs:///w/x/b.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
-        false, // Don't expand partition columns for wildcard
-        false, // N/A
-        new Path("hdfs:///w"),
-        FileMetadataManager.AUTO_PARTITION_DEPTH,
-        Lists.newArrayList(filePathA, filePathB));
+        standardOptions(Lists.newArrayList(filePathA, filePathB)));
 
     // Set up the scan level projection
 
@@ -686,11 +683,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     Path filePathB = new Path("hdfs:///w/x/y/b.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.getOptionManager(),
-        false, // Don't expand partition columns for wildcard
-        false, // N/A
-        new Path("hdfs:///w"),
-        FileMetadataManager.AUTO_PARTITION_DEPTH,
-        Lists.newArrayList(filePathA, filePathB));
+        standardOptions(Lists.newArrayList(filePathA, filePathB)));
 
     // Set up the scan level projection
 
