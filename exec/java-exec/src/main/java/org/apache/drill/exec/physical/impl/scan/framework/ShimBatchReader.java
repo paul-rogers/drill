@@ -66,12 +66,14 @@ public class ShimBatchReader implements RowBatchReader, NegotiatorListener {
     return reader.getClass().getSimpleName();
   }
 
+  public ManagedReader<? extends SchemaNegotiator> reader() { return reader; }
+
   @Override
   public boolean open() {
 
     // Build and return the result set loader to be used by the reader.
 
-    if (! framework.readerFactory.open(reader, this)) {
+    if (! framework.open(this)) {
 
       // If we had a soft failure, then there should be no schema.
       // The reader should not have negotiated one. Not a huge

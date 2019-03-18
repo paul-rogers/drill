@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.scan.framework;
 import java.util.Iterator;
 
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ReaderFactory;
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl.NegotiatorListener;
 
 /**
  * Basic reader builder for simple non-file readers. Includes only
@@ -37,16 +36,13 @@ import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl.N
 public class BasicScanFactory implements ReaderFactory {
 
   private final Iterator<ManagedReader<? extends SchemaNegotiator>> iterator;
-  private ManagedScanFramework framework;
 
   public BasicScanFactory(Iterator<ManagedReader<? extends SchemaNegotiator>> iterator) {
     this.iterator = iterator;
   }
 
   @Override
-  public void bind(ManagedScanFramework framework) {
-    this.framework = framework;
-  }
+  public void bind(ManagedScanFramework framework) { }
 
   @Override
   public ManagedReader<? extends SchemaNegotiator> next() {
@@ -54,14 +50,5 @@ public class BasicScanFactory implements ReaderFactory {
       return null;
     }
     return iterator.next();
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public boolean open(ManagedReader<? extends SchemaNegotiator> reader,
-      NegotiatorListener listener) {
-    SchemaNegotiatorImpl schemaNegotiator = new SchemaNegotiatorImpl();
-    schemaNegotiator.bind(framework, listener);
-    return ((ManagedReader<SchemaNegotiator>) reader).open(schemaNegotiator);
   }
 }

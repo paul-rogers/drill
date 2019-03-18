@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -29,10 +28,7 @@ import org.apache.drill.exec.physical.base.Scan;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFactory;
-import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
@@ -62,7 +58,6 @@ public class ScanTestUtils {
   public static abstract class ScanFixtureBuilder {
 
     public final OperatorFixture opFixture;
-    public final List<ManagedReader<? extends SchemaNegotiator>> readers = new ArrayList<>();
 
     public ScanFixtureBuilder(OperatorFixture opFixture) {
       this.opFixture = opFixture;
@@ -82,14 +77,9 @@ public class ScanTestUtils {
       builder().setProjection(RowSetTestUtils.projectList(projCols));
     }
 
-    public void addReader(ManagedReader<? extends SchemaNegotiator> reader) {
-      readers.add(reader);
-    }
-
     protected abstract ManagedScanFramework newFramework();
 
     public ScanFixture build() {
-      builder().setReaderDriver(new BasicScanFactory(readers.iterator()));
       ManagedScanFramework framework = newFramework();
       ScanOperatorExec scanOp = new ScanOperatorExec(framework);
       Scan scanConfig = new AbstractSubScan("bob") {

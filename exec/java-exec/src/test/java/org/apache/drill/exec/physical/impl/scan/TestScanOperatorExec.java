@@ -23,7 +23,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
@@ -33,6 +36,7 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixture;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixtureBuilder;
+import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFactory;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
@@ -253,6 +257,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public static class BaseScanFixtureBuilder extends ScanFixtureBuilder {
 
     public ScanFrameworkBuilder builder = new ScanFrameworkBuilder();
+    public final List<ManagedReader<? extends SchemaNegotiator>> readers = new ArrayList<>();
 
     public BaseScanFixtureBuilder() {
       super(fixture);
@@ -261,15 +266,20 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public ScanFrameworkBuilder builder() { return builder; }
 
+    public void addReader(ManagedReader<? extends SchemaNegotiator> reader) {
+      readers.add(reader);
+    }
+
     @Override
     protected ManagedScanFramework newFramework() {
+      builder.setReaderFactory(new BasicScanFactory(readers.iterator()));
       return new ManagedScanFramework(builder);
     }
   }
 
   @SafeVarargs
   public static ScanFixture simpleFixture(ManagedReader<? extends SchemaNegotiator> ...readers) {
-    ScanFixtureBuilder builder = new BaseScanFixtureBuilder();
+    BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     builder.projectAll();
     for (ManagedReader<? extends SchemaNegotiator> reader : readers) {
       builder.addReader(reader);
@@ -1436,7 +1446,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
 
-    ScanFixtureBuilder builder = new BaseScanFixtureBuilder();
+    BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     builder.setProjection(new String[]{"a", "b"});
     builder.addReader(reader1);
     builder.addReader(reader2);

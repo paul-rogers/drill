@@ -23,12 +23,12 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataOptions;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl;
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl.NegotiatorListener;
-import org.apache.drill.exec.physical.impl.scan.framework.SimpleReaderFactory;
+import org.apache.drill.exec.physical.impl.scan.framework.ShimBatchReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.hadoop.conf.Configuration;
@@ -73,7 +73,6 @@ public class FileScanFramework extends ManagedScanFramework {
    */
 
   public interface FileSchemaNegotiator extends SchemaNegotiator {
-    public FileSplit fileSplit();
   }
 
   /**
@@ -85,15 +84,8 @@ public class FileScanFramework extends ManagedScanFramework {
   public static class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
       implements FileSchemaNegotiator {
 
-    private FileSplit split;
-
-    protected void bindSplit(FileSplit split) {
-      this.split = split;
-    }
-
-    @Override
-    public FileSplit fileSplit() {
-      return split;
+    public FileSchemaNegotiatorImpl(ManagedScanFramework framework) {
+      super(framework);
     }
   }
 
@@ -104,119 +96,45 @@ public class FileScanFramework extends ManagedScanFramework {
   public static class FileScanBuilder extends ScanFrameworkBuilder {
     private List<? extends FileWork> files;
     private Configuration fsConf;
-    private Path scanRootDir;
-    private int partitionDepth;
+    private FileMetadataOptions metadataOptions = new FileMetadataOptions();
 
-    public void setFiles(Configuration fsConf, List<? extends FileWork> files) {
+    public void setConfig(Configuration fsConf) {
       this.fsConf = fsConf;
+    }
+
+    public void setFiles(List<? extends FileWork> files) {
       this.files = files;
     }
 
-   /**
-     * Specify the selection root for a directory scan, if any.
-     * Used to populate partition columns. Also, specify the maximum
-     * partition depth.
-     *
-     * @param rootPath Hadoop file path for the directory
-     * @param partitionDepth maximum partition depth across all files
-     * within this logical scan operator (files in this scan may be
-     * shallower)
-     */
-
-    public void setSelectionRoot(Path rootPath, int partitionDepth) {
-      this.scanRootDir = rootPath;
-      this.partitionDepth = partitionDepth;
-    }
-
-    public void setSchemaNegotiator(Class<? extends FileSchemaNegotiatorImpl> negotiatorClass) {
-      this.negotiatorClass = negotiatorClass;
-    }
-
-    public void setReader(Class<? extends ManagedReader<? extends FileSchemaNegotiator>> readerClass) {
-      this.readerClass = readerClass;
-    }
+    public FileMetadataOptions metadataOptions() { return metadataOptions; }
   }
 
-  public static class FileReaderFactory extends SimpleReaderFactory {
+  public abstract static class FileReaderFactory implements ReaderFactory {
 
-    private FileScanFramework fileFramework;
-    private DrillFileSystem dfs;
-    private List<FileSplit> spilts = new ArrayList<>();
-    private Iterator<FileSplit> splitIter;
-    private FileSplit currentSplit;
+    protected FileScanFramework fileFramework;
 
     @Override
     public void bind(ManagedScanFramework baseFramework) {
       this.fileFramework = (FileScanFramework) baseFramework;
     }
 
-    private List<Path> configure() {
-      FileScanBuilder options = fileFramework.options();
-
-      // Create the Drill file system.
-
-      try {
-        dfs = fileFramework.context.newFileSystem(options.fsConf);
-      } catch (IOException e) {
-        throw UserException.dataReadError(e)
-          .addContext("Failed to create FileSystem")
-          .build(logger);
-      }
-
-      // Prepare the list of files. We need the list of paths up
-      // front to compute the maximum partition. Then, we need to
-      // iterate over the splits to create readers on demand.
-
-      List<Path> paths = new ArrayList<>();
-      for (FileWork work : options.files) {
-        Path path = dfs.makeQualified(work.getPath());
-        paths.add(path);
-        FileSplit split = new FileSplit(path, work.getStart(), work.getLength(), new String[]{""});
-        spilts.add(split);
-      }
-      splitIter = spilts.iterator();
-      return paths;
-    }
-
     @Override
     public ManagedReader<? extends SchemaNegotiator> next() {
-
-      // Create a reader on demand for the next split.
-
-      if (! splitIter.hasNext()) {
-        currentSplit = null;
+      FileSplit split = fileFramework.nextSplit();
+      if (split == null) {
         return null;
       }
-      currentSplit = splitIter.next();
-
-
-      // Tell the metadata manager about the current file so it can
-      // populate the metadata columns, if requested.
-
-      fileFramework.metadataManager.startFile(currentSplit.getPath());
-      return newReader();
+      return newReader(split);
     }
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public boolean open(ManagedReader<? extends SchemaNegotiator> reader,
-        NegotiatorListener listener) {
-      FileSchemaNegotiatorImpl schemaNegotiator = (FileSchemaNegotiatorImpl) newNegotiator();
-      schemaNegotiator.bind(fileFramework, listener);
-      schemaNegotiator.bindSplit(currentSplit);
-      try {
-        return ((ManagedReader<SchemaNegotiator>) reader).open(schemaNegotiator);
-      } catch (UserException e) {
-        throw e;
-      } catch (Exception e) {
-        throw UserException.executionError(e)
-          .addContext("File", currentSplit.getPath().toString())
-          .build(logger);
-      }
-    }
+    public abstract ManagedReader<? extends FileSchemaNegotiator> newReader(FileSplit split);
   }
 
   private FileMetadataManager metadataManager;
+  private DrillFileSystem dfs;
+  private List<FileSplit> spilts = new ArrayList<>();
+  private Iterator<FileSplit> splitIter;
+  private FileSplit currentSplit;
 
   public FileScanFramework(FileScanBuilder builder) {
     super(builder);
@@ -231,25 +149,70 @@ public class FileScanFramework extends ManagedScanFramework {
   @Override
   protected void configure() {
     super.configure();
+    FileScanBuilder options = options();
 
-    FileScanBuilder fsBuilder = options();
-    if (fsBuilder.negotiatorClass() == null) {
-      fsBuilder.setSchemaNegotiator(FileSchemaNegotiatorImpl.class);
+    // Create the Drill file system.
+
+    try {
+      dfs = context.newFileSystem(options.fsConf);
+    } catch (IOException e) {
+      throw UserException.dataReadError(e)
+        .addContext("Failed to create FileSystem")
+        .build(logger);
     }
 
-    FileReaderFactory fileReaderFactory = (FileReaderFactory) readerFactory;
-    List<Path> paths = fileReaderFactory.configure();
+    // Prepare the list of files. We need the list of paths up
+    // front to compute the maximum partition. Then, we need to
+    // iterate over the splits to create readers on demand.
+
+    List<Path> paths = new ArrayList<>();
+    for (FileWork work : options.files) {
+      Path path = dfs.makeQualified(work.getPath());
+      paths.add(path);
+      FileSplit split = new FileSplit(path, work.getStart(), work.getLength(), new String[]{""});
+      spilts.add(split);
+    }
+    splitIter = spilts.iterator();
 
     // Create the metadata manager to handle file metadata columns
     // (so-called implicit columns and partition columns.)
 
+    options.metadataOptions().setFiles(paths);
     metadataManager = new FileMetadataManager(
         context.getFragmentContext().getOptions(),
-        true, // Expand partition columns with wildcard
-        false, // Put partition columns after table columns
-        fsBuilder.scanRootDir,
-        fsBuilder.partitionDepth,
-        paths);
+        options.metadataOptions());
     builder.withMetadata(metadataManager);
+  }
+
+  protected FileSplit nextSplit() {
+    if (! splitIter.hasNext()) {
+      currentSplit = null;
+      return null;
+    }
+    currentSplit = splitIter.next();
+
+    // Tell the metadata manager about the current file so it can
+    // populate the metadata columns, if requested.
+
+    metadataManager.startFile(currentSplit.getPath());
+    return currentSplit;
+  }
+
+  @Override
+  protected SchemaNegotiatorImpl newNegotiator() {
+    return new FileSchemaNegotiatorImpl(this);
+  }
+
+  @Override
+  public boolean open(ShimBatchReader shimBatchReader) {
+    try {
+      return super.open(shimBatchReader);
+    } catch (UserException e) {
+      throw e;
+    } catch (Exception e) {
+      throw UserException.executionError(e)
+        .addContext("File", currentSplit.getPath().toString())
+        .build(logger);
+    }
   }
 }

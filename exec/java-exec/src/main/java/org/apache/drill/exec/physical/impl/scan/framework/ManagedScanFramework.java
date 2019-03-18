@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.scan.framework;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl.NegotiatorListener;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 
@@ -131,41 +130,13 @@ public class ManagedScanFramework implements ScanOperatorEvents {
   public interface ReaderFactory {
     void bind(ManagedScanFramework framework);
     ManagedReader<? extends SchemaNegotiator> next();
-    boolean open(ManagedReader<? extends SchemaNegotiator> reader, NegotiatorListener listener);
   }
 
   public static class ScanFrameworkBuilder extends ScanOrchestratorBuilder {
     protected ReaderFactory readerFactory;
-    protected Class<? extends SchemaNegotiatorImpl> negotiatorClass;
-    protected Class<? extends ManagedReader<? extends SchemaNegotiator>> readerClass;
 
-    public void setReaderDriver(ReaderFactory readerFactory) {
+    public void setReaderFactory(ReaderFactory readerFactory) {
       this.readerFactory = readerFactory;
-    }
-
-    /**
-     * Return a scan-specific reader class to create for each reader. No setter is
-     * provided here; this allows subclasses to restrict the class to be used for
-     * the specific kind of scan. The reader is initialized via the
-     * {@link ManagedReader#open(SchemaNegotiator)} method.
-     *
-     * @return instance of a reader class
-     */
-    public Class<? extends SchemaNegotiatorImpl> negotiatorClass() {
-      return negotiatorClass;
-    }
-
-    /**
-     * Return a scan-specific negotiator class to create for each reader. No setter is
-     * provided here; this allows subclasses to restrict the class to be used for
-     * the specific kind of scan. The negotiator is initialized via the
-     * {@link SchemaNegotiatorImpl#bind(ManagedScanFramework, NegotiatorListener)}
-     * method.
-     *
-     * @return instance of a negotiator class
-     */
-    public Class<? extends ManagedReader<? extends SchemaNegotiator>> readerClass() {
-      return readerClass;
     }
   }
 
@@ -205,6 +176,17 @@ public class ManagedScanFramework implements ScanOperatorEvents {
   public RowBatchReader nextReader() {
     ManagedReader<? extends SchemaNegotiator> reader = readerFactory.next();
     return reader == null ? null : new ShimBatchReader(this, reader);
+  }
+
+  protected SchemaNegotiatorImpl newNegotiator() {
+    return new SchemaNegotiatorImpl(this);
+  }
+
+  @SuppressWarnings("unchecked")
+  public boolean open(ShimBatchReader shimBatchReader) {
+    SchemaNegotiatorImpl schemaNegotiator = newNegotiator();
+    schemaNegotiator.bind(shimBatchReader);
+    return ((ManagedReader<SchemaNegotiator>) shimBatchReader.reader()).open(schemaNegotiator);
   }
 
   @Override

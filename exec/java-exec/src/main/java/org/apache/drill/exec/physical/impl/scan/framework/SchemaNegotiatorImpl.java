@@ -54,15 +54,17 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     ResultSetLoader build(SchemaNegotiatorImpl schemaNegotiator);
   }
 
-  protected ManagedScanFramework framework;
+  protected final ManagedScanFramework framework;
   private NegotiatorListener listener;
   protected TupleMetadata tableSchema;
   protected boolean isSchemaComplete;
   protected int batchSize = ValueVector.MAX_ROW_COUNT;
 
-  public void bind(ManagedScanFramework framework,
-      NegotiatorListener listener) {
+  public SchemaNegotiatorImpl(ManagedScanFramework framework) {
     this.framework = framework;
+  }
+
+  public void bind(NegotiatorListener listener) {
     this.listener = listener;
   }
 
