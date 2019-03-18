@@ -22,17 +22,19 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
 import org.apache.drill.categories.RowSetTests;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.ScanFixture;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixture;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixtureBuilder;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
-import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -40,14 +42,12 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileSplit;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -92,61 +92,90 @@ public class TestFileScanFramework extends SubOperatorTest {
     public long getLength() { return 0; }
   }
 
-  /**
-   * Fixture class to assemble all the knick-knacks that make up a
-   * file scan framework. The parts have a form unique to testing
-   * since we are not actually doing real scans.
-   */
+//  /**
+//   * Fixture class to assemble all the knick-knacks that make up a
+//   * file scan framework. The parts have a form unique to testing
+//   * since we are not actually doing real scans.
+//   */
+//
+//  public abstract static class FileScanFixture extends ScanFixture {
+//
+//    protected Path selectionRoot = MOCK_ROOT_PATH;
+//    protected int partitionDepth = 3;
+//    protected List<FileWork> files = new ArrayList<>();
+//    protected Configuration fsConfig = new Configuration();
+//
+//    public
+//
+//    public ScanOperatorExec build() {
+//      BaseFileScanFramework<?> framework = buildFramework();
+//      configure(framework);
+//      configureFileScan(framework);
+//      return buildScanOp(framework);
+//    }
+//
+//    protected abstract BaseFileScanFramework<?> buildFramework();
+//
+//    private void configureFileScan(BaseFileScanFramework<?> framework) {
+//      framework.setSelectionRoot(selectionRoot, partitionDepth);
+//    }
+//  }
+//
+//  public static class FileScanOpFixture extends BaseFileScanOpFixture implements FileReaderFactory {
+//
+//    protected final List<MockFileReader> readers = new ArrayList<>();
+//    protected Iterator<MockFileReader> readerIter;
+//
+//    public void addReader(MockFileReader reader) {
+//      readers.add(reader);
+//      files.add(new DummyFileWork(reader.filePath()));
+//    }
+//
+//    @Override
+//    protected BaseFileScanFramework<?> buildFramework() {
+//      readerIter = readers.iterator();
+//      return new FileScanFramework(projection, files, fsConfig, this);
+//    }
+//
+//    @Override
+//    public ManagedReader<FileSchemaNegotiator> makeBatchReader(
+//        DrillFileSystem dfs,
+//        FileSplit split) throws ExecutionSetupException {
+//      if (! readerIter.hasNext()) {
+//        return null;
+//      }
+//      return readerIter.next();
+//    }
+//  }
+  public static class FileScanFixtureBuilder extends ScanFixtureBuilder {
 
-  public abstract static class FileScanFixture extends ScanFixture {
+    public FileScanBuilder builder = new FileScanBuilder();
 
-    protected Path selectionRoot = MOCK_ROOT_PATH;
-    protected int partitionDepth = 3;
-    protected List<FileWork> files = new ArrayList<>();
-    protected Configuration fsConfig = new Configuration();
-
-    public
-
-    public ScanOperatorExec build() {
-      BaseFileScanFramework<?> framework = buildFramework();
-      configure(framework);
-      configureFileScan(framework);
-      return buildScanOp(framework);
-    }
-
-    protected abstract BaseFileScanFramework<?> buildFramework();
-
-    private void configureFileScan(BaseFileScanFramework<?> framework) {
-      framework.setSelectionRoot(selectionRoot, partitionDepth);
-    }
-  }
-
-  public static class FileScanOpFixture extends BaseFileScanOpFixture implements FileReaderFactory {
-
-    protected final List<MockFileReader> readers = new ArrayList<>();
-    protected Iterator<MockFileReader> readerIter;
-
-    public void addReader(MockFileReader reader) {
-      readers.add(reader);
-      files.add(new DummyFileWork(reader.filePath()));
+    public FileScanFixtureBuilder() {
+      super(fixture);
+      builder.setSelectionRoot(MOCK_ROOT_PATH, 3);
+      builder.setFiles(new Configuration(), new ArrayList<>());
     }
 
     @Override
-    protected BaseFileScanFramework<?> buildFramework() {
-      readerIter = readers.iterator();
-      return new FileScanFramework(projection, files, fsConfig, this);
-    }
+    public ScanFrameworkBuilder builder() { return builder; }
 
     @Override
-    public ManagedReader<FileSchemaNegotiator> makeBatchReader(
-        DrillFileSystem dfs,
-        FileSplit split) throws ExecutionSetupException {
-      if (! readerIter.hasNext()) {
-        return null;
-      }
-      return readerIter.next();
+    protected ManagedScanFramework newFramework() {
+      return new FileScanFramework(builder);
     }
   }
+
+  @SafeVarargs
+  public static ScanFixture simpleFixture(ManagedReader<? extends SchemaNegotiator> ...readers) {
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.projectAll();
+    for (ManagedReader<? extends SchemaNegotiator> reader : readers) {
+      builder.addReader(reader);
+    }
+    return builder.build();
+  }
+
 
   private interface MockFileReader extends ManagedReader<FileSchemaNegotiator> {
     Path filePath();
@@ -284,10 +313,11 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Create the scan operator
 
-    FileScanOpFixture scanFixture = new FileScanOpFixture();
-    scanFixture.projectAllWithMetadata(2);
-    scanFixture.addReader(reader);
-    ScanOperatorExec scan = scanFixture.build();
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.projectAllWithMetadata(2);
+    builder.addReader(reader);
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
 
@@ -349,10 +379,11 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Select table and implicit columns.
 
-    FileScanOpFixture scanFixture = new FileScanOpFixture();
-    scanFixture.setProjection(new String[] {"a", "b", "filename", "suffix"});
-    scanFixture.addReader(reader);
-    ScanOperatorExec scan = scanFixture.build();
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.setProjection(new String[] {"a", "b", "filename", "suffix"});
+    builder.addReader(reader);
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
 
     // Expect data and implicit columns
 
@@ -402,10 +433,11 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Select table and implicit columns.
 
-    FileScanOpFixture scanFixture = new FileScanOpFixture();
-    scanFixture.setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"});
-    scanFixture.addReader(reader);
-    ScanOperatorExec scan = scanFixture.build();
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"});
+    builder.addReader(reader);
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
 
     // Expect data and implicit columns
 
@@ -448,10 +480,11 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Select no columns
 
-    FileScanOpFixture scanFixture = new FileScanOpFixture();
-    scanFixture.setProjection(new String[] {});
-    scanFixture.addReader(reader);
-    ScanOperatorExec scan = scanFixture.build();
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.setProjection(new String[] {});
+    builder.addReader(reader);
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
 
     // Expect data and implicit columns
 
@@ -518,10 +551,11 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Select one of the two map columns
 
-    FileScanOpFixture scanFixture = new FileScanOpFixture();
-    scanFixture.setProjection(new String[] {"m1.a"});
-    scanFixture.addReader(reader);
-    ScanOperatorExec scan = scanFixture.build();
+    FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
+    builder.setProjection(new String[] {"m1.a"});
+    builder.addReader(reader);
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
 
     // Expect data and implicit columns
 
