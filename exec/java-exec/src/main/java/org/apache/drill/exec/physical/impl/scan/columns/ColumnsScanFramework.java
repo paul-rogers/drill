@@ -78,7 +78,7 @@ public class ColumnsScanFramework extends FileScanFramework<ColumnsScanFramework
     }
 
     private ColumnsScanFramework framework() {
-      return (ColumnsScanFramework) basicFramework;
+      return (ColumnsScanFramework) framework;
     }
 
     @Override

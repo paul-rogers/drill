@@ -112,9 +112,22 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
 
 public class ManagedScanFramework implements ScanOperatorEvents {
 
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ManagedScanFramework.class);
+
   /**
-   * Create and open managed readers for this scan.
+   * Creates a batch reader on demand. Unlike earlier versions of Drill,
+   * this framework creates readers one by one, when they are needed.
+   * Doing so avoids excessive resource demands that come from creating
+   * potentially thousands of readers up front.
+   * <p>
+   * The reader itself is unique to each file type. This interface
+   * provides a common interface that this framework can use to create the
+   * file-specific reader on demand.
+   * <p>
+   * Also manages opening the reader using a scan-specific schema
+   * negotiator.
    */
+
   public interface ReaderFactory {
     void bind(ManagedScanFramework framework);
     ManagedReader<? extends SchemaNegotiator> next();
@@ -122,10 +135,37 @@ public class ManagedScanFramework implements ScanOperatorEvents {
   }
 
   public static class ScanFrameworkBuilder extends ScanOrchestratorBuilder {
-    private ReaderFactory readerFactory;
+    protected ReaderFactory readerFactory;
+    protected Class<? extends SchemaNegotiatorImpl> negotiatorClass;
+    protected Class<? extends ManagedReader<? extends SchemaNegotiator>> readerClass;
 
     public void setReaderDriver(ReaderFactory readerFactory) {
       this.readerFactory = readerFactory;
+    }
+
+    /**
+     * Return a scan-specific reader class to create for each reader. No setter is
+     * provided here; this allows subclasses to restrict the class to be used for
+     * the specific kind of scan. The reader is initialized via the
+     * {@link ManagedReader#open(SchemaNegotiator)} method.
+     *
+     * @return instance of a reader class
+     */
+    public Class<? extends SchemaNegotiatorImpl> negotiatorClass() {
+      return negotiatorClass;
+    }
+
+    /**
+     * Return a scan-specific negotiator class to create for each reader. No setter is
+     * provided here; this allows subclasses to restrict the class to be used for
+     * the specific kind of scan. The negotiator is initialized via the
+     * {@link SchemaNegotiatorImpl#bind(ManagedScanFramework, NegotiatorListener)}
+     * method.
+     *
+     * @return instance of a negotiator class
+     */
+    public Class<? extends ManagedReader<? extends SchemaNegotiator>> readerClass() {
+      return readerClass;
     }
   }
 

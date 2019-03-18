@@ -34,7 +34,7 @@ import org.apache.drill.exec.vector.ValueVector;
 public class ReaderSchemaOrchestrator implements VectorSource {
 
   private final ScanSchemaOrchestrator scanOrchestrator;
-  private int readerBatchSize;
+  private int readerBatchSize = ScanSchemaOrchestrator.MAX_BATCH_ROW_COUNT;
   private ResultSetLoaderImpl tableLoader;
   private int prevTableSchemaVersion = -1;
 
@@ -55,13 +55,13 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   public void setBatchSize(int size) {
     if (size > 0) {
-      readerBatchSize = Math.min(size, scanOrchestrator.options.scanBatchRecordLimit);
+      readerBatchSize = size;
     }
   }
 
   public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {
     OptionBuilder options = new OptionBuilder();
-    options.setRowCountLimit(readerBatchSize);
+    options.setRowCountLimit(Math.min(readerBatchSize, scanOrchestrator.options.scanBatchRecordLimit));
     options.setVectorCache(scanOrchestrator.vectorCache);
     options.setBatchSizeLimit(scanOrchestrator.options.scanBatchByteLimit);
 

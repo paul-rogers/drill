@@ -54,21 +54,21 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     ResultSetLoader build(SchemaNegotiatorImpl schemaNegotiator);
   }
 
-  protected ManagedScanFramework basicFramework;
+  protected ManagedScanFramework framework;
   private NegotiatorListener listener;
   protected TupleMetadata tableSchema;
   protected boolean isSchemaComplete;
   protected int batchSize = ValueVector.MAX_ROW_COUNT;
 
-  protected void bind(ManagedScanFramework framework,
+  public void bind(ManagedScanFramework framework,
       NegotiatorListener listener) {
-    basicFramework = framework;
+    this.framework = framework;
     this.listener = listener;
   }
 
   @Override
   public OperatorContext context() {
-    return basicFramework.context();
+    return framework.context();
   }
 
   @Override
@@ -102,7 +102,7 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
 
   @Override
   public boolean isProjectionEmpty() {
-    return basicFramework.scanOrchestrator().isProjectNone();
+    return framework.scanOrchestrator().isProjectNone();
   }
 
   public boolean isSchemaComplete() { return isSchemaComplete; }
