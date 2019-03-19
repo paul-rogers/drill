@@ -64,6 +64,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     options.setRowCountLimit(Math.min(readerBatchSize, scanOrchestrator.options.scanBatchRecordLimit));
     options.setVectorCache(scanOrchestrator.vectorCache);
     options.setBatchSizeLimit(scanOrchestrator.options.scanBatchByteLimit);
+    options.setSchemaTransform(scanOrchestrator.options.schemaTransformer);
 
     // Set up a selection list if available and is a subset of
     // table columns. (Only needed for non-wildcard queries.)

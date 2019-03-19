@@ -26,7 +26,10 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
+import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformer;
+import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformerImpl;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 
 /**
@@ -160,6 +163,8 @@ public class ScanSchemaOrchestrator {
     private boolean useSchemaSmoothing;
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
+    private TupleMetadata outputSchema;
+    private SchemaTransformer schemaTransformer;
 
     /**
      * Specify an optional metadata manager. Metadata is a set of constant
@@ -232,6 +237,14 @@ public class ScanSchemaOrchestrator {
     public void setProjection(List<SchemaPath> projection) {
       this.projection = projection;
     }
+
+    public void setOutputSchema(TupleMetadata schema) {
+      outputSchema = schema;
+    }
+
+    public void setSchemaTransformer(SchemaTransformer transformer) {
+      this.schemaTransformer = transformer;
+    }
   }
 
   public static class ScanSchemaOptions {
@@ -258,6 +271,7 @@ public class ScanSchemaOrchestrator {
     public final List<SchemaPath> projection;
     public final boolean useSchemaSmoothing;
     public final boolean allowRequiredNullColumns;
+    public final SchemaTransformer schemaTransformer;
 
     protected ScanSchemaOptions(ScanOrchestratorBuilder builder) {
       nullType = builder.nullType;
@@ -268,6 +282,15 @@ public class ScanSchemaOrchestrator {
       projection = builder.projection;
       useSchemaSmoothing = builder.useSchemaSmoothing;
       allowRequiredNullColumns = builder.allowRequiredNullColumns;
+      if (builder.schemaTransformer != null) {
+        // Use client-provided conversions
+        schemaTransformer = builder.schemaTransformer;
+      } else if (builder.outputSchema != null) {
+        // Use only implicit conversions
+        schemaTransformer = new SchemaTransformerImpl(builder.outputSchema);
+      } else {
+        schemaTransformer = null;
+      }
     }
   }
 
