@@ -184,7 +184,8 @@ public abstract class ResolvedTuple implements VectorSource {
     protected AbstractMapVector outputMap;
 
     public ResolvedMap(ResolvedMapColumn parentColumn) {
-      super(parentColumn.parent().nullBuilder == null ? null : parentColumn.parent().nullBuilder.newChild());
+      super(parentColumn.parent().nullBuilder == null
+          ? null : parentColumn.parent().nullBuilder.newChild(parentColumn.name()));
       this.parentColumn = parentColumn;
     }
 

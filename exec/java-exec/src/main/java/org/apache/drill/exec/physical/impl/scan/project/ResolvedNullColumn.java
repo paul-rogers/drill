@@ -33,11 +33,14 @@ public class ResolvedNullColumn extends ResolvedColumn implements NullColumnSpec
 
   private final String name;
   private MajorType type;
+  private Object defaultValue;
 
-  public ResolvedNullColumn(String name, MajorType type, VectorSource source, int sourceIndex) {
+  public ResolvedNullColumn(String name, MajorType type, Object defaultValue,
+      VectorSource source, int sourceIndex) {
     super(source, sourceIndex);
     this.name = name;
     this.type = type;
+    this.defaultValue = defaultValue;
   }
 
   @Override
@@ -52,6 +55,12 @@ public class ResolvedNullColumn extends ResolvedColumn implements NullColumnSpec
   @Override
   public void setType(MajorType type) {
 
+    // Adjust the default value if needed.
+
+    if (this.type != null && type.getMinorType() != this.type.getMinorType()) {
+      defaultValue = null;
+    }
+
     // Update the actual type based on what the null-column
     // mechanism chose for this column.
 
@@ -62,4 +71,7 @@ public class ResolvedNullColumn extends ResolvedColumn implements NullColumnSpec
   public MaterializedField schema() {
     return MaterializedField.create(name, type);
   }
+
+  @Override
+  public Object defaultValue() { return defaultValue; }
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
@@ -165,9 +166,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
   }
 
   private void doSmoothedProjection(TupleMetadata tableSchema) {
-    rootTuple = new ResolvedRow(
-        new NullColumnBuilder(scanOrchestrator.options.nullType,
-            scanOrchestrator.options.allowRequiredNullColumns));
+    rootTuple = newRootTuple();
     scanOrchestrator.schemaSmoother.resolve(tableSchema, rootTuple);
   }
 
@@ -182,6 +181,16 @@ public class ReaderSchemaOrchestrator implements VectorSource {
         tableSchema, rootTuple, scanOrchestrator.options.schemaResolvers);
   }
 
+  private ResolvedRow newRootTuple() {
+    NullBuilderBuilder nullBuilder = new NullBuilderBuilder()
+        .setNullType(scanOrchestrator.options.nullType)
+        .allowRequiredNullColumns(scanOrchestrator.options.allowRequiredNullColumns);
+      if (scanOrchestrator.options.schemaTransformer != null) {
+        nullBuilder.setOutputSchema(scanOrchestrator.options.schemaTransformer.outputSchema());
+      }
+      return new ResolvedRow(nullBuilder.build());
+  }
+
   /**
    * Explicit projection: include only those columns actually
    * requested by the query, which may mean filling in null
@@ -192,9 +201,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
    */
 
   private void doExplicitProjection(TupleMetadata tableSchema) {
-    rootTuple = new ResolvedRow(
-        new NullColumnBuilder(scanOrchestrator.options.nullType,
-            scanOrchestrator.options.allowRequiredNullColumns));
+    rootTuple = newRootTuple();
     new ExplicitSchemaProjection(scanOrchestrator.scanProj,
             tableSchema, rootTuple,
             scanOrchestrator.options.schemaResolvers);

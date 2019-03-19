@@ -24,6 +24,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
@@ -36,6 +38,31 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
 
 public class NullColumnBuilder implements VectorSource {
 
+  public static class NullBuilderBuilder {
+    protected MajorType nullType;
+    protected boolean allowRequiredNullColumns;
+    protected TupleMetadata outputSchema;
+
+    public NullBuilderBuilder setNullType(MajorType nullType) {
+      this.nullType = nullType;
+      return this;
+    }
+
+    public NullBuilderBuilder allowRequiredNullColumns(boolean flag) {
+      allowRequiredNullColumns = flag;
+      return this;
+    }
+
+    public NullBuilderBuilder setOutputSchema(TupleMetadata outputSchema) {
+      this.outputSchema = outputSchema;
+      return this;
+    }
+
+    public NullColumnBuilder build() {
+      return new NullColumnBuilder(this);
+    }
+  }
+
   /**
    * Creates null columns if needed.
    */
@@ -43,6 +70,7 @@ public class NullColumnBuilder implements VectorSource {
   protected final List<NullColumnSpec> nullCols = new ArrayList<>();
   private NullColumnLoader nullColumnLoader;
   private VectorContainer outputContainer;
+  protected TupleMetadata outputSchema;
 
   /**
    * The reader-specified null type if other than the default.
@@ -51,14 +79,26 @@ public class NullColumnBuilder implements VectorSource {
   private final MajorType nullType;
   private final boolean allowRequiredNullColumns;
 
-  public NullColumnBuilder(
-      MajorType nullType, boolean allowRequiredNullColumns) {
-    this.nullType = nullType;
-    this.allowRequiredNullColumns = allowRequiredNullColumns;
+  public NullColumnBuilder(NullBuilderBuilder builder) {
+    this.nullType = builder.nullType;
+    this.allowRequiredNullColumns = builder.allowRequiredNullColumns;
+    this.outputSchema = builder.outputSchema;
   }
 
-  public NullColumnBuilder newChild() {
-    return new NullColumnBuilder(nullType, allowRequiredNullColumns);
+  public NullColumnBuilder newChild(String mapName) {
+    NullBuilderBuilder builder = new NullBuilderBuilder()
+        .setNullType(nullType)
+        .allowRequiredNullColumns(allowRequiredNullColumns);
+
+    // Pass along the schema of the child map if 1) we have an output schema,
+    // 2) the column is defined in that schema, and 3) the column is a map.
+    if (outputSchema != null) {
+      ColumnMetadata colSchema = outputSchema.metadata(mapName);
+      if (colSchema != null) {
+        builder.setOutputSchema(colSchema.mapSchema());
+      }
+    }
+    return builder.build();
   }
 
   public ResolvedNullColumn add(String name) {
@@ -66,7 +106,23 @@ public class NullColumnBuilder implements VectorSource {
   }
 
   public ResolvedNullColumn add(String name, MajorType type) {
-    final ResolvedNullColumn col = new ResolvedNullColumn(name, type, this, nullCols.size());
+    // If type is provided, use it. (Used during schema smoothing.)
+    // Else if there is an output schema, and the column appears in
+    // that schema, use that type.
+    Object defaultValue = null;
+    if (outputSchema != null) {
+      ColumnMetadata col = outputSchema.metadata(name);
+      if (col != null) {
+        if (type == null) {
+          type = col.majorType();
+        }
+        if (type == null || type.getMinorType() == col.type()) {
+          defaultValue = col.decodeDefaultValue();
+        }
+      }
+    }
+    final ResolvedNullColumn col = new ResolvedNullColumn(name, type,
+        defaultValue, this, nullCols.size());
     nullCols.add(col);
     return col;
   }

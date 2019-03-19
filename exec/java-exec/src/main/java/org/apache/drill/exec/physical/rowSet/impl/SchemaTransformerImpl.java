@@ -194,4 +194,7 @@ public class SchemaTransformerImpl implements SchemaTransformer {
       ColumnMetadata outputDefn, ConversionDefn defn) {
     return null;
   }
+
+  @Override
+  public TupleMetadata outputSchema() { return outputSchema; }
 }
