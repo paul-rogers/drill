@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataOptions;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
@@ -131,7 +132,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
-      NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       ResolvedRow rootTuple = new ResolvedRow(builder);
       new ExplicitSchemaProjection(
           scanProj, twoColSchema, rootTuple,
@@ -164,7 +165,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       TupleMetadata oneColSchema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
-      NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       ResolvedRow rootTuple = new ResolvedRow(builder);
       new ExplicitSchemaProjection(
           scanProj, oneColSchema, rootTuple,
@@ -215,7 +216,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
     ResolvedRow priorSchema;
     {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       new WildcardSchemaProjection(
           scanProj, schema1, rootTuple,
@@ -230,7 +231,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("c", MinorType.FLOAT8)
         .buildSchema();
     try {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema2, priorSchema, rootTuple,
@@ -250,7 +251,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("d", MinorType.INT)
         .buildSchema();
     try {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema3, priorSchema, rootTuple,
@@ -268,7 +269,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("c", MinorType.FLOAT8)
         .buildSchema();
     try {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema4, priorSchema, rootTuple,
@@ -285,7 +286,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
     try {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       new SmoothingProjection(
           scanProj, schema6, priorSchema, rootTuple,
@@ -320,14 +321,14 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .buildSchema();
 
     {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       smoother.resolve(priorSchema, rootTuple);
       assertEquals(1, smoother.schemaVersion());
       assertTrue(ScanTestUtils.schema(rootTuple).isEquivalent(priorSchema));
     }
     {
-      final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+      final NullColumnBuilder builder = new NullBuilderBuilder().build();
       final ResolvedRow rootTuple = new ResolvedRow(builder);
       smoother.resolve(tableSchema, rootTuple);
       assertEquals(2, smoother.schemaVersion());
@@ -367,7 +368,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
   }
 
   private ResolvedRow doResolve(SchemaSmoother smoother, TupleMetadata schema) {
-    final NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    final NullColumnBuilder builder = new NullBuilderBuilder().build();
     final ResolvedRow rootTuple = new ResolvedRow(builder);
     smoother.resolve(schema, rootTuple);
     return rootTuple;

@@ -437,6 +437,20 @@ public class ColumnAccessors {
       setLong(value.getMillis());
     }
     </#if>
+
+    @Override
+    public final void setValue(final Object value) {
+      <#if drillType == "VarChar">
+      setString((String) value);
+      <#elseif putArgs != "">
+      throw new InvalidConversionError("Generic object not supported for type ${drillType}, "
+          + "set${label}(${accessorType}${putArgs})");
+      <#else>
+      if (value != null) {
+        set${label}((${accessorType}${putArgs}) value);
+      }
+      </#if>
+    }
   }
 
     </#if>

@@ -38,6 +38,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMet
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
@@ -215,7 +216,7 @@ public class TestFileMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    NullColumnBuilder builder = new NullBuilderBuilder().build();
     ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
@@ -285,7 +286,7 @@ public class TestFileMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    NullColumnBuilder builder = new NullBuilderBuilder().build();
     ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,
@@ -322,7 +323,7 @@ public class TestFileMetadataProjection extends SubOperatorTest {
         .buildSchema();
 
     metadataManager.startFile(filePath);
-    NullColumnBuilder builder = new NullColumnBuilder(null, false);
+    NullColumnBuilder builder = new NullBuilderBuilder().build();
     ResolvedRow rootTuple = new ResolvedRow(builder);
     new ExplicitSchemaProjection(
         scanProj, tableSchema, rootTuple,

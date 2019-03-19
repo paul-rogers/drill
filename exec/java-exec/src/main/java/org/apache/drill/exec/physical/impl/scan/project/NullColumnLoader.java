@@ -184,10 +184,7 @@ public class NullColumnLoader extends StaticColumnLoader {
       for (int i = 0; i < rowCount; i++) {
         writer.start();
         for (int j = 0; j < colDefns.size(); j++) {
-          // This particular form is slow: it was meant for unit tests.
-          // Does a conditional lookup on the object type for each call.
-          // Need a "direct path" for the final version.
-          writer.column(j).setObject(colDefns.get(j).defaultValue());
+          writer.scalar(j).setValue(colDefns.get(j).defaultValue());
         }
         writer.save();
       }

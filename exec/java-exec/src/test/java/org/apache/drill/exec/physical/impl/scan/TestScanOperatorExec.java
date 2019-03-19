@@ -32,6 +32,7 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixture;
@@ -51,6 +52,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -250,8 +252,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private void verifyBatch(int offset, VectorContainer output) {
     SingleRowSet expected = makeExpected(offset);
-    new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(output));
+    RowSetUtilities.verify(expected, fixture.wrap(output));
   }
 
   public static class BaseScanFixtureBuilder extends ScanFixtureBuilder {
@@ -704,15 +705,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertTrue(scan.next());
     assertEquals(1, reader.batchCount);
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    RowSetUtilities.verify(expected,
+      fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // Third batch, normal case.
 
     assertTrue(scan.next());
     assertEquals(2, reader.batchCount);
-    new RowSetComparison(makeExpected(20))
-      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    RowSetUtilities.verify(makeExpected(20),
+      fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
@@ -874,8 +875,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addRow("10", "fred")
         .addRow("20", "wilma")
         .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    RowSetUtilities.verify(expected,
+      fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // Second batch from second reader.
 
@@ -885,8 +886,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addRow("30", "fred")
         .addRow("40", "wilma")
         .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    RowSetUtilities.verify(expected,
+      fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
@@ -1477,8 +1478,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addRow(111, null)
         .addRow(121, null)
         .build();
-    new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    RowSetUtilities.verify(expected,
+        fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // Batch from (a, b) reader 3
     // Recycles b again, back to being a table column.
@@ -1486,6 +1487,99 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(scan.next());
     assertEquals(1, scan.batchAccessor().schemaVersion());
     verifyBatch(200, scan.batchAccessor().getOutgoingContainer());
+
+    assertFalse(scan.next());
+    scanFixture.close();
+  }
+
+  private static class MockSimpleReader implements ManagedReader<SchemaNegotiator> {
+
+    private ResultSetLoader tableLoader;
+
+    @Override
+    public boolean open(SchemaNegotiator schemaNegotiator) {
+      TupleMetadata schema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema, true);
+      tableLoader = schemaNegotiator.build();
+      return true;
+    }
+
+    @Override
+    public boolean next() {
+
+      // First batch is schema only, we provide batch 2
+
+      if (tableLoader.batchCount() > 1) {
+        return false;
+      }
+      RowSetLoader writer = tableLoader.writer();
+      writer.start();
+      writer.scalar(0).setString("10");
+      writer.save();
+      return true;
+    }
+
+    @Override
+    public void close() { }
+  }
+
+  /**
+   * Test an output schema.
+   * <ul>
+   * <li>Column a has an input type of VARCHAR, and output type of INT,
+   * and the framework will insert an implicit conversion.</li>
+   * <li>Column b has an output type of BIGINT, is projected, but is
+   * not provided by the reader. It will use the default value of 20L.</li>
+   * <li>Column c is not in the output schema, is not provided by the
+   * reader, but is projected, so it will use the default null type
+   * of VARCHAR, with a null value.</li>
+   * </ul>
+   */
+
+  @Test
+  public void testOutputSchema() {
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .buildSchema();
+    outputSchema.metadata("b").setDefaultValue("20");
+
+    BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
+    builder.setProjection(new String[]{"a", "b", "c"});
+    builder.addReader(new MockSimpleReader());
+    builder.builder.setOutputSchema(outputSchema);
+    builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .addNullable("c", MinorType.VARCHAR)
+        .buildSchema();
+
+    // Initial schema
+
+    assertTrue(scan.buildSchema());
+    {
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+           .build();
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    }
+
+    // Batch with defaults and null types
+
+    assertTrue(scan.next());
+    {
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+          .addRow(10, 20L, null)
+          .build();
+      RowSetUtilities.verify(expected,
+          fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    }
 
     assertFalse(scan.next());
     scanFixture.close();

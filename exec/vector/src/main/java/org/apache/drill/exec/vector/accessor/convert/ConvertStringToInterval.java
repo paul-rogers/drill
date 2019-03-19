@@ -34,7 +34,7 @@ public class ConvertStringToInterval extends AbstractWriteConverter {
   }
 
   @Override
-  public void setString(String value) {
+  public void setString(final String value) {
     if (value == null) {
       baseWriter.setNull();
     } else {
@@ -45,5 +45,10 @@ public class ConvertStringToInterval extends AbstractWriteConverter {
         throw InvalidConversionError.writeError(schema(), value, e);
       }
     }
+  }
+
+  @Override
+  public void setValue(final Object value) {
+    setString((String) value);
   }
 }

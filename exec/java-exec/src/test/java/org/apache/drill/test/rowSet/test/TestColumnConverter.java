@@ -82,6 +82,11 @@ public class TestColumnConverter extends SubOperatorTest {
     public void setString(String value) {
       setInt(Integer.parseInt(value));
     }
+
+    @Override
+    public void setValue(Object value) {
+      setString((String) value);
+    }
   }
 
   /**
