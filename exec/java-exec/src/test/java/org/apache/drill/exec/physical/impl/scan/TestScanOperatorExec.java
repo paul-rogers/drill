@@ -1499,7 +1499,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
       TupleMetadata schema = new SchemaBuilder()
+          // Schema provided in test
           .add("a", MinorType.VARCHAR)
+          // No schema provided
+          .add("b", MinorType.VARCHAR)
+          // No schema and not projected in test
+          .add("c", MinorType.VARCHAR)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema, true);
       tableLoader = schemaNegotiator.build();
@@ -1517,6 +1522,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
       RowSetLoader writer = tableLoader.writer();
       writer.start();
       writer.scalar(0).setString("10");
+      writer.scalar(1).setString("foo");
+      writer.scalar(2).setString("bar");
       writer.save();
       return true;
     }
@@ -1541,13 +1548,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
   @Test
   public void testOutputSchema() {
     TupleMetadata outputSchema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .add("b", MinorType.BIGINT)
+        .add("a", MinorType.INT) // Projected, in reader
+        .add("d", MinorType.BIGINT) // Projected, not in reader
+        .add("e", MinorType.BIGINT) // Not projected, not in reader
         .buildSchema();
-    outputSchema.metadata("b").setDefaultValue("20");
+    outputSchema.metadata("d").setDefaultValue("20");
+    outputSchema.metadata("e").setDefaultValue("30");
 
     BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
-    builder.setProjection(new String[]{"a", "b", "c"});
+    // Project (schema + reader), (reader only), (schema only), (neither)
+    builder.setProjection(new String[]{"a", "b", "d", "f"});
     builder.addReader(new MockSimpleReader());
     builder.builder.setOutputSchema(outputSchema);
     builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
@@ -1556,8 +1566,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
-        .add("b", MinorType.BIGINT)
-        .addNullable("c", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("d", MinorType.BIGINT)
+        .addNullable("f", MinorType.VARCHAR)
         .buildSchema();
 
     // Initial schema
@@ -1575,7 +1586,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(scan.next());
     {
       SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-          .addRow(10, 20L, null)
+          .addRow(10, "foo", 20L, null)
           .build();
       RowSetUtilities.verify(expected,
           fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
