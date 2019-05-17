@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.columns;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
@@ -164,7 +164,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public void validateColumn(ColumnProjection col) {
-    if (col instanceof UnresolvedColumn) {
+    if (col instanceof UnresolvedTableColumn) {
       if (columnsArrayCol != null) {
         throw UserException
           .validationError()

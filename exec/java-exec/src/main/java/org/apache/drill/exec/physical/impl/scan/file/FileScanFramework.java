@@ -89,6 +89,7 @@ public class FileScanFramework extends ManagedScanFramework {
      * @return Hadoop file split object with the file path, block
      * offset, and length.
      */
+    
     FileSplit split();
   }
 
