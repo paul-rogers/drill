@@ -35,7 +35,7 @@ import org.apache.hadoop.conf.Configuration;
 
 public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
 
-  public static final String DEFAULT_NAME = "logRegex";
+  public static final String PLUGIN_NAME = "logRegex";
 
   public LogFormatPlugin(String name, DrillbitContext context,
                          Configuration fsConf, StoragePluginConfig storageConfig,
@@ -52,7 +52,7 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     config.supportsProjectPushdown = true;
     config.extensions = Lists.newArrayList(pluginConfig.getExtension());
     config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
+    config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = CoreOperatorType.REGEX_SUB_SCAN_VALUE;
     return config;
   }

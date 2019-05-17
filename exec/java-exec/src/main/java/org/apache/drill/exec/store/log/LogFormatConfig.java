@@ -17,16 +17,17 @@
  */
 package org.apache.drill.exec.store.log;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Objects;
-import org.apache.drill.common.logical.FormatPluginConfig;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@JsonTypeName("logRegex")
+import org.apache.drill.common.logical.FormatPluginConfig;
+import org.apache.drill.shaded.guava.com.google.common.base.Objects;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+
+@JsonTypeName(LogFormatPlugin.PLUGIN_NAME)
 public class LogFormatConfig implements FormatPluginConfig {
 
   private String regex;
