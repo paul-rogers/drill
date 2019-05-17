@@ -18,43 +18,43 @@
 
 package org.apache.drill.exec.store.log;
 
-import java.io.IOException;
-import org.apache.drill.exec.planner.common.DrillStatsTable;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import java.util.List;
+
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
-import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
-import org.apache.drill.exec.store.dfs.easy.EasyWriter;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
-
-import java.util.List;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
 
   public static final String DEFAULT_NAME = "logRegex";
-  private final LogFormatConfig formatConfig;
 
   public LogFormatPlugin(String name, DrillbitContext context,
                          Configuration fsConf, StoragePluginConfig storageConfig,
                          LogFormatConfig formatConfig) {
-    super(name, context, fsConf, storageConfig, formatConfig,
-        true,  // readable
-        false, // writable
-        true, // blockSplittable
-        true,  // compressible
-        Lists.newArrayList(formatConfig.getExtension()),
-        DEFAULT_NAME);
-    this.formatConfig = formatConfig;
+    super(name, easyConfig(fsConf, formatConfig), context, storageConfig, formatConfig);
+  }
+
+  private static EasyFormatConfig easyConfig(Configuration fsConf, LogFormatConfig pluginConfig) {
+    EasyFormatConfig config = new EasyFormatConfig();
+    config.readable = true;
+    config.writable = false;
+    config.blockSplittable = true;
+    config.compressible = true;
+    config.supportsProjectPushdown = true;
+    config.extensions = Lists.newArrayList(pluginConfig.getExtension());
+    config.fsConf = fsConf;
+    config.defaultName = DEFAULT_NAME;
+    config.readerOperatorType = CoreOperatorType.REGEX_SUB_SCAN_VALUE;
+    return config;
   }
 
   @Override
@@ -62,42 +62,6 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
                                       DrillFileSystem dfs, FileWork fileWork, List<SchemaPath> columns,
                                       String userName) throws ExecutionSetupException {
     return new LogRecordReader(context, dfs, fileWork,
-        columns, userName, formatConfig);
-  }
-
-  @Override
-  public boolean supportsPushDown() {
-    return true;
-  }
-
-  @Override
-  public RecordWriter getRecordWriter(FragmentContext context,
-                                      EasyWriter writer) throws UnsupportedOperationException {
-    throw new UnsupportedOperationException("unimplemented");
-  }
-
-  @Override
-  public int getReaderOperatorType() {
-    return UserBitShared.CoreOperatorType.REGEX_SUB_SCAN_VALUE;
-  }
-
-  @Override
-  public int getWriterOperatorType() {
-    throw new UnsupportedOperationException("unimplemented");
-  }
-
-  @Override
-  public boolean supportsStatistics() {
-    return false;
-  }
-
-  @Override
-  public DrillStatsTable.TableStatistics readStatistics(FileSystem fs, Path statsTablePath) throws IOException {
-    return null;
-  }
-
-  @Override
-  public void writeStatistics(DrillStatsTable.TableStatistics statistics, FileSystem fs, Path statsTablePath) throws IOException {
-
+        columns, userName, getConfig());
   }
 }

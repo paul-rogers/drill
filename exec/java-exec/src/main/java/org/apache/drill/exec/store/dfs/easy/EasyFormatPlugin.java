@@ -23,9 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.drill.exec.physical.base.MetadataProviderManager;
-import org.apache.drill.shaded.guava.com.google.common.base.Functions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -35,17 +32,19 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.AbstractWriter;
+import org.apache.drill.exec.physical.base.MetadataProviderManager;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.impl.WriterRecordBatch;
 import org.apache.drill.exec.physical.impl.StatisticsWriterRecordBatch;
+import org.apache.drill.exec.physical.impl.WriterRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
+import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
@@ -62,11 +61,13 @@ import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.FormatMatcher;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-
+import org.apache.drill.shaded.guava.com.google.common.base.Functions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 /**
  * Base class for various file readers.
@@ -104,6 +105,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
     public boolean supportsProjectPushdown;
     public boolean supportsAutoPartitioning;
+    public boolean supportsStatistics;
     public int readerOperatorType = -1;
     public int writerOperatorType = -1;
   }
@@ -447,7 +449,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     return false;
   }
 
-  public abstract RecordWriter getRecordWriter(FragmentContext context, EasyWriter writer) throws IOException;
+  public RecordWriter getRecordWriter(FragmentContext context,
+                                      EasyWriter writer) throws IOException {
+    throw new UnsupportedOperationException("unimplemented");
+  }
 
   public StatisticsRecordWriter getStatisticsRecordWriter(FragmentContext context, EasyWriter writer) throws IOException
   {
@@ -519,4 +524,18 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   public int getReaderOperatorType() { return easyConfig.readerOperatorType; }
   public int getWriterOperatorType() { return easyConfig.writerOperatorType; }
+
+  @Override
+  public boolean supportsStatistics() { return easyConfig.supportsStatistics; }
+
+  @Override
+  public TableStatistics readStatistics(FileSystem fs, Path statsTablePath) {
+    throw new UnsupportedOperationException("unimplemented");
+  }
+
+  @Override
+  public void writeStatistics(TableStatistics statistics, FileSystem fs,
+      Path statsTablePath) {
+    throw new UnsupportedOperationException("unimplemented");
+  }
 }
