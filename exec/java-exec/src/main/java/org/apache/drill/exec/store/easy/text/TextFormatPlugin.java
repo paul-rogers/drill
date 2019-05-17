@@ -26,9 +26,8 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -226,15 +225,7 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       // columns from empty columns, but that is how CSV and other text
       // files have been defined within Drill.
 
-      builder.setNullType(
-          MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REQUIRED)
-            .build());
-
-      // Pass along the output schema, if any
-
-      builder.setOutputSchema(scan.getSchema());
+      builder.setNullType(Types.required(MinorType.VARCHAR));
 
       // CSV maps blank columns to nulls (for nullable non-string columns),
       // or to the default value (for non-nullable non-string columns.)
@@ -242,6 +233,9 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       builder.setConversionProperty(AbstractConvertFromString.BLANK_ACTION_PROP,
           AbstractConvertFromString.BLANK_AS_NULL);
 
+      // The text readers use required Varchar columns to represent null columns.
+
+      builder.allowRequiredNullColumns(true);
       return builder;
     }
   }

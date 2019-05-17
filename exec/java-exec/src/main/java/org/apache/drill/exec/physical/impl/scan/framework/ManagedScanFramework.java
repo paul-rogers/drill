@@ -134,9 +134,14 @@ public class ManagedScanFramework implements ScanOperatorEvents {
 
   public static class ScanFrameworkBuilder extends ScanOrchestratorBuilder {
     protected ReaderFactory readerFactory;
+    protected String userName;
 
     public void setReaderFactory(ReaderFactory readerFactory) {
       this.readerFactory = readerFactory;
+    }
+
+    public void setUserName(String userName) {
+      this.userName = userName;
     }
   }
 

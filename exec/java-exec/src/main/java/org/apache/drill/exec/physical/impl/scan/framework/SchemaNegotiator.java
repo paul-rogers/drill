@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.framework;
 
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
@@ -57,6 +58,12 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 public interface SchemaNegotiator {
 
   OperatorContext context();
+
+  /**
+   * The name of the user running the query.
+   */
+
+  String userName();
 
   /**
    * Specify the table schema if this is an early-schema reader. Need

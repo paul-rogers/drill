@@ -251,20 +251,19 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         builder.setProjection(scan.getColumns());
         builder.setFiles(scan.getWorkUnits());
         builder.setConfig(plugin.easyConfig().fsConf);
+        builder.setUserName(scan.getUserName());
 
-        // The text readers use required Varchar columns to represent null columns.
+        // Pass along the output schema, if any
 
-        builder.allowRequiredNullColumns(true);
+        builder.setOutputSchema(scan.getSchema());
         final Path selectionRoot = scan.getSelectionRoot();
         if (selectionRoot != null) {
           builder.metadataOptions().setSelectionRoot(selectionRoot);
           builder.metadataOptions().setPartitionDepth(scan.getPartitionDepth());
         }
         FileScanFramework framework = builder.buildFileFramework();
-        return new OperatorRecordBatch(
-            context, scan,
-            new ScanOperatorExec(
-                framework));
+        return new OperatorRecordBatch(context, scan,
+            new ScanOperatorExec(framework));
       } catch (final UserException e) {
         // Rethrow user exceptions directly
         throw e;

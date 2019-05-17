@@ -73,6 +73,7 @@ public class FileScanFramework extends ManagedScanFramework {
    */
 
   public interface FileSchemaNegotiator extends SchemaNegotiator {
+    DrillFileSystem fileSystem();
   }
 
   /**
@@ -84,8 +85,13 @@ public class FileScanFramework extends ManagedScanFramework {
   public static class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
       implements FileSchemaNegotiator {
 
-    public FileSchemaNegotiatorImpl(ManagedScanFramework framework) {
+    public FileSchemaNegotiatorImpl(FileScanFramework framework) {
       super(framework);
+    }
+
+    @Override
+    public DrillFileSystem fileSystem() {
+      return ((FileScanFramework) framework).dfs;
     }
   }
 
