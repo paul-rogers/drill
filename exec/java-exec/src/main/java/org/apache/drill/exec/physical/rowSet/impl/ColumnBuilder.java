@@ -139,7 +139,7 @@ public class ColumnBuilder {
 
     // Indicate projection in the metadata.
 
-    ProjectionType projType = parent.projectionType(columnSchema.name());
+    ProjectionType projType = parent.projectionType(columnSchema);
     ColumnTransform outputCol;
     if (projType == ProjectionType.UNPROJECTED) {
       PropertyAccessor.set(columnSchema, ColumnMetadata.PROJECTED_PROP, false);

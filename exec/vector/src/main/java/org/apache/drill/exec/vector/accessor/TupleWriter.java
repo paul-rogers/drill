@@ -76,12 +76,12 @@ public interface TupleWriter extends ColumnWriter {
    * the implementation to create a dummy writer if the column is not
    * projected.
    *
-   * @param columnName name of an existing or new column
+   * @param column schema of an existing or new column
    * @return whether the column is projected, and, if so, the implied
    * type of the projected column
    */
 
-  ProjectionType projectionType(String columnName);
+  ProjectionType projectionType(ColumnMetadata column);
 
   /**
    * Add a column to the tuple (row or map) that backs this writer. Support for

@@ -528,13 +528,13 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public boolean supportsStatistics() { return easyConfig.supportsStatistics; }
 
   @Override
-  public TableStatistics readStatistics(FileSystem fs, Path statsTablePath) {
+  public TableStatistics readStatistics(FileSystem fs, Path statsTablePath) throws IOException {
     throw new UnsupportedOperationException("unimplemented");
   }
 
   @Override
   public void writeStatistics(TableStatistics statistics, FileSystem fs,
-      Path statsTablePath) {
+      Path statsTablePath) throws IOException {
     throw new UnsupportedOperationException("unimplemented");
   }
 }

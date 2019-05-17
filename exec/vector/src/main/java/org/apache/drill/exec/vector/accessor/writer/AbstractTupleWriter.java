@@ -143,7 +143,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
 
-    ProjectionType projectionType(String columnName);
+    ProjectionType projectionType(ColumnMetadata column);
   }
 
   protected final TupleMetadata tupleSchema;
@@ -207,9 +207,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public ProjectionType projectionType(String columnName) {
+  public ProjectionType projectionType(ColumnMetadata column) {
     return listener == null ? ProjectionType.UNSPECIFIED
-        : listener.projectionType(columnName);
+        : listener.projectionType(column);
   }
 
   @Override
@@ -420,6 +420,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public ObjectType type(String colName) {
     return column(colName).type();
   }
+
+  @Override
+  public boolean isProjected() { return true; }
 
   @Override
   public int lastWriteIndex() {

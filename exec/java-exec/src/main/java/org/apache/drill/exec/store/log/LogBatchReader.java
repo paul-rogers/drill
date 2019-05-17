@@ -18,11 +18,13 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchem
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 import org.apache.hadoop.mapred.FileSplit;
 
 public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
@@ -53,7 +55,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
       colWriter = rowWriter.scalar(index);
     }
 
-    public abstract void load(int rowIndex, String value);
+    public abstract void load(String value);
 
     public String getName() { return this.name; }
 
@@ -80,7 +82,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       colWriter.setString(value);
     }
   }
@@ -97,7 +99,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         colWriter.setLong(Long.parseLong(value));
       } catch (NumberFormatException e) {
@@ -124,7 +126,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         colWriter.setInt(Short.parseShort(value));
       } catch (NumberFormatException e) {
@@ -151,7 +153,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         colWriter.setInt(Integer.parseInt(value));
       } catch (NumberFormatException e) {
@@ -178,7 +180,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         colWriter.setDouble(Float.parseFloat(value));
       } catch (NumberFormatException e) {
@@ -205,7 +207,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         colWriter.setDouble(Double.parseDouble(value));
       } catch (NumberFormatException e) {
@@ -247,7 +249,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         Date d = df.parse(value);
         long milliseconds = d.getTime();
@@ -300,7 +302,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         Date d = df.parse(value);
         int milliseconds = (int) d.getTime();
@@ -353,7 +355,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
 
     @Override
-    public void load(int rowIndex, String value) {
+    public void load(String value) {
       try {
         Date d = df.parse(value);
         long milliseconds = d.getTime();
@@ -388,6 +390,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
   private ResultSetLoader loader;
   private ScalarWriter rawColWriter;
   private ScalarWriter unmatchedColWriter;
+  private boolean hasMatchedCols;
   private int maxErrors;
   private int lineNumber;
   private int errorCount;
@@ -396,14 +399,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
                          LogFormatConfig formatConfig) {
     this.split = split;
     this.formatConfig = formatConfig;
-    this.maxErrors = formatConfig.getMaxErrors();
-
-    if (maxErrors < 0) {
-      throw UserException
-          .validationError()
-          .message("Max Errors must be a positive integer greater than zero.")
-          .build(logger);
-    }
+    this.maxErrors = Math.max(0, formatConfig.getMaxErrors());
   }
 
   @Override
@@ -442,38 +438,45 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
     builder.addNullable(RAW_LINE_COL_NAME, MinorType.VARCHAR);
     builder.addNullable(UNMATCHED_LINE_COL_NAME, MinorType.VARCHAR);
-    return builder.buildSchema();
+    TupleMetadata schema = builder.buildSchema();
+
+    // Exclude special columns from wildcard expansion
+
+    schema.metadata(RAW_LINE_COL_NAME).setBooleanProperty(
+        ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
+    schema.metadata(UNMATCHED_LINE_COL_NAME).setBooleanProperty(
+        ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
+
+    return schema;
   }
 
   private void bindColumns(RowSetLoader writer) {
     for (int i = 0; i < capturingGroups; i++) {
       columns[i].bind(writer);
+      hasMatchedCols |= columns[i].colWriter.isProjected();
     }
     rawColWriter = writer.scalar(RAW_LINE_COL_NAME);
+    hasMatchedCols |= rawColWriter.isProjected();
     unmatchedColWriter = writer.scalar(UNMATCHED_LINE_COL_NAME);
+
+    // If no match-case columns are projected, and the unmatched
+    // columns is unprojected, then we want to count (matched)
+    // rows.
+
+    hasMatchedCols |= ! unmatchedColWriter.isProjected();
   }
 
   private ColumnDefn makeColumn(String name, int patternIndex) {
-    String typeName = null;
-    if (patternIndex <= -1 || formatConfig.getSchema() == null) {
-      // Use VARCHAR for missing columns
-      // (instead of Drill standard of nullable int)
-      typeName = MinorType.VARCHAR.name();
-    } else if (patternIndex < formatConfig.getSchema().size()) {
-      //typeName = formatConfig.getDataType(patternIndex);
-      LogFormatField tempField = formatConfig.getField(patternIndex);
-      typeName = tempField.getFieldType().toUpperCase();
-    }
-    if (typeName == null) {
+    String typeName = formatConfig.getDataType(patternIndex);
+    MinorType type;
+    if (Strings.isNullOrEmpty(typeName)) {
       // No type name. VARCHAR is a safe guess
-      typeName = MinorType.VARCHAR.name();
-    }
-    if (name.equals("_raw") || name.equals("_unmatched_rows")) {
-      return new VarCharDefn(name, patternIndex);
+      type = MinorType.VARCHAR;
+    } else {
+      type = MinorType.valueOf(typeName.toUpperCase());
     }
 
-    MinorType type = MinorType.valueOf(typeName);
-    //System.out.println( "Type name: "  + typeName + " Type: " + type);
+   //System.out.println( "Type name: "  + typeName + " Type: " + type);
     switch (type) {
       case VARCHAR:
         return new VarCharDefn(name, patternIndex);
@@ -522,16 +525,14 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
   public boolean next() {
     RowSetLoader rowWriter = loader.writer();
     while (! rowWriter.isFull()) {
-      rowWriter.start();
-      if (! nextLine()) {
+      if (! nextLine(rowWriter)) {
         return false;
       }
-      rowWriter.save();
     }
     return true;
   }
 
-  private boolean nextLine() {
+  private boolean nextLine(RowSetLoader rowWriter) {
     String line;
     try {
       line = reader.readLine();
@@ -546,11 +547,18 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     if (line == null) {
       return false;
     }
-    rawColWriter.setString(line);
     lineNumber++;
     Matcher lineMatcher = pattern.matcher(line);
     if (lineMatcher.matches()) {
-      loadVectors(lineMatcher);
+
+      // Load matched row into vectors.
+
+      if (hasMatchedCols) {
+        rowWriter.start();
+        rawColWriter.setString(line);
+        loadVectors(lineMatcher);
+        rowWriter.save();
+      }
       return true;
     }
 
@@ -565,7 +573,14 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
           .build(logger);
     }
 
-    unmatchedColWriter.setString(line);
+    // For unmatched columns, create an output row only if the
+    // user asked for the unmatched values.
+
+    if (unmatchedColWriter.isProjected()) {
+      rowWriter.start();
+      unmatchedColWriter.setString(line);
+      rowWriter.save();
+    }
     return true;
   }
 
@@ -573,19 +588,21 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     for (int i = 0; i < columns.length; i++) {
       String value = m.group(columns[i].index + 1);
       if (value != null) {
-        columns[i].load(0, value);
+        columns[i].load(value);
       }
     }
   }
 
   @Override
   public void close() {
-    if (reader != null) {
-      try {
-        reader.close();
-      } catch (IOException e) {
-        logger.warn("Error when closing file: " + split.getPath(), e);
-      }
+    if (reader == null) {
+      return;
+    }
+    try {
+      reader.close();
+    } catch (IOException e) {
+      logger.warn("Error when closing file: " + split.getPath(), e);
+    } finally {
       reader = null;
     }
   }

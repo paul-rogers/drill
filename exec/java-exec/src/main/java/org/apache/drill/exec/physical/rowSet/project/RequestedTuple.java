@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.project;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
@@ -89,6 +90,7 @@ public interface RequestedTuple {
   void parseSegment(PathSegment child);
   RequestedColumn get(String colName);
   ProjectionType projectionType(String colName);
+  ProjectionType projectionType(ColumnMetadata col);
   RequestedTuple mapProjection(String colName);
   List<RequestedColumn> projections();
   void buildName(StringBuilder buf);

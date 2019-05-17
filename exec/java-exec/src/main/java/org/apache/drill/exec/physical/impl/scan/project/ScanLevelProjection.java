@@ -401,6 +401,13 @@ public class ScanLevelProjection {
 
     for (int i = 0; i < outputSchema.size(); i++) {
       ColumnMetadata col = outputSchema.metadata(i);
+
+      // Skip columns tagged as "special"; those that should not expand
+      // automatically.
+
+      if (col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+        continue;
+      }
       RequestedColumn projCol = new RequestedColumnImpl(readerProjection, col.name(),
           ProjectionType.typeFor(col.majorType()));
       outputCols.add(new UnresolvedSchemaColumn(projCol, col));

@@ -36,6 +36,7 @@ import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -364,6 +365,30 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(2, readerProj.projections().size());
     assertEquals(ProjectionType.SCALAR, readerProj.projectionType("a"));
     assertEquals(ProjectionType.SCALAR, readerProj.projectionType("b"));
+  }
+
+  @Test
+  public void testOutputSchemaWildcardSpecialCols() {
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .add("c", MinorType.VARCHAR)
+        .buildSchema();
+
+    // Mark b as special; not expanded in wildcard.
+
+    outputSchema.metadata("b").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
+
+    final ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectAll(),
+        ScanTestUtils.parsers(),
+        outputSchema);
+
+    assertEquals(ScanProjectionType.SCHEMA_WILDCARD, scanProj.projectionType());
+
+    assertEquals(2, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertEquals("c", scanProj.columns().get(1).name());
   }
 
   /**

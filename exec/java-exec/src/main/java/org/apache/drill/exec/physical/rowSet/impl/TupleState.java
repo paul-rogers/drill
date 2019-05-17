@@ -533,7 +533,7 @@ public abstract class TupleState extends ContainerState
 
       // Ignore unprojected columns
 
-      if (! colState.schema().isProjected()) {
+      if (! colState.writer().isProjected()) {
         continue;
       }
 

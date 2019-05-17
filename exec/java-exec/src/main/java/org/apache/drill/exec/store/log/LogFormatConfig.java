@@ -53,11 +53,11 @@ public class LogFormatConfig implements FormatPluginConfig {
 
   //Setters
   public void setExtension(String ext) {
-    this.extension = ext;
+    extension = ext;
   }
 
   public void setMaxErrors(int errors) {
-    this.maxErrors = errors;
+    maxErrors = errors;
   }
 
   public void setRegex(String regex) {
@@ -65,7 +65,7 @@ public class LogFormatConfig implements FormatPluginConfig {
   }
 
   public void setSchema() {
-    this.schema = new ArrayList<LogFormatField>();
+    schema = new ArrayList<LogFormatField>();
   }
 
   @Override
@@ -90,12 +90,12 @@ public class LogFormatConfig implements FormatPluginConfig {
 
   @JsonIgnore
   public List<String> getFieldNames() {
-    List<String> result = new ArrayList<String>();
-    if (this.schema == null) {
+    List<String> result = new ArrayList<>();
+    if (schema == null) {
       return result;
     }
 
-    for (LogFormatField field : this.schema) {
+    for (LogFormatField field : schema) {
       result.add(field.getFieldName());
     }
     return result;
@@ -103,18 +103,21 @@ public class LogFormatConfig implements FormatPluginConfig {
 
   @JsonIgnore
   public String getDataType(int fieldIndex) {
-    LogFormatField f = this.schema.get(fieldIndex);
-    return f.getFieldType().toUpperCase();
+    LogFormatField field = getField(fieldIndex);
+    return field == null ? null : field.getFieldType();
   }
 
   @JsonIgnore
   public LogFormatField getField(int fieldIndex) {
-    return this.schema.get(fieldIndex);
+    if (schema == null || fieldIndex >= schema.size()) {
+      return null;
+    }
+    return schema.get(fieldIndex);
   }
 
   @JsonIgnore
-  public String getDateFormat(int patternIndex) {
-    LogFormatField f = this.schema.get(patternIndex);
-    return f.getFormat();
+  public String getDateFormat(int fieldIndex) {
+    LogFormatField field = getField(fieldIndex);
+    return field == null ? null : field.getFormat();
   }
 }

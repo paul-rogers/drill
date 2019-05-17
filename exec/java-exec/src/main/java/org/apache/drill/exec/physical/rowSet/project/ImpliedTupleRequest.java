@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
@@ -48,6 +49,14 @@ public class ImpliedTupleRequest implements RequestedTuple {
     return allProjected
       ? ProjectionType.UNSPECIFIED
       : ProjectionType.UNPROJECTED;
+  }
+
+  @Override
+  public ProjectionType projectionType(ColumnMetadata col) {
+    if (col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+      return ProjectionType.UNPROJECTED;
+    }
+    return projectionType(col.name());
   }
 
   @Override

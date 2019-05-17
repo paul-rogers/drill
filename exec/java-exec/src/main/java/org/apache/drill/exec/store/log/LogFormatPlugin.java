@@ -86,7 +86,6 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
         FileSplit split) {
        return new LogBatchReader(split, plugin.getConfig());
     }
-
   }
 
   public LogFormatPlugin(String name, DrillbitContext context,

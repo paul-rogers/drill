@@ -74,9 +74,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // the odd case where the reader claims a fixed schema, but
     // adds a column later.
 
-    if (! scanOrchestrator.scanProj.projectAll()) {
-      options.setProjectionSet(scanOrchestrator.scanProj.readerProjection());
-    }
+    options.setProjectionSet(scanOrchestrator.scanProj.readerProjection());
     options.setSchema(readerSchema);
 
     // Create the table loader

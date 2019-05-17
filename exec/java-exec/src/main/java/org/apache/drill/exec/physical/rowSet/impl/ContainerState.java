@@ -82,8 +82,8 @@ public abstract class ContainerState {
   public ResultVectorCache vectorCache() { return vectorCache; }
   public RequestedTuple projectionSet() { return projectionSet; }
 
-  public ProjectionType projectionType(String columnName) {
-    return projectionSet.projectionType(columnName);
+  public ProjectionType projectionType(ColumnMetadata columnSchema) {
+    return projectionSet.projectionType(columnSchema);
   }
 
   public ColumnState addColumn(ColumnMetadata columnSchema) {

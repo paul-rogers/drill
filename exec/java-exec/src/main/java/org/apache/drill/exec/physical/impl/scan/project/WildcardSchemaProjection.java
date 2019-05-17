@@ -84,9 +84,11 @@ public class WildcardSchemaProjection extends ReaderLevelProjection {
           continue;
         }
         ColumnMetadata readerCol = readerSchema.metadata(i);
-        rootTuple.add(
-            new ResolvedTableColumn(readerCol.name(),
-                readerCol.schema(), rootTuple, i));
+        if (! readerCol.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+          rootTuple.add(
+              new ResolvedTableColumn(readerCol.name(),
+                  readerCol.schema(), rootTuple, i));
+        }
       }
     }
   }

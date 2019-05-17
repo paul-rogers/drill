@@ -19,11 +19,13 @@ package org.apache.drill.exec.physical.rowSet.project;
 
 import java.util.Collection;
 import java.util.List;
+
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
@@ -106,6 +108,11 @@ public class RequestedTupleImpl implements RequestedTuple {
   public ProjectionType projectionType(String colName) {
     RequestedColumn col = get(colName);
     return col == null ? ProjectionType.UNPROJECTED : col.type();
+  }
+
+  @Override
+  public ProjectionType projectionType(ColumnMetadata col) {
+    return projectionType(col.name());
   }
 
   @Override

@@ -105,6 +105,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
       super.preRollover();
       mapVector.setMapValueCount(vectorIndex.rowStartIndex());
     }
+
+    @Override
+    public boolean isProjected() { return true; }
   }
 
   /**
@@ -132,6 +135,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
       bindIndex(index, new MemberWriterIndex(index));
     }
+
+    @Override
+    public boolean isProjected() { return true; }
   }
 
   protected static class DummyMapWriter extends MapWriter {
@@ -142,7 +148,10 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public ProjectionType projectionType(String columnName) { return ProjectionType.UNPROJECTED; }
+    public ProjectionType projectionType(ColumnMetadata column) { return ProjectionType.UNPROJECTED; }
+
+    @Override
+    public boolean isProjected() { return false; }
   }
 
   protected static class DummyArrayMapWriter extends MapWriter {
@@ -153,7 +162,10 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public ProjectionType projectionType(String columnName) { return ProjectionType.UNPROJECTED; }
+    public ProjectionType projectionType(ColumnMetadata column) { return ProjectionType.UNPROJECTED; }
+
+    @Override
+    public boolean isProjected() { return false; }
   }
 
   protected final ColumnMetadata mapColumnSchema;

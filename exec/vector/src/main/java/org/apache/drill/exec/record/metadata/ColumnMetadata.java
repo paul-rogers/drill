@@ -65,6 +65,13 @@ public interface ColumnMetadata extends Propertied {
   String BLANK_AS_PROP = DRILL_PROP_PREFIX + "blank-as";
 
   /**
+   * Indicates whether to project the column in a wildcard (*) query.
+   * Special columns may be excluded from projection. Certain "special"
+   * columns may be available only when explicitly requested.
+   */
+  String EXCLUDE_FROM_WILDCARD = DRILL_PROP_PREFIX + "special";
+
+  /**
    * Rough characterization of Drill types into metadata categories.
    * Various aspects of Drill's type system are very, very messy.
    * However, Drill is defined by its code, not some abstract design,
