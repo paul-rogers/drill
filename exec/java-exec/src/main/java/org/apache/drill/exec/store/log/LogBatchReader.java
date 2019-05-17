@@ -390,7 +390,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
   private ResultSetLoader loader;
   private ScalarWriter rawColWriter;
   private ScalarWriter unmatchedColWriter;
-  private boolean hasMatchedCols;
+  private boolean saveMatchedRows;
   private int maxErrors;
   private int lineNumber;
   private int errorCount;
@@ -453,17 +453,17 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
   private void bindColumns(RowSetLoader writer) {
     for (int i = 0; i < capturingGroups; i++) {
       columns[i].bind(writer);
-      hasMatchedCols |= columns[i].colWriter.isProjected();
+      saveMatchedRows |= columns[i].colWriter.isProjected();
     }
     rawColWriter = writer.scalar(RAW_LINE_COL_NAME);
-    hasMatchedCols |= rawColWriter.isProjected();
+    saveMatchedRows |= rawColWriter.isProjected();
     unmatchedColWriter = writer.scalar(UNMATCHED_LINE_COL_NAME);
 
     // If no match-case columns are projected, and the unmatched
     // columns is unprojected, then we want to count (matched)
     // rows.
 
-    hasMatchedCols |= ! unmatchedColWriter.isProjected();
+    saveMatchedRows |= !unmatchedColWriter.isProjected();
   }
 
   private ColumnDefn makeColumn(String name, int patternIndex) {
@@ -553,7 +553,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
 
       // Load matched row into vectors.
 
-      if (hasMatchedCols) {
+      if (saveMatchedRows) {
         rowWriter.start();
         rawColWriter.setString(line);
         loadVectors(lineMatcher);
