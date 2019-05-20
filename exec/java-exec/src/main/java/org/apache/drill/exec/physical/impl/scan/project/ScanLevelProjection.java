@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedSchemaColumn;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.UnresolvedSchemaColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.UnresolvedWildcardColumn;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedColumnImpl;
@@ -378,8 +378,8 @@ public class ScanLevelProjection {
     default:
       outputProj = new ArrayList<>();
       for (ColumnProjection col : outputCols) {
-        if (col instanceof AbstractUnresolvedColumn) {
-          outputProj.add(((AbstractUnresolvedColumn) col).element());
+        if (col instanceof UnresolvedColumn) {
+          outputProj.add(((UnresolvedColumn) col).element());
         }
       }
       readerProjection = RequestedTupleImpl.build(outputProj);

@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
@@ -30,7 +29,34 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
  * Perform a schema projection for the case of an explicit list of
- * projected columns. Example: SELECT a, b, c.
+ * projected columns. Example: SELECT a, b, c. Projects from the
+ * project list done at the scan level to a reader projection for
+ * a specific reader's table schema.
+ * <p>
+ * This projection occurs:
+ * <p>
+ * <ul>
+ * <li>After parsing the projection list provided in the physical
+ * plan.</li>
+ * <li>After possible resolution of the wildcard against a strict
+ * provided schema.</li>
+ * <li>After the result set loader has built a batch using the
+ * scan-level schema created above to identify a set of columns
+ * that the result set loader can provide.</li>
+ * </ul>
+ * <p>
+ * The job here is to reconcile the scan-level projection against
+ * the reader's schema as materialized in the result set loader.
+ * <p>
+ * <ul>
+ * <li>Where the reader provided a column requested by the scan
+ * projection, project that column.</li>
+ * <li>Where the reader did not provide a requested columns,
+ * project a "null" column instead.</li>
+ * <li>Reconcile type/mode hints in the projection list, or
+ * provided schema, with the type and mode that the result set
+ * loader provides to catch mismatches like projecting "a[10]"
+ * when the result set loader provides "a" as a scalar.</li>
  * <p>
  * An explicit projection starts with the requested set of columns,
  * then looks in the table schema to find matches. That is, it is
@@ -57,15 +83,26 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
       TupleMetadata readerSchema) {
     for (ColumnProjection col : scanProj.columns()) {
       if (col instanceof UnresolvedColumn) {
-        resolveColumn(rootTuple, ((UnresolvedColumn) col).element(), readerSchema);
+        resolveColumn(rootTuple, (UnresolvedColumn) col, readerSchema);
       } else {
         resolveSpecial(rootTuple, col, readerSchema);
       }
     }
   }
 
+  /**
+   * Given an unresolved projected column at the scan level, resolve
+   * it against the given reader schema, creating either a resolved table
+   * column (if the reader provides the column) or a "null" (missing)
+   * column if the scan must "make up" a column when the reader does not
+   * provide it.
+   *
+   * @param outputTuple the resolved tuple being built
+   * @param inputCol the unresolved input column
+   * @param readerSchema the reader schema used in resolution
+   */
   private void resolveColumn(ResolvedTuple outputTuple,
-      RequestedColumn inputCol, TupleMetadata readerSchema) {
+      UnresolvedColumn inputCol, TupleMetadata readerSchema) {
     int tableColIndex = readerSchema.index(inputCol.name());
     if (tableColIndex == -1) {
       resolveNullColumn(outputTuple, inputCol);
@@ -77,7 +114,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
   }
 
   private void resolveTableColumn(ResolvedTuple outputTuple,
-      RequestedColumn requestedCol,
+      UnresolvedColumn inputCol,
       ColumnMetadata column, int sourceIndex) {
 
     // Is the requested column implied to be a map?
@@ -85,16 +122,16 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
     // are resolving column x. The presence of y as a member implies
     // that x is a map.
 
-    if (requestedCol.isTuple()) {
-      resolveMap(outputTuple, requestedCol, column, sourceIndex);
+    if (inputCol.isTuple()) {
+      resolveMap(outputTuple, inputCol, column, sourceIndex);
     }
 
     // Is the requested column implied to be an array?
     // This occurs when the projection list contains at least one
     // array index reference such as x[10].
 
-    else if (requestedCol.isArray()) {
-      resolveArray(outputTuple, requestedCol, column, sourceIndex);
+    else if (inputCol.isArray()) {
+      resolveArray(outputTuple, inputCol, column, sourceIndex);
     }
 
     // A plain old column. Might be an array or a map, but if
@@ -103,12 +140,12 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
     // by itself.
 
     else {
-      projectTableColumn(outputTuple, requestedCol, column, sourceIndex);
+      projectTableColumn(outputTuple, inputCol, column, sourceIndex);
     }
   }
 
   private void resolveMap(ResolvedTuple outputTuple,
-      RequestedColumn requestedCol, ColumnMetadata column,
+      UnresolvedColumn inputCol, ColumnMetadata column,
       int sourceIndex) {
 
     // If the actual column isn't a map, then the request is invalid.
@@ -117,7 +154,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
       throw UserException
         .validationError()
         .message("Project list implies a map column, but actual column is not a map")
-        .addContext("Projected column", requestedCol.fullName())
+        .addContext("Projected column", inputCol.fullName())
         .addContext("Actual type", column.type().name())
         .build(logger);
     }
@@ -127,7 +164,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
 
     ResolvedMapColumn mapCol = new ResolvedMapColumn(outputTuple,
         column.schema(), sourceIndex);
-    resolveTuple(mapCol.members(), requestedCol.mapProjection(),
+    resolveTuple(mapCol.members(), inputCol.mapProjection(),
         column.mapSchema());
 
     // If the projection is simple, then just project the map column
@@ -162,7 +199,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
   }
 
   private void resolveArray(ResolvedTuple outputTuple,
-      RequestedColumn requestedCol, ColumnMetadata column,
+      UnresolvedColumn inputCol, ColumnMetadata column,
       int sourceIndex) {
 
     // If the actual column isn't a array or list,
@@ -202,7 +239,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
    */
 
   private void projectTableColumn(ResolvedTuple outputTuple,
-      RequestedColumn requestedCol,
+      UnresolvedColumn inputCol,
       ColumnMetadata column, int sourceIndex) {
      outputTuple.add(
         new ResolvedTableColumn(requestedCol.name(),
@@ -220,7 +257,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
    */
 
   private void resolveNullColumn(ResolvedTuple outputTuple,
-      RequestedColumn requestedCol) {
+      UnresolvedColumn inputCol) {
     ResolvedColumn nullCol;
     if (requestedCol.isTuple()) {
       nullCol = resolveMapMembers(outputTuple, requestedCol);
@@ -238,7 +275,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
    * @return a list of null markers for the requested children
    */
 
-  private ResolvedColumn resolveMapMembers(ResolvedTuple outputTuple, RequestedColumn col) {
+  private ResolvedColumn resolveMapMembers(ResolvedTuple outputTuple, UnresolvedColumn inputCol) {
     ResolvedMapColumn mapCol = new ResolvedMapColumn(outputTuple, col.name());
     ResolvedTuple members = mapCol.members();
     for (RequestedColumn child : col.mapProjection().projections()) {
