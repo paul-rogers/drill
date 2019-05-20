@@ -20,9 +20,9 @@ package org.apache.drill.exec.physical.rowSet.project;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this
@@ -65,7 +65,7 @@ public class RequestedColumnImpl implements RequestedColumn {
   @Override
   public boolean isWildcard() { return type == ProjectionType.WILDCARD; }
   @Override
-  public boolean isSimple() { return type == ProjectionType.UNSPECIFIED; }
+  public boolean isSimple() { return type == ProjectionType.GENERAL; }
 
   @Override
   public boolean isArray() { return type.isArray(); }
@@ -82,7 +82,7 @@ public class RequestedColumnImpl implements RequestedColumn {
   }
 
   public RequestedTuple projectAllMembers(boolean projectAll) {
-    members = projectAll ? ImpliedTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
+    members = projectAll ? WildcardTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
     setType();
     return members;
   }
@@ -157,7 +157,7 @@ public class RequestedColumnImpl implements RequestedColumn {
     } else if (members != null) {
       type = ProjectionType.TUPLE;
     } else {
-      type = ProjectionType.UNSPECIFIED;
+      type = ProjectionType.GENERAL;
     }
   }
 

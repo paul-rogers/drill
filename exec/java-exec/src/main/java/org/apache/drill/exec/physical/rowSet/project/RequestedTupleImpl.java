@@ -26,8 +26,9 @@ import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * Represents an explicit projection at some tuple level.
@@ -76,6 +77,7 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
 public class RequestedTupleImpl implements RequestedTuple {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RequestedTupleImpl.class);
+  private static final Collection<SchemaPath> PROJECT_ALL = ImmutableList.of(SchemaPath.STAR_COLUMN);
 
   private final RequestedColumnImpl parent;
   private final TupleNameSpace<RequestedColumn> projection = new TupleNameSpace<>();
@@ -132,6 +134,11 @@ public class RequestedTupleImpl implements RequestedTuple {
     return ImpliedTupleRequest.NO_MEMBERS;
   }
 
+  @Override
+  public RequestedTuple mapProjection(ColumnMetadata col) {
+    return mapProjection(col.name());
+  }
+
   /**
    * Create a requested tuple projection from a rewritten top-level
    * projection list. The columns within the list have already been parsed to
@@ -146,10 +153,10 @@ public class RequestedTupleImpl implements RequestedTuple {
 
   public static RequestedTuple build(List<RequestedColumn> projList) {
     if (projList == null) {
-      return new ImpliedTupleRequest(true);
+      return WildcardTupleRequest.ALL_MEMBERS;
     }
     if (projList.isEmpty()) {
-      return new ImpliedTupleRequest(false);
+      return ImpliedTupleRequest.NO_MEMBERS;
     }
     return new RequestedTupleImpl(projList);
   }
@@ -179,16 +186,36 @@ public class RequestedTupleImpl implements RequestedTuple {
 
   public static RequestedTuple parse(Collection<SchemaPath> projList) {
     if (projList == null) {
-      return new ImpliedTupleRequest(true);
+      projList = PROJECT_ALL;
     }
-    if (projList.isEmpty()) {
-      return new ImpliedTupleRequest(false);
+    else if (projList.isEmpty()) {
+      return ImpliedTupleRequest.NO_MEMBERS;
     }
     RequestedTupleImpl projSet = new RequestedTupleImpl();
     for (SchemaPath col : projList) {
       projSet.parseSegment(col.getRootSegment());
     }
     return projSet;
+  }
+
+  /**
+   * Parse a projection list and resolve either empty or full projection
+   * to an implicit tuple request.
+   */
+  public static RequestedTuple parseAndResolve(Collection<SchemaPath> projList) {
+    if (projList == null) {
+      return WildcardTupleRequest.ALL_MEMBERS;
+    }
+    else if (projList.isEmpty()) {
+      return ImpliedTupleRequest.NO_MEMBERS;
+    }
+    else if (projList.size() == 1) {
+      SchemaPath item = projList.iterator().next();
+      if (item.isDynamicStar()) {
+        return WildcardTupleRequest.ALL_MEMBERS;
+      }
+    }
+    return parse(projList);
   }
 
   @Override

@@ -20,9 +20,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.Collection;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 
 /**
  * Abstract representation of a container of vectors: a row, a map, a

@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.physical.rowSet.project;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
@@ -30,39 +29,34 @@ import org.apache.drill.exec.record.metadata.ProjectionType;
  * implicitly, or because the map itself is selected.
  */
 
-public class ImpliedTupleRequest implements RequestedTuple {
+public abstract class ImpliedTupleRequest implements RequestedTuple {
 
-  public static final RequestedTuple ALL_MEMBERS =
-      new ImpliedTupleRequest(true);
-  public static final RequestedTuple NO_MEMBERS =
-      new ImpliedTupleRequest(false);
-  public static final List<RequestedColumn> EMPTY_COLS = new ArrayList<>();
+  public static final EmptyTupleRequest NO_MEMBERS =
+      new EmptyTupleRequest();
+  public static final List<RequestedColumn> EMPTY_COLS = ImmutableList.of();
 
-  private final boolean allProjected;
+  public static class EmptyTupleRequest extends ImpliedTupleRequest {
 
-  public ImpliedTupleRequest(boolean allProjected) {
-    this.allProjected = allProjected;
-  }
-
-  @Override
-  public ProjectionType projectionType(String colName) {
-    return allProjected
-      ? ProjectionType.UNSPECIFIED
-      : ProjectionType.UNPROJECTED;
-  }
-
-  @Override
-  public ProjectionType projectionType(ColumnMetadata col) {
-    if (col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+    @Override
+    public ProjectionType projectionType(String colName) {
       return ProjectionType.UNPROJECTED;
     }
-    return projectionType(col.name());
-  }
 
-  @Override
-  public RequestedTuple mapProjection(String colName) {
-    return allProjected ? ALL_MEMBERS : NO_MEMBERS;
-  }
+    @Override
+    public ProjectionType projectionType(ColumnMetadata col) {
+      return ProjectionType.UNPROJECTED;
+    }
+
+    @Override
+    public RequestedTuple mapProjection(String colName) {
+      return NO_MEMBERS;
+    }
+
+    @Override
+    public RequestedTuple mapProjection(ColumnMetadata col) {
+      return NO_MEMBERS;
+    }
+ }
 
   @Override
   public void parseSegment(PathSegment child) { }

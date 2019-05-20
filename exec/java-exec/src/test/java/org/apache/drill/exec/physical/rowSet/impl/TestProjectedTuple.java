@@ -31,10 +31,10 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -46,10 +46,15 @@ public class TestProjectedTuple {
 
     // Null map means everything is projected
 
-    RequestedTuple projSet = RequestedTupleImpl.parse(null);
+    RequestedTuple projSet = RequestedTupleImpl.parseAndResolve(null);
     assertTrue(projSet instanceof ImpliedTupleRequest);
-    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("foo"));
-  }
+    assertEquals(ProjectionType.GENERAL, projSet.projectionType("foo"));
+
+    projSet = RequestedTupleImpl.parse(null);
+    List<RequestedColumn> cols = projSet.projections();
+    assertEquals(1, cols.size());
+    assertEquals(ProjectionType.WILDCARD, cols.get(0).type());
+ }
 
   /**
    * Test an empty projection which occurs in a
@@ -76,8 +81,8 @@ public class TestProjectedTuple {
     RequestedTuple projSet = RequestedTupleImpl.parse(
         RowSetTestUtils.projectList("a", "b", "c"));
     assertTrue(projSet instanceof RequestedTupleImpl);
-    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("a"));
-    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("b"));
+    assertEquals(ProjectionType.GENERAL, projSet.projectionType("a"));
+    assertEquals(ProjectionType.GENERAL, projSet.projectionType("b"));
     assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("d"));
 
     List<RequestedColumn> cols = projSet.projections();
@@ -85,18 +90,18 @@ public class TestProjectedTuple {
 
     RequestedColumn a = cols.get(0);
     assertEquals("a", a.name());
-    assertEquals(ProjectionType.UNSPECIFIED, a.type());
+    assertEquals(ProjectionType.GENERAL, a.type());
     assertTrue(a.isSimple());
     assertFalse(a.isWildcard());
     assertNull(a.mapProjection());
     assertNull(a.indexes());
 
     assertEquals("b", cols.get(1).name());
-    assertEquals(ProjectionType.UNSPECIFIED, cols.get(1).type());
+    assertEquals(ProjectionType.GENERAL, cols.get(1).type());
     assertTrue(cols.get(1).isSimple());
 
     assertEquals("c", cols.get(2).name());
-    assertEquals(ProjectionType.UNSPECIFIED, cols.get(2).type());
+    assertEquals(ProjectionType.GENERAL, cols.get(2).type());
     assertTrue(cols.get(2).isSimple());
   }
 
@@ -112,12 +117,12 @@ public class TestProjectedTuple {
     RequestedTuple projSet = RequestedTupleImpl.parse(projCols);
 
     assertTrue(projSet instanceof RequestedTupleImpl);
-    assertEquals(ProjectionType.UNSPECIFIED, projSet.projectionType("map"));
+    assertEquals(ProjectionType.GENERAL, projSet.projectionType("map"));
     assertEquals(ProjectionType.UNPROJECTED, projSet.projectionType("another"));
     RequestedTuple mapProj = projSet.mapProjection("map");
     assertNotNull(mapProj);
     assertTrue(mapProj instanceof ImpliedTupleRequest);
-    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("foo"));
+    assertEquals(ProjectionType.GENERAL, mapProj.projectionType("foo"));
     assertNotNull(projSet.mapProjection("another"));
     assertEquals(ProjectionType.UNPROJECTED, projSet.mapProjection("another").projectionType("anyCol"));
   }
@@ -140,8 +145,8 @@ public class TestProjectedTuple {
 
     RequestedTuple mapProj = projSet.mapProjection("map");
     assertTrue(mapProj instanceof RequestedTupleImpl);
-    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
-    assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
+    assertEquals(ProjectionType.GENERAL, mapProj.projectionType("a"));
+    assertEquals(ProjectionType.GENERAL, mapProj.projectionType("b"));
     assertEquals(ProjectionType.TUPLE, mapProj.projectionType("map2"));
     assertEquals(ProjectionType.UNPROJECTED, mapProj.projectionType("bogus"));
 
@@ -150,14 +155,14 @@ public class TestProjectedTuple {
     RequestedTuple bMapProj = mapProj.mapProjection("b");
     assertNotNull(bMapProj);
     assertTrue(bMapProj instanceof ImpliedTupleRequest);
-    assertEquals(ProjectionType.UNSPECIFIED, bMapProj.projectionType("foo"));
+    assertEquals(ProjectionType.GENERAL, bMapProj.projectionType("foo"));
 
     // Map2, an nested map, has an explicit projection
 
     RequestedTuple map2Proj = mapProj.mapProjection("map2");
     assertNotNull(map2Proj);
     assertTrue(map2Proj instanceof RequestedTupleImpl);
-    assertEquals(ProjectionType.UNSPECIFIED, map2Proj.projectionType("x"));
+    assertEquals(ProjectionType.GENERAL, map2Proj.projectionType("x"));
     assertEquals(ProjectionType.UNPROJECTED, map2Proj.projectionType("bogus"));
   }
 
@@ -177,11 +182,11 @@ public class TestProjectedTuple {
 
       RequestedTuple mapProj = projSet.mapProjection("map");
       assertTrue(mapProj instanceof ImpliedTupleRequest);
-      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
+      assertEquals(ProjectionType.GENERAL, mapProj.projectionType("a"));
 
       // Didn't ask for b, but did ask for whole map.
 
-      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
+      assertEquals(ProjectionType.GENERAL, mapProj.projectionType("b"));
     }
 
     // Now the other way around.
@@ -197,8 +202,8 @@ public class TestProjectedTuple {
 
       RequestedTuple mapProj = projSet.mapProjection("map");
       assertTrue(mapProj instanceof ImpliedTupleRequest);
-      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("a"));
-      assertEquals(ProjectionType.UNSPECIFIED, mapProj.projectionType("b"));
+      assertEquals(ProjectionType.GENERAL, mapProj.projectionType("a"));
+      assertEquals(ProjectionType.GENERAL, mapProj.projectionType("b"));
     }
   }
 

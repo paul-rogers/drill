@@ -36,12 +36,11 @@ import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.SingleMapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
+import org.apache.drill.exec.physical.rowSet.project.WildcardTupleRequest;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
-import org.apache.drill.exec.record.metadata.PropertyAccessor;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.UInt4Vector;
@@ -142,7 +141,6 @@ public class ColumnBuilder {
     ProjectionType projType = parent.projectionType(columnSchema);
     ColumnTransform outputCol;
     if (projType == ProjectionType.UNPROJECTED) {
-      PropertyAccessor.set(columnSchema, ColumnMetadata.PROJECTED_PROP, false);
       outputCol = new NoOpTransform(columnSchema);
     } else {
 
@@ -449,7 +447,7 @@ public class ColumnBuilder {
     // Create the manager for the columns within the union.
 
     final UnionState unionState = new UnionState(parent.loader(),
-        parent.vectorCache().childCache(columnSchema.name()), new ImpliedTupleRequest(true));
+        parent.vectorCache().childCache(columnSchema.name()), WildcardTupleRequest.ALL_MEMBERS);
 
     // Bind the union state to the union writer to handle column additions.
 
@@ -516,7 +514,7 @@ public class ColumnBuilder {
 
     final ListState listState = new ListState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        new ImpliedTupleRequest(true));
+        WildcardTupleRequest.ALL_MEMBERS);
 
     // Create the child vector, writer and state.
 
@@ -600,7 +598,7 @@ public class ColumnBuilder {
 
     final ListState listState = new ListState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        ImpliedTupleRequest.ALL_MEMBERS);
+        WildcardTupleRequest.ALL_MEMBERS);
 
     // Bind the union state to the union writer to handle column additions.
 

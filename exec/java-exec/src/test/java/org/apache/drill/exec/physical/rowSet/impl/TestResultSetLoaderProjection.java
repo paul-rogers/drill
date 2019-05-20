@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
-import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -42,6 +42,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -110,12 +111,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
     assertEquals(3, actualSchema.index("d"));
     assertEquals(-1, actualSchema.index("e"));
 
-    // Non-projected columns identify themselves via metadata
+    // Non-projected columns identify themselves
 
-    assertFalse(actualSchema.metadata("a").isProjected());
-    assertTrue(actualSchema.metadata("b").isProjected());
-    assertTrue(actualSchema.metadata("c").isProjected());
-    assertFalse(actualSchema.metadata("d").isProjected());
+    assertFalse(rootWriter.column("a").isProjected());
+    assertTrue(rootWriter.column("b").isProjected());
+    assertTrue(rootWriter.column("c").isProjected());
+    assertFalse(rootWriter.column("d").isProjected());
 
     // Write some data. Doesn't need much.
 
@@ -165,17 +166,14 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
     // Verify the projected columns
 
     TupleMetadata actualSchema = rootWriter.tupleSchema();
-    ColumnMetadata a1Md = actualSchema.metadata("a1");
-    assertTrue(a1Md.isArray());
-    assertTrue(a1Md.isProjected());
+    assertTrue(actualSchema.metadata("a1").isArray());
+    assertTrue(rootWriter.column("a1").isProjected());
 
-    ColumnMetadata a2Md = actualSchema.metadata("a2");
-    assertTrue(a2Md.isArray());
-    assertTrue(a2Md.isProjected());
+    assertTrue(actualSchema.metadata("a2").isArray());
+    assertTrue(rootWriter.column("a2").isProjected());
 
-    ColumnMetadata a3Md = actualSchema.metadata("a3");
-    assertTrue(a3Md.isArray());
-    assertFalse(a3Md.isProjected());
+    assertTrue(actualSchema.metadata("a3").isArray());
+    assertFalse(rootWriter.column("a3").isProjected());
 
     // Write a couple of rows.
 
@@ -227,25 +225,28 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
     TupleMetadata actualSchema = rootWriter.tupleSchema();
     ColumnMetadata m1Md = actualSchema.metadata("m1");
+    TupleWriter m1Writer = rootWriter.tuple("m1");
     assertTrue(m1Md.isMap());
-    assertTrue(m1Md.isProjected());
+    assertTrue(m1Writer.isProjected());
     assertEquals(2, m1Md.mapSchema().size());
-    assertTrue(m1Md.mapSchema().metadata("a").isProjected());
-    assertTrue(m1Md.mapSchema().metadata("b").isProjected());
+    assertTrue(m1Writer.column("a").isProjected());
+    assertTrue(m1Writer.column("b").isProjected());
 
     ColumnMetadata m2Md = actualSchema.metadata("m2");
+    TupleWriter m2Writer = rootWriter.tuple("m2");
     assertTrue(m2Md.isMap());
-    assertTrue(m2Md.isProjected());
+    assertTrue(m2Writer.isProjected());
     assertEquals(2, m2Md.mapSchema().size());
-    assertFalse(m2Md.mapSchema().metadata("c").isProjected());
-    assertTrue(m2Md.mapSchema().metadata("d").isProjected());
+    assertFalse(m2Writer.column("c").isProjected());
+    assertTrue(m2Writer.column("d").isProjected());
 
     ColumnMetadata m3Md = actualSchema.metadata("m3");
+    TupleWriter m3Writer = rootWriter.tuple("m3");
     assertTrue(m3Md.isMap());
-    assertFalse(m3Md.isProjected());
+    assertFalse(m3Writer.isProjected());
     assertEquals(2, m3Md.mapSchema().size());
-    assertFalse(m3Md.mapSchema().metadata("e").isProjected());
-    assertFalse(m3Md.mapSchema().metadata("f").isProjected());
+    assertFalse(m3Writer.column("e").isProjected());
+    assertFalse(m3Writer.column("f").isProjected());
 
     // Write a couple of rows.
 
@@ -294,11 +295,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
     TupleMetadata actualSchema = rootWriter.tupleSchema();
     ColumnMetadata m1Md = actualSchema.metadata("m1");
+    TupleWriter m1Writer = rootWriter.tuple("m1");
     assertTrue(m1Md.isMap());
-    assertTrue(m1Md.isProjected());
+    assertTrue(m1Writer.isProjected());
     assertEquals(2, m1Md.mapSchema().size());
-    assertTrue(m1Md.mapSchema().metadata("a").isProjected());
-    assertTrue(m1Md.mapSchema().metadata("b").isProjected());
+    assertTrue(m1Writer.column("a").isProjected());
+    assertTrue(m1Writer.column("b").isProjected());
 
     // Write a couple of rows.
 

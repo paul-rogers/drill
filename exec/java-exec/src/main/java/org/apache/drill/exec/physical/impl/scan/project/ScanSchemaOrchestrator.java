@@ -393,7 +393,7 @@ public class ScanSchemaOrchestrator {
   }
 
   public boolean isProjectNone() {
-    return scanProj.projectNone();
+    return scanProj.isEmptyProjection();
   }
 
   public boolean hasSchema() {

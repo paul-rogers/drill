@@ -23,9 +23,9 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
+import org.apache.drill.exec.physical.rowSet.project.WildcardTupleRequest;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -56,7 +56,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = DEFAULT_ROW_COUNT;
-      projectionSet = new ImpliedTupleRequest(true);
+      projectionSet = WildcardTupleRequest.ALL_MEMBERS;
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
@@ -77,8 +77,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
       if (builder.projectionSet != null) {
         projectionSet = builder.projectionSet;
+      } else if (builder.projection == null) {
+        projectionSet = WildcardTupleRequest.ALL_MEMBERS;
       } else {
-        projectionSet = RequestedTupleImpl.parse(builder.projection);
+        projectionSet = RequestedTupleImpl.parseAndResolve(builder.projection);
       }
     }
 
@@ -354,6 +356,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     }
     return activeSchemaVersion;
   }
+
+  @Override
+  public int activeSchemaVersion( ) { return activeSchemaVersion; }
 
   @Override
   public int schemaVersion() {

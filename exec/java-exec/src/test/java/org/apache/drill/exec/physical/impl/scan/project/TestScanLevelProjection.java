@@ -34,10 +34,10 @@ import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -69,7 +69,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertFalse(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
 
     assertEquals(3, scanProj.requestedCols().size());
     assertEquals("a", scanProj.requestedCols().get(0).rootName());
@@ -95,7 +95,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     RequestedTuple readerProj = scanProj.readerProjection();
     assertEquals(3, readerProj.projections().size());
     assertNotNull(readerProj.get("a"));
-    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType("a"));
     assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("d"));
   }
 
@@ -112,7 +112,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertFalse(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
 
     assertEquals(3, scanProj.columns().size());
     assertEquals("a", scanProj.columns().get(0).name());
@@ -127,8 +127,8 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     final RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
-    assertEquals(ProjectionType.UNSPECIFIED, a.mapProjection().projectionType("x"));
-    assertEquals(ProjectionType.UNSPECIFIED, a.mapProjection().projectionType("y"));
+    assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("x"));
+    assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("y"));
     assertEquals(ProjectionType.UNPROJECTED,  a.mapProjection().projectionType("z"));
 
     final RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
@@ -145,7 +145,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(3, readerProj.projections().size());
     assertNotNull(readerProj.get("a"));
     assertEquals(ProjectionType.TUPLE, readerProj.projectionType("a"));
-    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("c"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType("c"));
     assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("d"));
   }
 
@@ -161,7 +161,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertFalse(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
 
     assertEquals(1, scanProj.columns().size());
     assertEquals("a", scanProj.columns().get(0).name());
@@ -205,7 +205,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isDynamicStar());
 
@@ -229,7 +229,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     RequestedTuple readerProj = scanProj.readerProjection();
     assertTrue(readerProj instanceof ImpliedTupleRequest);
-    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType("a"));
   }
 
   /**
@@ -244,7 +244,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertFalse(scanProj.projectAll());
-    assertTrue(scanProj.projectNone());
+    assertTrue(scanProj.isEmptyProjection());
     assertEquals(0, scanProj.requestedCols().size());
 
     // Verify tuple projection
@@ -270,7 +270,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
           ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
     assertEquals(2, scanProj.requestedCols().size());
     assertEquals(1, scanProj.columns().size());
 
@@ -284,8 +284,8 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     RequestedTuple readerProj = scanProj.readerProjection();
     assertTrue(readerProj instanceof ImpliedTupleRequest);
-    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
-    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("c"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType("c"));
   }
 
   /**
@@ -299,7 +299,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
           ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
-    assertFalse(scanProj.projectNone());
+    assertFalse(scanProj.isEmptyProjection());
     assertEquals(2, scanProj.requestedCols().size());
     assertEquals(1, scanProj.columns().size());
   }
@@ -362,9 +362,8 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertTrue(scanProj.columns().get(1) instanceof UnresolvedSchemaColumn);
 
     RequestedTuple readerProj = scanProj.readerProjection();
-    assertEquals(2, readerProj.projections().size());
-    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("a"));
-    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("b"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType(outputSchema.metadata("a")));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType(outputSchema.metadata("b")));
   }
 
   @Test
@@ -417,8 +416,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertTrue(scanProj.columns().get(1) instanceof UnresolvedSchemaColumn);
 
     RequestedTuple readerProj = scanProj.readerProjection();
-    assertEquals(2, readerProj.projections().size());
-    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("a"));
-    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("b"));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType(outputSchema.metadata("a")));
+    assertEquals(ProjectionType.GENERAL, readerProj.projectionType(outputSchema.metadata("b")));
   }
 }

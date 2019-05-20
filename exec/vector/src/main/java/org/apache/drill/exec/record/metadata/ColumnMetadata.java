@@ -52,12 +52,6 @@ public interface ColumnMetadata extends Propertied {
   String FORMAT_PROP = DRILL_PROP_PREFIX + "format";
 
   /**
-   * Indicates if the column is projected. Used only for internal
-   * reader-provided schemas.
-   */
-  String PROJECTED_PROP = DRILL_PROP_PREFIX + "projected";
-
-  /**
    * Indicates how to handle blanks. Must be one of the valid values defined
    * in AbstractConvertFromString. Normally set on the converter by the plugin
    * rather than by the user in the schema.
@@ -274,15 +268,6 @@ public interface ColumnMetadata extends Propertied {
    */
 
   ColumnMetadata cloneEmpty();
-
-  /**
-   * Reports whether, in this context, the column is projected outside
-   * of the context. (That is, whether the column is backed by an actual
-   * value vector.)
-   */
-
-  boolean isProjected();
-  void setProjected(boolean projected);
 
   int precision();
   int scale();

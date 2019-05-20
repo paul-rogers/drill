@@ -24,12 +24,14 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedSchemaColumn;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedColumnImpl;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
+import org.apache.drill.exec.physical.rowSet.project.WildcardTupleRequest;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
@@ -224,6 +226,47 @@ public class ScanLevelProjection {
     void build();
   }
 
+  public static class SchemaTupleRequest extends ImpliedTupleRequest {
+
+    private TupleMetadata schema;
+
+    public SchemaTupleRequest(TupleMetadata outputSchema) {
+      this.schema = outputSchema;
+    }
+
+    @Override
+    public ProjectionType projectionType(String colName) {
+      throw new UnsupportedOperationException("Call projectionType(ColumnMetadata col)");
+    }
+
+    @Override
+    public ProjectionType projectionType(ColumnMetadata col) {
+      ColumnMetadata outputCol = schema.metadata(col.name());
+      if (outputCol == null)
+        return ProjectionType.UNPROJECTED;
+      if (outputCol.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+        return ProjectionType.UNPROJECTED;
+      }
+      if (col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
+        return ProjectionType.UNPROJECTED;
+      }
+      return ProjectionType.GENERAL;
+    }
+
+    @Override
+    public RequestedTuple mapProjection(String colName) {
+      throw new UnsupportedOperationException("Call mapProjection(ColumnMetadata col)");
+    }
+
+    @Override
+    public RequestedTuple mapProjection(ColumnMetadata col) {
+      ProjectionType type = projectionType(col);
+      return type == ProjectionType.UNPROJECTED ?
+          ImpliedTupleRequest.NO_MEMBERS : WildcardTupleRequest.ALL_MEMBERS;
+    }
+
+  }
+
   // Input
 
   protected final List<SchemaPath> projectionList;
@@ -324,17 +367,23 @@ public class ScanLevelProjection {
     // or may not correspond to reader columns.)
 
     List<RequestedColumn> outputProj;
-    if (projectionType == ScanProjectionType.WILDCARD) {
-      outputProj = null;
-    } else {
+    switch (projectionType) {
+    case WILDCARD:
+    case SCHEMA_WILDCARD:
+      readerProjection = WildcardTupleRequest.ALL_MEMBERS;
+      break;
+    case STRICT_SCHEMA_WILDCARD:
+      readerProjection = new SchemaTupleRequest(outputSchema);
+      break;
+    default:
       outputProj = new ArrayList<>();
       for (ColumnProjection col : outputCols) {
         if (col instanceof AbstractUnresolvedColumn) {
           outputProj.add(((AbstractUnresolvedColumn) col).element());
         }
       }
+      readerProjection = RequestedTupleImpl.build(outputProj);
     }
-    readerProjection = RequestedTupleImpl.build(outputProj);
   }
 
   /**
@@ -527,7 +576,7 @@ public class ScanLevelProjection {
    * the wildcard)
    */
 
-  public boolean projectNone() { return projectionType == ScanProjectionType.EMPTY; }
+  public boolean isEmptyProjection() { return projectionType == ScanProjectionType.EMPTY; }
 
   public RequestedTuple rootProjection() { return outputProjection; }
 
