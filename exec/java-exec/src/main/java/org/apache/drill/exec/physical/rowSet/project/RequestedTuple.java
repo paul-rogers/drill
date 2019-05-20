@@ -28,12 +28,6 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * projection set for such columns. Represents the set of requested
  * columns and tuples as expressed in the physical plan.
  * <p>
- * A key purpose of these classes is to filters added dynamically
- * at scan time. The reader may offer a column (as to add a column
- * writer for the column.) The projection mechanism says whether to
- * materialize the column, or whether to ignore the column and
- * return a dummy column writer.
- * <p>
  * Three variations exist:
  * <ul>
  * <li>Project all ({@link ImpliedTupleRequest#ALL_MEMBERS}): used for a tuple
@@ -47,25 +41,6 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * columns to project (implicitly leaving out others, such as b and
  * d in our example.)</li>
  * </ul>
- * <p>
- * The Project All must handle several additional nuances:
- * <ul>
- * <li>External schema: If an external schema is provided, then that
- * schema may be "strict" which causes the wildcard to expand to the
- * set of columns defined within the schema. When used with columns
- * added dynamically, a column may be excluded from the projection
- * set if it is not part of the defined external schema.</ul>
- * <li>Metadata filtering: A reader may offer a special column which
- * is available only in explicit projection, and behaves like Drill's
- * implicit file columns. Such columns are not included in a "project
- * all" projection.</li>
- * <p>
- * At present, only the top-level row supports these additional filtering
- * options; they are not supported on mays (though could be with additional
- * effort.)
- * <p>
- * Special columns are generic and thus handled here. External schema
- * is handled in a subclass in the scan projection framework.
  * <p>
  * The result is that each tuple (row and map) has an associated
  * projection set which the code can query to determine if a newly
@@ -111,12 +86,15 @@ public interface RequestedTuple {
     String summary();
   }
 
+  public enum TupleProjectionType {
+    ALL, NONE, SOME
+  }
+
+  TupleProjectionType type();
   void parseSegment(PathSegment child);
   RequestedColumn get(String colName);
   ProjectionType projectionType(String colName);
-  ProjectionType projectionType(ColumnMetadata col);
   RequestedTuple mapProjection(String colName);
-  RequestedTuple mapProjection(ColumnMetadata col);
   List<RequestedColumn> projections();
   void buildName(StringBuilder buf);
 }

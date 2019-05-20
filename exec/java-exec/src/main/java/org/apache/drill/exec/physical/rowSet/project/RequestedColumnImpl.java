@@ -82,7 +82,7 @@ public class RequestedColumnImpl implements RequestedColumn {
   }
 
   public RequestedTuple projectAllMembers(boolean projectAll) {
-    members = projectAll ? WildcardTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
+    members = projectAll ? ImpliedTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
     setType();
     return members;
   }

@@ -17,11 +17,10 @@
  */
 package org.apache.drill.exec.physical.rowSet.project;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
@@ -29,34 +28,31 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
  * implicitly, or because the map itself is selected.
  */
 
-public abstract class ImpliedTupleRequest implements RequestedTuple {
+public class ImpliedTupleRequest implements RequestedTuple {
 
-  public static final EmptyTupleRequest NO_MEMBERS =
-      new EmptyTupleRequest();
-  public static final List<RequestedColumn> EMPTY_COLS = ImmutableList.of();
+  public static final RequestedTuple ALL_MEMBERS =
+      new ImpliedTupleRequest(true);
+  public static final RequestedTuple NO_MEMBERS =
+      new ImpliedTupleRequest(false);
+  public static final List<RequestedColumn> EMPTY_COLS = new ArrayList<>();
 
-  public static class EmptyTupleRequest extends ImpliedTupleRequest {
+  private final boolean allProjected;
 
-    @Override
-    public ProjectionType projectionType(String colName) {
-      return ProjectionType.UNPROJECTED;
-    }
+  public ImpliedTupleRequest(boolean allProjected) {
+    this.allProjected = allProjected;
+  }
 
-    @Override
-    public ProjectionType projectionType(ColumnMetadata col) {
-      return ProjectionType.UNPROJECTED;
-    }
+  @Override
+  public ProjectionType projectionType(String colName) {
+    return allProjected
+      ? ProjectionType.GENERAL
+      : ProjectionType.UNPROJECTED;
+  }
 
-    @Override
-    public RequestedTuple mapProjection(String colName) {
-      return NO_MEMBERS;
-    }
-
-    @Override
-    public RequestedTuple mapProjection(ColumnMetadata col) {
-      return NO_MEMBERS;
-    }
- }
+  @Override
+  public RequestedTuple mapProjection(String colName) {
+    return allProjected ? ALL_MEMBERS : NO_MEMBERS;
+  }
 
   @Override
   public void parseSegment(PathSegment child) { }
@@ -69,4 +65,9 @@ public abstract class ImpliedTupleRequest implements RequestedTuple {
 
   @Override
   public void buildName(StringBuilder buf) { }
+
+  @Override
+  public TupleProjectionType type() {
+    return allProjected ? TupleProjectionType.ALL : TupleProjectionType.NONE;
+  }
 }

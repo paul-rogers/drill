@@ -25,7 +25,6 @@ import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 import com.google.common.collect.ImmutableList;
@@ -113,11 +112,6 @@ public class RequestedTupleImpl implements RequestedTuple {
   }
 
   @Override
-  public ProjectionType projectionType(ColumnMetadata col) {
-    return projectionType(col.name());
-  }
-
-  @Override
   public RequestedTuple mapProjection(String colName) {
     RequestedColumnImpl col = getImpl(colName);
     RequestedTuple mapProj = (col == null) ? null : col.mapProjection();
@@ -134,11 +128,6 @@ public class RequestedTupleImpl implements RequestedTuple {
     return ImpliedTupleRequest.NO_MEMBERS;
   }
 
-  @Override
-  public RequestedTuple mapProjection(ColumnMetadata col) {
-    return mapProjection(col.name());
-  }
-
   /**
    * Create a requested tuple projection from a rewritten top-level
    * projection list. The columns within the list have already been parsed to
@@ -153,7 +142,7 @@ public class RequestedTupleImpl implements RequestedTuple {
 
   public static RequestedTuple build(List<RequestedColumn> projList) {
     if (projList == null) {
-      return WildcardTupleRequest.ALL_MEMBERS;
+      return new ImpliedTupleRequest(true);
     }
     if (projList.isEmpty()) {
       return ImpliedTupleRequest.NO_MEMBERS;
@@ -196,26 +185,6 @@ public class RequestedTupleImpl implements RequestedTuple {
       projSet.parseSegment(col.getRootSegment());
     }
     return projSet;
-  }
-
-  /**
-   * Parse a projection list and resolve either empty or full projection
-   * to an implicit tuple request.
-   */
-  public static RequestedTuple parseAndResolve(Collection<SchemaPath> projList) {
-    if (projList == null) {
-      return WildcardTupleRequest.ALL_MEMBERS;
-    }
-    else if (projList.isEmpty()) {
-      return ImpliedTupleRequest.NO_MEMBERS;
-    }
-    else if (projList.size() == 1) {
-      SchemaPath item = projList.iterator().next();
-      if (item.isDynamicStar()) {
-        return WildcardTupleRequest.ALL_MEMBERS;
-      }
-    }
-    return parse(projList);
   }
 
   @Override
@@ -334,5 +303,23 @@ public class RequestedTupleImpl implements RequestedTuple {
     if (parent != null) {
       parent.buildName(buf);
     }
+  }
+
+  /**
+   * Tuple projection type. This is a rough approximation. A scan-level projection
+   * may include both a wildcard and implicit columns. This form is best used
+   * in testing where such ambiguities do not apply.
+   */
+  @Override
+  public TupleProjectionType type() {
+    if (projection.isEmpty()) {
+      return TupleProjectionType.NONE;
+    }
+    for (RequestedColumn col : projection) {
+      if (col.isWildcard()) {
+        return TupleProjectionType.ALL;
+      }
+    }
+    return TupleProjectionType.SOME;
   }
 }

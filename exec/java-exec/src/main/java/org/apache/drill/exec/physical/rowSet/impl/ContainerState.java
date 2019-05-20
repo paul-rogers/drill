@@ -19,9 +19,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.Collection;
 
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
@@ -44,7 +44,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 public abstract class ContainerState {
 
   protected final LoaderInternals loader;
-  protected final RequestedTuple projectionSet;
+  protected final ProjectionSet projectionSet;
   protected ColumnState parentColumn;
 
   /**
@@ -54,10 +54,14 @@ public abstract class ContainerState {
 
   protected final ResultVectorCache vectorCache;
 
-  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache, RequestedTuple projectionSet) {
+  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
     this.loader = loader;
     this.vectorCache = vectorCache;
     this.projectionSet = projectionSet;
+  }
+
+  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache) {
+    this(loader, vectorCache, ProjectionSetFactory.projectAll());
   }
 
   public void bindColumnState(ColumnState parentState) {
@@ -80,11 +84,7 @@ public abstract class ContainerState {
 
   protected LoaderInternals loader() { return loader; }
   public ResultVectorCache vectorCache() { return vectorCache; }
-  public RequestedTuple projectionSet() { return projectionSet; }
-
-  public ProjectionType projectionType(ColumnMetadata columnSchema) {
-    return projectionSet.projectionType(columnSchema);
-  }
+  public ProjectionSet projectionSet() { return projectionSet; }
 
   public ColumnState addColumn(ColumnMetadata columnSchema) {
 

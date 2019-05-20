@@ -20,12 +20,14 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.Collection;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Builder for the options for the row set loader. Reasonable defaults
@@ -36,12 +38,10 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 public class OptionBuilder {
   protected int vectorSizeLimit;
   protected int rowCountLimit;
-  protected Collection<SchemaPath> projection;
-  protected RequestedTuple projectionSet;
   protected ResultVectorCache vectorCache;
+  protected ProjectionSetBuilder projectionBuilder = new ProjectionSetBuilder();
   protected TupleMetadata schema;
   protected long maxBatchSize;
-  protected SchemaTransformer schemaTransformer;
 
   public OptionBuilder() {
     // Start with the default option values.
@@ -88,12 +88,12 @@ public class OptionBuilder {
    */
 
   public OptionBuilder setProjection(Collection<SchemaPath> projection) {
-    this.projection = projection;
+    projectionBuilder.projectionList(projection);
     return this;
   }
 
-  public OptionBuilder setProjectionSet(RequestedTuple projectionSet) {
-    this.projectionSet = projectionSet;
+  public OptionBuilder setProjectionSet(RequestedTuple parsedProjection) {
+    projectionBuilder.parsedProjection(parsedProjection);
     return this;
   }
 
@@ -131,15 +131,13 @@ public class OptionBuilder {
     return this;
   }
 
-  /**
-   * Provide an optional higher-level schema transformer which can convert
-   * columns from one type to another.
-   *
-   * @param transform the column conversion factory
-   * @return this builder
-   */
-  public OptionBuilder setSchemaTransform(SchemaTransformer transform) {
-    schemaTransformer = transform;
+  public OptionBuilder setOutputSchema(TupleMetadata schema) {
+    projectionBuilder.outputSchema(schema);
+    return this;
+  }
+
+  public OptionBuilder setTransform(CustomTypeTransform transform) {
+    projectionBuilder.transform(transform);
     return this;
   }
 
@@ -147,7 +145,6 @@ public class OptionBuilder {
   // at present in the value vector.
 
   public ResultSetOptions build() {
-    Preconditions.checkArgument(projection == null || projectionSet == null);
     return new ResultSetOptions(this);
   }
 }
