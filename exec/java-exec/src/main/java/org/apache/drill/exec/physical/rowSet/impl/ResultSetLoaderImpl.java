@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.project.Exp.ImplicitProjectionSet;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
@@ -66,7 +67,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = builder.vectorCache;
       schema = builder.schema;
       maxBatchSize = builder.maxBatchSize;
-      projectionSet = builder.projectionBuilder.build();
+      projectionSet = builder.projectionSet == null ?
+          ProjectionSetFactory.projectAll() :
+          builder.projectionSet;
     }
 
     public void dump(HierarchicalFormatter format) {

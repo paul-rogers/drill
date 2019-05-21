@@ -17,14 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.util.Collection;
-
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet.CustomTypeTransform;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -39,7 +34,7 @@ public class OptionBuilder {
   protected int vectorSizeLimit;
   protected int rowCountLimit;
   protected ResultVectorCache vectorCache;
-  protected ProjectionSetBuilder projectionBuilder = new ProjectionSetBuilder();
+  protected ProjectionSet projectionSet;
   protected TupleMetadata schema;
   protected long maxBatchSize;
 
@@ -69,31 +64,6 @@ public class OptionBuilder {
 
   public OptionBuilder setBatchSizeLimit(int bytes) {
     maxBatchSize = bytes;
-    return this;
-  }
-
-  /**
-   * Record (batch) readers often read a subset of available table columns,
-   * but want to use a writer schema that includes all columns for ease of
-   * writing. (For example, a CSV reader must read all columns, even if the user
-   * wants a subset. The unwanted columns are simply discarded.)
-   * <p>
-   * This option provides a projection list, in the form of column names, for
-   * those columns which are to be projected. Only those columns will be
-   * backed by value vectors; non-projected columns will be backed by "null"
-   * writers that discard all values.
-   *
-   * @param projection the list of projected columns
-   * @return this builder
-   */
-
-  public OptionBuilder setProjection(Collection<SchemaPath> projection) {
-    projectionBuilder.projectionList(projection);
-    return this;
-  }
-
-  public OptionBuilder setProjectionSet(RequestedTuple parsedProjection) {
-    projectionBuilder.parsedProjection(parsedProjection);
     return this;
   }
 
@@ -131,13 +101,8 @@ public class OptionBuilder {
     return this;
   }
 
-  public OptionBuilder setOutputSchema(TupleMetadata schema) {
-    projectionBuilder.outputSchema(schema);
-    return this;
-  }
-
-  public OptionBuilder setTransform(CustomTypeTransform transform) {
-    projectionBuilder.transform(transform);
+  public OptionBuilder setProjection(ProjectionSet projSet) {
+    this.projectionSet = projSet;
     return this;
   }
 

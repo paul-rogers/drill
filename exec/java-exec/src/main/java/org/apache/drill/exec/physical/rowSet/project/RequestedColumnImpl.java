@@ -190,6 +190,14 @@ public class RequestedColumnImpl implements RequestedColumn {
   }
 
   @Override
+  public RequestedTuple mapProjection() {
+    if (isTuple()) {
+      return members == null ? ImpliedTupleRequest.ALL_MEMBERS : members;
+    }
+    return null;
+  }
+
+  @Override
   public String toString() {
     final StringBuilder buf = new StringBuilder();
     buf
@@ -212,7 +220,4 @@ public class RequestedColumnImpl implements RequestedColumn {
     buf.append("]");
     return buf.toString();
   }
-
-  @Override
-  public RequestedTuple mapProjection() { return members; }
 }

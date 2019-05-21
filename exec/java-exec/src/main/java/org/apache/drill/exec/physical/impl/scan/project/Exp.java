@@ -1,12 +1,14 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet.ColumnReadProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet.CustomTypeTransform;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
@@ -24,28 +26,9 @@ public class Exp {
 
   public static abstract class AbstractReadColProj implements ColumnReadProjection {
     protected final ColumnMetadata readSchema;
-    protected final RequestedColumn requestedCol;
-    protected final ColumnMetadata outputSchema;
 
     public AbstractReadColProj(ColumnMetadata readSchema) {
-      this(readSchema, null, null);
-    }
-
-    public AbstractReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol) {
-      this(readSchema, requestedCol, null);
-    }
-
-    public AbstractReadColProj(ColumnMetadata readSchema, ColumnMetadata outputSchema) {
-      this(readSchema, null, outputSchema);
-    }
-
-    public AbstractReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol, ColumnMetadata outputSchema) {
       this.readSchema = readSchema;
-      this.requestedCol = requestedCol;
-      this.outputSchema = outputSchema;
-      if (requestedCol != null) {
-        requestedCol.type().validateProjection(readSchema);
-      }
     }
 
     @Override
@@ -58,12 +41,10 @@ public class Exp {
     public ColumnConversionFactory conversionFactory() { return null; }
 
     @Override
-    public ColumnMetadata outputSchema() { return outputSchema; }
+    public ColumnMetadata outputSchema() { return readSchema; }
 
     @Override
-    public RequestedTuple mapProjection() {
-      return requestedCol == null ? null : requestedCol.mapProjection();
-    }
+    public RequestedTuple mapProjection() { return ImpliedTupleRequest.ALL_MEMBERS; }
   }
 
   /**
@@ -81,6 +62,9 @@ public class Exp {
 
     @Override
     public boolean isProjected() { return false; }
+
+    @Override
+    public RequestedTuple mapProjection() { return ImpliedTupleRequest.NO_MEMBERS; }
   }
 
   /**
@@ -102,10 +86,66 @@ public class Exp {
    * constraints for the type of column allowed. No type conversion
    * needed: output type is whatever the reader chooses.
    */
+
   public static class ExplicitReadColProj extends AbstractReadColProj {
+    protected final RequestedColumn requestedCol;
 
     public ExplicitReadColProj(ColumnMetadata col, RequestedColumn reqCol) {
-      super(col, reqCol);
+      super(col);
+      requestedCol = reqCol;
+      requestedCol.type().validateProjection(readSchema);
+    }
+
+    @Override
+    public RequestedTuple mapProjection() { return requestedCol.mapProjection(); }
+  }
+
+  public static class TransformReadColProj extends AbstractReadColProj {
+    private final CustomTypeTransform customTransform;
+
+
+    public TransformReadColProj(ColumnMetadata col, CustomTypeTransform customTransform) {
+      super(col);
+      this.customTransform = customTransform;
+    }
+
+    @Override
+    public ColumnConversionFactory conversionFactory() {
+      return customTransform.transform(readSchema, null, null);
+    }
+  }
+
+  public static abstract class BaseReadColProj extends AbstractReadColProj {
+    protected final RequestedColumn requestedCol;
+    protected final ColumnMetadata outputSchema;
+
+    public BaseReadColProj(ColumnMetadata readSchema) {
+      this(readSchema, null, null);
+    }
+
+    public BaseReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol) {
+      this(readSchema, requestedCol, null);
+    }
+
+    public BaseReadColProj(ColumnMetadata readSchema, ColumnMetadata outputSchema) {
+      this(readSchema, null, outputSchema);
+    }
+
+    public BaseReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol, ColumnMetadata outputSchema) {
+      super(readSchema);
+      this.requestedCol = requestedCol;
+      this.outputSchema = outputSchema;
+      if (requestedCol != null) {
+        requestedCol.type().validateProjection(readSchema);
+      }
+    }
+
+    @Override
+    public ColumnMetadata outputSchema() { return outputSchema; }
+
+    @Override
+    public RequestedTuple mapProjection() {
+      return requestedCol == null ? null : requestedCol.mapProjection();
     }
   }
 
@@ -117,15 +157,18 @@ public class Exp {
    * type conversion.
    */
 
-  public static class SchemaReadColProj extends AbstractReadColProj {
+  public static class SchemaReadColProj extends BaseReadColProj {
 
-    ColumnConversionFactory conversionFactory;
+    private final ColumnConversionFactory conversionFactory;
 
     public SchemaReadColProj(ColumnMetadata readSchema, RequestedColumn reqCol,
         ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
       super(readSchema, reqCol, outputSchema);
       this.conversionFactory = conversionFactory;
     }
+
+    @Override
+    public ColumnConversionFactory conversionFactory() { return conversionFactory; }
   }
 
   public static abstract class AbstractProjectionSet implements ProjectionSet {
@@ -224,6 +267,24 @@ public class Exp {
     }
   }
 
+  public static class WildcardAndTransformProjectionSet extends AbstractProjectionSet {
+
+    private final CustomTypeTransform customTransform;
+
+    public WildcardAndTransformProjectionSet(CustomTypeTransform customTransform) {
+      this.customTransform = customTransform;
+    }
+
+    @Override
+    public ColumnReadProjection readProjection(ColumnMetadata col) {
+      if (isSpecial(col)) {
+        return new UnprojectedReadColProj(col);
+      }
+
+      return new TransformReadColProj(col, customTransform);
+    }
+  }
+
   public static class ExplicitProjectionSet implements ProjectionSet {
 
     private final RequestedTuple requestedProj;
@@ -240,7 +301,6 @@ public class Exp {
       }
       return new ExplicitReadColProj(col, reqCol);
     }
-
   }
 
   public static class ExplicitSchemaProjectionSet extends AbstractSchemaProjectionSet {
@@ -296,6 +356,21 @@ public class Exp {
     private CustomTypeTransform transform;
     private Map<String, String> properties;
 
+    /**
+     * Record (batch) readers often read a subset of available table columns,
+     * but want to use a writer schema that includes all columns for ease of
+     * writing. (For example, a CSV reader must read all columns, even if the user
+     * wants a subset. The unwanted columns are simply discarded.)
+     * <p>
+     * This option provides a projection list, in the form of column names, for
+     * those columns which are to be projected. Only those columns will be
+     * backed by value vectors; non-projected columns will be backed by "null"
+     * writers that discard all values.
+     *
+     * @param projection the list of projected columns
+     * @return this builder
+     */
+
     public ProjectionSetBuilder projectionList(Collection<SchemaPath> projection) {
       projectionList = projection;
       return this;
@@ -329,10 +404,12 @@ public class Exp {
           TupleProjectionType.ALL : parsedProjection.type();
       switch (projType) {
       case ALL:
-        if (providedSchema == null) {
-          return ProjectionSetFactory.projectAll();
-        } else {
+        if (providedSchema != null) {
           return new WildcardAndSchemaProjectionSet(providedSchema, properties, transform);
+        } else if (transform != null) {
+           return new WildcardAndTransformProjectionSet(transform);
+        } else {
+          return ProjectionSetFactory.projectAll();
         }
       case NONE:
         return ProjectionSetFactory.projectNone();
@@ -366,9 +443,23 @@ public class Exp {
       }
     }
 
-    public static ProjectionSet build(RequestedTuple projectionSet) {
-      // TODO Auto-generated method stub
-      return null;
+    public static ProjectionSet build(List<SchemaPath> selection) {
+      if (selection == null) {
+        return projectAll();
+      }
+      RequestedTuple projection = RequestedTupleImpl.parse(selection);
+      return new ExplicitProjectionSet(projection);
+    }
+
+    public static CustomTypeTransform simpleTransform(ColumnConversionFactory colFactory) {
+      return new CustomTypeTransform() {
+
+        @Override
+        public ColumnConversionFactory transform(ColumnMetadata inputDefn,
+            ColumnMetadata outputDefn, ConversionDefn defn) {
+          return colFactory;
+        }
+      };
     }
   }
 }

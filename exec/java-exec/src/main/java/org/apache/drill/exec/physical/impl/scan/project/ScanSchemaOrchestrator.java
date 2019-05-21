@@ -25,11 +25,10 @@ import java.util.Map;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet.CustomTypeTransform;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
-import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformer;
-import org.apache.drill.exec.physical.rowSet.impl.SchemaTransformerImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -166,7 +165,7 @@ public class ScanSchemaOrchestrator {
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
     private TupleMetadata outputSchema;
-    private SchemaTransformer schemaTransformer;
+     private CustomTypeTransform schemaTransformer;
     private Map<String, String> conversionProps;
 
     /**
@@ -245,7 +244,7 @@ public class ScanSchemaOrchestrator {
       outputSchema = schema;
     }
 
-    public void setSchemaTransformer(SchemaTransformer transformer) {
+    public void setSchemaTransformer(CustomTypeTransform transformer) {
       this.schemaTransformer = transformer;
     }
 
@@ -284,7 +283,8 @@ public class ScanSchemaOrchestrator {
     public final List<SchemaPath> projection;
     public final boolean useSchemaSmoothing;
     public final boolean allowRequiredNullColumns;
-    public final SchemaTransformer schemaTransformer;
+    public final TupleMetadata outputSchema;
+    public final CustomTypeTransform schemaTransformer;
 
     protected ScanSchemaOptions(ScanOrchestratorBuilder builder) {
       nullType = builder.nullType;
@@ -294,20 +294,9 @@ public class ScanSchemaOrchestrator {
       schemaResolvers = builder.schemaResolvers;
       projection = builder.projection;
       useSchemaSmoothing = builder.useSchemaSmoothing;
-      boolean allowRequiredNulls = builder.allowRequiredNullColumns;
-      if (builder.schemaTransformer != null) {
-        // Use client-provided conversions
-        schemaTransformer = builder.schemaTransformer;
-      } else if (builder.outputSchema != null) {
-        // Use only implicit conversions
-        schemaTransformer = new SchemaTransformerImpl(builder.outputSchema, builder.conversionProps);
-        if (builder.outputSchema.getBooleanProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP)) {
-          allowRequiredNulls = true;
-        }
-      } else {
-        schemaTransformer = null;
-      }
-      allowRequiredNullColumns = allowRequiredNulls;
+      schemaTransformer = builder.schemaTransformer;
+      outputSchema = builder.outputSchema;
+      allowRequiredNullColumns = builder.allowRequiredNullColumns;
     }
   }
 
@@ -372,11 +361,7 @@ public class ScanSchemaOrchestrator {
 
     // Parse the projection list.
 
-    TupleMetadata outputSchema = null;
-    if (options.schemaTransformer != null) {
-      outputSchema = options.schemaTransformer.outputSchema();
-    }
-    scanProj = new ScanLevelProjection(options.projection, options.parsers, outputSchema);
+    scanProj = new ScanLevelProjection(options.projection, options.parsers, options.outputSchema);
     if (scanProj.projectAll() && options.useSchemaSmoothing) {
       schemaSmoother = new SchemaSmoother(scanProj, options.schemaResolvers);
     }

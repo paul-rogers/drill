@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -65,7 +66,6 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     options.setRowCountLimit(Math.min(readerBatchSize, scanOrchestrator.options.scanBatchRecordLimit));
     options.setVectorCache(scanOrchestrator.vectorCache);
     options.setBatchSizeLimit(scanOrchestrator.options.scanBatchByteLimit);
-    options.setSchemaTransform(scanOrchestrator.options.schemaTransformer);
 
     // Set up a selection list if available and is a subset of
     // table columns. (Only needed for non-wildcard queries.)
@@ -74,7 +74,9 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // the odd case where the reader claims a fixed schema, but
     // adds a column later.
 
-    options.setProjectionSet(scanOrchestrator.scanProj.readerProjection());
+    ProjectionSetBuilder projBuilder = scanOrchestrator.scanProj.readerProjection();
+    projBuilder.transform(scanOrchestrator.options.schemaTransformer);
+    options.setProjection(projBuilder.build());
     options.setSchema(readerSchema);
 
     // Create the table loader
@@ -202,7 +204,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
         .setNullType(scanOrchestrator.options.nullType)
         .allowRequiredNullColumns(scanOrchestrator.options.allowRequiredNullColumns);
     if (scanOrchestrator.options.schemaTransformer != null) {
-      nullBuilder.setOutputSchema(scanOrchestrator.options.schemaTransformer.outputSchema());
+      nullBuilder.setOutputSchema(scanOrchestrator.options.outputSchema);
     }
     return new ResolvedRow(nullBuilder.build());
   }

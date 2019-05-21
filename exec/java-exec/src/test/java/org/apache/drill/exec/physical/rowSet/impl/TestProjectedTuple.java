@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -46,15 +47,15 @@ public class TestProjectedTuple {
 
     // Null map means everything is projected
 
-    RequestedTuple projSet = RequestedTupleImpl.parseAndResolve(null);
+    RequestedTuple projSet = RequestedTupleImpl.parse(null);
+    assertEquals(TupleProjectionType.ALL, projSet.type());
+    // Not defined well; the tuple contains a wildcard
+    // assertEquals(ProjectionType.GENERAL, projSet.projectionType("foo"));
+    
+    projSet = ImpliedTupleRequest.ALL_MEMBERS;
     assertTrue(projSet instanceof ImpliedTupleRequest);
     assertEquals(ProjectionType.GENERAL, projSet.projectionType("foo"));
-
-    projSet = RequestedTupleImpl.parse(null);
-    List<RequestedColumn> cols = projSet.projections();
-    assertEquals(1, cols.size());
-    assertEquals(ProjectionType.WILDCARD, cols.get(0).type());
- }
+  }
 
   /**
    * Test an empty projection which occurs in a
@@ -67,6 +68,7 @@ public class TestProjectedTuple {
     // Empty list means nothing is projected
 
     RequestedTuple projSet = RequestedTupleImpl.parse(new ArrayList<SchemaPath>());
+    assertEquals(TupleProjectionType.NONE, projSet.type());
     assertTrue(projSet instanceof ImpliedTupleRequest);
     List<RequestedColumn> cols = projSet.projections();
     assertEquals(0, cols.size());

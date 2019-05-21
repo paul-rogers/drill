@@ -95,9 +95,6 @@ public class ColumnBuilder {
   public ColumnState buildColumn(ContainerState parent, ColumnMetadata columnSchema) {
 
     ColumnReadProjection colProj = parent.projectionSet().readProjection(columnSchema);
-
-    // Build the column
-
     switch (colProj.outputSchema().structureType()) {
     case TUPLE:
       return buildMap(parent, colProj);

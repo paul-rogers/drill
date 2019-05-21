@@ -19,8 +19,12 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -29,8 +33,8 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
-import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.test.TestColumnConverter;
 import org.apache.drill.test.rowSet.test.TestColumnConverter.ConverterFactory;
 import org.junit.Test;
@@ -65,11 +69,13 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
     TestColumnConverter.setConverterProp(schema.metadata("n3"),
         TestColumnConverter.CONVERT_TO_INT);
 
-    SchemaTransformer schemaTransform = new DefaultSchemaTransformer(new ConverterFactory());
+   ProjectionSet projSet = new ProjectionSetBuilder()
+        .transform(ProjectionSetFactory.simpleTransform(new ConverterFactory()))
+        .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setSchemaTransform(schemaTransform)
+        .setProjection(projSet)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     rsLoader.startBatch();
@@ -116,10 +122,13 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
         .addArray("n3", MinorType.VARCHAR)
         .buildSchema();
 
+    ProjectionSet projSet = new ProjectionSetBuilder()
+        .outputSchema(outputSchema)
+        .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(inputSchema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setSchemaTransform(new SchemaTransformerImpl(outputSchema, null))
+        .setProjection(projSet)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     rsLoader.startBatch();
@@ -166,10 +175,13 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
         .add("n2", MinorType.VARCHAR)
         .buildSchema();
 
+    ProjectionSet projSet = new ProjectionSetBuilder()
+        .outputSchema(outputSchema)
+        .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(inputSchema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setSchemaTransform(new SchemaTransformerImpl(outputSchema, null))
+        .setProjection(projSet)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     rsLoader.startBatch();

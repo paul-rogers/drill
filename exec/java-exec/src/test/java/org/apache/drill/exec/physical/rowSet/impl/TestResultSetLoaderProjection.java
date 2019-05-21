@@ -33,6 +33,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
@@ -72,7 +73,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("d", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -84,7 +85,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
   public void testProjectionDynamic() {
     List<SchemaPath> selection = RowSetTestUtils.projectList("c", "b", "e");
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
@@ -157,7 +158,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("a3", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -215,7 +216,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -285,7 +286,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -345,7 +346,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -403,7 +404,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -465,7 +466,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -483,7 +484,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -501,7 +502,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -519,7 +520,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -537,7 +538,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -557,7 +558,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
@@ -578,7 +579,7 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
-        .setProjection(selection)
+        .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {

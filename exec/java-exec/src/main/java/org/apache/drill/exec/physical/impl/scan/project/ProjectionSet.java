@@ -34,6 +34,13 @@ import org.apache.drill.exec.vector.accessor.convert.StandardConversions.Convers
  */
 public interface ProjectionSet {
 
+  /**
+   * Response to a query against a reader projection to indicate projection
+   * status of a reader-provided column. This is a transient object which
+   * indicates whether a reader column is projected, and if so, the attributes
+   * of that projection.
+   */
+
   public interface ColumnReadProjection {
 
     /**
