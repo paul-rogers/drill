@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.List;
 
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
@@ -54,12 +54,10 @@ public class WildcardProjection extends ReaderLevelProjection {
 
   private void projectAllColumns(ResolvedTuple rootTuple, TupleMetadata tableSchema) {
     for (int i = 0; i < tableSchema.size(); i++) {
-      ColumnMetadata colSchema = tableSchema.metadata(i);
-      if (! colSchema.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
-        rootTuple.add(
-            new ResolvedTableColumn(colSchema.name(),
-                colSchema.schema(), rootTuple, i));
-      }
+      MaterializedField colSchema = tableSchema.column(i);
+      rootTuple.add(
+          new ResolvedTableColumn(colSchema.getName(),
+              colSchema, rootTuple, i));
     }
   }
 }

@@ -15,32 +15,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.impl;
+package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
+import org.apache.drill.exec.physical.rowSet.ProjectionSet.ColumnReadProjection;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
-/**
- * Interface to a mechanism that transforms the schema desired by
- * a reader (or other client of the result set loader) to the schema
- * desired for the output batch. Automates conversions of multiple
- * types, such as parsing a Varchar into a date or INT, etc. The actual
- * conversion policy is provided by the implementation.
- */
-public interface SchemaTransformer {
+public abstract class AbstractReadColProj implements ColumnReadProjection {
+  protected final ColumnMetadata readSchema;
 
-  /**
-   * Describes how to transform a column from input type to output type,
-   * including the associated projection type
-   */
-  public interface ColumnTransform extends ColumnConversionFactory {
-    ProjectionType projectionType();
-    ColumnMetadata inputSchema();
-    ColumnMetadata outputSchema();
+  public AbstractReadColProj(ColumnMetadata readSchema) {
+    this.readSchema = readSchema;
   }
 
-  TupleMetadata outputSchema();
-  ColumnTransform transform(ColumnMetadata inputSchema, ProjectionType projType);
+  @Override
+  public ColumnMetadata inputSchema() { return readSchema; }
+
+  @Override
+  public boolean isProjected() { return true; }
+
+  @Override
+  public ColumnConversionFactory conversionFactory() { return null; }
+
+  @Override
+  public ColumnMetadata outputSchema() { return readSchema; }
+
+  @Override
+  public RequestedTuple mapProjection() { return ImpliedTupleRequest.ALL_MEMBERS; }
+
+  @Override
+  public ProjectionType projectionType() { return null; }
 }

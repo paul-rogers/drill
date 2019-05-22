@@ -22,9 +22,9 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
-import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;

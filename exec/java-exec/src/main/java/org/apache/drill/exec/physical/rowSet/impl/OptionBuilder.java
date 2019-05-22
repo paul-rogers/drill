@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.record.metadata.TupleMetadata;

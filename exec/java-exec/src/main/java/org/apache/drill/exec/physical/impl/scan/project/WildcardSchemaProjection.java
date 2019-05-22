@@ -19,7 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedSchemaColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -30,9 +30,8 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
  * appears, it is projected into the output schema. If not found,
  * then a null column (as defined by the output schema) is projected.
  * <p>
- * If the schema is strict, then we stop here. If not strict, then
- * any unmatched reader schema columns are appended to the output
- * tuple.
+ * Note that we don't go down this path for strict schema: in that
+ * case we expanded the columns at the scan level.
  */
 
 public class WildcardSchemaProjection extends ReaderLevelProjection {
@@ -48,25 +47,25 @@ public class WildcardSchemaProjection extends ReaderLevelProjection {
 
     boolean readerProjectionMap[] = new boolean[readerSchema.size()];
     for (ColumnProjection col : scanProj.columns()) {
-      if (col instanceof UnresolvedSchemaColumn) {
+      if (col instanceof UnresolvedTableColumn) {
 
         // Look for a match in the reader schema
 
-        ColumnMetadata readerCol = readerSchema.metadata(col.name());
-        UnresolvedSchemaColumn schemaCol = (UnresolvedSchemaColumn) col;
-        if (readerCol == null) {
-
-          // No match, project a null column
-
-          rootTuple.add(rootTuple.nullBuilder.add(schemaCol.metadata()));
-        } else {
+        UnresolvedTableColumn tableCol = (UnresolvedTableColumn) col;
+        ColumnMetadata readerCol = readerSchema.metadata(tableCol.name());
+        if (readerCol != null) {
 
           // Is a match, project this reader column
 
           int index = readerSchema.index(col.name());
           readerProjectionMap[index] = true;
           rootTuple.add(
-              new ResolvedTableColumn(schemaCol.metadata(), rootTuple, index));
+              new ResolvedTableColumn(tableCol.metadata(), rootTuple, index));
+        } else {
+
+          // No match, project a null column
+
+          rootTuple.add(rootTuple.nullBuilder.add(tableCol.metadata()));
         }
       } else {
 

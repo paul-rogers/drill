@@ -42,7 +42,7 @@ import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBu
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -198,7 +198,7 @@ public class TestFileMetadataProjection extends SubOperatorTest {
       assertEquals(DataMode.REQUIRED, col0.schema().getType().getMode());
 
       ColumnProjection col1 = scanProj.columns().get(1);
-      assertTrue(col1 instanceof UnresolvedColumn);
+      assertTrue(col1 instanceof UnresolvedTableColumn);
       assertEquals("a", col1.name());
 
       assertTrue(scanProj.columns().get(2) instanceof PartitionColumn);

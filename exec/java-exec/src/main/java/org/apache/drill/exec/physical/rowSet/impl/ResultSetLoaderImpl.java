@@ -19,9 +19,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ImplicitProjectionSet;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetFactory;
-import org.apache.drill.exec.physical.impl.scan.project.ProjectionSet;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.WildcardProjectionSet;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
@@ -55,7 +55,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = DEFAULT_ROW_COUNT;
-      projectionSet = ImplicitProjectionSet.PROJECT_ALL;
+      projectionSet = WildcardProjectionSet.PROJECT_ALL;
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;

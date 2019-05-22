@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.impl;
+package org.apache.drill.exec.physical.rowSet.project;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -30,6 +30,7 @@ import java.util.List;
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
@@ -51,7 +52,7 @@ public class TestProjectedTuple {
     assertEquals(TupleProjectionType.ALL, projSet.type());
     // Not defined well; the tuple contains a wildcard
     // assertEquals(ProjectionType.GENERAL, projSet.projectionType("foo"));
-    
+
     projSet = ImpliedTupleRequest.ALL_MEMBERS;
     assertTrue(projSet instanceof ImpliedTupleRequest);
     assertEquals(ProjectionType.GENERAL, projSet.projectionType("foo"));

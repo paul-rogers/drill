@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import org.apache.drill.exec.physical.impl.scan.project.Exp.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
@@ -74,7 +74,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // the odd case where the reader claims a fixed schema, but
     // adds a column later.
 
-    ProjectionSetBuilder projBuilder = scanOrchestrator.scanProj.readerProjection();
+    ProjectionSetBuilder projBuilder = scanOrchestrator.scanProj.projectionSet();
     projBuilder.transform(scanOrchestrator.options.schemaTransformer);
     options.setProjection(projBuilder.build());
     options.setSchema(readerSchema);

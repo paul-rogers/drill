@@ -194,7 +194,10 @@ public class RequestedColumnImpl implements RequestedColumn {
     if (isTuple()) {
       return members == null ? ImpliedTupleRequest.ALL_MEMBERS : members;
     }
-    return null;
+
+    // Don't know if the target is a tuple or not.
+
+    return ImpliedTupleRequest.ALL_MEMBERS;
   }
 
   @Override

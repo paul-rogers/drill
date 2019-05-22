@@ -1,12 +1,47 @@
-package org.apache.drill.exec.physical.impl.scan.project;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.physical.rowSet;
 
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.convert.StandardConversions.ConversionDefn;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 /**
- * A key purpose of these classes is to filters added dynamically
+ * Provides a dynamic, run-time view of a projection set. Used by
+ * the result set loader to:
+ * <ul>
+ * <li>Determine if a column is projected according to some
+ * defined projection schema (see implementation for details.)</li>
+ * <li>Provide type conversions, either using built-in implicit
+ * conversions, or a custom conversion. Type conversions require
+ * the reader column and a "provided" column that gives the "to"
+ * type for the conversion. Without the "to" column, the reader
+ * column type is used as-is.</li>
+ * <li>Verify that the (possibly converted) type and mode are
+ * compatible with an explicit projection item. For example, if
+ * the query has `a.b`, but `a` is scalar, then there is an
+ * inconsistency.</li>
+ * </ul>
+ * <p>
+ * This interface filters columns added dynamically
  * at scan time. The reader may offer a column (as to add a column
  * writer for the column.) The projection mechanism says whether to
  * materialize the column, or whether to ignore the column and
@@ -54,9 +89,16 @@ public interface ProjectionSet {
 
     ColumnMetadata inputSchema();
     ColumnMetadata outputSchema();
-
     ColumnConversionFactory conversionFactory();
     RequestedTuple mapProjection();
+
+    /**
+     * The projection type from the parse of the projection list,
+     * if available. Used for testing only. Don't use this in production
+     * code, let this class do the checks itself.
+     */
+    @VisibleForTesting
+    ProjectionType projectionType();
   }
 
   public interface CustomTypeTransform {

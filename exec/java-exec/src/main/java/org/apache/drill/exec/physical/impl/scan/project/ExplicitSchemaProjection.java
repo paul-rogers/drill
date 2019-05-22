@@ -21,7 +21,7 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
@@ -56,8 +56,8 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
       ResolvedTuple rootTuple,
       TupleMetadata readerSchema) {
     for (ColumnProjection col : scanProj.columns()) {
-      if (col instanceof UnresolvedColumn) {
-        resolveColumn(rootTuple, ((UnresolvedColumn) col).element(), readerSchema);
+      if (col instanceof UnresolvedTableColumn) {
+        resolveColumn(rootTuple, ((UnresolvedTableColumn) col).element(), readerSchema);
       } else {
         resolveSpecial(rootTuple, col, readerSchema);
       }
