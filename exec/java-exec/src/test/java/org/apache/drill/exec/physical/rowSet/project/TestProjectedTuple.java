@@ -31,12 +31,8 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
-import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 

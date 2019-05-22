@@ -18,9 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -28,7 +26,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter;
-import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -165,9 +162,7 @@ public class ScanSchemaOrchestrator {
     private boolean useSchemaSmoothing;
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
-    private TupleMetadata outputSchema;
-     private TypeConverter.CustomTypeTransform schemaTransformer;
-    private Map<String, String> conversionProps;
+    private TypeConverter.Builder typeConverterBuilder = TypeConverter.builder();
 
     /**
      * Specify an optional metadata manager. Metadata is a set of constant
@@ -241,22 +236,8 @@ public class ScanSchemaOrchestrator {
       this.projection = projection;
     }
 
-    public void setOutputSchema(TupleMetadata schema) {
-      outputSchema = schema;
-    }
-
-    public void setSchemaTransformer(TypeConverter.CustomTypeTransform transformer) {
-      this.schemaTransformer = transformer;
-    }
-
-    public void setConversionProperty(String key, String value) {
-      if (key == null || value == null) {
-        return;
-      }
-      if (conversionProps == null) {
-        conversionProps = new HashMap<>();
-      }
-      conversionProps.put(key, value);
+    public TypeConverter.Builder typeConverterBuilder() {
+      return typeConverterBuilder;
     }
   }
 
@@ -284,8 +265,7 @@ public class ScanSchemaOrchestrator {
     public final List<SchemaPath> projection;
     public final boolean useSchemaSmoothing;
     public final boolean allowRequiredNullColumns;
-    public final TupleMetadata outputSchema;
-    public final TypeConverter.CustomTypeTransform schemaTransformer;
+    public final TypeConverter typeConverter;
 
     protected ScanSchemaOptions(ScanOrchestratorBuilder builder) {
       nullType = builder.nullType;
@@ -295,9 +275,12 @@ public class ScanSchemaOrchestrator {
       schemaResolvers = builder.schemaResolvers;
       projection = builder.projection;
       useSchemaSmoothing = builder.useSchemaSmoothing;
-      schemaTransformer = builder.schemaTransformer;
-      outputSchema = builder.outputSchema;
+      typeConverter = builder.typeConverterBuilder.build();
       allowRequiredNullColumns = builder.allowRequiredNullColumns;
+    }
+
+    protected TupleMetadata outputSchema() {
+      return typeConverter == null ? null : typeConverter.providedSchema();
     }
   }
 
@@ -362,7 +345,7 @@ public class ScanSchemaOrchestrator {
 
     // Parse the projection list.
 
-    scanProj = new ScanLevelProjection(options.projection, options.parsers, options.outputSchema);
+    scanProj = new ScanLevelProjection(options.projection, options.parsers, options.outputSchema());
     if (scanProj.projectAll() && options.useSchemaSmoothing) {
       schemaSmoother = new SchemaSmoother(scanProj, options.schemaResolvers);
     }

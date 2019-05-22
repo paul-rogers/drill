@@ -111,7 +111,7 @@ public class TestScanOperExecOuputSchema extends BaseScanOperatorExecTest {
     BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     builder.setProjection(new String[]{"a", "b", "d", "f"});
     builder.addReader(new MockSimpleReader());
-    builder.builder.setOutputSchema(outputSchema);
+    builder.builder.typeConverterBuilder().providedSchema(outputSchema);
     builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
     ScanFixture scanFixture = builder.build();
     ScanOperatorExec scan = scanFixture.scanOp;
@@ -166,7 +166,7 @@ public class TestScanOperExecOuputSchema extends BaseScanOperatorExecTest {
     BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     builder.setProjection(RowSetTestUtils.projectAll());
     builder.addReader(new MockSimpleReader());
-    builder.builder.setOutputSchema(outputSchema);
+    builder.builder.typeConverterBuilder().providedSchema(outputSchema);
     builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
     ScanFixture scanFixture = builder.build();
     ScanOperatorExec scan = scanFixture.scanOp;
@@ -219,7 +219,7 @@ public class TestScanOperExecOuputSchema extends BaseScanOperatorExecTest {
     // Project schema only
     builder.setProjection(RowSetTestUtils.projectAll());
     builder.addReader(new MockSimpleReader());
-    builder.builder.setOutputSchema(outputSchema);
+    builder.builder.typeConverterBuilder().providedSchema(outputSchema);
     builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
     ScanFixture scanFixture = builder.build();
     ScanOperatorExec scan = scanFixture.scanOp;
@@ -271,7 +271,7 @@ public class TestScanOperExecOuputSchema extends BaseScanOperatorExecTest {
     // Project schema only
     builder.setProjection(RowSetTestUtils.projectAll());
     builder.addReader(new MockSimpleReader());
-    builder.builder.setOutputSchema(outputSchema);
+    builder.builder.typeConverterBuilder().providedSchema(outputSchema);
     builder.builder.setNullType(Types.optional(MinorType.VARCHAR));
     ScanFixture scanFixture = builder.build();
     ScanOperatorExec scan = scanFixture.scanOp;

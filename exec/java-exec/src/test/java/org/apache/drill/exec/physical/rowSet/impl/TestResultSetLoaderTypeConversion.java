@@ -24,6 +24,7 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
@@ -70,7 +71,9 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
         TestColumnConverter.CONVERT_TO_INT);
 
    ProjectionSet projSet = new ProjectionSetBuilder()
-        .transform(ProjectionSetFactory.simpleTransform(new ConverterFactory()))
+        .typeConverter(TypeConverter.builder()
+            .transform(ProjectionSetFactory.simpleTransform(new ConverterFactory()))
+            .build())
         .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)

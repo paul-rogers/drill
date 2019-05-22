@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import org.apache.drill.exec.physical.impl.scan.project.projSet.WildcardProjectionSet;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseContainerColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
@@ -157,7 +157,7 @@ public class RepeatedListState extends ContainerState implements RepeatedListWri
 
   public RepeatedListState(LoaderInternals loader,
       ResultVectorCache vectorCache) {
-    super(loader, vectorCache, WildcardProjectionSet.PROJECT_ALL);
+    super(loader, vectorCache, ProjectionSetFactory.projectAll());
   }
 
   @Override

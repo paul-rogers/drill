@@ -230,7 +230,7 @@ public class TestProjectionSet {
     // Project all
 
     ProjectionSet projSet = new ProjectionSetBuilder()
-        .transform(converter)
+        .typeConverter(converter)
         .build();
 
     ColumnReadProjection col = projSet.readProjection(readColSchema);
@@ -241,7 +241,7 @@ public class TestProjectionSet {
     // Project none
 
     projSet = new ProjectionSetBuilder()
-        .transform(converter)
+        .typeConverter(converter)
         .projectionList(new ArrayList<>())
         .build();
 
@@ -251,7 +251,7 @@ public class TestProjectionSet {
     // Project some]
 
    projSet = new ProjectionSetBuilder()
-        .transform(converter)
+        .typeConverter(converter)
         .projectionList(RowSetTestUtils.projectList("a"))
         .build();
 

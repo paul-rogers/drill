@@ -75,7 +75,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // adds a column later.
 
     ProjectionSetBuilder projBuilder = scanOrchestrator.scanProj.projectionSet();
-    projBuilder.transform(scanOrchestrator.options.schemaTransformer);
+    projBuilder.typeConverter(scanOrchestrator.options.typeConverter);
     options.setProjection(projBuilder.build());
     options.setSchema(readerSchema);
 
@@ -200,13 +200,11 @@ public class ReaderSchemaOrchestrator implements VectorSource {
   }
 
   private ResolvedRow newRootTuple() {
-    NullBuilderBuilder nullBuilder = new NullBuilderBuilder()
+    return new ResolvedRow(new NullBuilderBuilder()
         .setNullType(scanOrchestrator.options.nullType)
-        .allowRequiredNullColumns(scanOrchestrator.options.allowRequiredNullColumns);
-    if (scanOrchestrator.options.schemaTransformer != null) {
-      nullBuilder.setOutputSchema(scanOrchestrator.options.outputSchema);
-    }
-    return new ResolvedRow(nullBuilder.build());
+        .allowRequiredNullColumns(scanOrchestrator.options.allowRequiredNullColumns)
+        .setOutputSchema(scanOrchestrator.options.outputSchema())
+        .build());
   }
 
   /**

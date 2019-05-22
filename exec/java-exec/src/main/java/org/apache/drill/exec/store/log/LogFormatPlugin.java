@@ -68,7 +68,7 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
 
       // Pass along the output schema, if any
 
-      builder.setOutputSchema(scan.getSchema());
+      builder.typeConverterBuilder().providedSchema(scan.getSchema());
       return builder;
     }
   }

@@ -255,7 +255,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
         // Pass along the output schema, if any
 
-        builder.setOutputSchema(scan.getSchema());
+        builder.typeConverterBuilder().providedSchema(scan.getSchema());
         final Path selectionRoot = scan.getSelectionRoot();
         if (selectionRoot != null) {
           builder.metadataOptions().setSelectionRoot(selectionRoot);

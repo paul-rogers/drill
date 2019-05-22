@@ -65,7 +65,7 @@ public class ProjectionSetBuilder {
     return this;
   }
 
-  public ProjectionSetBuilder transform(TypeConverter converter) {
+  public ProjectionSetBuilder typeConverter(TypeConverter converter) {
     this.typeConverter = converter;
     return this;
   }
