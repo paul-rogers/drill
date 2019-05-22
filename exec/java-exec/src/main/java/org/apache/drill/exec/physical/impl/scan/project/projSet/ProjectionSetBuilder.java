@@ -18,24 +18,18 @@
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import java.util.Collection;
-import java.util.Map;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
-import org.apache.drill.exec.physical.rowSet.ProjectionSet.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class ProjectionSetBuilder {
 
-  private Collection<SchemaPath> projectionList;
   private RequestedTuple parsedProjection;
-  private TupleMetadata providedSchema;
-  private CustomTypeTransform transform;
-  private Map<String, String> properties;
+  private TypeConverter typeConverter;
 
   /**
    * Record (batch) readers often read a subset of available table columns,
@@ -53,7 +47,11 @@ public class ProjectionSetBuilder {
    */
 
   public ProjectionSetBuilder projectionList(Collection<SchemaPath> projection) {
-    projectionList = projection;
+    if (projection == null) {
+      parsedProjection = null;
+    } else {
+      parsedProjection = RequestedTupleImpl.parse(projection);
+    }
     return this;
   }
 
@@ -63,43 +61,26 @@ public class ProjectionSetBuilder {
   }
 
   public ProjectionSetBuilder outputSchema(TupleMetadata schema) {
-    providedSchema = schema;
+    typeConverter = TypeConverter.builder().providedSchema(schema).build();
     return this;
   }
 
-  public ProjectionSetBuilder transform(CustomTypeTransform transform) {
-    this.transform = transform;
+  public ProjectionSetBuilder transform(TypeConverter converter) {
+    this.typeConverter = converter;
     return this;
   }
 
   public ProjectionSet build() {
-    // If projection, build the projection map.
-    // The caller might have already built the map. If so,
-    // use it.
-
-    Preconditions.checkArgument(projectionList == null || parsedProjection == null);
-    if (projectionList != null) {
-      parsedProjection = RequestedTupleImpl.parse(projectionList);
-    }
     TupleProjectionType projType = parsedProjection == null ?
         TupleProjectionType.ALL : parsedProjection.type();
+
     switch (projType) {
     case ALL:
-      if (providedSchema != null) {
-        return new WildcardAndSchemaProjectionSet(providedSchema, properties, transform);
-      } else if (transform != null) {
-         return new WildcardAndTransformProjectionSet(transform);
-      } else {
-        return ProjectionSetFactory.projectAll();
-      }
+      return new WildcardProjectionSet(typeConverter);
     case NONE:
       return ProjectionSetFactory.projectNone();
     case SOME:
-      if (providedSchema == null) {
-        return new ExplicitProjectionSet(parsedProjection);
-      } else {
-        return new ExplicitSchemaProjectionSet(parsedProjection, providedSchema, properties, transform);
-      }
+      return new ExplicitProjectionSet(parsedProjection, typeConverter);
     default:
       throw new IllegalStateException(projType.toString());
     }

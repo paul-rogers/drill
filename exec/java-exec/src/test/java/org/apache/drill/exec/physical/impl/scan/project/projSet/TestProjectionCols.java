@@ -25,7 +25,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet.ColumnReadProjection;
-import org.apache.drill.exec.physical.rowSet.ProjectionSet.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
@@ -50,7 +49,7 @@ public class TestProjectionCols {
         .buildSchema();
 
     ColumnMetadata readColSchema = readSchema.metadata("a");
-    ColumnReadProjection col = new UnprojectedReadColProj(readColSchema);
+    ColumnReadProjection col = new UnprojectedReadColumn(readColSchema);
     assertFalse(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(readColSchema, col.outputSchema());
@@ -67,7 +66,7 @@ public class TestProjectionCols {
         .buildSchema();
 
     ColumnMetadata readColSchema = readSchema.metadata("a");
-    ColumnReadProjection col = new WildcardReadColProj(readColSchema);
+    ColumnReadProjection col = new ProjectedReadColumn(readColSchema);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(readColSchema, col.outputSchema());
@@ -92,7 +91,7 @@ public class TestProjectionCols {
     RequestedColumn projCol = proj.get("a");
 
     ColumnMetadata readColSchema = readSchema.metadata("a");
-    ColumnReadProjection col = new ExplicitReadColProj(readColSchema, projCol);
+    ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(readColSchema, col.outputSchema());
@@ -114,7 +113,7 @@ public class TestProjectionCols {
     RequestedColumn projCol = proj.get("m");
 
     ColumnMetadata readColSchema = readSchema.metadata("m");
-    ColumnReadProjection col = new ExplicitReadColProj(readColSchema, projCol);
+    ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(readColSchema, col.outputSchema());
@@ -136,7 +135,7 @@ public class TestProjectionCols {
     RequestedColumn projCol = proj.get("m");
 
     ColumnMetadata readColSchema = readSchema.metadata("m");
-    ColumnReadProjection col = new ExplicitReadColProj(readColSchema, projCol);
+    ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(readColSchema, col.outputSchema());
@@ -163,7 +162,7 @@ public class TestProjectionCols {
     ColumnMetadata outputColSchema = outputSchema.metadata("a");
     ColumnConversionFactory conv = StandardConversions.factory(ConvertStringToInt.class);
     ColumnReadProjection col =
-        new SchemaReadColProj(readColSchema, projCol, outputColSchema, conv);
+        new ProjectedReadColumn(readColSchema, projCol, outputColSchema, conv);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(outputColSchema, col.outputSchema());
@@ -187,7 +186,7 @@ public class TestProjectionCols {
     ColumnMetadata outputColSchema = outputSchema.metadata("a");
     ColumnConversionFactory conv = StandardConversions.factory(ConvertStringToInt.class);
     ColumnReadProjection col =
-        new SchemaReadColProj(readColSchema, null, outputColSchema, conv);
+        new ProjectedReadColumn(readColSchema, null, outputColSchema, conv);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.inputSchema());
     assertSame(outputColSchema, col.outputSchema());
@@ -195,26 +194,4 @@ public class TestProjectionCols {
     assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
     assertNull(col.projectionType());
   }
-
-  @Test
-  public void testTransformProjection() {
-
-    TupleMetadata readSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .buildSchema();
-
-    ColumnConversionFactory conv = StandardConversions.factory(ConvertStringToInt.class);
-    CustomTypeTransform customTransform = ProjectionSetFactory.simpleTransform(conv);
-
-    ColumnMetadata readColSchema = readSchema.metadata("a");
-    ColumnReadProjection col =
-        new TransformReadColProj(readColSchema, customTransform);
-    assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
-    assertSame(conv, col.conversionFactory());
-    assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
-    assertNull(col.projectionType());
-  }
-
 }

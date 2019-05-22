@@ -17,18 +17,26 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
- * Column projected via a wildcard, without an output schema. All
- * columns allowed, materialized with the type given by the reader.
- * No type transforms needed. No explicit projection available to
- * validate reader types.
+ * Unprojected column. No validation needed. No type conversion.
+ * Reader column just "free wheels", without a materialized vector,
+ * accepting any data the reader cares to throw at it, then simply
+ * discarding that data.
  */
 
-public class WildcardReadColProj extends AbstractReadColProj {
+public class UnprojectedReadColumn extends AbstractReadColProj {
 
-  public WildcardReadColProj(ColumnMetadata readSchema) {
+  public UnprojectedReadColumn(ColumnMetadata readSchema) {
     super(readSchema);
   }
+
+  @Override
+  public boolean isProjected() { return false; }
+
+  @Override
+  public RequestedTuple mapProjection() { return ImpliedTupleRequest.NO_MEMBERS; }
 }

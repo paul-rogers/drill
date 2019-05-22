@@ -17,19 +17,29 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
-import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
 public class WildcardProjectionSet extends AbstractProjectionSet {
 
-  public static final ProjectionSet PROJECT_ALL = new WildcardProjectionSet();
+  public WildcardProjectionSet(TypeConverter typeConverter) {
+    super(typeConverter);
+  }
 
   @Override
   public ColumnReadProjection readProjection(ColumnMetadata col) {
     if (isSpecial(col)) {
-      return new UnprojectedReadColProj(col);
-    } else {
-      return new WildcardReadColProj(col);
+      return new UnprojectedReadColumn(col);
     }
+    ColumnMetadata outputSchema = outputSchema(col);
+    if (outputSchema == null) {
+      if (isStrict) {
+        return new UnprojectedReadColumn(col);
+      }
+    } else if (isSpecial(outputSchema)) {
+      return new UnprojectedReadColumn(col);
+    }
+    ColumnConversionFactory conv = conversion(col, outputSchema);
+    return new ProjectedReadColumn(col, null, outputSchema, conv);
   }
 }

@@ -22,31 +22,42 @@ import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
-public abstract class BaseReadColProj extends AbstractReadColProj {
-  protected final RequestedColumn requestedCol;
-  protected final ColumnMetadata outputSchema;
+/**
+ * Projected column. Includes at least the reader schema. May also
+ * include projection specification, and output schema and a type
+ * conversion.
+ */
 
-  public BaseReadColProj(ColumnMetadata readSchema) {
-    this(readSchema, null, null);
+public class ProjectedReadColumn extends AbstractReadColProj {
+  private final RequestedColumn requestedCol;
+  private final ColumnMetadata outputSchema;
+  private final ColumnConversionFactory conversionFactory;
+
+  public ProjectedReadColumn(ColumnMetadata readSchema) {
+    this(readSchema, null, null, null);
   }
 
-  public BaseReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol) {
-    this(readSchema, requestedCol, null);
+  public ProjectedReadColumn(ColumnMetadata readSchema, RequestedColumn requestedCol) {
+    this(readSchema, requestedCol, null, null);
   }
 
-  public BaseReadColProj(ColumnMetadata readSchema, ColumnMetadata outputSchema) {
-    this(readSchema, null, outputSchema);
+  public ProjectedReadColumn(ColumnMetadata readSchema, ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
+    this(readSchema, null, outputSchema, null);
   }
 
-  public BaseReadColProj(ColumnMetadata readSchema, RequestedColumn requestedCol, ColumnMetadata outputSchema) {
+  public ProjectedReadColumn(ColumnMetadata readSchema, RequestedColumn requestedCol, ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
     super(readSchema);
     this.requestedCol = requestedCol;
     this.outputSchema = outputSchema;
+    this.conversionFactory = conversionFactory;
   }
 
   @Override
-  public ColumnMetadata outputSchema() { return outputSchema; }
+  public ColumnMetadata outputSchema() {
+    return outputSchema == null ? readSchema : outputSchema;
+  }
 
   @Override
   public RequestedTuple mapProjection() {
@@ -58,4 +69,7 @@ public abstract class BaseReadColProj extends AbstractReadColProj {
   public ProjectionType projectionType() {
     return requestedCol == null ? null : requestedCol.type();
   }
+
+  @Override
+  public ColumnConversionFactory conversionFactory() { return conversionFactory; }
 }

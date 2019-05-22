@@ -27,7 +27,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.rowSet.ProjectionSet.CustomTypeTransform;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -165,7 +166,7 @@ public class ScanSchemaOrchestrator {
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
     private TupleMetadata outputSchema;
-     private CustomTypeTransform schemaTransformer;
+     private TypeConverter.CustomTypeTransform schemaTransformer;
     private Map<String, String> conversionProps;
 
     /**
@@ -244,7 +245,7 @@ public class ScanSchemaOrchestrator {
       outputSchema = schema;
     }
 
-    public void setSchemaTransformer(CustomTypeTransform transformer) {
+    public void setSchemaTransformer(TypeConverter.CustomTypeTransform transformer) {
       this.schemaTransformer = transformer;
     }
 
@@ -284,7 +285,7 @@ public class ScanSchemaOrchestrator {
     public final boolean useSchemaSmoothing;
     public final boolean allowRequiredNullColumns;
     public final TupleMetadata outputSchema;
-    public final CustomTypeTransform schemaTransformer;
+    public final TypeConverter.CustomTypeTransform schemaTransformer;
 
     protected ScanSchemaOptions(ScanOrchestratorBuilder builder) {
       nullType = builder.nullType;

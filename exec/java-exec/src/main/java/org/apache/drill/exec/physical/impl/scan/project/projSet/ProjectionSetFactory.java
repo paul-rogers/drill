@@ -18,24 +18,20 @@
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import java.util.List;
+import java.util.Map;
 
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter.CustomTypeTransform;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
-import org.apache.drill.exec.physical.rowSet.ProjectionSet.CustomTypeTransform;
-import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.convert.StandardConversions.ConversionDefn;
 
 public class ProjectionSetFactory {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ProjectionSetFactory.class);
 
-  public static ProjectionSet projectAll() { return WildcardProjectionSet.PROJECT_ALL; }
+  public static ProjectionSet projectAll() { return new WildcardProjectionSet(null); }
 
   public static ProjectionSet projectNone() { return EmptyProjectionSet.PROJECT_NONE; }
 
@@ -46,7 +42,7 @@ public class ProjectionSetFactory {
     case NONE:
       return projectNone();
     case SOME:
-      return new ExplicitProjectionSet(mapProjection);
+      return new ExplicitProjectionSet(mapProjection, null);
     default:
       throw new IllegalStateException(mapProjection.type().toString());
     }
@@ -64,29 +60,10 @@ public class ProjectionSetFactory {
 
       @Override
       public ColumnConversionFactory transform(ColumnMetadata inputDefn,
+          Map<String, String> properties,
           ColumnMetadata outputDefn, ConversionDefn defn) {
         return colFactory;
       }
     };
-  }
-
-  public static void validateProjection(RequestedColumn colReq, ColumnMetadata readCol) {
-    if (colReq == null || readCol == null) {
-      return;
-    }
-    ProjectionType type = colReq.type();
-    if (type == null) {
-      return;
-    }
-    ProjectionType neededType = ProjectionType.typeFor(readCol.majorType());
-    if (type.isCompatible(neededType)) {
-      return;
-    }
-    throw UserException.validationError()
-      .message("Column type not compatible with projection format")
-      .addContext("Column:", readCol.name())
-      .addContext("Projection type:", type.label())
-      .addContext("Column type:", Types.getSqlTypeName(readCol.majorType()))
-      .build(logger);
   }
 }

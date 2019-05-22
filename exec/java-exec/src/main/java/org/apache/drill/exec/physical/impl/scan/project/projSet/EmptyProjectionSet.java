@@ -31,6 +31,6 @@ public class EmptyProjectionSet implements ProjectionSet {
 
   @Override
   public ColumnReadProjection readProjection(ColumnMetadata col) {
-    return new UnprojectedReadColProj(col);
+    return new UnprojectedReadColumn(col);
   }
 }

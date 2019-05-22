@@ -19,14 +19,42 @@ package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
 /**
- * Base class for projection set implementations.
+ * Base class for projection set implementations. Handles an optional
+ * type conversion based on a provided schema, custom conversion, or both.
  */
 
 public abstract class AbstractProjectionSet implements ProjectionSet {
+  protected final TypeConverter typeConverter;
+  protected final TupleMetadata providedSchema;
+  protected final boolean isStrict;
 
-  public static boolean isSpecial(ColumnMetadata col) {
+  public AbstractProjectionSet(TypeConverter typeConverter) {
+    this.typeConverter = typeConverter;
+    providedSchema = typeConverter == null ? null :
+        typeConverter.providedSchema();
+    isStrict = providedSchema != null &&
+        typeConverter.providedSchema().getBooleanProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP);
+  }
+
+  public AbstractProjectionSet() {
+    this(null);
+  }
+
+  protected static boolean isSpecial(ColumnMetadata col) {
     return col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD);
+  }
+
+  protected ColumnMetadata outputSchema(ColumnMetadata col) {
+    return providedSchema == null ? null :
+      providedSchema.metadata(col.name());
+  }
+
+  protected ColumnConversionFactory conversion(ColumnMetadata inputSchema, ColumnMetadata outputCol) {
+    return typeConverter == null ? null :
+      typeConverter.conversionFactory(inputSchema, outputCol);
   }
 }

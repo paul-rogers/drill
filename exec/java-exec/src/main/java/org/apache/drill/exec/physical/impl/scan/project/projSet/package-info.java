@@ -43,20 +43,17 @@
  * <dd><tt>SELECT COUNT(*)</tt>: Project nothing. Only count records.</dd>
  * <dl>
  * <dt>{@link WildcardProjectionSet}</dt>
- * <dd><tt>SELECT *</tt>: Project everything, when no schema is provided.
+ * <dd><tt>SELECT *</tt>: Project everything, with an optional provided
+ * schema. If a schema is provided, and is strict, then project only
+ * reader columns that appear in the provided schema.
  * However, don't project columns which have been marked as
- * special: {@link ColumnMetadata#EXCLUDE_FROM_WILDCARD}.</dd>
+ * special: {@link ColumnMetadata#EXCLUDE_FROM_WILDCARD}, whether marked
+ * in the reader or provided schemas.</dd>
  * <dt>{@link ExplicitProjectionSet}</dt>
- * <dd><tt>SELECT a, b[10], c.d</tt>: Explicit projection without
+ * <dd><tt>SELECT a, b[10], c.d</tt>: Explicit projection with or without
  * a schema. Project only the selected columns. Verify that the reader
  * provides column types/modes consistent with the implied form in the
  * projection list. That is, in this example, `b` must be an array.</dd>
- * <dt>{@link WildcardAndSchemaProjectionSet}</dt>
- * <dd><tt>SELECT *</tt> with a schema. Columns are projected if not
- * special, and (if strict schema) only in the output schema.</dd>
- * <dt>{@link WildcardAndTransformProjectionSet}<dt>
- * <dd><tt>SELECT *</tt> without a schema, but with custom rules for
- * type conversion. Used primarily for testing.</dd>
  * </dl>
  *
  * <h4>Column Projection Cases</h4>
@@ -71,26 +68,21 @@
  * many factors, including:
  * <p>
  * <dl>
- * <dt>{@link UnprojectedReadColProj}</dt>
+ * <dt>{@link UnprojectedReadColumn}</dt>
  * <dd>Column is not projected. Nothing to convert, no type checks
  * needed. The result set loader should create a dummy writer for this
  * case.</dd>
- * <dt>{@link ExplicitReadColProj}</dt>
- * <dd>The column is projected based on an item in an explicit projection
- * list. Verify that the type matches the implied type from the projection
- * list. No schema is available, so no type conversion.</dd>
- * <dt>{@link SchemaReadColProj}</dt>
- * <dd>Explicit projection of a column backed by a provided schema. May
- * be backed by an explicit projection item. Or, this column may be the
- * result of a wildcard expansion for a strict schema. The schema provides
- * type conversion. The explicit projection item provides additional
- * constraints.</dd>
- * <dt>{@link TransformReadColProj}</dt>
- * <dd>Explicit or wildcard column for the case of a custom transform without
- * a schema.</dd>
- * <dt>{@link WildcardReadColProj}</dt>
- * <dd>Wildcard column: no type or transform, so no checks available.</dd>
+ * <dt>{@link ProjectedReadColumn}</dt>
+ * <dd>Column is projected. It may have an associated projection list
+ * item, an output schema, or a type conversion. All these variations
+ * should be transparent to the consumer.</dd>
  * </dl>
+ *
+ * <h4>Type Conversion</h4>
+ *
+ * The {@link TypeConverter} class handles a provided schema, custom type
+ * conversion, and custom properties passed to the conversion shims. A null
+ * type converter passed to a projection set means no conversion is done.
  *
  * <h4>Construction</h4>
  *
