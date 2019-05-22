@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
@@ -49,8 +50,20 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
     }
     ColumnMetadata outputSchema = outputSchema(col);
     validateProjection(reqCol, outputSchema == null ? col : outputSchema);
-    ColumnConversionFactory conv = conversion(col, outputSchema);
-    return new ProjectedReadColumn(col, null, outputSchema, conv);
+    if (!col.isMap()) {
+      ColumnConversionFactory conv = conversion(col, outputSchema);
+      return new ProjectedReadColumn(col, null, outputSchema, conv);
+    }
+    else {
+      TypeConverter childConverter = childConverter(outputSchema);
+      ProjectionSet mapProjection;
+      if (reqCol.type().isTuple()) {
+        mapProjection = new ExplicitProjectionSet(reqCol.mapProjection(), childConverter);
+      } else {
+        mapProjection =  new WildcardProjectionSet(childConverter, isStrict);
+      }
+      return new ProjectedMapColumn(col, reqCol, outputSchema, mapProjection);
+    }
   }
 
   public static void validateProjection(RequestedColumn colReq, ColumnMetadata readCol) {

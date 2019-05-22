@@ -40,6 +40,13 @@ public abstract class AbstractProjectionSet implements ProjectionSet {
         typeConverter.providedSchema().getBooleanProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP);
   }
 
+  public AbstractProjectionSet(TypeConverter typeConverter, boolean isStrict) {
+    this.typeConverter = typeConverter;
+    providedSchema = typeConverter == null ? null :
+        typeConverter.providedSchema();
+    this.isStrict = isStrict;
+  }
+
   public AbstractProjectionSet() {
     this(null);
   }
@@ -56,5 +63,11 @@ public abstract class AbstractProjectionSet implements ProjectionSet {
   protected ColumnConversionFactory conversion(ColumnMetadata inputSchema, ColumnMetadata outputCol) {
     return typeConverter == null ? null :
       typeConverter.conversionFactory(inputSchema, outputCol);
+  }
+
+  protected TypeConverter childConverter(ColumnMetadata outputSchema) {
+    TupleMetadata childSchema = outputSchema == null ? null : outputSchema.mapSchema();
+    return typeConverter == null ? null :
+      typeConverter.childConverter(childSchema);
   }
 }

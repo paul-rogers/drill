@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet.ColumnReadProjection;
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
@@ -32,7 +31,7 @@ public abstract class AbstractReadColProj implements ColumnReadProjection {
   }
 
   @Override
-  public ColumnMetadata inputSchema() { return readSchema; }
+  public ColumnMetadata readSchema() { return readSchema; }
 
   @Override
   public boolean isProjected() { return true; }
@@ -41,10 +40,10 @@ public abstract class AbstractReadColProj implements ColumnReadProjection {
   public ColumnConversionFactory conversionFactory() { return null; }
 
   @Override
-  public ColumnMetadata outputSchema() { return readSchema; }
+  public ColumnMetadata providedSchema() { return readSchema; }
 
   @Override
-  public RequestedTuple mapProjection() { return ImpliedTupleRequest.ALL_MEMBERS; }
+  public ProjectionSet mapProjection() { return ProjectionSetFactory.projectAll(); }
 
   @Override
   public ProjectionType projectionType() { return null; }

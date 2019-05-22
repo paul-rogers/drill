@@ -51,8 +51,8 @@ public class TestProjectionCols {
     ColumnMetadata readColSchema = readSchema.metadata("a");
     ColumnReadProjection col = new UnprojectedReadColumn(readColSchema);
     assertFalse(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(readColSchema, col.providedSchema());
     assertNull(col.conversionFactory());
     assertSame(ImpliedTupleRequest.NO_MEMBERS, col.mapProjection());
     assertNull(col.projectionType());
@@ -68,8 +68,8 @@ public class TestProjectionCols {
     ColumnMetadata readColSchema = readSchema.metadata("a");
     ColumnReadProjection col = new ProjectedReadColumn(readColSchema);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(readColSchema, col.providedSchema());
     assertNull(col.conversionFactory());
 
     // We don't really care if this is a map or not.
@@ -93,8 +93,8 @@ public class TestProjectionCols {
     ColumnMetadata readColSchema = readSchema.metadata("a");
     ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(readColSchema, col.providedSchema());
     assertNull(col.conversionFactory());
     assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
     assertEquals(ProjectionType.GENERAL, col.projectionType());
@@ -115,8 +115,8 @@ public class TestProjectionCols {
     ColumnMetadata readColSchema = readSchema.metadata("m");
     ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(readColSchema, col.providedSchema());
     assertNull(col.conversionFactory());
     assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
     assertEquals(ProjectionType.GENERAL, col.projectionType());
@@ -137,8 +137,8 @@ public class TestProjectionCols {
     ColumnMetadata readColSchema = readSchema.metadata("m");
     ColumnReadProjection col = new ProjectedReadColumn(readColSchema, projCol);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(readColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(readColSchema, col.providedSchema());
     assertNull(col.conversionFactory());
     assertSame(projCol.mapProjection(), col.mapProjection());
     assertEquals(ProjectionType.TUPLE, col.projectionType());
@@ -164,8 +164,8 @@ public class TestProjectionCols {
     ColumnReadProjection col =
         new ProjectedReadColumn(readColSchema, projCol, outputColSchema, conv);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(outputColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(outputColSchema, col.providedSchema());
     assertSame(conv, col.conversionFactory());
     assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
     assertEquals(ProjectionType.GENERAL, col.projectionType());
@@ -188,8 +188,8 @@ public class TestProjectionCols {
     ColumnReadProjection col =
         new ProjectedReadColumn(readColSchema, null, outputColSchema, conv);
     assertTrue(col.isProjected());
-    assertSame(readColSchema, col.inputSchema());
-    assertSame(outputColSchema, col.outputSchema());
+    assertSame(readColSchema, col.readSchema());
+    assertSame(outputColSchema, col.providedSchema());
     assertSame(conv, col.conversionFactory());
     assertSame(ImpliedTupleRequest.ALL_MEMBERS, col.mapProjection());
     assertNull(col.projectionType());

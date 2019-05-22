@@ -525,7 +525,6 @@ public class TestFileScanFramework extends SubOperatorTest {
 
   @Test
   public void testMapProject() {
-
     MockMapReader reader = new MockMapReader();
     reader.batchLimit = 1;
 

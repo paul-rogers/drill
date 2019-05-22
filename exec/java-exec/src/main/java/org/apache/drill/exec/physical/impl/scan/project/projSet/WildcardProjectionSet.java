@@ -26,6 +26,10 @@ public class WildcardProjectionSet extends AbstractProjectionSet {
     super(typeConverter);
   }
 
+  public WildcardProjectionSet(TypeConverter typeConverter, boolean isStrict) {
+    super(typeConverter, isStrict);
+  }
+
   @Override
   public ColumnReadProjection readProjection(ColumnMetadata col) {
     if (isSpecial(col)) {
@@ -39,7 +43,13 @@ public class WildcardProjectionSet extends AbstractProjectionSet {
     } else if (isSpecial(outputSchema)) {
       return new UnprojectedReadColumn(col);
     }
-    ColumnConversionFactory conv = conversion(col, outputSchema);
-    return new ProjectedReadColumn(col, null, outputSchema, conv);
+    if (col.isMap()) {
+      return new ProjectedMapColumn(col, null, outputSchema,
+          new WildcardProjectionSet(childConverter(outputSchema), isStrict));
+
+    } else {
+      ColumnConversionFactory conv = conversion(col, outputSchema);
+      return new ProjectedReadColumn(col, null, outputSchema, conv);
+    }
   }
 }

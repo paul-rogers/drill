@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
@@ -39,15 +38,19 @@ public class ProjectedReadColumn extends AbstractReadColProj {
     this(readSchema, null, null, null);
   }
 
-  public ProjectedReadColumn(ColumnMetadata readSchema, RequestedColumn requestedCol) {
+  public ProjectedReadColumn(ColumnMetadata readSchema,
+      RequestedColumn requestedCol) {
     this(readSchema, requestedCol, null, null);
   }
 
-  public ProjectedReadColumn(ColumnMetadata readSchema, ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
+  public ProjectedReadColumn(ColumnMetadata readSchema,
+      ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
     this(readSchema, null, outputSchema, null);
   }
 
-  public ProjectedReadColumn(ColumnMetadata readSchema, RequestedColumn requestedCol, ColumnMetadata outputSchema, ColumnConversionFactory conversionFactory) {
+  public ProjectedReadColumn(ColumnMetadata readSchema,
+      RequestedColumn requestedCol, ColumnMetadata outputSchema,
+      ColumnConversionFactory conversionFactory) {
     super(readSchema);
     this.requestedCol = requestedCol;
     this.outputSchema = outputSchema;
@@ -55,14 +58,14 @@ public class ProjectedReadColumn extends AbstractReadColProj {
   }
 
   @Override
-  public ColumnMetadata outputSchema() {
+  public ColumnMetadata providedSchema() {
     return outputSchema == null ? readSchema : outputSchema;
   }
 
   @Override
-  public RequestedTuple mapProjection() {
-    return requestedCol == null ?
-        ImpliedTupleRequest.ALL_MEMBERS : requestedCol.mapProjection();
+  public ProjectionSet mapProjection() {
+    // Should never occur: maps should use the map class.
+    return ProjectionSetFactory.projectNone();
   }
 
   @Override

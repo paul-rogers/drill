@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.rowSet;
 
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
@@ -86,10 +85,10 @@ public interface ProjectionSet {
 
     boolean isProjected();
 
-    ColumnMetadata inputSchema();
-    ColumnMetadata outputSchema();
+    ColumnMetadata readSchema();
+    ColumnMetadata providedSchema();
     ColumnConversionFactory conversionFactory();
-    RequestedTuple mapProjection();
+    ProjectionSet mapProjection();
 
     /**
      * The projection type from the parse of the projection list,

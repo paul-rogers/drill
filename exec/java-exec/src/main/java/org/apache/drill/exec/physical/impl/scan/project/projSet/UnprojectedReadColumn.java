@@ -17,8 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
-import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
-import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
+import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
@@ -38,5 +37,5 @@ public class UnprojectedReadColumn extends AbstractReadColProj {
   public boolean isProjected() { return false; }
 
   @Override
-  public RequestedTuple mapProjection() { return ImpliedTupleRequest.NO_MEMBERS; }
+  public ProjectionSet mapProjection() { return ProjectionSetFactory.projectNone(); }
 }
