@@ -41,15 +41,15 @@ public abstract class AbstractUnresolvedColumn implements ColumnProjection {
    * a provided schema column.
    */
 
-  public static class UnresolvedTableColumn extends AbstractUnresolvedColumn {
+  public static class UnresolvedColumn extends AbstractUnresolvedColumn {
 
     private final ColumnMetadata colDefn;
 
-    public UnresolvedTableColumn(RequestedColumn inCol) {
+    public UnresolvedColumn(RequestedColumn inCol) {
       this(inCol, null);
     }
 
-    public UnresolvedTableColumn(RequestedColumn inCol, ColumnMetadata colDefn) {
+    public UnresolvedColumn(RequestedColumn inCol, ColumnMetadata colDefn) {
       super(inCol);
       this.colDefn = colDefn;
     }

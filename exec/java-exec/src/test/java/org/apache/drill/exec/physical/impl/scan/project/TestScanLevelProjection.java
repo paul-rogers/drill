@@ -29,7 +29,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
@@ -84,7 +84,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
 
     // Verify tuple projection
 
@@ -133,17 +133,17 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
 
     // Inferred map structure
 
-    final RequestedColumn a = ((UnresolvedTableColumn) scanProj.columns().get(0)).element();
+    final RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
     assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("x"));
     assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("y"));
     assertEquals(ProjectionType.UNPROJECTED,  a.mapProjection().projectionType("z"));
 
-    final RequestedColumn c = ((UnresolvedTableColumn) scanProj.columns().get(2)).element();
+    final RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());
 
     // Verify tuple projection
@@ -201,11 +201,11 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
 
     // Map structure
 
-    final RequestedColumn a = ((UnresolvedTableColumn) scanProj.columns().get(0)).element();
+    final RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isArray());
     assertFalse(a.hasIndex(0));
     assertTrue(a.hasIndex(1));
@@ -396,7 +396,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     assertEquals(1, scanProj.columns().size());
     assertEquals("a", scanProj.columns().get(0).name());
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
   }
 
   @Test
@@ -416,12 +416,12 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(2, scanProj.columns().size());
     ColumnProjection aCol = scanProj.columns().get(0);
     assertEquals("a", aCol.name());
-    assertTrue(aCol instanceof UnresolvedTableColumn);
-    assertSame(outputSchema.metadata("a"), ((UnresolvedTableColumn) aCol).metadata());
+    assertTrue(aCol instanceof UnresolvedColumn);
+    assertSame(outputSchema.metadata("a"), ((UnresolvedColumn) aCol).metadata());
     ColumnProjection bCol = scanProj.columns().get(1);
     assertEquals("b", bCol.name());
-    assertTrue(bCol instanceof UnresolvedTableColumn);
-    assertSame(outputSchema.metadata("b"), ((UnresolvedTableColumn) bCol).metadata());
+    assertTrue(bCol instanceof UnresolvedColumn);
+    assertSame(outputSchema.metadata("b"), ((UnresolvedColumn) bCol).metadata());
 
     ProjectionSet projSet = scanProj.projectionSet().build();
     assertTrue(projSet.readProjection(outputSchema.metadata("a")).isProjected());
@@ -473,9 +473,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     assertEquals(2, scanProj.columns().size());
     assertEquals("a", scanProj.columns().get(0).name());
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
     assertEquals("b", scanProj.columns().get(1).name());
-    assertTrue(scanProj.columns().get(1) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(1) instanceof UnresolvedColumn);
 
     // Make up a reader schema and test the projection set.
 

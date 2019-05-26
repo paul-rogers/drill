@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataOptions;
 import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
@@ -109,7 +109,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     // Verify column type
 
-    assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
     assertTrue(scanProj.columns().get(1) instanceof FileMetadataColumn);
     assertTrue(scanProj.columns().get(2) instanceof FileMetadataColumn);
     assertTrue(scanProj.columns().get(3) instanceof FileMetadataColumn);
@@ -422,7 +422,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     List<ColumnProjection> cols = scanProj.columns();
     assertEquals(5, cols.size());
     for (int i = 0; i < 4; i++) {
-      assertTrue(scanProj.columns().get(i) instanceof UnresolvedTableColumn);
+      assertTrue(scanProj.columns().get(i) instanceof UnresolvedColumn);
     }
     assertTrue(scanProj.columns().get(4) instanceof FileMetadataColumn);
   }

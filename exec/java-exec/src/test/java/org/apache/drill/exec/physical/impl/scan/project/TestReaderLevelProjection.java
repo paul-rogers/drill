@@ -31,7 +31,7 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
@@ -278,8 +278,8 @@ public class TestReaderLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
     assertEquals(2, scanProj.columns().size());
     {
-      assertTrue(scanProj.columns().get(1) instanceof UnresolvedTableColumn);
-      final UnresolvedTableColumn bCol = (UnresolvedTableColumn) (scanProj.columns().get(1));
+      assertTrue(scanProj.columns().get(1) instanceof UnresolvedColumn);
+      final UnresolvedColumn bCol = (UnresolvedColumn) (scanProj.columns().get(1));
       assertTrue(bCol.element().isTuple());
     }
 

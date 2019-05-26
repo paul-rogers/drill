@@ -22,7 +22,7 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
@@ -480,7 +480,7 @@ public class ScanLevelProjection {
       if (col.getBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD)) {
         continue;
       }
-      outputCols.add(new UnresolvedTableColumn(null, col));
+      outputCols.add(new UnresolvedColumn(null, col));
     }
     return true;
   }
@@ -534,7 +534,7 @@ public class ScanLevelProjection {
     if (outputSchema != null) {
       outputCol = outputSchema.metadata(inCol.name());
     }
-    addTableColumn(new UnresolvedTableColumn(inCol, outputCol));
+    addTableColumn(new UnresolvedColumn(inCol, outputCol));
   }
 
   public void addTableColumn(ColumnProjection outCol) {

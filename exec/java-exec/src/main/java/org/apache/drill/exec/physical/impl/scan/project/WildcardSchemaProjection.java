@@ -19,7 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
-import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -47,11 +47,11 @@ public class WildcardSchemaProjection extends ReaderLevelProjection {
 
     boolean readerProjectionMap[] = new boolean[readerSchema.size()];
     for (ColumnProjection col : scanProj.columns()) {
-      if (col instanceof UnresolvedTableColumn) {
+      if (col instanceof UnresolvedColumn) {
 
         // Look for a match in the reader schema
 
-        UnresolvedTableColumn tableCol = (UnresolvedTableColumn) col;
+        UnresolvedColumn tableCol = (UnresolvedColumn) col;
         ColumnMetadata readerCol = readerSchema.metadata(tableCol.name());
         if (readerCol != null) {
 
