@@ -119,7 +119,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // SELECT a.x, b.x, a.y, b.y, c
     // We infer a and b are maps.
 
-    final ScanLevelProjection scanProj = new ScanLevelProjection(
+    final ScanLevelProjection scanProj = ScanLevelProjection.build(
         RowSetTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
         ScanTestUtils.parsers());
 
@@ -440,7 +440,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     outputSchema.metadata("b").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
 
-    final ScanLevelProjection scanProj = new ScanLevelProjection(
+    final ScanLevelProjection scanProj = ScanLevelProjection.build(
         RowSetTestUtils.projectAll(),
         ScanTestUtils.parsers(),
         outputSchema);

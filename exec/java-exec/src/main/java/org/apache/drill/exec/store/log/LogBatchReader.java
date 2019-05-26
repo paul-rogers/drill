@@ -381,7 +381,7 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
     }
   }
 
-  private final FileSplit split;
+  private FileSplit split;
   private final LogFormatConfig formatConfig;
   private ColumnDefn columns[];
   private Pattern pattern;
@@ -395,15 +395,14 @@ public class LogBatchReader implements ManagedReader<FileSchemaNegotiator> {
   private int lineNumber;
   private int errorCount;
 
-  public LogBatchReader(FileSplit split,
-                         LogFormatConfig formatConfig) {
-    this.split = split;
+  public LogBatchReader(LogFormatConfig formatConfig) {
     this.formatConfig = formatConfig;
     this.maxErrors = Math.max(0, formatConfig.getMaxErrors());
   }
 
   @Override
   public boolean open(FileSchemaNegotiator negotiator) {
+    split = negotiator.split();
     setupPattern();
     negotiator.setTableSchema(defineSchema(), true);
     loader = negotiator.build();

@@ -168,7 +168,7 @@ public class ScanSchemaOrchestrator {
     /**
      * Context for error messages.
      */
-    private CustomErrorContext context;
+    private CustomErrorContext errorContext;
 
     /**
      * Specify an optional metadata manager. Metadata is a set of constant
@@ -247,11 +247,11 @@ public class ScanSchemaOrchestrator {
     }
 
     public void setContext(CustomErrorContext context) {
-      this.context = context;
+      this.errorContext = context;
     }
 
     public CustomErrorContext errorContext() {
-      return context;
+      return errorContext;
     }
   }
 
@@ -294,9 +294,9 @@ public class ScanSchemaOrchestrator {
       schemaResolvers = builder.schemaResolvers;
       projection = builder.projection;
       useSchemaSmoothing = builder.useSchemaSmoothing;
-      context = builder.context;
+      context = builder.errorContext;
       typeConverter = builder.typeConverterBuilder
-        .errorContext(builder.context)
+        .errorContext(builder.errorContext)
         .build();
       allowRequiredNullColumns = builder.allowRequiredNullColumns;
     }
@@ -367,7 +367,12 @@ public class ScanSchemaOrchestrator {
 
     // Parse the projection list.
 
-    scanProj = new ScanLevelProjection(options.projection, options.parsers, options.outputSchema());
+    scanProj = ScanLevelProjection.builder()
+        .projection(options.projection)
+        .parsers(options.parsers)
+        .outputSchema(options.outputSchema())
+        .context(builder.errorContext())
+        .build();
     if (scanProj.projectAll() && options.useSchemaSmoothing) {
       schemaSmoother = new SchemaSmoother(scanProj, options.schemaResolvers);
     } else {

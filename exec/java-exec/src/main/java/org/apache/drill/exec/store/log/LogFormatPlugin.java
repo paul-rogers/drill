@@ -39,7 +39,6 @@ import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.FileSplit;
 
 public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
 
@@ -54,9 +53,8 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     }
 
     @Override
-    public ManagedReader<? extends FileSchemaNegotiator> newReader(
-        FileSplit split) {
-       return new LogBatchReader(split, plugin.getConfig());
+    public ManagedReader<? extends FileSchemaNegotiator> newReader() {
+       return new LogBatchReader(plugin.getConfig());
     }
   }
 
