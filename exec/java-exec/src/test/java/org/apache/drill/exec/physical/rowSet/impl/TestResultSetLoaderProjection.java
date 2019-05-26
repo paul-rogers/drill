@@ -278,7 +278,14 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
 
   @Test
   public void testMapProjectionMemberAndMap() {
+
+    // SELECT m1, m1.b
+    // This really means project all of m1; m1.b is along for the ride.
+
     List<SchemaPath> selection = RowSetTestUtils.projectList("m1", "m1.b");
+
+    // Define an "early" reader schema consistent with the projection.
+
     TupleMetadata schema = new SchemaBuilder()
         .addMap("m1")
           .add("a", MinorType.INT)

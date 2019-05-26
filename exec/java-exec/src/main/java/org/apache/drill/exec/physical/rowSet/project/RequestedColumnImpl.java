@@ -191,13 +191,20 @@ public class RequestedColumnImpl implements RequestedColumn {
 
   @Override
   public RequestedTuple mapProjection() {
-    if (isTuple()) {
+    switch (type) {
+    case ARRAY:
+    case GENERAL:
+      // Don't know if the target is a tuple or not.
+
+      return ImpliedTupleRequest.ALL_MEMBERS;
+    case TUPLE:
+    case TUPLE_ARRAY:
       return members == null ? ImpliedTupleRequest.ALL_MEMBERS : members;
+    case UNPROJECTED:
+      return ImpliedTupleRequest.NO_MEMBERS;
+    default:
+      return null;
     }
-
-    // Don't know if the target is a tuple or not.
-
-    return ImpliedTupleRequest.ALL_MEMBERS;
   }
 
   @Override

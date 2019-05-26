@@ -247,8 +247,8 @@
  *  +------+      +------------+     +------------+      +-----------+
  *                       |                  |
  *                       v                  |
- *               +--------------+   Table   |
- *               | Schema Level |   Schema  |
+ *               +--------------+   Reader  |
+ *               | Reader Level |   Schema  |
  *               |  Projection  | <---------+
  *               +--------------+           |
  *                       |                  |
@@ -261,6 +261,9 @@
  *                       v
  *                 Output Batch
  * </pre>
+ * <p>
+ * The left side can be thought of as the "what we want" description of the
+ * schema, with the right side being "what the reader actually discovered."
  * <p>
  * The output mapper includes mechanisms to populate implicit columns, create
  * null columns, and to merge implicit, null and data columns, omitting

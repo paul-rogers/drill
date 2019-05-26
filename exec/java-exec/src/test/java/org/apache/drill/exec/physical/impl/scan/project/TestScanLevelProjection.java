@@ -115,6 +115,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testMap() {
+
+    // SELECT a.x, b.x, a.y, b.y, c
+    // We infer a and b are maps.
+
     final ScanLevelProjection scanProj = new ScanLevelProjection(
         RowSetTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
         ScanTestUtils.parsers());
@@ -131,7 +135,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     assertTrue(scanProj.columns().get(0) instanceof UnresolvedTableColumn);
 
-    // Map structure
+    // Inferred map structure
 
     final RequestedColumn a = ((UnresolvedTableColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
@@ -163,6 +167,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
         .add("c", MinorType.INT)
         .add("d", MinorType.INT)
         .buildSchema();
+
+    // Verify the projection set as if we were a reader. Note that the
+    // projection type is used here for testing; should not be used by
+    // an actual reader.
 
     ProjectionSet projSet = scanProj.projectionSet().build();
     ColumnReadProjection aProj = projSet.readProjection(readerSchema.metadata("a"));

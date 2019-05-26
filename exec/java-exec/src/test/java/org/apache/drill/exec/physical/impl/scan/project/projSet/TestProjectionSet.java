@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -30,6 +31,7 @@ import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter.Cu
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet.ColumnReadProjection;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
+import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -37,6 +39,20 @@ import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.convert.ConvertStringToInt;
 import org.apache.drill.exec.vector.accessor.convert.StandardConversions;
 import org.junit.Test;
+
+/**
+ * Test the projection set used by the result set loader as
+ * columns are added. The projection set combines information from
+ * the SELECT (project) list, from an optional provided schema, and
+ * from an optional type converter to decide whether a particular
+ * new column should be projected or not, and if so, is any type
+ * conversion is needed.
+ * <p>
+ * The code and tests here keep the result set loader simple: it just
+ * asks a question about projection and gets an answer, the complexity
+ * of projection should be fully tested here, then just sanity tested
+ * in the result set loader.
+ */
 
 public class TestProjectionSet {
 
@@ -76,13 +92,25 @@ public class TestProjectionSet {
 
     TupleMetadata readSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
-        .addMap("m")
-          .add("b", MinorType.VARCHAR)
-          .resumeSchema()
         .buildSchema();
 
     ColumnReadProjection aCol = projSet.readProjection(readSchema.metadata("a"));
     assertTrue(aCol.isProjected());
+  }
+
+  /**
+   * Wildcard projection, no schema
+   */
+
+  @Test
+  public void testWildcardMapProjection() {
+    ProjectionSet projSet = ProjectionSetFactory.projectAll();
+
+    TupleMetadata readSchema = new SchemaBuilder()
+        .addMap("m")
+          .add("b", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
 
     ColumnReadProjection mCol = projSet.readProjection(readSchema.metadata("m"));
     assertTrue(mCol.isProjected());
@@ -104,30 +132,15 @@ public class TestProjectionSet {
         .add("b", MinorType.VARCHAR)
         .add("c", MinorType.INT)
         .add("d", MinorType.INT)
-        .addMap("m")
-          .add("e", MinorType.VARCHAR)
-          .add("f", MinorType.VARCHAR)
-          .add("g", MinorType.VARCHAR)
-          .add("h", MinorType.VARCHAR)
-          .resumeSchema()
         .buildSchema();
     readSchema.metadata("b").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
-    TupleMetadata mReadSchema = readSchema.metadata("m").mapSchema();
-    mReadSchema.metadata("f").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
 
     TupleMetadata outputSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("c", MinorType.INT)
         .add("d", MinorType.INT)
-        .addMap("m")
-          .add("e", MinorType.INT)
-          .add("f", MinorType.VARCHAR)
-          .add("g", MinorType.VARCHAR)
-          .resumeSchema()
         .buildSchema();
     outputSchema.metadata("c").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
-    TupleMetadata mOutputSchema = outputSchema.metadata("m").mapSchema();
-    mOutputSchema.metadata("g").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
 
     TypeConverter converter = TypeConverter.builder()
         .providedSchema(outputSchema)
@@ -160,6 +173,41 @@ public class TestProjectionSet {
     assertTrue(dCol.isProjected());
     assertSame(outputSchema.metadata("d"), dCol.providedSchema());
     assertNull(dCol.conversionFactory());
+  }
+
+  /**
+   * Wildcard projection, with schema. Some columns marked
+   * as special; not expanded by wildcard.
+   */
+
+  @Test
+  public void testWildcardAndSchemaMapProjection() {
+    TupleMetadata readSchema = new SchemaBuilder()
+        .addMap("m")
+          .add("e", MinorType.VARCHAR)
+          .add("f", MinorType.VARCHAR)
+          .add("g", MinorType.VARCHAR)
+          .add("h", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
+    TupleMetadata mReadSchema = readSchema.metadata("m").mapSchema();
+    mReadSchema.metadata("f").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
+
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .addMap("m")
+          .add("e", MinorType.INT)
+          .add("f", MinorType.VARCHAR)
+          .add("g", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
+    TupleMetadata mOutputSchema = outputSchema.metadata("m").mapSchema();
+    mOutputSchema.metadata("g").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
+
+    TypeConverter converter = TypeConverter.builder()
+        .providedSchema(outputSchema)
+        .build();
+
+    ProjectionSet projSet = new WildcardProjectionSet(converter);
 
     // Column m is a map
 
@@ -204,16 +252,7 @@ public class TestProjectionSet {
     TupleMetadata readSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
-        .addMap("m")
-          .add("c", MinorType.INT)
-          .add("d", MinorType.VARCHAR)
-          .resumeSchema()
-        .addMap("m2")
-          .add("e", MinorType.INT)
-          .resumeSchema()
         .buildSchema();
-    TupleMetadata mReadSchema = readSchema.metadata("m").mapSchema();
-    TupleMetadata m2ReadSchema = readSchema.metadata("m2").mapSchema();
 
     TupleMetadata outputSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -222,7 +261,6 @@ public class TestProjectionSet {
           .resumeSchema()
         .buildSchema();
     outputSchema.setBooleanProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP, true);
-    TupleMetadata mOutputSchema = outputSchema.metadata("m").mapSchema();
 
     TypeConverter converter = TypeConverter.builder()
         .providedSchema(outputSchema)
@@ -241,6 +279,39 @@ public class TestProjectionSet {
     assertFalse(bCol.isProjected());
     assertSame(readSchema.metadata("b"), bCol.providedSchema());
     assertNull(bCol.conversionFactory());
+  }
+
+  /**
+   * Wildcard and strict schema
+   */
+
+  @Test
+  public void testWildcardAndStrictMapSchemaProjection() {
+    TupleMetadata readSchema = new SchemaBuilder()
+        .addMap("m")
+          .add("c", MinorType.INT)
+          .add("d", MinorType.VARCHAR)
+          .resumeSchema()
+        .addMap("m2")
+          .add("e", MinorType.INT)
+          .resumeSchema()
+        .buildSchema();
+    TupleMetadata mReadSchema = readSchema.metadata("m").mapSchema();
+    TupleMetadata m2ReadSchema = readSchema.metadata("m2").mapSchema();
+
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .addMap("m")
+          .add("c", MinorType.INT)
+          .resumeSchema()
+        .buildSchema();
+    outputSchema.setBooleanProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP, true);
+    TupleMetadata mOutputSchema = outputSchema.metadata("m").mapSchema();
+
+    TypeConverter converter = TypeConverter.builder()
+        .providedSchema(outputSchema)
+        .build();
+
+    ProjectionSet projSet = new WildcardProjectionSet(converter);
 
     // Column m is a map in provided schema
 
@@ -285,6 +356,27 @@ public class TestProjectionSet {
     TupleMetadata readSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    ColumnMetadata aSchema = readSchema.metadata("a");
+
+    ProjectionSet projSet = ProjectionSetFactory.build(
+        RowSetTestUtils.projectList("a", "m1.c", "m2"));
+
+    ColumnReadProjection aCol = projSet.readProjection(aSchema);
+    assertTrue(aCol.isProjected());
+    assertEquals(ProjectionType.GENERAL, aCol.projectionType());
+
+    ColumnReadProjection bCol = projSet.readProjection(readSchema.metadata("b"));
+    assertFalse(bCol.isProjected());
+  }
+
+  @Test
+  public void testExplicitMapProjection() {
+
+    // Schema to allow us to use three kinds of map projection
+
+    TupleMetadata readSchema = new SchemaBuilder()
         .addMap("m1")
           .add("c", MinorType.INT)
           .add("d", MinorType.VARCHAR)
@@ -297,7 +389,6 @@ public class TestProjectionSet {
           .resumeSchema()
         .buildSchema();
 
-    ColumnMetadata aSchema = readSchema.metadata("a");
     ColumnMetadata m1Schema = readSchema.metadata("m1");
     ColumnMetadata m2Schema = readSchema.metadata("m2");
     ColumnMetadata m3Schema = readSchema.metadata("m3");
@@ -305,40 +396,76 @@ public class TestProjectionSet {
     TupleMetadata m2ReadSchema = m2Schema.mapSchema();
     TupleMetadata m3ReadSchema = m3Schema.mapSchema();
 
-    // Project all
+    // Project one member of map m1, all of m2, none of m3
 
-    ProjectionSet projSet = ProjectionSetFactory.build(null);
+    ProjectionSet projSet = ProjectionSetFactory.build(
+        RowSetTestUtils.projectList("m1.c", "m2"));
 
-    assertTrue(projSet.readProjection(aSchema).isProjected());
-    assertTrue(projSet.readProjection(m1Schema).isProjected());
-
-    // Project none
-
-    projSet = ProjectionSetFactory.build(new ArrayList<>());
-
-    assertFalse(projSet.readProjection(aSchema).isProjected());
-    assertFalse(projSet.readProjection(m1Schema).isProjected());
-
-    // Project some
-
-    projSet = ProjectionSetFactory.build(
-        RowSetTestUtils.projectList("a", "m1.c", "m2"));
-
-    assertTrue(projSet.readProjection(aSchema).isProjected());
-    assertFalse(projSet.readProjection(readSchema.metadata("b")).isProjected());
+    // Verify that m1 is projected as a tuple
 
     ColumnReadProjection m1Col = projSet.readProjection(m1Schema);
     assertTrue(m1Col.isProjected());
-    assertTrue(m1Col.mapProjection().readProjection(m1ReadSchema.metadata("c")).isProjected());
+    assertEquals(ProjectionType.TUPLE, m1Col.projectionType());
+
+    // m1.c is projected
+
+    ColumnReadProjection cCol = m1Col.mapProjection().readProjection(m1ReadSchema.metadata("c"));
+    assertTrue(cCol.isProjected());
+    assertEquals(ProjectionType.GENERAL, cCol.projectionType());
+
+    // but m1.d is not projected
+
     assertFalse(m1Col.mapProjection().readProjection(m1ReadSchema.metadata("d")).isProjected());
 
+    // m2 is entirely projected
+
     ColumnReadProjection m2Col = projSet.readProjection(m2Schema);
+    assertEquals(ProjectionType.GENERAL, m2Col.projectionType());
     assertTrue(m2Col.isProjected());
     assertTrue(m2Col.mapProjection().readProjection(m2ReadSchema.metadata("e")).isProjected());
+
+    // m3 is not projected at all
 
     ColumnReadProjection m3Col = projSet.readProjection(m3Schema);
     assertFalse(m3Col.isProjected());
     assertFalse(m3Col.mapProjection().readProjection(m3ReadSchema.metadata("f")).isProjected());
+  }
+
+
+  @Test
+  public void testExplicitRedundantMapProjection() {
+
+    // Schema to allow us to use three kinds of map projection
+
+    TupleMetadata readSchema = new SchemaBuilder()
+        .addMap("m1")
+          .add("c", MinorType.INT)
+          .add("d", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
+
+    ColumnMetadata m1Schema = readSchema.metadata("m1");
+    TupleMetadata m1ReadSchema = m1Schema.mapSchema();
+
+    // Project one member of map1, all of map2, none of map3
+
+    ProjectionSet projSet = ProjectionSetFactory.build(
+        RowSetTestUtils.projectList("m1.c", "m1"));
+
+    // Verify that m1 is projected as a tuple
+
+    ColumnReadProjection m1Col = projSet.readProjection(m1Schema);
+    assertTrue(m1Col.isProjected());
+    assertEquals(ProjectionType.TUPLE, m1Col.projectionType());
+
+    // M1.c is projected
+
+    ColumnReadProjection cCol = m1Col.mapProjection().readProjection(m1ReadSchema.metadata("c"));
+    assertTrue(cCol.isProjected());
+
+    // M1.d is also projected because m1 was projected as a whole
+
+    assertTrue(m1Col.mapProjection().readProjection(m1ReadSchema.metadata("d")).isProjected());
   }
 
   /**

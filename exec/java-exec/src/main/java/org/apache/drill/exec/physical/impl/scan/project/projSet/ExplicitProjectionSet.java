@@ -23,6 +23,7 @@ import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
@@ -51,16 +52,35 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
     ColumnMetadata outputSchema = outputSchema(col);
     validateProjection(reqCol, outputSchema == null ? col : outputSchema);
     if (!col.isMap()) {
+
+      // Non-map column.
+
       ColumnConversionFactory conv = conversion(col, outputSchema);
-      return new ProjectedReadColumn(col, null, outputSchema, conv);
+      return new ProjectedReadColumn(col, reqCol, outputSchema, conv);
     }
     else {
+
+      // Maps are tuples. Create a tuple projection and wrap it in
+      // a column projection.
+
       TypeConverter childConverter = childConverter(outputSchema);
       ProjectionSet mapProjection;
-      if (reqCol.type().isTuple()) {
-        mapProjection = new ExplicitProjectionSet(reqCol.mapProjection(), childConverter);
-      } else {
+      if (! reqCol.type().isTuple() || reqCol.mapProjection().type() == TupleProjectionType.ALL) {
+
+        // Projection is simple: "m". This is equivalent to
+        // (non-SQL) m.*
+        // This may also be a projection of the form m.a, m. The
+        // general projection takes precedence.
+
         mapProjection =  new WildcardProjectionSet(childConverter, isStrict);
+      } else {
+
+        // Else, selected map items are projected, say m.a, m.c.
+        // (Here, we'll never hit the case where none of the map is
+        // projected; that case, while allowed in the RequestedTuple
+        // implementation, can never occur in a SELECT list.)
+
+        mapProjection = new ExplicitProjectionSet(reqCol.mapProjection(), childConverter);
       }
       return new ProjectedMapColumn(col, reqCol, outputSchema, mapProjection);
     }

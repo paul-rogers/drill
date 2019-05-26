@@ -35,7 +35,6 @@ import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -89,36 +88,6 @@ public class TestReaderLevelProjection extends SubOperatorTest {
     assertEquals("d", columns.get(2).name());
     assertEquals(2, columns.get(2).sourceIndex());
     assertSame(rootTuple, columns.get(2).source());
-  }
-
-  @Test
-  public void testWildcardWihSpecialCols() {
-    final ScanLevelProjection scanProj = new ScanLevelProjection(
-        RowSetTestUtils.projectAll(),
-        ScanTestUtils.parsers());
-    assertEquals(1, scanProj.columns().size());
-
-    final TupleMetadata tableSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .addArray("d", MinorType.FLOAT8)
-        .buildSchema();
-
-    // Mark c as special; not expanded in wildcard.
-
-    tableSchema.metadata("c").setBooleanProperty(ColumnMetadata.EXCLUDE_FROM_WILDCARD, true);
-
-    final NullColumnBuilder builder = new NullBuilderBuilder().build();
-    final ResolvedRow rootTuple = new ResolvedRow(builder);
-    new WildcardProjection(
-        scanProj, tableSchema, rootTuple,
-        ScanTestUtils.resolvers());
-
-    final List<ResolvedColumn> columns = rootTuple.columns();
-    assertEquals(2, columns.size());
-
-    assertEquals("a", columns.get(0).name());
-    assertEquals("d", columns.get(1).name());
   }
 
   /**

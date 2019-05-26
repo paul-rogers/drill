@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet.ColumnReadProjection;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.PrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
@@ -224,7 +223,7 @@ public class ColumnBuilder {
     final TupleObjectWriter mapWriter = MapWriter.buildMap(columnSchema, vector, new ArrayList<>());
     final SingleMapState mapState = new SingleMapState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        ProjectionSetFactory.wrap(colProj.mapProjection()));
+        colProj.mapProjection());
     return new MapColumnState(mapState, mapWriter, vectorState, parent.isVersioned());
   }
 
@@ -278,7 +277,7 @@ public class ColumnBuilder {
 
     final MapArrayState mapState = new MapArrayState(parent.loader(),
         parent.vectorCache().childCache(columnSchema.name()),
-        ProjectionSetFactory.wrap(colProj.mapProjection()));
+        colProj.mapProjection());
     return new MapColumnState(mapState, writer, mapVectorState, parent.isVersioned());
   }
 

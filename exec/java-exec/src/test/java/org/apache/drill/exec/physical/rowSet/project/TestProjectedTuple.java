@@ -36,6 +36,17 @@ import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProject
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+/**
+ * Test the projection list parser: parses a list of SchemaPath
+ * items into a detailed structure, handling duplicate or overlapping
+ * items. Special cases the select-all (SELECT *) and select none
+ * (SELECT COUNT(*)) cases.
+ * <p>
+ * These tests should verify everything about (runtime) projection
+ * parsing; the only bits not tested here is that which is
+ * inherently specific to some use case.
+ */
+
 @Category(RowSetTests.class)
 public class TestProjectedTuple {
 
@@ -92,7 +103,13 @@ public class TestProjectedTuple {
     assertEquals(ProjectionType.GENERAL, a.type());
     assertTrue(a.isSimple());
     assertFalse(a.isWildcard());
-    assertNull(a.mapProjection());
+
+    // We don't know if a is a map or not (the simple term "a" under-determines
+    // the column type.) In case it is a map, we assume all of the map is
+    // projected.
+
+    assertNotNull(a.mapProjection());
+    assertEquals(TupleProjectionType.ALL, a.mapProjection().type());
     assertNull(a.indexes());
 
     assertEquals("b", cols.get(1).name());
