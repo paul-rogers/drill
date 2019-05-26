@@ -195,51 +195,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     }
   }
 
-  /**
-   * Builds the V3 text scan operator.
-   */
-  private static class TextScanBatchCreator extends ScanFrameworkCreator {
-
-    private final TextFormatPlugin textPlugin;
-
-    public TextScanBatchCreator(TextFormatPlugin plugin) {
-      super(plugin);
-      textPlugin = plugin;
-    }
-
-    @Override
-    protected FileScanBuilder frameworkBuilder(
-        EasySubScan scan) throws ExecutionSetupException {
-      ColumnsScanBuilder builder = new ColumnsScanBuilder();
-      builder.setReaderFactory(new ColumnsReaderFactory(textPlugin));
-
-      // If this format has no headers, or wants to skip them,
-      // then we must use the columns column to hold the data.
-
-      builder.requireColumnsArray(
-          ! textPlugin.getConfig().isHeaderExtractionEnabled());
-
-      // Text files handle nulls in an unusual way. Missing columns
-      // are set to required Varchar and filled with blanks. Yes, this
-      // means that the SQL statement or code cannot differentiate missing
-      // columns from empty columns, but that is how CSV and other text
-      // files have been defined within Drill.
-
-      builder.setNullType(Types.required(MinorType.VARCHAR));
-
-      // CSV maps blank columns to nulls (for nullable non-string columns),
-      // or to the default value (for non-nullable non-string columns.)
-
-      builder.typeConverterBuilder().setConversionProperty(AbstractConvertFromString.BLANK_ACTION_PROP,
-          AbstractConvertFromString.BLANK_AS_NULL);
-
-      // The text readers use required Varchar columns to represent null columns.
-
-      builder.allowRequiredNullColumns(true);
-      return builder;
-    }
-  }
-
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
      this(name, context, fsConf, storageConfig, new TextFormatConfig());
   }
@@ -261,6 +216,9 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = CoreOperatorType.TEXT_SUB_SCAN_VALUE;
     config.writerOperatorType = CoreOperatorType.TEXT_WRITER_VALUE;
+
+    // Uncomment this, and remove useEnhancedScan(), when v2 is retired
+    //config.useEnhancedScan = true;
     return config;
   }
 
@@ -281,16 +239,12 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  protected ScanBatchCreator scanBatchCreator(OptionManager options) {
+  protected boolean useEnhancedScan(OptionManager options) {
     // Create the "legacy", "V2" reader or the new "V3" version based on
     // the result set loader. This code should be temporary: the two
     // readers provide identical functionality for the user; only the
     // internals differ.
-    if (options.getBoolean(ExecConstants.ENABLE_V3_TEXT_READER_KEY)) {
-      return new TextScanBatchCreator(this);
-    } else {
-      return new ClassicScanBatchCreator(this);
-    }
+    return options.getBoolean(ExecConstants.ENABLE_V3_TEXT_READER_KEY);
   }
 
   // TODO: Remove this once the V2 reader is removed.
@@ -311,6 +265,38 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       char delim = formatConfig.getFieldDelimiter();
       return new DrillTextRecordReader(split, dfs.getConf(), context, delim, columns);
     }
+  }
+
+  @Override
+  protected FileScanBuilder frameworkBuilder(
+      FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
+    ColumnsScanBuilder builder = new ColumnsScanBuilder();
+    builder.setReaderFactory(new ColumnsReaderFactory(this));
+
+    // If this format has no headers, or wants to skip them,
+    // then we must use the columns column to hold the data.
+
+    builder.requireColumnsArray(
+        ! getConfig().isHeaderExtractionEnabled());
+
+    // Text files handle nulls in an unusual way. Missing columns
+    // are set to required Varchar and filled with blanks. Yes, this
+    // means that the SQL statement or code cannot differentiate missing
+    // columns from empty columns, but that is how CSV and other text
+    // files have been defined within Drill.
+
+    builder.setNullType(Types.required(MinorType.VARCHAR));
+
+    // CSV maps blank columns to nulls (for nullable non-string columns),
+    // or to the default value (for non-nullable non-string columns.)
+
+    builder.typeConverterBuilder().setConversionProperty(AbstractConvertFromString.BLANK_ACTION_PROP,
+        AbstractConvertFromString.BLANK_AS_NULL);
+
+    // The text readers use required Varchar columns to represent null columns.
+
+    builder.allowRequiredNullColumns(true);
+    return builder;
   }
 
   @Override

@@ -32,7 +32,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchem
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -45,33 +44,6 @@ import org.apache.hadoop.mapred.FileSplit;
 public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
 
   public static final String PLUGIN_NAME = "logRegex";
-
-  private static class LogScanBatchCreator extends ScanFrameworkCreator {
-
-    private final LogFormatPlugin logPlugin;
-
-    public LogScanBatchCreator(LogFormatPlugin plugin) {
-      super(plugin);
-      logPlugin = plugin;
-    }
-
-    @Override
-    protected FileScanBuilder frameworkBuilder(
-        EasySubScan scan) throws ExecutionSetupException {
-      FileScanBuilder builder = new FileScanBuilder();
-      builder.setReaderFactory(new LogReaderFactory(logPlugin));
-
-      // The default type of regex columns is nullable VarChar,
-      // so let's use that as the missing column type.
-
-      builder.setNullType(Types.optional(MinorType.VARCHAR));
-
-      // Pass along the output schema, if any
-
-      builder.typeConverterBuilder().providedSchema(scan.getSchema());
-      return builder;
-    }
-  }
 
   private static class LogReaderFactory extends FileReaderFactory {
 
@@ -106,12 +78,25 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = CoreOperatorType.REGEX_SUB_SCAN_VALUE;
+    config.useEnhancedScan = true;
     return config;
   }
 
   @Override
-  protected ScanBatchCreator scanBatchCreator(OptionManager options) {
-    return new LogScanBatchCreator(this);
+  protected FileScanBuilder frameworkBuilder(
+      FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
+    FileScanBuilder builder = new FileScanBuilder();
+    builder.setReaderFactory(new LogReaderFactory(this));
+
+    // The default type of regex columns is nullable VarChar,
+    // so let's use that as the missing column type.
+
+    builder.setNullType(Types.optional(MinorType.VARCHAR));
+
+    // Pass along the output schema, if any
+
+    builder.typeConverterBuilder().providedSchema(scan.getSchema());
+    return builder;
   }
 
   @Override
