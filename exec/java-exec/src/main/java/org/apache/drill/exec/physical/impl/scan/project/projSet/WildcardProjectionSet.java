@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
+import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
@@ -51,5 +52,15 @@ public class WildcardProjectionSet extends AbstractProjectionSet {
       ColumnConversionFactory conv = conversion(col, outputSchema);
       return new ProjectedReadColumn(col, null, outputSchema, conv);
     }
+  }
+
+  @Override
+  public ProjectionType projectionType(String colName) {
+    ColumnMetadata colSchema = providedSchema == null ? null :
+      providedSchema.metadata(colName);
+    if (colSchema == null || isSpecial(colSchema)) {
+      return isStrict ? ProjectionType.UNPROJECTED : ProjectionType.GENERAL;
+    }
+    return ProjectionType.GENERAL;
   }
 }

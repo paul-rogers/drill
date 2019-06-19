@@ -39,7 +39,7 @@ import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import com.google.common.collect.Lists;
 
 public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWriter {
 
@@ -48,7 +48,6 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
 
   private Path cleanUpLocation;
   private String location;
-  private boolean append;
   private String prefix;
 
   private String fieldDelimiter;
@@ -65,11 +64,8 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   // Record write status
   private boolean fRecordStarted = false; // true once the startRecord() is called until endRecord() is called
 
-  private Configuration fsConf;
-
-  public JsonRecordWriter(StorageStrategy storageStrategy, Configuration fsConf) {
+  public JsonRecordWriter(StorageStrategy storageStrategy){
     this.storageStrategy = storageStrategy == null ? StorageStrategy.DEFAULT : storageStrategy;
-    this.fsConf = new Configuration(fsConf);
   }
 
   @Override
@@ -82,7 +78,9 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
     this.skipNullFields = Boolean.parseBoolean(writerOptions.get("skipnulls"));
     final boolean uglify = Boolean.parseBoolean(writerOptions.get("uglify"));
 
-    this.fs = FileSystem.get(fsConf);
+    Configuration conf = new Configuration();
+    conf.set(FileSystem.FS_DEFAULT_NAME_KEY, writerOptions.get(FileSystem.FS_DEFAULT_NAME_KEY));
+    this.fs = FileSystem.get(conf);
 
     Path fileName = new Path(location, prefix + "_" + index + "." + extension);
     try {

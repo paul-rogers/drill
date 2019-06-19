@@ -26,18 +26,11 @@ import static org.junit.Assert.assertTrue;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.zip.GZIPOutputStream;
 
-import org.apache.drill.exec.util.JsonStringHashMap;
-import org.apache.drill.exec.util.Text;
-import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -46,14 +39,26 @@ import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
+import org.apache.drill.exec.util.JsonStringHashMap;
+import org.apache.drill.exec.util.Text;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.RepeatedBigIntVector;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.apache.drill.test.BaseTestQuery;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.io.Files;
+/**
+ * Some tests previously here have moved, and been rewritten to use
+ * the newer test framework. Find them in
+ * <tt>org.apache.drill.exec.store.json</tt>:
+ * <ul>
+ * <li><tt>TestJsonReaderFns</tt></li>
+ * <li><tt>TestJsonReader2</tt></li>
+ * </ul>
+ */
 
 public class TestJsonReader extends BaseTestQuery {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestJsonReader.class);
@@ -64,53 +69,12 @@ public class TestJsonReader extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector","complex", "writer"));
   }
 
-  @Test
-  public void testEmptyList() throws Exception {
-    final String root = "store/json/emptyLists";
-
-    testBuilder()
-        .sqlQuery("select count(a[0]) as ct from dfs.`%s`", root, root)
-        .ordered()
-        .baselineColumns("ct")
-        .baselineValues(6l)
-        .build()
-        .run();
-  }
+  // Kept here because the new version exposed a number of
+  // issues.
 
   @Test
   public void schemaChange() throws Exception {
     test("select b from dfs.`vector/complex/writer/schemaChange/`");
-  }
-
-  @Test
-  public void testFieldSelectionBug() throws Exception {
-    try {
-      testBuilder()
-          .sqlQuery("select t.field_4.inner_3 as col_1, t.field_4 as col_2 from cp.`store/json/schema_change_int_to_string.json` t")
-          .unOrdered()
-          .optionSettingQueriesForTestQuery("alter session set `store.json.all_text_mode` = true")
-          .baselineColumns("col_1", "col_2")
-          .baselineValues(
-              mapOf(),
-              mapOf(
-                  "inner_1", listOf(),
-                  "inner_3", mapOf()))
-          .baselineValues(
-              mapOf("inner_object_field_1", "2"),
-              mapOf(
-                  "inner_1", listOf("1", "2", "3"),
-                  "inner_2", "3",
-                  "inner_3", mapOf("inner_object_field_1", "2")))
-          .baselineValues(
-              mapOf(),
-              mapOf(
-                  "inner_1", listOf("4", "5", "6"),
-                  "inner_2", "3",
-                  "inner_3", mapOf()))
-          .go();
-    } finally {
-      test("alter session set `store.json.all_text_mode` = false");
-    }
   }
 
   @Test
@@ -177,103 +141,6 @@ public class TestJsonReader extends BaseTestQuery {
   }
 
   @Test
-  public void testReadCompressed() throws Exception {
-    String filepath = "compressed_json.json";
-    File f = new File(dirTestWatcher.getRootDir(), filepath);
-    PrintWriter out = new PrintWriter(f);
-    out.println("{\"a\" :5}");
-    out.close();
-
-    gzipIt(f);
-    testBuilder()
-        .sqlQuery("select * from dfs.`%s.gz`", filepath)
-        .unOrdered()
-        .baselineColumns("a")
-        .baselineValues(5l)
-        .build().run();
-
-    // test reading the uncompressed version as well
-    testBuilder()
-        .sqlQuery("select * from dfs.`%s`", filepath)
-        .unOrdered()
-        .baselineColumns("a")
-        .baselineValues(5l)
-        .build().run();
-  }
-
-  public static void gzipIt(File sourceFile) throws IOException {
-
-    // modified from: http://www.mkyong.com/java/how-to-compress-a-file-in-gzip-format/
-    byte[] buffer = new byte[1024];
-    GZIPOutputStream gzos =
-        new GZIPOutputStream(new FileOutputStream(sourceFile.getPath() + ".gz"));
-
-    FileInputStream in =
-        new FileInputStream(sourceFile);
-
-    int len;
-    while ((len = in.read(buffer)) > 0) {
-      gzos.write(buffer, 0, len);
-    }
-    in.close();
-    gzos.finish();
-    gzos.close();
-  }
-
-  @Test
-  public void testDrill_1419() throws Exception {
-    String[] queries = {"select t.trans_id, t.trans_info.prod_id[0],t.trans_info.prod_id[1] from cp.`store/json/clicks.json` t limit 5"};
-    long[] rowCounts = {5};
-    String filename = "/store/json/clicks.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-  }
-
-  @Test
-  public void testRepeatedCount() throws Exception {
-    test("select repeated_count(str_list) from cp.`store/json/json_basic_repeated_varchar.json`");
-    test("select repeated_count(INT_col) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_count(FLOAT4_col) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_count(VARCHAR_col) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_count(BIT_col) from cp.`parquet/alltypes_repeated.json`");
-  }
-
-  @Test
-  public void testRepeatedContains() throws Exception {
-    test("select repeated_contains(str_list, 'asdf') from cp.`store/json/json_basic_repeated_varchar.json`");
-    test("select repeated_contains(INT_col, -2147483648) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_contains(FLOAT4_col, -1000000000000.0) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_contains(VARCHAR_col, 'qwerty' ) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_contains(BIT_col, true) from cp.`parquet/alltypes_repeated.json`");
-    test("select repeated_contains(BIT_col, false) from cp.`parquet/alltypes_repeated.json`");
-  }
-
-  @Test
-  public void testSingleColumnRead_vector_fill_bug() throws Exception {
-    String[] queries = {"select * from cp.`store/json/single_column_long_file.json`"};
-    long[] rowCounts = {13512};
-    String filename = "/store/json/single_column_long_file.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-  }
-
-  @Test
-  public void testNonExistentColumnReadAlone() throws Exception {
-    String[] queries = {"select non_existent_column from cp.`store/json/single_column_long_file.json`"};
-    long[] rowCounts = {13512};
-    String filename = "/store/json/single_column_long_file.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-  }
-
-  @Test
-  public void testAllTextMode() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/schema_change_int_to_string.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
-  }
-
-  @Test
   public void readComplexWithStar() throws Exception {
     List<QueryDataBatch> results = testSqlWithResults("select * from cp.`store/json/test_complex_read_with_star.json`");
     assertEquals(1, results.size());
@@ -287,73 +154,6 @@ public class TestJsonReader extends BaseTestQuery {
 
     batch.release();
     batchLoader.clear();
-  }
-
-  @Test
-  public void testNullWhereListExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_list_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_list_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
-  }
-
-  @Test
-  public void testNullWhereMapExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_map_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_map_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
-  }
-
-  @Test
-  public void ensureProjectionPushdown() throws Exception {
-    // Tests to make sure that we are correctly eliminating schema changing columns.  If completes, means that the projection pushdown was successful.
-    test("alter system set `store.json.all_text_mode` = false; "
-        + "select  t.field_1, t.field_3.inner_1, t.field_3.inner_2, t.field_4.inner_1 "
-        + "from cp.`store/json/schema_change_int_to_string.json` t");
-  }
-
-  // The project pushdown rule is correctly adding the projected columns to the scan, however it is not removing
-  // the redundant project operator after the scan, this tests runs a physical plan generated from one of the tests to
-  // ensure that the project is filtering out the correct data in the scan alone
-  @Test
-  public void testProjectPushdown() throws Exception {
-    String[] queries = {Files.asCharSource(DrillFileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8).read()};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    test("alter system set `store.json.all_text_mode` = false");
-    runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
-
-    List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
-    assertEquals(1, results.size());
-    // "`field_1`", "`field_3`.`inner_1`", "`field_3`.`inner_2`", "`field_4`.`inner_1`"
-
-    RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
-    QueryDataBatch batch = results.get(0);
-    assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
-
-    // this used to be five.  It is now three.  This is because the plan doesn't have a project.
-    // Scanners are not responsible for projecting non-existent columns (as long as they project one column)
-    assertEquals(3, batchLoader.getSchema().getFieldCount());
-    testExistentColumns(batchLoader);
-
-    batch.release();
-    batchLoader.clear();
-  }
-
-  @Test
-  public void testJsonDirectoryWithEmptyFile() throws Exception {
-    testBuilder()
-        .sqlQuery("select * from dfs.`store/json/jsonDirectoryWithEmpyFile`")
-        .unOrdered()
-        .baselineColumns("a")
-        .baselineValues(1l)
-        .build()
-        .run();
   }
 
   private void testExistentColumns(RecordBatchLoader batchLoader) throws SchemaChangeException {
@@ -565,23 +365,6 @@ public class TestJsonReader extends BaseTestQuery {
     } finally {
       testNoResult("alter session set `exec.enable_union_type` = false");
     }
-  }
-
-  @Test
-  public void drill_4032() throws Exception {
-    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4032"));
-    table_dir.mkdir();
-    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
-    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
-    os.write("{\"col1\": \"val1\",\"col2\": {\"col3\":\"abc\", \"col4\":\"xyz\"}}".getBytes());
-    os.flush();
-    os.close();
-    os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")));
-    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
-    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
-    os.flush();
-    os.close();
-    testNoResult("select t.col2.col3 from dfs.tmp.drill_4032 t");
   }
 
   @Test

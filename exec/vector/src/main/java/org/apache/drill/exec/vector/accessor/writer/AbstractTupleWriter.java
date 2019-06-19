@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -141,13 +142,15 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     ObjectWriter addColumn(TupleWriter tuple, ColumnMetadata column);
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
+
+    ProjectionType projectionType(String columnName);
   }
 
   protected final TupleMetadata tupleSchema;
   protected final List<AbstractObjectWriter> writers;
   protected ColumnWriterIndex vectorIndex;
   protected ColumnWriterIndex childIndex;
-  protected AbstractTupleWriter.TupleWriterListener listener;
+  protected TupleWriterListener listener;
   protected State state = State.IDLE;
 
   protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
@@ -201,6 +204,12 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       }
     }
     return colIndex;
+  }
+
+  @Override
+  public ProjectionType projectionType(String columnName) {
+    return listener == null ? ProjectionType.GENERAL
+        : listener.projectionType(columnName);
   }
 
   @Override

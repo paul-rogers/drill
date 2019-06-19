@@ -18,9 +18,9 @@
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
-import org.apache.drill.exec.physical.rowSet.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.TupleProjectionType;
@@ -105,5 +105,10 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
       .addContext("Column type:", Types.getSqlTypeName(readCol.majorType()))
       .addContext(errorContext)
       .build(logger);
+  }
+
+  @Override
+  public ProjectionType projectionType(String colName) {
+    return requestedProj.projectionType(colName);
   }
 }

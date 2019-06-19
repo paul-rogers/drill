@@ -22,6 +22,7 @@ import java.util.Set;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
@@ -155,8 +156,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
     final int capacity = buffer.capacity();
     final int offsetsLength = offsetField.getBufferLength();
-    data = buffer.slice(offsetsLength, capacity - offsetsLength);
-    data.retain();
+    if (metadata.getBufferLength() > 0) {
+      data = buffer.slice(offsetsLength, capacity - offsetsLength);
+      data.retain();
+    }
   }
 
   @Override

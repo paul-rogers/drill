@@ -1,0 +1,221 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.store.easy.json;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.logical.FormatPluginConfig;
+import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
+import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
+import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
+import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.dfs.FileSystemConfig;
+import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
+import org.apache.drill.exec.store.dfs.easy.EasySubScan;
+import org.apache.drill.exec.store.dfs.easy.EasyWriter;
+import org.apache.drill.exec.store.easy.json.JsonFormatPlugin.JsonFormatConfig;
+import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
+
+public class JsonFormatPlugin extends EasyFormatPlugin<JsonFormatConfig> {
+
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonFormatPlugin.class);
+  private static final boolean IS_COMPRESSIBLE = true;
+  public static final String PLUGIN_NAME = "json";
+  private static final String DEFAULT_EXTN = "json";
+
+  @JsonTypeName(PLUGIN_NAME)
+  public static class JsonFormatConfig implements FormatPluginConfig {
+
+    public List<String> extensions = ImmutableList.of(DEFAULT_EXTN);
+    private static final List<String> DEFAULT_EXTS = ImmutableList.of(DEFAULT_EXTN);
+
+    @JsonInclude(JsonInclude.Include.NON_DEFAULT)
+    public List<String> getExtensions() {
+      if (extensions == null) {
+        // when loading an old JSONFormatConfig that doesn't contain an "extensions" attribute
+        return DEFAULT_EXTS;
+      }
+      return extensions;
+    }
+
+    @Override
+    public int hashCode() {
+      final int prime = 31;
+      int result = 1;
+      result = prime * result + ((extensions == null) ? 0 : extensions.hashCode());
+      return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null) {
+        return false;
+      }
+      if (getClass() != obj.getClass()) {
+        return false;
+      }
+      JsonFormatConfig other = (JsonFormatConfig) obj;
+      if (extensions == null) {
+        if (other.extensions != null) {
+          return false;
+        }
+      } else if (!extensions.equals(other.extensions)) {
+        return false;
+      }
+      return true;
+    }
+  }
+
+  public static class JsonReaderCreator extends FileReaderFactory {
+
+    private final JsonOptions options;
+
+    public JsonReaderCreator(JsonOptions options) {
+      this.options = options;
+    }
+
+    @Override
+    public ManagedReader<? extends FileSchemaNegotiator> newReader() {
+      return new JsonBatchReader(options);
+    }
+  }
+
+  public JsonFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
+    this(name, context, fsConf, storageConfig, new JsonFormatConfig());
+  }
+
+  public JsonFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+      StoragePluginConfig config, JsonFormatConfig formatPluginConfig) {
+    super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
+  }
+
+  private static EasyFormatConfig easyConfig(Configuration fsConf, JsonFormatConfig pluginConfig) {
+    EasyFormatConfig config = new EasyFormatConfig();
+    config.readable = true;
+    config.writable = true;
+    config.blockSplittable = false;
+    config.compressible = IS_COMPRESSIBLE;
+    config.supportsProjectPushdown = true;
+    config.extensions = pluginConfig.getExtensions();
+    config.fsConf = fsConf;
+    config.defaultName = PLUGIN_NAME;
+    config.readerOperatorType = CoreOperatorType.JSON_SUB_SCAN_VALUE;
+    config.writerOperatorType = CoreOperatorType.JSON_WRITER_VALUE;
+    config.useEnhancedScan = true;
+    config.supportsStatistics = true;
+    return config;
+  }
+
+  @Override
+  protected FileScanBuilder frameworkBuilder(
+      OptionManager options, EasySubScan scan) throws ExecutionSetupException {
+    FileScanBuilder builder = new FileScanBuilder();
+    builder.setReaderFactory(new JsonReaderCreator(null));
+
+    // Project missing columns as Varchar, which is at least
+    // compatible with all-text mode. (JSON never returns a nullable
+    // int, so don't use the default.)
+
+    builder.setNullType(Types.optional(MinorType.VARCHAR));
+
+    return builder;
+  }
+
+  @Override
+  public RecordWriter getRecordWriter(FragmentContext context, EasyWriter writer) throws IOException {
+    Map<String, String> options = Maps.newHashMap();
+
+    options.put("location", writer.getLocation());
+
+    FragmentHandle handle = context.getHandle();
+    String fragmentId = String.format("%d_%d", handle.getMajorFragmentId(), handle.getMinorFragmentId());
+    options.put("prefix", fragmentId);
+
+    options.put("separator", " ");
+    options.put(FileSystem.FS_DEFAULT_NAME_KEY, ((FileSystemConfig) writer.getStorageConfig()).getConnection());
+
+    options.put("extension", "json");
+    options.put("extended", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_EXTENDED_TYPES)));
+    options.put("uglify", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_UGLIFY)));
+    options.put("skipnulls", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_SKIPNULLFIELDS)));
+
+    RecordWriter recordWriter = new JsonRecordWriter(writer.getStorageStrategy());
+    recordWriter.init(options);
+
+    return recordWriter;
+  }
+
+  @Override
+  public void writeStatistics(TableStatistics statistics, FileSystem fs, Path statsTablePath) throws IOException {
+    FSDataOutputStream stream = null;
+    JsonGenerator generator = null;
+    try {
+      JsonFactory factory = new JsonFactory();
+      stream = fs.create(statsTablePath);
+      ObjectMapper mapper = DrillStatsTable.getMapper();
+      generator = factory.createGenerator((OutputStream) stream).useDefaultPrettyPrinter().setCodec(mapper);
+      mapper.writeValue(generator, statistics);
+    } catch (com.fasterxml.jackson.core.JsonGenerationException ex) {
+      logger.error("Unable to create file (JSON generation error): " + statsTablePath.getName(), ex);
+      throw ex;
+    } catch (com.fasterxml.jackson.databind.JsonMappingException ex) {
+      logger.error("Unable to create file (JSON mapping error): " + statsTablePath.getName(), ex);
+      throw ex;
+    } catch (IOException ex) {
+      logger.error("Unable to create file " + statsTablePath.getName(), ex);
+    } finally {
+      if (generator != null) {
+        generator.flush();
+      }
+      if (stream != null) {
+        stream.close();
+      }
+    }
+  }
+}

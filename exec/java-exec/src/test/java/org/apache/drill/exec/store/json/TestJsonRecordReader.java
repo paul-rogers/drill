@@ -17,21 +17,23 @@
  */
 package org.apache.drill.exec.store.json;
 
-import org.apache.drill.test.BaseTestQuery;
-import org.apache.drill.categories.UnlikelyTest;
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.ExecConstants;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.Assert;
-import org.junit.experimental.categories.Category;
-
-import java.nio.file.Paths;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.file.Paths;
+
+import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.UnlikelyTest;
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.test.BaseTestQuery;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
+
+@Category(RowSetTests.class)
 public class TestJsonRecordReader extends BaseTestQuery {
   @BeforeClass
   public static void setupTestFiles() {

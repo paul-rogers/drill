@@ -35,6 +35,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.UserProtos.QueryPlanFragments;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.rpc.DrillRpcFuture;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
@@ -287,6 +288,10 @@ public class ClientFixture implements AutoCloseable {
   }
 
   public RowSetBuilder rowSetBuilder(BatchSchema schema) {
+    return new RowSetBuilder(allocator(), schema);
+  }
+
+  public RowSetBuilder rowSetBuilder(TupleMetadata schema) {
     return new RowSetBuilder(allocator(), schema);
   }
 

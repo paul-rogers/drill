@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.drill.common.expression.PathSegment.NameSegment;
+import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 

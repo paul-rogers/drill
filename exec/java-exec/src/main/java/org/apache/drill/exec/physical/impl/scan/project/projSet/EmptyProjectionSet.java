@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
+import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.physical.rowSet.ProjectionSet;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
@@ -37,4 +38,9 @@ public class EmptyProjectionSet implements ProjectionSet {
 
   @Override
   public void setErrorContext(CustomErrorContext errorContext) { }
+
+  @Override
+  public ProjectionType projectionType(String colName) {
+    return ProjectionType.UNPROJECTED;
+  }
 }
