@@ -57,7 +57,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonLoaderBasics extends BaseTestJsonLoader {
+public class TestJsonReaderBasics extends BaseTestJsonReader {
 
   @Test
   public void testEmpty() {

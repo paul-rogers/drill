@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
-public class TestJsonLoaderAllText extends BaseTestJsonLoader {
+public class TestJsonReaderAllText extends BaseTestJsonReader {
 
   @Test
   @Ignore("Turns out all text can't handle structures")

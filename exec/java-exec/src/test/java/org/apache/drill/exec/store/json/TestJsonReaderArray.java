@@ -47,7 +47,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
-public class TestJsonLoaderArray extends BaseTestJsonLoader {
+public class TestJsonReaderArray extends BaseTestJsonReader {
 
   @Test
   public void testBooleanArray() {

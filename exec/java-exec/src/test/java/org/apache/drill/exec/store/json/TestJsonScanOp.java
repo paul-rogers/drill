@@ -225,7 +225,7 @@ public class TestJsonScanOp extends SubOperatorTest {
             mapValue(strArray("12", "", "4", "null", "5"), null)))
         .addSingleCol(mapArray(
             mapValue(strArray("5", "", "6.0", "1234"), null),
-            mapValue(strArray("7" ,"8.0", "12341324"), null),
+            mapValue(strArray("7", "8.0", "12341324"), null),
             mapValue(strArray("3", "4", "5"), null)))
         .build();
     RowSetUtilities.verify(expected, result);

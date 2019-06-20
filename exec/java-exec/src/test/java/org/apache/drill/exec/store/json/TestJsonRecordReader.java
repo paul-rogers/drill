@@ -33,6 +33,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+/**
+ * Original JSON reader tests. Left in original form; not converted
+ * to the newer formats.
+ */
+
 @Category(RowSetTests.class)
 public class TestJsonRecordReader extends BaseTestQuery {
   @BeforeClass

@@ -19,6 +19,8 @@ package org.apache.drill.exec.store.easy.json;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,11 +42,10 @@ import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.RecordWriter;
-import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
-import org.apache.drill.exec.store.easy.json.JsonFormatPlugin.JsonFormatConfig;
+import org.apache.drill.exec.store.easy.json.JSONFormatPlugin.JSONFormatConfig;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -56,21 +57,19 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 
-public class JsonFormatPlugin extends EasyFormatPlugin<JsonFormatConfig> {
+public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonFormatPlugin.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JSONFormatPlugin.class);
   private static final boolean IS_COMPRESSIBLE = true;
   public static final String PLUGIN_NAME = "json";
   private static final String DEFAULT_EXTN = "json";
 
   @JsonTypeName(PLUGIN_NAME)
-  public static class JsonFormatConfig implements FormatPluginConfig {
+  public static class JSONFormatConfig implements FormatPluginConfig {
 
-    public List<String> extensions = ImmutableList.of(DEFAULT_EXTN);
-    private static final List<String> DEFAULT_EXTS = ImmutableList.of(DEFAULT_EXTN);
+    public List<String> extensions = Collections.singletonList(DEFAULT_EXTN);
+    private static final List<String> DEFAULT_EXTS = Collections.singletonList(DEFAULT_EXTN);
 
     @JsonInclude(JsonInclude.Include.NON_DEFAULT)
     public List<String> getExtensions() {
@@ -100,7 +99,7 @@ public class JsonFormatPlugin extends EasyFormatPlugin<JsonFormatConfig> {
       if (getClass() != obj.getClass()) {
         return false;
       }
-      JsonFormatConfig other = (JsonFormatConfig) obj;
+      JSONFormatConfig other = (JSONFormatConfig) obj;
       if (extensions == null) {
         if (other.extensions != null) {
           return false;
@@ -126,16 +125,16 @@ public class JsonFormatPlugin extends EasyFormatPlugin<JsonFormatConfig> {
     }
   }
 
-  public JsonFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
-    this(name, context, fsConf, storageConfig, new JsonFormatConfig());
+  public JSONFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
+    this(name, context, fsConf, storageConfig, new JSONFormatConfig());
   }
 
-  public JsonFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
-      StoragePluginConfig config, JsonFormatConfig formatPluginConfig) {
+  public JSONFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+      StoragePluginConfig config, JSONFormatConfig formatPluginConfig) {
     super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
   }
 
-  private static EasyFormatConfig easyConfig(Configuration fsConf, JsonFormatConfig pluginConfig) {
+  private static EasyFormatConfig easyConfig(Configuration fsConf, JSONFormatConfig pluginConfig) {
     EasyFormatConfig config = new EasyFormatConfig();
     config.readable = true;
     config.writable = true;
@@ -169,26 +168,31 @@ public class JsonFormatPlugin extends EasyFormatPlugin<JsonFormatConfig> {
 
   @Override
   public RecordWriter getRecordWriter(FragmentContext context, EasyWriter writer) throws IOException {
-    Map<String, String> options = Maps.newHashMap();
+    RecordWriter recordWriter;
+    Map<String, String> options = setupOptions(context, writer, true);
+    recordWriter = new JsonRecordWriter(writer.getStorageStrategy(), getFsConf());
+    recordWriter.init(options);
+    return recordWriter;
+  }
 
+  private Map<String, String> setupOptions(FragmentContext context, EasyWriter writer, boolean statsOptions) {
+    Map<String, String> options = new HashMap<>();
     options.put("location", writer.getLocation());
 
+    OptionManager optionMgr = context.getOptions();
     FragmentHandle handle = context.getHandle();
     String fragmentId = String.format("%d_%d", handle.getMajorFragmentId(), handle.getMinorFragmentId());
     options.put("prefix", fragmentId);
-
     options.put("separator", " ");
-    options.put(FileSystem.FS_DEFAULT_NAME_KEY, ((FileSystemConfig) writer.getStorageConfig()).getConnection());
-
     options.put("extension", "json");
-    options.put("extended", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_EXTENDED_TYPES)));
-    options.put("uglify", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_UGLIFY)));
-    options.put("skipnulls", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_SKIPNULLFIELDS)));
-
-    RecordWriter recordWriter = new JsonRecordWriter(writer.getStorageStrategy());
-    recordWriter.init(options);
-
-    return recordWriter;
+    options.put("extended", Boolean.toString(optionMgr.getBoolean(ExecConstants.JSON_EXTENDED_TYPES_KEY)));
+    options.put("uglify", Boolean.toString(optionMgr.getBoolean(ExecConstants.JSON_WRITER_UGLIFY_KEY)));
+    options.put("skipnulls", Boolean.toString(optionMgr.getBoolean(ExecConstants.JSON_WRITER_SKIPNULLFIELDS_KEY)));
+    options.put("enableNanInf", Boolean.toString(optionMgr.getBoolean(ExecConstants.JSON_WRITER_NAN_INF_NUMBERS)));
+    if (statsOptions) {
+      options.put("queryid", context.getQueryIdString());
+    }
+    return options;
   }
 
   @Override

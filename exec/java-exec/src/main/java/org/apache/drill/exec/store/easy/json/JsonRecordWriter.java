@@ -22,24 +22,24 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
-import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.store.EventBasedRecordWriter;
 import org.apache.drill.exec.store.EventBasedRecordWriter.FieldConverter;
 import org.apache.drill.exec.store.JSONOutputRecordWriter;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.vector.complex.fn.BasicJsonOutput;
 import org.apache.drill.exec.vector.complex.fn.ExtendedJsonOutput;
 import org.apache.drill.exec.vector.complex.fn.JsonWriter;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.google.common.collect.Lists;
+import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 
 public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWriter {
 
@@ -50,7 +50,6 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   private String location;
   private String prefix;
 
-  private String fieldDelimiter;
   private String extension;
   private boolean useExtendedOutput;
 
@@ -61,26 +60,23 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   private final JsonFactory factory = new JsonFactory();
   private final StorageStrategy storageStrategy;
 
-  // Record write status
-  private boolean fRecordStarted = false; // true once the startRecord() is called until endRecord() is called
+  private Configuration fsConf;
 
-  public JsonRecordWriter(StorageStrategy storageStrategy){
+  public JsonRecordWriter(StorageStrategy storageStrategy, Configuration fsConf) {
     this.storageStrategy = storageStrategy == null ? StorageStrategy.DEFAULT : storageStrategy;
+    this.fsConf = new Configuration(fsConf);
   }
 
   @Override
   public void init(Map<String, String> writerOptions) throws IOException {
     this.location = writerOptions.get("location");
     this.prefix = writerOptions.get("prefix");
-    this.fieldDelimiter = writerOptions.get("separator");
     this.extension = writerOptions.get("extension");
     this.useExtendedOutput = Boolean.parseBoolean(writerOptions.get("extended"));
     this.skipNullFields = Boolean.parseBoolean(writerOptions.get("skipnulls"));
     final boolean uglify = Boolean.parseBoolean(writerOptions.get("uglify"));
 
-    Configuration conf = new Configuration();
-    conf.set(FileSystem.FS_DEFAULT_NAME_KEY, writerOptions.get(FileSystem.FS_DEFAULT_NAME_KEY));
-    this.fs = FileSystem.get(conf);
+    this.fs = FileSystem.get(fsConf);
 
     Path fileName = new Path(location, prefix + "_" + index + "." + extension);
     try {
@@ -242,13 +238,11 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   @Override
   public void startRecord() throws IOException {
     gen.writeStartObject();
-    fRecordStarted = true;
   }
 
   @Override
   public void endRecord() throws IOException {
     gen.writeEndObject();
-    fRecordStarted = false;
   }
 
   @Override

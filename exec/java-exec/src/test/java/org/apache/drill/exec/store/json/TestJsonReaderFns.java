@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.json;
 
 import java.nio.file.Paths;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -31,6 +32,7 @@ import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * Tests of Drill selected Drill functions using JSON as an input source.
@@ -46,6 +48,7 @@ import org.junit.Test;
  * ensure vectors populated by JSON work with downstream functions.
  */
 
+@Category(RowSetTests.class)
 public class TestJsonReaderFns extends ClusterTest {
 
   @BeforeClass

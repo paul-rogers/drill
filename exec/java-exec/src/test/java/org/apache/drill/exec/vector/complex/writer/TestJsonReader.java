@@ -31,6 +31,7 @@ import java.io.FileWriter;
 import java.nio.file.Paths;
 import java.util.List;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -49,6 +50,7 @@ import org.apache.drill.test.BaseTestQuery;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * Some tests previously here have moved, and been rewritten to use
@@ -56,10 +58,11 @@ import org.junit.Test;
  * <tt>org.apache.drill.exec.store.json</tt>:
  * <ul>
  * <li><tt>TestJsonReaderFns</tt></li>
- * <li><tt>TestJsonReader2</tt></li>
+ * <li><tt>TestJsonReaderQuery</tt></li>
  * </ul>
  */
 
+@Category(RowSetTests.class)
 public class TestJsonReader extends BaseTestQuery {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestJsonReader.class);
 

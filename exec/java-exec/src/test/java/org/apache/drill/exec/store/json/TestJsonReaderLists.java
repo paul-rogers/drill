@@ -61,7 +61,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonLoaderLists extends BaseTestJsonLoader {
+public class TestJsonReaderLists extends BaseTestJsonReader {
 
   /**
    * Test scalar list support.

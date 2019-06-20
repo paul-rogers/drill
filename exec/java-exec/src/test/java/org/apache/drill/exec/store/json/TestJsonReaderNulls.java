@@ -36,13 +36,12 @@ import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.TypeNegotiator;
+import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import com.google.common.base.Joiner;
 
 /**
  * Drill requires types to be known on the first row. JSON files can be quite lazy about
@@ -52,11 +51,11 @@ import com.google.common.base.Joiner;
  * appears (or until the end of the batch, when the pick is forced.)
  * <p>
  * Empty arrays for multi-dimensional lists are tested in
- * {@link TestJsonLoaderRepeatedLists}.
+ * {@link TestJsonReaderRepeatedLists}.
  */
 
 @Category(RowSetTests.class)
-public class TestJsonLoaderNulls extends BaseTestJsonLoader {
+public class TestJsonReaderNulls extends BaseTestJsonReader {
 
   @Test
   public void testDeferredScalarNull() {

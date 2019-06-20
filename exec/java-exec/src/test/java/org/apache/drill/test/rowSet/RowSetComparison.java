@@ -27,14 +27,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Optional;
-import org.apache.drill.shaded.guava.com.google.common.collect.HashMultiset;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multiset;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
+import org.apache.drill.shaded.guava.com.google.common.base.Optional;
+import org.apache.drill.shaded.guava.com.google.common.collect.HashMultiset;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multiset;
 import org.bouncycastle.util.Arrays;
 import org.junit.Assert;
 
@@ -61,19 +61,20 @@ public class RowSetComparison {
    * copy defined in the test itself.
    */
   private RowSet expected;
+
   /**
    * Some tests wish to ignore certain (top-level) columns. If a
    * mask is provided, then only those columns with a <tt>true</tt>
    * will be verified.
    */
   private boolean mask[];
-  
+
   /**
    * Floats and doubles do not compare exactly. This MathContext is used
    * to construct BigDecimals of the desired precision.
    */
   private MathContext scale = new MathContext(3);
-  
+
   /**
   * Floats and doubles do not compare exactly. This delta is used
   * by JUnit for such comparisons. This is not a general solution;
@@ -81,7 +82,7 @@ public class RowSetComparison {
   * three digits of precision.
   */
   private double delta = 0.001;
-  
+
   /**
    * Tests can skip the first n rows.
    */

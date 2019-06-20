@@ -36,6 +36,7 @@ import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.zip.GZIPOutputStream;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
@@ -43,6 +44,8 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.rpc.RpcException;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
@@ -54,11 +57,15 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
+/**
+ * Reimplementation of selected queries from the
+ * TestJsonReader test case.
+ */
 
-public class TestJsonReader2 extends ClusterTest {
+@Category(RowSetTests.class)
+public class TestJsonReaderQueries extends ClusterTest {
 
   @BeforeClass
   public static void setup() throws Exception {
@@ -458,9 +465,9 @@ public class TestJsonReader2 extends ClusterTest {
   public void testProjectPushdown() throws Exception {
     client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
     try {
-      String plan = Files.toString(DrillFileUtils.getResourceAsFile(
+      String plan = Files.asCharSource(DrillFileUtils.getResourceAsFile(
           "/store/json/project_pushdown_json_physical_plan.json"),
-          Charsets.UTF_8);
+          Charsets.UTF_8).read();
 //      client.queryBuilder().physical(plan).printCsv();
       DirectRowSet results = client.queryBuilder().physical(plan).rowSet();
 //      results.print();

@@ -37,8 +37,15 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+/**
+ * JSON supports repeated list. But, tests with the rest of the code
+ * suggest that this type is not supported by some other operators.
+ * Hence, the functionality is best tested in isolation with just
+ * the JSON reader and scan framework, without the rest of Drill.
+ */
+
 @Category(RowSetTests.class)
-public class TestJsonLoaderRepeatedLists extends BaseTestJsonLoader {
+public class TestJsonReaderRepeatedLists extends BaseTestJsonReader {
 
   @Test
   public void testBoolean2D() {
