@@ -22,6 +22,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.longArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleMap;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.fail;
 
@@ -47,7 +48,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
-public class TestJsonReaderArray extends BaseTestJsonReader {
+public class TestJsonLoaderArray extends BaseTestJsonLoader {
 
   @Test
   public void testBooleanArray() {
@@ -57,7 +58,7 @@ public class TestJsonReaderArray extends BaseTestJsonReader {
         "{a: []} {a: null}";
     final RowSet results = tester.parse(json);
     final TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("a", MinorType.TINYINT)
+        .addArray("a", MinorType.BIT)
         .buildSchema();
     final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(intArray(1, 0))
@@ -229,6 +230,52 @@ public class TestJsonReaderArray extends BaseTestJsonReader {
     tester.close();
   }
 
+  @Test
+  public void testTupleArrayNullCols() {
+    final JsonTester tester = jsonTester();
+    final String json =
+        "{a: [{b: null}, {b:null}]} " +
+        "{a: [{b: null}]} " +
+        "{a: [{b: null}, {b:null}, {b:null}]}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMapArray("a")
+          .addNullable("b", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(mapArray(singleMap(null), singleMap(null)))
+        .addSingleCol(mapArray(singleMap(null)))
+        .addSingleCol(mapArray(singleMap(null), singleMap(null), singleMap(null)))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    tester.close();
+  }
+
+  @Test
+  public void testTupleArrayNullColsNested() {
+    final JsonTester tester = jsonTester();
+    final String json =
+        "{a: [{b: {c: null}}, {b: {c: null}}]} " +
+        "{a: [{b: {c: null}}]} " +
+        "{a: [{b: {c: null}}, {b: {c: null}}, {b: {c: null}}]}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMapArray("a")
+          .addMap("b")
+            .addNullable("c", MinorType.VARCHAR)
+            .resumeMap()
+          .resumeSchema()
+        .buildSchema();
+    Object[] mapValue = singleMap(singleMap(null));
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(mapArray(mapValue, mapValue))
+        .addSingleCol(mapArray(mapValue))
+        .addSingleCol(mapArray(mapValue, mapValue, mapValue))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    tester.close();
+  }
 
   @Test
   public void testArrays() {
@@ -245,7 +292,7 @@ public class TestJsonReaderArray extends BaseTestJsonReader {
     final RowSet result = fixture.wrap(tableLoader.harvest());
 
     final TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("a", MinorType.TINYINT)
+        .addArray("a", MinorType.BIT)
         .addArray("b", MinorType.BIGINT)
         .addArray("c", MinorType.FLOAT8)
         .addArray("d", MinorType.VARCHAR)
@@ -325,4 +372,54 @@ public class TestJsonReaderArray extends BaseTestJsonReader {
     tableLoader.close();
   }
 
+  @Test
+  public void testEmptyArray() {
+    final String json =
+        "{a: [], b: \"first\"} " +
+        "{a: [], b: \"second\"} " +
+        "{a: [], b: \"third\"}";
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
+    final RowSet results = tester.parse(json);
+
+    // Order of columns reverses because array is not
+    // materialized until end of batch.
+
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("b", MinorType.VARCHAR)
+        .addArray("a", MinorType.VARCHAR)
+        .buildSchema();
+
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("first", strArray())
+        .addRow("second", strArray())
+        .addRow("third", strArray())
+        .build();
+    RowSetUtilities.verify(expected, results);
+  }
+
+  @Test
+  public void testEmptyNestedArray() {
+    final String json =
+        "{a: {b: []}, c: \"first\"} " +
+        "{a: {b: []}, c: \"second\"} " +
+        "{a: {b: []}, c: \"third\"}";
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
+    final RowSet results = tester.parse(json);
+
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMap("a")
+          .addArray("b", MinorType.VARCHAR)
+          .resumeSchema()
+        .addNullable("c", MinorType.VARCHAR)
+        .buildSchema();
+
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(singleMap(strArray()), "first")
+        .addRow(singleMap(strArray()), "second")
+        .addRow(singleMap(strArray()), "third")
+        .build();
+    RowSetUtilities.verify(expected, results);
+  }
 }

@@ -38,7 +38,7 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 
-public abstract class BaseTestJsonReader extends SubOperatorTest {
+public abstract class BaseTestJsonLoader extends SubOperatorTest {
 
   static class JsonTester {
     public OptionBuilder loaderOptions = new OptionBuilder();

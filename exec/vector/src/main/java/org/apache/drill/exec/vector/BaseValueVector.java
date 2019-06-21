@@ -24,7 +24,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import io.netty.buffer.DrillBuf;
@@ -90,7 +89,6 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseAccessor implements ValueVector.Accessor {
-    protected BaseAccessor() { }
 
     @Override
     public boolean isNull(int index) {
@@ -99,7 +97,6 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {
-    protected BaseMutator() { }
 
     @Override
     public void generateTestData(int values) {}

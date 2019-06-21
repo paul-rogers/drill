@@ -32,7 +32,7 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class BooleanParser extends ScalarParser {
 
-    public BooleanParser(JsonLoaderImpl.JsonElementParser parent, String key,
+    public BooleanParser(JsonElementParser parent, String key,
         ScalarWriter writer) {
       super(parent, key, writer);
     }
@@ -71,7 +71,7 @@ abstract class ScalarParser extends AbstractParser.LeafParser {
 
   public static class IntParser extends ScalarParser {
 
-    public IntParser(JsonLoaderImpl.JsonElementParser parent, String key,
+    public IntParser(JsonElementParser parent, String key,
         ScalarWriter writer) {
       super(parent, key, writer);
     }

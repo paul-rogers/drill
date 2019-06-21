@@ -26,6 +26,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,6 +38,7 @@ import java.nio.file.Paths;
 import java.util.zip.GZIPOutputStream;
 
 import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
@@ -78,6 +80,7 @@ public class TestJsonReaderQueries extends ClusterTest {
     try {
       return client.queryBuilder().sql(sql).rowSet();
     } catch (RpcException e) {
+      fail(e.getMessage());
       throw new IllegalStateException(e);
     }
   }
@@ -544,4 +547,56 @@ public class TestJsonReaderQueries extends ClusterTest {
         .build();
     new RowSetComparison(expected).verifyAndClearAll(results);
   }
+
+  /** Test <pre>
+   * { "a": 5.2 }
+   * { "a": 6 }</pre>
+   * In Drill 1.16 and before, triggered an exception. In Drill 1.17
+   * and later, the second number, an integer, is converted to a
+   * double.
+   */
+
+  @Test
+  public void testMixedNumberTypes() throws Exception {
+    String sql = "select * from cp.`jsoninput/mixed_number_types.json`";
+    RowSet results = runTest(sql);
+    BatchSchema schema = new SchemaBuilder()
+        .addNullable("a", MinorType.FLOAT8)
+        .build();
+
+    RowSet expected = client.rowSetBuilder(schema)
+        .addSingleCol(5.2D)
+        .addSingleCol(6.0D)
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(results);
+  }
+
+  @Test
+  @Category(UnlikelyTest.class)
+  // DRILL-1832
+  public void testJsonWithNullsx() throws Exception {
+    final String sql = "select * from cp.`jsoninput/twitter_43.json`";
+    RowSet results = runTest(sql);
+    results.print();
+    results.clear();
+  }
+
+  @Test
+  @Category(UnlikelyTest.class)
+  // DRILL-1832
+  public void testJsonWithNullsy() throws Exception {
+    final String sql = "select filter_level from cp.`jsoninput/twitter_43.json`";
+    RowSet results = runTest(sql);
+    results.clear();
+  }
+
+  @Test
+  public void adHoc() throws Exception {
+//    final String sql = "select retweet_count, favorite_count, entities from cp.`jsoninput/twitter_43.json`";
+    final String sql = "select t.entities.symbols, filter_level from cp.`jsoninput/twitter_43.json` t";
+    RowSet results = runTest(sql);
+    results.print();
+    results.clear();
+  }
+
 }

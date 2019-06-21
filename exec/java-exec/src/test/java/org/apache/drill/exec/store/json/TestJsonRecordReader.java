@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.json;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.nio.file.Paths;
 
@@ -116,29 +115,26 @@ public class TestJsonRecordReader extends BaseTestQuery {
   @Test
   @Category(UnlikelyTest.class)
   // DRILL-1832
+  public void testJsonWithNullsx() throws Exception {
+    final String query = "select * from cp.`jsoninput/twitter_43.json`";
+    test(query); // filter_level
+  }
+
+  @Test
+  @Category(UnlikelyTest.class)
+  // DRILL-1832
+  public void testJsonWithNullsy() throws Exception {
+    final String query = "select filter_level from cp.`jsoninput/twitter_43.json`";
+    test(query); // filter_level
+  }
+
+  @Test
+  @Category(UnlikelyTest.class)
+  // DRILL-1832
   public void testJsonWithNulls2() throws Exception {
     final String query = "select SUM(1) as `sum_Number_of_Records_ok` from cp.`jsoninput/twitter_43.json` having (COUNT(1) > 0)";
     testBuilder().sqlQuery(query).unOrdered()
         .jsonBaselineFile("jsoninput/drill-1832-2-result.json").go();
-  }
-
-  @Test
-  public void testMixedNumberTypes() throws Exception {
-    try {
-      testBuilder()
-          .sqlQuery("select * from cp.`jsoninput/mixed_number_types.json`")
-          .unOrdered().jsonBaselineFile("jsoninput/mixed_number_types.json")
-          .build().run();
-    } catch (Exception ex) {
-      assertTrue(ex
-          .getMessage()
-          .contains(
-              "You tried to write a BigInt type when you are using a ValueWriter of type NullableFloat8WriterImpl."));
-      // this indicates successful completion of the test
-      return;
-    }
-    throw new Exception(
-        "Mixed number types verification failed, expected failure on conflicting number types.");
   }
 
   @Test
@@ -173,7 +169,7 @@ public class TestJsonRecordReader extends BaseTestQuery {
       testBuilder().sqlQuery(query).unOrdered().baselineColumns("cnt")
           .baselineValues("1").go();
     } finally {
-      testNoResult("alter session set `store.json.all_text_mode` = false");
+      testNoResult("alter session reset `store.json.all_text_mode`");
     }
   }
 

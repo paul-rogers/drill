@@ -45,7 +45,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderRepeatedLists extends BaseTestJsonReader {
+public class TestJsonReaderRepeatedLists extends BaseTestJsonLoader {
 
   @Test
   public void testBoolean2D() {
@@ -55,7 +55,7 @@ public class TestJsonReaderRepeatedLists extends BaseTestJsonReader {
         "{a: [[true], [false]]}";
     final RowSet results = tester.parse(json);
     final TupleMetadata expectedSchema = new SchemaBuilder()
-        .addArray("a", MinorType.TINYINT, 2)
+        .addArray("a", MinorType.BIT, 2)
         .buildSchema();
     final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(objArray(intArray(1, 0), intArray(0, 1)))

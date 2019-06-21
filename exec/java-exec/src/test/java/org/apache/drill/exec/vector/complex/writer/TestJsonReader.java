@@ -20,8 +20,6 @@ package org.apache.drill.exec.vector.complex.writer;
 import static org.apache.drill.test.TestBuilder.listOf;
 import static org.apache.drill.test.TestBuilder.mapOf;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
@@ -29,21 +27,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.nio.file.Paths;
-import java.util.List;
 
 import org.apache.drill.categories.RowSetTests;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.DrillFileUtils;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.record.RecordBatchLoader;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.exec.util.JsonStringHashMap;
 import org.apache.drill.exec.util.Text;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.RepeatedBigIntVector;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.apache.drill.test.BaseTestQuery;
@@ -141,56 +131,6 @@ public class TestJsonReader extends BaseTestQuery {
       logger.debug("\n");
       i++;
     }
-  }
-
-  @Test
-  public void readComplexWithStar() throws Exception {
-    List<QueryDataBatch> results = testSqlWithResults("select * from cp.`store/json/test_complex_read_with_star.json`");
-    assertEquals(1, results.size());
-
-    RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
-    QueryDataBatch batch = results.get(0);
-
-    assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
-    assertEquals(3, batchLoader.getSchema().getFieldCount());
-    testExistentColumns(batchLoader);
-
-    batch.release();
-    batchLoader.clear();
-  }
-
-  private void testExistentColumns(RecordBatchLoader batchLoader) throws SchemaChangeException {
-    VectorWrapper<?> vw = batchLoader.getValueAccessorById(
-        RepeatedBigIntVector.class, //
-        batchLoader.getValueVectorId(SchemaPath.getCompoundPath("field_1")).getFieldIds() //
-    );
-    assertEquals("[1]", vw.getValueVector().getAccessor().getObject(0).toString());
-    assertEquals("[5]", vw.getValueVector().getAccessor().getObject(1).toString());
-    assertEquals("[5,10,15]", vw.getValueVector().getAccessor().getObject(2).toString());
-
-    vw = batchLoader.getValueAccessorById(
-        IntVector.class, //
-        batchLoader.getValueVectorId(SchemaPath.getCompoundPath("field_3", "inner_1")).getFieldIds() //
-    );
-    assertNull(vw.getValueVector().getAccessor().getObject(0));
-    assertEquals(2l, vw.getValueVector().getAccessor().getObject(1));
-    assertEquals(5l, vw.getValueVector().getAccessor().getObject(2));
-
-    vw = batchLoader.getValueAccessorById(
-        IntVector.class, //
-        batchLoader.getValueVectorId(SchemaPath.getCompoundPath("field_3", "inner_2")).getFieldIds() //
-    );
-    assertNull(vw.getValueVector().getAccessor().getObject(0));
-    assertNull(vw.getValueVector().getAccessor().getObject(1));
-    assertEquals(3l, vw.getValueVector().getAccessor().getObject(2));
-
-    vw = batchLoader.getValueAccessorById(
-        RepeatedBigIntVector.class, //
-        batchLoader.getValueVectorId(SchemaPath.getCompoundPath("field_4", "inner_1")).getFieldIds() //
-    );
-    assertEquals("[]", vw.getValueVector().getAccessor().getObject(0).toString());
-    assertEquals("[1,2,3]", vw.getValueVector().getAccessor().getObject(1).toString());
-    assertEquals("[4,5,6]", vw.getValueVector().getAccessor().getObject(2).toString());
   }
 
   @Test
@@ -296,7 +236,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(9L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 

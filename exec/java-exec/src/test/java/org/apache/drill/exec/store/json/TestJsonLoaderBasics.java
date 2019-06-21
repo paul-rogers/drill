@@ -57,7 +57,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderBasics extends BaseTestJsonReader {
+public class TestJsonLoaderBasics extends BaseTestJsonLoader {
 
   @Test
   public void testEmpty() {
@@ -84,7 +84,7 @@ public class TestJsonReaderBasics extends BaseTestJsonReader {
     final String json = "{a: true} {a: false} {a: null}";
     final RowSet results = tester.parse(json);
     final TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.TINYINT)
+        .addNullable("a", MinorType.BIT)
         .buildSchema();
     final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addRow(1)

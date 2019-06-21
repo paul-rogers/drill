@@ -61,7 +61,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderLists extends BaseTestJsonReader {
+public class TestJsonLoaderLists extends BaseTestJsonLoader {
 
   /**
    * Test scalar list support.
@@ -135,6 +135,30 @@ public class TestJsonReaderLists extends BaseTestJsonReader {
 
     final RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1L, strArray(null, null, null))
+        .build();
+    RowSetUtilities.verify(expected, results);
+  }
+
+
+  @Test
+  public void testEmptyArray() {
+    final String json =
+        "{a: []} {a: []} {a: []}";
+    final JsonOptions options = new JsonOptions();
+    final JsonTester tester = jsonTester(options);
+    options.useListType = true;
+    final RowSet results = tester.parse(json);
+
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addList("b")
+          .addType(MinorType.VARCHAR)
+         .resumeSchema()
+        .buildSchema();
+
+    final RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
         .build();
     RowSetUtilities.verify(expected, results);
   }

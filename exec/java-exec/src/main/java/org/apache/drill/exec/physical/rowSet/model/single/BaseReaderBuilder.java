@@ -20,6 +20,8 @@ package org.apache.drill.exec.physical.rowSet.model.single;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.sql.RowSet;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -28,6 +30,7 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.VectorChecker;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.AbstractScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
@@ -73,6 +76,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
   }
 
   protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
+    VectorChecker.verify(vector);
     final VectorAccessor va = new SingleVectorAccessor(vector);
     final MajorType type = va.type();
 
@@ -105,15 +109,17 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
         buildMapMembers(vector,
             descrip.parent.childProvider(descrip.metadata)));
 
-    // Single map
+    if (isArray) {
 
-    if (! isArray) {
+      // Repeated map
+
+      return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
+    } else {
+
+      // Single map
+
       return mapReader;
     }
-
-    // Repeated map
-
-    return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
   }
 
   protected List<AbstractObjectReader> buildMapMembers(AbstractMapVector mapVector, MetadataProvider provider) {

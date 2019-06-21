@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.json;
 import static org.apache.drill.test.rowSet.RowSetUtilities.doubleArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.longArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.singleMap;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -55,7 +56,43 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderNulls extends BaseTestJsonReader {
+public class TestJsonReaderNulls extends BaseTestJsonLoader {
+
+  @Test
+  public void testAllNulls() {
+    final JsonTester tester = jsonTester();
+    final String json = "{a: null} {a: null} {a: null}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(null)
+        .addSingleCol(null)
+        .addSingleCol(null)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    tester.close();
+  }
+
+  @Test
+  public void testAllNullsInNested() {
+    final JsonTester tester = jsonTester();
+    final String json = "{a: {b: null}} {a: {b: null}} {a: {b: null}}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMap("a")
+          .addNullable("b", MinorType.VARCHAR)
+          .resumeSchema()
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(singleMap(null))
+        .addSingleCol(singleMap(null))
+        .addSingleCol(singleMap(null))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    tester.close();
+  }
 
   @Test
   public void testDeferredScalarNull() {
@@ -69,6 +106,25 @@ public class TestJsonReaderNulls extends BaseTestJsonReader {
         .addSingleCol(null)
         .addSingleCol(null)
         .addRow(10L)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    tester.close();
+  }
+
+  @Test
+  public void testDeferredScalarNullInNested() {
+    final JsonTester tester = jsonTester();
+    final String json = "{a: {b: null}} {a: {b: null}} {a: {b: 10}}";
+    final RowSet results = tester.parse(json);
+    final TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMap("a")
+          .addNullable("b", MinorType.BIGINT)
+          .resumeSchema()
+        .buildSchema();
+    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(singleMap(null))
+        .addSingleCol(singleMap(null))
+        .addSingleCol(singleMap(10L))
         .build();
     RowSetUtilities.verify(expected, results);
     tester.close();
@@ -389,7 +445,7 @@ public class TestJsonReaderNulls extends BaseTestJsonReader {
 
     // Read the one and only record into a batch. When we saw the
     // null value for b, we should have used the knowledge that b must
-    // be a map (based on the projection of a.b), to make it an map
+    // be a map (based on the projection of a.b), to make it a map
     // (which contains no columns.)
 
     final String json =
@@ -411,4 +467,5 @@ public class TestJsonReaderNulls extends BaseTestJsonReader {
         .build();
     RowSetUtilities.verify(expected, results);
   }
+
 }

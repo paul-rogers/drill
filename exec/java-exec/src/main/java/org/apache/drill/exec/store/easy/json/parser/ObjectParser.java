@@ -145,7 +145,7 @@ class ObjectParser extends ContainerParser {
             fullName(), newParser.schema().type().name());
       } else {
         JsonLoaderImpl.logger.warn("Ambiguous type! JSON field {}" +
-            " contains all nulls. Assuming text mode.",
+            " contains all nulls. Assuming VARCHAR.",
             fullName());
         newParser = new ScalarParser.TextParser(parent(), key(),
             objectParser.newWriter(key(), MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
@@ -256,7 +256,7 @@ class ObjectParser extends ContainerParser {
             fullName(), newParser.writer.scalar().schema().type().name());
       } else {
         JsonLoaderImpl.logger.warn("Ambiguous type! JSON array {}" +
-            " contains all nulls. Assuming text mode.",
+            " contains all nulls. Assuming VARCHAR.",
             fullName());
         ArrayWriter arrayWriter = objectParser.newWriter(key(), MinorType.VARCHAR, DataMode.REPEATED).array();
         JsonElementParser elementParser = new ScalarParser.TextParser(objectParser, key(), arrayWriter.scalar());
