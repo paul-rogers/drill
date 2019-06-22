@@ -94,7 +94,7 @@ public class ColumnBuilder {
   public ColumnState buildColumn(ContainerState parent, ColumnMetadata columnSchema) {
 
     ColumnReadProjection colProj = parent.projectionSet().readProjection(columnSchema);
-    switch (colProj.providedSchema().structureType()) {
+    switch (colProj.outputSchema().structureType()) {
     case TUPLE:
       return buildMap(parent, colProj);
     case VARIANT:
@@ -125,7 +125,7 @@ public class ColumnBuilder {
    */
 
   private ColumnState buildPrimitive(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     ValueVector vector;
     if (!colProj.isProjected()) {
@@ -184,7 +184,7 @@ public class ColumnBuilder {
    */
 
   private ColumnState buildMap(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     // When dynamically adding columns, must add the (empty)
     // map by itself, then add columns to the map via separate
@@ -203,7 +203,7 @@ public class ColumnBuilder {
   }
 
   private ColumnState buildSingleMap(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     MapVector vector;
     VectorState vectorState;
@@ -228,7 +228,7 @@ public class ColumnBuilder {
   }
 
   private ColumnState buildMapArray(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     // Create the map's offset vector.
 
@@ -299,7 +299,7 @@ public class ColumnBuilder {
    * @return column
    */
   private ColumnState buildUnion(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
     assert columnSchema.isVariant() && ! columnSchema.isArray();
 
     // Create the union vector.
@@ -334,7 +334,7 @@ public class ColumnBuilder {
   }
 
   private ColumnState buildList(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     // If the list has declared a single type, and has indicated that this
     // is the only type expected, then build the list as a nullable array
@@ -368,7 +368,7 @@ public class ColumnBuilder {
    */
 
   private ColumnState buildSimpleList(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     // The variant must have the one and only type.
 
@@ -427,7 +427,7 @@ public class ColumnBuilder {
    */
 
   private ColumnState buildUnionList(ContainerState parent, ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     // The variant must start out empty.
 
@@ -475,7 +475,7 @@ public class ColumnBuilder {
 
   private ColumnState buildRepeatedList(ContainerState parent,
       ColumnReadProjection colProj) {
-    ColumnMetadata columnSchema = colProj.providedSchema();
+    ColumnMetadata columnSchema = colProj.outputSchema();
 
     assert columnSchema.type() == MinorType.LIST;
     assert columnSchema.mode() == DataMode.REPEATED;

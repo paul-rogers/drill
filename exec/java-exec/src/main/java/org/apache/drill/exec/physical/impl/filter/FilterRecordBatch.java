@@ -39,7 +39,6 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
@@ -109,18 +108,17 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
         if (sv2 == null) {
           sv2 = new SelectionVector2(oContext.getAllocator());
         }
-        this.filter = generateSV2Filterer();
+        filter = generateSV2Filterer();
         break;
       case TWO_BYTE:
         sv2 = new SelectionVector2(oContext.getAllocator());
-        this.filter = generateSV2Filterer();
+        filter = generateSV2Filterer();
         break;
       case FOUR_BYTE:
         /*
          * Filter does not support SV4 handling. There are couple of minor issues in the
          * logic that handles SV4 + filter should always be pushed beyond sort so disabling
          * it in FilterPrel.
-         *
          */
       default:
         throw new UnsupportedOperationException();

@@ -81,7 +81,7 @@ public class TestProjectionSet {
     // Verify properties of an unprojected column
 
     assertSame(aSchema, aCol.readSchema());
-    assertSame(aSchema, aCol.providedSchema());
+    assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertSame(EmptyProjectionSet.PROJECT_NONE, aCol.mapProjection());
     assertNull(aCol.projectionType());
@@ -110,7 +110,7 @@ public class TestProjectionSet {
     ColumnReadProjection aCol = projSet.readProjection(aSchema);
     assertTrue(aCol.isProjected());
     assertSame(aSchema, aCol.readSchema());
-    assertSame(aSchema, aCol.providedSchema());
+    assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertNull(aCol.mapProjection());
     assertNull(aCol.projectionType());
@@ -168,28 +168,28 @@ public class TestProjectionSet {
 
     ColumnReadProjection aCol = projSet.readProjection(readSchema.metadata("a"));
     assertTrue(aCol.isProjected());
-    assertSame(outputSchema.metadata("a"), aCol.providedSchema());
+    assertSame(outputSchema.metadata("a"), aCol.outputSchema());
     assertNotNull(aCol.conversionFactory());
 
     // Column b marked as special by reader
 
     ColumnReadProjection bCol = projSet.readProjection(readSchema.metadata("b"));
     assertFalse(bCol.isProjected());
-    assertSame(readSchema.metadata("b"), bCol.providedSchema());
+    assertSame(readSchema.metadata("b"), bCol.outputSchema());
     assertNull(bCol.conversionFactory());
 
     // Column c marked as special by provided schema
 
     ColumnReadProjection cCol = projSet.readProjection(readSchema.metadata("c"));
     assertFalse(cCol.isProjected());
-    assertSame(readSchema.metadata("c"), cCol.providedSchema());
+    assertSame(readSchema.metadata("c"), cCol.outputSchema());
     assertNull(cCol.conversionFactory());
 
     // Column d needs no conversion
 
     ColumnReadProjection dCol = projSet.readProjection(readSchema.metadata("d"));
     assertTrue(dCol.isProjected());
-    assertSame(outputSchema.metadata("d"), dCol.providedSchema());
+    assertSame(outputSchema.metadata("d"), dCol.outputSchema());
     assertNull(dCol.conversionFactory());
   }
 
@@ -231,7 +231,7 @@ public class TestProjectionSet {
 
     ColumnReadProjection mCol = projSet.readProjection(readSchema.metadata("m"));
     assertTrue(mCol.isProjected());
-    assertSame(outputSchema.metadata("m"), mCol.providedSchema());
+    assertSame(outputSchema.metadata("m"), mCol.outputSchema());
     assertNull(mCol.conversionFactory());
     ProjectionSet mProj = mCol.mapProjection();
 
@@ -240,7 +240,7 @@ public class TestProjectionSet {
     ColumnReadProjection eCol = mProj.readProjection(mReadSchema.metadata("e"));
     assertTrue(eCol.isProjected());
     assertSame(mReadSchema.metadata("e"), eCol.readSchema());
-    assertSame(mOutputSchema.metadata("e"), eCol.providedSchema());
+    assertSame(mOutputSchema.metadata("e"), eCol.outputSchema());
     assertNotNull(eCol.conversionFactory());
 
     // Column m.f marked as special by reader
@@ -257,7 +257,7 @@ public class TestProjectionSet {
 
     ColumnReadProjection hCol = mProj.readProjection(mReadSchema.metadata("h"));
     assertTrue(hCol.isProjected());
-    assertSame(mReadSchema.metadata("h"), hCol.providedSchema());
+    assertSame(mReadSchema.metadata("h"), hCol.outputSchema());
     assertNull(hCol.conversionFactory());
   }
 
@@ -288,14 +288,14 @@ public class TestProjectionSet {
 
     ColumnReadProjection aCol = projSet.readProjection(readSchema.metadata("a"));
     assertTrue(aCol.isProjected());
-    assertSame(outputSchema.metadata("a"), aCol.providedSchema());
+    assertSame(outputSchema.metadata("a"), aCol.outputSchema());
     assertNotNull(aCol.conversionFactory());
 
     // Column b not in provided schema
 
     ColumnReadProjection bCol = projSet.readProjection(readSchema.metadata("b"));
     assertFalse(bCol.isProjected());
-    assertSame(readSchema.metadata("b"), bCol.providedSchema());
+    assertSame(readSchema.metadata("b"), bCol.outputSchema());
     assertNull(bCol.conversionFactory());
   }
 
@@ -335,7 +335,7 @@ public class TestProjectionSet {
 
     ColumnReadProjection mCol = projSet.readProjection(readSchema.metadata("m"));
     assertTrue(mCol.isProjected());
-    assertSame(outputSchema.metadata("m"), mCol.providedSchema());
+    assertSame(outputSchema.metadata("m"), mCol.outputSchema());
     assertNull(mCol.conversionFactory());
     ProjectionSet mProj = mCol.mapProjection();
 
@@ -343,7 +343,7 @@ public class TestProjectionSet {
 
     ColumnReadProjection cCol = mProj.readProjection(mReadSchema.metadata("c"));
     assertTrue(cCol.isProjected());
-    assertSame(mOutputSchema.metadata("c"), cCol.providedSchema());
+    assertSame(mOutputSchema.metadata("c"), cCol.outputSchema());
     assertNull(cCol.conversionFactory());
 
     // Column m.d is not in the provided schema
@@ -384,7 +384,7 @@ public class TestProjectionSet {
     ColumnReadProjection aCol = projSet.readProjection(aSchema);
     assertTrue(aCol.isProjected());
     assertSame(aSchema, aCol.readSchema());
-    assertSame(aSchema, aCol.providedSchema());
+    assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertNull(aCol.mapProjection());
     assertEquals(ProjectionType.GENERAL, aCol.projectionType());
@@ -428,7 +428,7 @@ public class TestProjectionSet {
     ColumnReadProjection m1Col = projSet.readProjection(m1Schema);
     assertTrue(m1Col.isProjected());
     assertSame(m1Schema, m1Col.readSchema());
-    assertSame(m1Schema, m1Col.providedSchema());
+    assertSame(m1Schema, m1Col.outputSchema());
     assertNull(m1Col.conversionFactory());
     assertEquals(ProjectionType.TUPLE, m1Col.projectionType());
 
@@ -448,7 +448,7 @@ public class TestProjectionSet {
     assertEquals(ProjectionType.GENERAL, m2Col.projectionType());
     assertTrue(m2Col.isProjected());
     assertSame(m2Schema, m2Col.readSchema());
-    assertSame(m2Schema, m2Col.providedSchema());
+    assertSame(m2Schema, m2Col.outputSchema());
     assertNull(m2Col.conversionFactory());
     assertTrue(m2Col.mapProjection() instanceof WildcardProjectionSet);
     assertEquals(ProjectionType.GENERAL, m2Col.projectionType());
@@ -570,7 +570,7 @@ public class TestProjectionSet {
 
     ColumnReadProjection col = projSet.readProjection(readColSchema);
     assertTrue(col.isProjected());
-    assertSame(outputSchema.metadata("a"), col.providedSchema());
+    assertSame(outputSchema.metadata("a"), col.outputSchema());
     assertNotNull(col.conversionFactory());
 
     // Project none
@@ -593,7 +593,7 @@ public class TestProjectionSet {
     col = projSet.readProjection(readColSchema);
     assertTrue(col.isProjected());
     assertSame(readColSchema, col.readSchema());
-    assertSame(outputSchema.metadata("a"), col.providedSchema());
+    assertSame(outputSchema.metadata("a"), col.outputSchema());
     assertNotNull(col.conversionFactory());
 
     assertFalse(projSet.readProjection(readSchema.metadata("b")).isProjected());

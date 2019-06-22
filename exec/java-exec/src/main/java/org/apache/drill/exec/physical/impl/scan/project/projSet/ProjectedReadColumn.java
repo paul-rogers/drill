@@ -58,7 +58,7 @@ public class ProjectedReadColumn extends AbstractReadColProj {
   }
 
   @Override
-  public ColumnMetadata providedSchema() {
+  public ColumnMetadata outputSchema() {
     return outputSchema == null ? readSchema : outputSchema;
   }
 

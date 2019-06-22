@@ -28,9 +28,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.AllocationHelper;
-import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.impl.VectorPrinter;
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.joda.time.DateTime;
@@ -59,18 +57,8 @@ public class VectorUtil {
         boolean lastColumn = columnCounter == width - 1;
         Object o;
         try {
-          ValueVector v = vw.getValueVector();
-          if (v.getField().getName().equals("filter_level")) {
-            NullableVarCharVector nvv = (NullableVarCharVector) v;
-            VectorPrinter.printOffsets(nvv.getValuesVector().getOffsetVector(), 0, v.getAccessor().getValueCount());
-          }
           o = vw.getValueVector().getAccessor().getObject(row);
-          System.out.println(
-              String.format("%s (%d): %s", v.getField().toString(), v.getAccessor().getValueCount(), o));
         } catch (Exception e) {
-          ValueVector v = vw.getValueVector();
-          System.out.println(v.getField().toString());
-          System.out.println("count = " + v.getAccessor().getValueCount());
           throw new RuntimeException("failure while trying to read column " + vw.getField().getName());
         }
         if (o == null) {

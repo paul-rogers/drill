@@ -87,7 +87,7 @@ public interface ProjectionSet {
     boolean isProjected();
 
     ColumnMetadata readSchema();
-    ColumnMetadata providedSchema();
+    ColumnMetadata outputSchema();
     ColumnConversionFactory conversionFactory();
     ProjectionSet mapProjection();
 

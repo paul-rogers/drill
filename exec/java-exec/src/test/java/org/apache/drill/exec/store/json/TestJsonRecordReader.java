@@ -155,7 +155,7 @@ public class TestJsonRecordReader extends BaseTestQuery {
           .unOrdered().baselineColumns("a").baselineValues(5.2D)
           .baselineValues(6D).build().run();
     } finally {
-      testNoResult("alter session set `store.json.read_numbers_as_double`= false");
+      testNoResult("alter session reset `store.json.read_numbers_as_double`");
     }
   }
 
@@ -201,8 +201,8 @@ public class TestJsonRecordReader extends BaseTestQuery {
       testBuilder().unOrdered().sqlQuery(query).sqlBaselineQuery(query).build()
           .run();
     } finally {
-      String set = "alter session set `"
-          + ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG + "` = false";
+      String set = "alter session reset `"
+          + ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG + "`";
       testNoResult(set);
     }
   }
@@ -242,8 +242,8 @@ public class TestJsonRecordReader extends BaseTestQuery {
           .run();
     }
     finally {
-      String set = "alter session set `"
-          + ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG + "` = false";
+      String set = "alter session reset `"
+          + ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG + "`";
       testNoResult(set);
     }
   }

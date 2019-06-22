@@ -40,7 +40,7 @@ public abstract class AbstractReadColProj implements ColumnReadProjection {
   public ColumnConversionFactory conversionFactory() { return null; }
 
   @Override
-  public ColumnMetadata providedSchema() { return readSchema; }
+  public ColumnMetadata outputSchema() { return readSchema; }
 
   @Override
   public ProjectionSet mapProjection() { return ProjectionSetFactory.projectAll(); }

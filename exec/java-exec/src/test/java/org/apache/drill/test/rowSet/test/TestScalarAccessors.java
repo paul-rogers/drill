@@ -44,6 +44,7 @@ import org.apache.drill.exec.vector.DateUtilities;
 import org.apache.drill.exec.vector.NullableBitVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.NullableVector;
+import org.apache.drill.exec.vector.RepeatedVarCharVector;
 import org.apache.drill.exec.vector.UInt1Vector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -792,8 +793,8 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addArray("col", MinorType.VARCHAR)
         .buildSchema();
     SingleRowSet rs = fixture.rowSetBuilder(schema)
-        .addSingleCol(new String[] {})
-        .addSingleCol(new String[] {"fred", "", "wilma"})
+        .addSingleCol(strArray())
+        .addSingleCol(strArray("fred", "", "wilma"))
         .build();
     assertEquals(2, rs.rowCount());
 
@@ -829,6 +830,57 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(Lists.newArrayList("fred", "", "wilma"), arrayReader.getObject());
 
     assertFalse(reader.next());
+    rs.clear();
+  }
+
+  /**
+   * Test for the special case for the "inner" offset vector
+   * as explained in the Javadoc for
+   * @{link org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl}
+   */
+
+  @Test
+  public void testEmptyVarcharArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addArray("col", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    SingleRowSet rs = fixture.rowSetBuilder(schema)
+        .addRow(strArray(), "first")
+        .addRow(strArray(), "second")
+        .addRow(strArray(), "third")
+        .build();
+    assertEquals(3, rs.rowCount());
+
+    // Verify vector state
+
+    VectorContainer container = rs.container();
+    assertEquals(2, container.getNumberOfColumns());
+    ValueVector v = container.getValueVector(0).getValueVector();
+    assertTrue(v instanceof RepeatedVarCharVector);
+    RepeatedVarCharVector rvc = (RepeatedVarCharVector) v;
+    assertEquals(3, rvc.getAccessor().getValueCount());
+
+    // Verify outer offsets vector
+
+    UInt4Vector oov = rvc.getOffsetVector();
+    assertEquals(4, oov.getAccessor().getValueCount());
+    assertEquals(4 * 4, oov.getBuffer().writerIndex());
+
+    // Inner vector
+
+    VarCharVector iv = rvc.getDataVector();
+    assertEquals(0, iv.getAccessor().getValueCount());
+    assertEquals(0, iv.getBuffer().writerIndex());
+
+    // Inner offset vector. Has 0 entries, not 1 as would be
+    // expected according to the general rule:
+    // offset vector length = value length + 1
+
+    UInt4Vector iov = iv.getOffsetVector();
+    assertEquals(0, iov.getAccessor().getValueCount());
+    assertEquals(0, iov.getBuffer().writerIndex());
+
     rs.clear();
   }
 

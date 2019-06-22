@@ -185,7 +185,6 @@ class ReaderState {
   private final RowBatchReader reader;
   private State state = State.START;
   private VectorContainer lookahead;
-  private int schemaVersion = -1;
 
   public ReaderState(ScanOperatorExec scanOp, RowBatchReader reader) {
     this.scanOp = scanOp;
@@ -303,7 +302,6 @@ class ReaderState {
       // This returns an empty batch with the schema filled in.
 
       scanOp.containerAccessor.setContainer(reader.output());
-      schemaVersion = reader.schemaVersion();
       return true;
     }
 
@@ -313,13 +311,13 @@ class ReaderState {
       return false;
     }
     VectorContainer container = reader.output();
-    schemaVersion = reader.schemaVersion();
     if (container.getRecordCount() == 0) {
       return true;
     }
 
     // The reader returned actual data. Just forward the schema
-    // in a dummy container, saving the data for next time.
+    // in the operator's container, saving the data for next time
+    // in a dummy container.
 
     assert lookahead == null;
     lookahead = new VectorContainer(scanOp.context.getAllocator(), scanOp.containerAccessor.getSchema());
@@ -427,11 +425,7 @@ class ReaderState {
     // a reader that starts with a schema, but later changes it, has
     // morphed from an early- to late-schema reader.)
 
-    int newVersion = reader.schemaVersion();
-    if (newVersion > schemaVersion) {
-      scanOp.containerAccessor.setContainer(output);
-      schemaVersion = newVersion;
-    }
+    scanOp.containerAccessor.setContainer(output);
     return true;
   }
 

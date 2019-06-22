@@ -160,6 +160,10 @@ public class OperatorDriver {
     if (operatorExec.buildSchema()) {
       schemaVersion = batchAccessor.schemaVersion();
       state = State.RUN;
+
+      // Report schema change.
+
+      batchAccessor.getOutgoingContainer().setSchemaChanged(true);
       return IterOutcome.OK_NEW_SCHEMA;
     } else {
       state = State.END;
@@ -178,7 +182,16 @@ public class OperatorDriver {
       return IterOutcome.NONE;
     }
     int newVersion = batchAccessor.schemaVersion();
-    if (newVersion != schemaVersion) {
+    boolean schemaChanged = newVersion != schemaVersion;
+
+    // Set the container schema changed based on whether the
+    // current schema differs from that the last time through
+    // this method. That is, we take "schema changed" to be
+    // "schema changed since last call to next." The result hide
+    // trivial changes within this operator.
+
+    batchAccessor.getOutgoingContainer().setSchemaChanged(schemaChanged);
+    if (schemaChanged) {
       schemaVersion = newVersion;
       return IterOutcome.OK_NEW_SCHEMA;
     }
