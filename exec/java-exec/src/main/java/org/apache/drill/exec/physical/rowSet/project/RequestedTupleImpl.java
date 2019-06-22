@@ -275,7 +275,8 @@ public class RequestedTupleImpl implements RequestedTuple {
 
       member.projectAllElements();
       return;
-    } else if (!member.hasIndex(index)) {
+    }
+    if (!member.hasIndex(index)) {
 
       // Allow duplicate indexes. Example: z[0], z[0]['orange']
 

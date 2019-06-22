@@ -335,15 +335,30 @@ public class TestProjectedTuple {
     assertTrue(indexes[3]);
   }
 
+  /**
+   * Duplicate array entries are allowed to handle the
+   * use case of a[1], a[1].z. Each element is reported once;
+   * the project operator will create copies as needed.
+   */
+
   @Test
   public void testArrayDups() {
-    try {
-      RequestedTupleImpl.parse(
-          RowSetTestUtils.projectList("a[1]", "a[3]", "a[1]"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
+    RequestedTuple projSet = RequestedTupleImpl.parse(
+        RowSetTestUtils.projectList("a[1]", "a[3]", "a[1]", "a[3].z"));
+
+    List<RequestedColumn> cols = projSet.projections();
+    assertEquals(1, cols.size());
+
+    RequestedColumn a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isArray());
+    boolean indexes[] = a.indexes();
+    assertNotNull(indexes);
+    assertEquals(4, indexes.length);
+    assertFalse(indexes[0]);
+    assertTrue(indexes[1]);
+    assertFalse(indexes[2]);
+    assertTrue(indexes[3]);
   }
 
   @Test

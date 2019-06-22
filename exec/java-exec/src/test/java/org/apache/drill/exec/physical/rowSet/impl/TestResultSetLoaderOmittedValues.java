@@ -25,6 +25,7 @@ import java.util.Arrays;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -211,6 +212,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     // Harvest and verify
 
     RowSet result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(rowNumber - 1, result.rowCount());
     RowSetReader reader = result.reader();
     int rowIndex = 0;
@@ -249,6 +251,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     // Verify that holes were preserved.
 
     result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(rowNumber, rsLoader.totalRowCount());
     assertEquals(rowNumber - startRowNumber + 1, result.rowCount());
 //    result.print();

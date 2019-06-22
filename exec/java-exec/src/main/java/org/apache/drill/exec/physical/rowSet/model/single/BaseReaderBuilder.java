@@ -30,7 +30,6 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.impl.VectorChecker;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.AbstractScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
@@ -76,7 +75,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
   }
 
   protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
-    VectorChecker.verify(vector);
+    // Enable to catch vector state issues during unit tests.
+    //assert VectorChecker.verify(vector);
+
     final VectorAccessor va = new SingleVectorAccessor(vector);
     final MajorType type = va.type();
 

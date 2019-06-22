@@ -40,16 +40,19 @@ public class VectorChecker {
 
   public static boolean verifyOffsets(String name, UInt4Vector vector) {
     UInt4Vector.Accessor va = vector.getAccessor();
-    int size = va.getValueCount();
+    int valueCount = va.getValueCount();
+    if (valueCount == 0) {
+      return true;
+    }
     int prev = va.get(0);
     if (prev != 0) {
       System.out.println(String.format(
           "Offset vector for %s: [0] contained %d, expected 0",
           name, prev));
-      VectorPrinter.printOffsets(vector, 0, size);
+      VectorPrinter.printOffsets(vector, 0, valueCount);
       return false;
     }
-    for (int i = 1; i < size; i++) {
+    for (int i = 1; i < valueCount; i++) {
       int offset = va.get(i);
       if (offset < prev) {
         System.out.println(String.format(
@@ -97,6 +100,9 @@ public class VectorChecker {
           vector.getField().getName(), lastOffset, valueCount));
       return false;
     }
+    if (rowCount == 0) {
+      return true;
+    }
     return verifyVarChar(vector.getDataVector());
   }
 
@@ -125,10 +131,17 @@ public class VectorChecker {
   }
 
   public static boolean verifyVarChar(VarCharVector vector) {
+    int size = vector.getAccessor().getValueCount();
+
+    // A pre-serialized VarChar has a one-item offset vector.
+    // A deserialized VarChar has a zero-item offset vector.
+
+    if (size == 0) {
+      return true;
+    }
     if (! verifyOffsets(vector.getField().getName(), vector.getOffsetVector())) {
       return false;
     }
-    int size = vector.getAccessor().getValueCount();
     int offsetSize = vector.getOffsetVector().getAccessor().getValueCount();
     if (offsetSize != size + 1) {
       System.out.println(String.format(
@@ -176,6 +189,10 @@ public class VectorChecker {
   }
 
   public static boolean verify(ValueVector vector) {
+
+    // Verifies a subset of vectors: those that have had issues.
+    // Feel free to add others.
+
     if (vector instanceof VarCharVector) {
       return verifyVarChar((VarCharVector) vector);
     }
@@ -191,6 +208,6 @@ public class VectorChecker {
     if (vector instanceof NullableBitVector) {
       return verifyNullableBitVector((NullableBitVector) vector);
     }
-    return false;
+    return true;
   }
 }

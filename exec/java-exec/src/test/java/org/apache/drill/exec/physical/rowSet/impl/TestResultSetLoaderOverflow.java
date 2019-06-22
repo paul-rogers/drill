@@ -27,6 +27,7 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
@@ -432,6 +433,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Verify
 
     RowSet result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(count - 1, result.rowCount());
 
     {
@@ -505,6 +507,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(6, result.rowCount());
 
     {
@@ -627,6 +630,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     RowSet result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(rowId - 1, result.rowCount());
     RowSetReader reader = result.reader();
     ArrayReader cArray = reader.array("c");
@@ -680,6 +684,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Result should exclude the overflow row
 
     RowSet result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(count - 1, result.rowCount());
 
     RowSetReader reader = result.reader();
@@ -752,6 +757,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Result should exclude the overflow row
 
     RowSet result = fixture.wrap(rsLoader.harvest());
+    ScanTestUtils.verifyVectors(result);
     assertEquals(expectedCount, result.rowCount());
 
     // Verify that the values were, in fact, appended.
