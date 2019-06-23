@@ -57,7 +57,8 @@ public class ListParser extends ArrayParser {
    * on that basis.
    */
 
-  protected static class NullElementParser extends AbstractParser.LeafParser implements JsonLoaderImpl.NullTypeMarker {
+  protected static class NullElementParser extends AbstractParser.LeafParser
+      implements JsonLoaderImpl.NullTypeMarker {
 
     private final ListParser listParser;
 

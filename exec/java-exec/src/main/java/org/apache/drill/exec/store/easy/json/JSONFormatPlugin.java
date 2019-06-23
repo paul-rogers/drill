@@ -25,12 +25,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.QueryContext.SqlStatementType;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
@@ -41,10 +43,14 @@ import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StatisticsRecordWriter;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
+import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.exec.store.easy.json.JSONFormatPlugin.JSONFormatConfig;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonOptions;
 import org.apache.hadoop.conf.Configuration;
@@ -146,24 +152,42 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
     config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = CoreOperatorType.JSON_SUB_SCAN_VALUE;
     config.writerOperatorType = CoreOperatorType.JSON_WRITER_VALUE;
-    config.useEnhancedScan = true;
+    // Temporary until V2 is the default.
+    // config.useEnhancedScan = true;
     config.supportsStatistics = true;
     return config;
   }
 
   @Override
-  protected FileScanBuilder frameworkBuilder(
-      OptionManager options, EasySubScan scan) throws ExecutionSetupException {
-    FileScanBuilder builder = new FileScanBuilder();
-    builder.setReaderFactory(new JsonReaderCreator(null));
+  public RecordReader getRecordReader(FragmentContext context,
+                                      DrillFileSystem dfs,
+                                      FileWork fileWork,
+                                      List<SchemaPath> columns,
+                                      String userName) {
+    return new JSONRecordReader(context, fileWork.getPath(), dfs, columns);
+  }
 
-    // Project missing columns as Varchar, which is at least
-    // compatible with all-text mode. (JSON never returns a nullable
-    // int, so don't use the default.)
+  @Override
+  public boolean isStatisticsRecordWriter(FragmentContext context, EasyWriter writer) {
+    if (context.getSQLStatementType() == SqlStatementType.ANALYZE) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 
-    builder.setNullType(Types.optional(MinorType.VARCHAR));
-
-    return builder;
+  @Override
+  public StatisticsRecordWriter getStatisticsRecordWriter(FragmentContext context, EasyWriter writer)
+      throws IOException {
+    StatisticsRecordWriter recordWriter;
+    //ANALYZE statement requires the special statistics writer
+    if (!isStatisticsRecordWriter(context, writer)) {
+      return null;
+    }
+    Map<String, String> options = setupOptions(context, writer, true);
+    recordWriter = new JsonStatisticsRecordWriter(getFsConf(), this);
+    recordWriter.init(options);
+    return recordWriter;
   }
 
   @Override
@@ -221,5 +245,29 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
         stream.close();
       }
     }
+  }
+  
+  @Override
+  protected boolean useEnhancedScan(OptionManager options) {
+    // Create the "legacy", "V1" reader or the new "V2" version based on
+    // the result set loader. The V2 version is a bit more robust, and
+    // supports the row set framework. However, V1 supports unions.
+    // This code should be temporary.
+    return options.getBoolean(ExecConstants.ENABLE_V2_JSON_READER_KEY);
+  }
+
+  @Override
+  protected FileScanBuilder frameworkBuilder(
+      OptionManager options, EasySubScan scan) throws ExecutionSetupException {
+    FileScanBuilder builder = new FileScanBuilder();
+    builder.setReaderFactory(new JsonReaderCreator(null));
+
+    // Project missing columns as Varchar, which is at least
+    // compatible with all-text mode. (JSON never returns a nullable
+    // int, so don't use the default.)
+
+    builder.setNullType(Types.optional(MinorType.VARCHAR));
+
+    return builder;
   }
 }

@@ -139,7 +139,6 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     RowSetUtilities.verify(expected, results);
   }
 
-
   @Test
   public void testEmptyArray() {
     final String json =
@@ -150,7 +149,7 @@ public class TestJsonLoaderLists extends BaseTestJsonLoader {
     final RowSet results = tester.parse(json);
 
     final TupleMetadata expectedSchema = new SchemaBuilder()
-        .addList("b")
+        .addList("a")
           .addType(MinorType.VARCHAR)
          .resumeSchema()
         .buildSchema();

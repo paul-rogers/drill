@@ -52,11 +52,11 @@ import org.junit.experimental.categories.Category;
  * appears (or until the end of the batch, when the pick is forced.)
  * <p>
  * Empty arrays for multi-dimensional lists are tested in
- * {@link TestJsonReaderRepeatedLists}.
+ * {@link TestJsonLoaderRepeatedLists}.
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderNulls extends BaseTestJsonLoader {
+public class TestJsonLoaderNulls extends BaseTestJsonLoader {
 
   @Test
   public void testAllNulls() {

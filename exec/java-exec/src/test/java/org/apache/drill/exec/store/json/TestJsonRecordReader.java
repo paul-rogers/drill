@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.json;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.file.Paths;
 
@@ -44,18 +45,55 @@ public class TestJsonRecordReader extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("jsoninput/drill_3353"));
   }
 
+  private void enableV2Reader(boolean enable) throws Exception {
+    testNoResult("alter session set `" + ExecConstants.ENABLE_V2_JSON_READER_KEY +
+        "` = " + Boolean.toString(enable));
+  }
+
+  private void resetV2Reader() throws Exception {
+    testNoResult("alter session reset `" + ExecConstants.ENABLE_V2_JSON_READER_KEY +
+        "`");
+  }
+
+  public interface TestWrapper {
+    void apply() throws Exception;
+  }
+
+  public void runBoth(TestWrapper wrapper) throws Exception {
+    try {
+      enableV2Reader(false);
+      wrapper.apply();
+      enableV2Reader(true);
+      wrapper.apply();
+    } finally {
+      resetV2Reader();
+    }
+  }
+
   @Test
   public void testComplexJsonInput() throws Exception {
+    runBoth(() -> doTestComplexJsonInput());
+  }
+
+  private void doTestComplexJsonInput() throws Exception {
     test("select `integer`, x['y'] as x1, x['y'] as x2, z[0], z[0]['orange'], z[1]['pink']  from cp.`jsoninput/input2.json` limit 10 ");
   }
 
   @Test
   public void testContainingArray() throws Exception {
+    runBoth(() -> doTestContainingArray());
+  }
+
+  private void doTestContainingArray() throws Exception {
     test("select * from cp.`store/json/listdoc.json`");
   }
 
   @Test
   public void testComplexMultipleTimes() throws Exception {
+    runBoth(() -> doTestComplexMultipleTimes());
+  }
+
+  private void doTestComplexMultipleTimes() throws Exception {
     for (int i = 0; i < 5; i++) {
       test("select * from cp.`join/merge_join.json`");
     }
@@ -63,6 +101,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
 
   @Test
   public void trySimpleQueryWithLimit() throws Exception {
+    runBoth(() -> doTrySimpleQueryWithLimit());
+  }
+
+  private void doTrySimpleQueryWithLimit() throws Exception {
     test("select * from cp.`limit/test1.json` limit 10");
   }
 
@@ -70,6 +112,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   // DRILL-1634 : retrieve an element in a nested array in a repeated map.
   // RepeatedMap (Repeated List (Repeated varchar))
   public void testNestedArrayInRepeatedMap() throws Exception {
+    runBoth(() -> doTestNestedArrayInRepeatedMap());
+  }
+
+  private void doTestNestedArrayInRepeatedMap() throws Exception {
     test("select a[0].b[0] from cp.`jsoninput/nestedArray.json`");
     test("select a[0].b[1] from cp.`jsoninput/nestedArray.json`");
     test("select a[1].b[1] from cp.`jsoninput/nestedArray.json`"); // index out of the range. Should return empty list.
@@ -77,19 +123,31 @@ public class TestJsonRecordReader extends BaseTestQuery {
 
   @Test
   public void testEmptyMapDoesNotFailValueCapacityCheck() throws Exception {
+    runBoth(() -> doTestEmptyMapDoesNotFailValueCapacityCheck());
+  }
+
+  private void doTestEmptyMapDoesNotFailValueCapacityCheck() throws Exception {
     final String sql = "select * from cp.`store/json/value-capacity.json`";
     test(sql);
   }
 
   @Test
   public void testEnableAllTextMode() throws Exception {
+    runBoth(() -> doTestEnableAllTextMode());
+  }
+
+  private void doTestEnableAllTextMode() throws Exception {
     testNoResult("alter session set `store.json.all_text_mode`= true");
     test("select * from cp.`jsoninput/big_numeric.json`");
-    testNoResult("alter session set `store.json.all_text_mode`= false");
+    testNoResult("alter session reset `store.json.all_text_mode`");
   }
 
   @Test
   public void testExceptionHandling() throws Exception {
+    runBoth(() -> doTestExceptionHandling());
+  }
+
+  private void doTestExceptionHandling() throws Exception {
     try {
       test("select * from cp.`jsoninput/DRILL-2350.json`");
     } catch (UserException e) {
@@ -107,6 +165,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   @Category(UnlikelyTest.class)
   // DRILL-1832
   public void testJsonWithNulls1() throws Exception {
+    runBoth(() -> doTestJsonWithNulls1());
+  }
+
+  private void doTestJsonWithNulls1() throws Exception {
     final String query = "select * from cp.`jsoninput/twitter_43.json`";
     testBuilder().sqlQuery(query).unOrdered()
         .jsonBaselineFile("jsoninput/drill-1832-1-result.json").go();
@@ -115,30 +177,43 @@ public class TestJsonRecordReader extends BaseTestQuery {
   @Test
   @Category(UnlikelyTest.class)
   // DRILL-1832
-  public void testJsonWithNullsx() throws Exception {
-    final String query = "select * from cp.`jsoninput/twitter_43.json`";
-    test(query); // filter_level
-  }
-
-  @Test
-  @Category(UnlikelyTest.class)
-  // DRILL-1832
-  public void testJsonWithNullsy() throws Exception {
-    final String query = "select filter_level from cp.`jsoninput/twitter_43.json`";
-    test(query); // filter_level
-  }
-
-  @Test
-  @Category(UnlikelyTest.class)
-  // DRILL-1832
   public void testJsonWithNulls2() throws Exception {
+    runBoth(() -> doTestJsonWithNulls2());
+  }
+
+  private void doTestJsonWithNulls2() throws Exception {
     final String query = "select SUM(1) as `sum_Number_of_Records_ok` from cp.`jsoninput/twitter_43.json` having (COUNT(1) > 0)";
     testBuilder().sqlQuery(query).unOrdered()
         .jsonBaselineFile("jsoninput/drill-1832-2-result.json").go();
   }
 
+  // V1-only test. In V2, this works. See TestJsonReaderQueries.
+
+  @Test
+  public void testMixedNumberTypes() throws Exception {
+    try {
+      testBuilder()
+          .sqlQuery("select * from cp.`jsoninput/mixed_number_types.json`")
+          .unOrdered().jsonBaselineFile("jsoninput/mixed_number_types.json")
+          .build().run();
+    } catch (Exception ex) {
+      assertTrue(ex
+          .getMessage()
+          .contains(
+              "You tried to write a BigInt type when you are using a ValueWriter of type NullableFloat8WriterImpl."));
+      // this indicates successful completion of the test
+      return;
+    }
+    throw new Exception(
+        "Mixed number types verification failed, expected failure on conflicting number types.");
+  }
+
   @Test
   public void testMixedNumberTypesInAllTextMode() throws Exception {
+    runBoth(() -> doTestMixedNumberTypesInAllTextMode());
+  }
+
+  private void doTestMixedNumberTypesInAllTextMode() throws Exception {
     testNoResult("alter session set `store.json.all_text_mode`= true");
     testBuilder()
         .sqlQuery("select * from cp.`jsoninput/mixed_number_types.json`")
@@ -148,6 +223,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
 
   @Test
   public void testMixedNumberTypesWhenReadingNumbersAsDouble() throws Exception {
+    runBoth(() -> doTestMixedNumberTypesWhenReadingNumbersAsDouble());
+  }
+
+  private void doTestMixedNumberTypesWhenReadingNumbersAsDouble() throws Exception {
     try {
       testNoResult("alter session set `store.json.read_numbers_as_double`= true");
       testBuilder()
@@ -164,19 +243,27 @@ public class TestJsonRecordReader extends BaseTestQuery {
     try {
       testNoResult("alter session set `store.json.all_text_mode` = true");
       test("create table dfs.tmp.drill_3353 as select a from dfs.`jsoninput/drill_3353` where e = true");
-      String query = "select t.a.d cnt from dfs.tmp.drill_3353 t where t.a.d is not null";
-      test(query);
-      testBuilder().sqlQuery(query).unOrdered().baselineColumns("cnt")
-          .baselineValues("1").go();
+      runBoth(() -> doDrill_3353());
     } finally {
       testNoResult("alter session reset `store.json.all_text_mode`");
     }
+  }
+
+  private void doDrill_3353() throws Exception {
+    String query = "select t.a.d cnt from dfs.tmp.drill_3353 t where t.a.d is not null";
+    test(query);
+    testBuilder().sqlQuery(query).unOrdered().baselineColumns("cnt")
+        .baselineValues("1").go();
   }
 
   @Test
   @Category(UnlikelyTest.class)
   // See DRILL-3476
   public void testNestedFilter() throws Exception {
+    runBoth(() -> doTestNestedFilter());
+  }
+
+  private void doTestNestedFilter() throws Exception {
     String query = "select a from cp.`jsoninput/nestedFilter.json` t where t.a.b = 1";
     String baselineQuery = "select * from cp.`jsoninput/nestedFilter.json` t where t.a.b = 1";
     testBuilder().sqlQuery(query).unOrdered().sqlBaselineQuery(baselineQuery)
@@ -188,6 +275,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   // See DRILL-4653
   /* Test for CountingJSONReader */
   public void testCountingQuerySkippingInvalidJSONRecords() throws Exception {
+    runBoth(() -> doTestCountingQuerySkippingInvalidJSONRecords());
+  }
+
+  private void doTestCountingQuerySkippingInvalidJSONRecords() throws Exception {
     try {
       String set = "alter session set `"
           + ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG + "` = true";
@@ -212,6 +303,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   // See DRILL-4653
   /* Test for CountingJSONReader */
   public void testCountingQueryNotSkippingInvalidJSONRecords() throws Exception {
+    runBoth(() -> doTestCountingQueryNotSkippingInvalidJSONRecords());
+  }
+
+  private void doTestCountingQueryNotSkippingInvalidJSONRecords() throws Exception {
     try {
       String query = "select count(*) from cp.`jsoninput/drill4653/file.json`";
       testBuilder().unOrdered().sqlQuery(query).sqlBaselineQuery(query).build()
@@ -228,6 +323,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   // See DRILL-4653
   /* Test for JSONReader */
   public void testNotCountingQuerySkippingInvalidJSONRecords() throws Exception {
+    runBoth(() -> doTestNotCountingQuerySkippingInvalidJSONRecords());
+  }
+
+  private void doTestNotCountingQuerySkippingInvalidJSONRecords() throws Exception {
     try {
 
       String set = "alter session set `"
@@ -254,6 +353,10 @@ public class TestJsonRecordReader extends BaseTestQuery {
   /* Test for JSONReader */
   public void testNotCountingQueryNotSkippingInvalidJSONRecords()
       throws Exception {
+    runBoth(() -> doTestNotCountingQueryNotSkippingInvalidJSONRecords());
+  }
+
+  private void doTestNotCountingQueryNotSkippingInvalidJSONRecords() throws Exception {
     try {
       String query = "select sum(balance) from cp.`jsoninput/drill4653/file.json`";
       testBuilder().unOrdered().sqlQuery(query).sqlBaselineQuery(query).build()

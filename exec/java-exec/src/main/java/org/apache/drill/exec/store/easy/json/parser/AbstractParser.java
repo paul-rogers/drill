@@ -25,84 +25,16 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.parser.JsonLoaderImpl.JsonElementParser;
 
-import com.fasterxml.jackson.core.JsonToken;
-
 abstract class AbstractParser implements JsonElementParser {
 
-  public static abstract class LeafParser extends AbstractParser {
+  protected static abstract class LeafParser extends AbstractParser {
 
     public LeafParser(JsonLoaderImpl.JsonElementParser parent, String fieldName) {
       super(parent, fieldName);
     }
-  }
-
-  /**
-   * Parse and ignore an unprojected value. The parsing just "free wheels", we
-   * care only about matching brackets, but not about other details.
-   */
-
-  protected static class DummyValueParser extends LeafParser {
-
-    public DummyValueParser(JsonLoaderImpl.JsonElementParser parent, String fieldName) {
-      super(parent, fieldName);
-    }
-
-    @Override
-    public boolean parse() {
-      JsonToken token = loader.tokenizer.requireNext();
-      switch (token) {
-      case START_ARRAY:
-      case START_OBJECT:
-        parseTail();
-        break;
-
-      case VALUE_NULL:
-      case VALUE_EMBEDDED_OBJECT:
-      case VALUE_FALSE:
-      case VALUE_TRUE:
-      case VALUE_NUMBER_FLOAT:
-      case VALUE_NUMBER_INT:
-      case VALUE_STRING:
-        break;
-
-      default:
-        throw loader.syntaxError(token);
-      }
-      return true;
-    }
-
-    public void parseTail() {
-
-      // Parse (field: value)* }
-
-      for (;;) {
-        JsonToken token = loader.tokenizer.requireNext();
-        switch (token) {
-
-        // Not exactly precise, but the JSON parser handles the
-        // details.
-
-        case END_OBJECT:
-        case END_ARRAY:
-          return;
-
-        case START_OBJECT:
-        case START_ARRAY:
-          parseTail(); // Recursively ignore objects
-          break;
-
-        default:
-          break; // Ignore all else
-        }
-      }
-    }
-
-    @Override
-    public ColumnMetadata schema() { return null; }
   }
 
   protected final JsonLoaderImpl loader;

@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.util.DrillFileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.exec.util.JsonStringHashMap;
@@ -62,16 +63,46 @@ public class TestJsonReader extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector","complex", "writer"));
   }
 
-  // Kept here because the new version exposed a number of
-  // issues.
+  private void enableV2Reader(boolean enable) throws Exception {
+    testNoResult("alter session set `" + ExecConstants.ENABLE_V2_JSON_READER_KEY +
+        "` = " + Boolean.toString(enable));
+  }
+
+  private void resetV2Reader() throws Exception {
+    testNoResult("alter session reset `" + ExecConstants.ENABLE_V2_JSON_READER_KEY +
+        "`");
+  }
+
+  public interface TestWrapper {
+    void apply() throws Exception;
+  }
+
+  public void runBoth(TestWrapper wrapper) throws Exception {
+    try {
+      enableV2Reader(false);
+      wrapper.apply();
+      enableV2Reader(true);
+      wrapper.apply();
+    } finally {
+      resetV2Reader();
+    }
+  }
 
   @Test
   public void schemaChange() throws Exception {
+    runBoth(() -> doSchemaChange());
+  }
+
+  private void doSchemaChange() throws Exception {
     test("select b from dfs.`vector/complex/writer/schemaChange/`");
   }
 
   @Test
   public void testSplitAndTransferFailure() throws Exception {
+    runBoth(() -> doTestSplitAndTransferFailure());
+  }
+
+  private void doTestSplitAndTransferFailure() throws Exception {
     final String testVal = "a string";
     testBuilder()
         .sqlQuery("select flatten(config) as flat from cp.`store/json/null_list.json`")
@@ -102,6 +133,10 @@ public class TestJsonReader extends BaseTestQuery {
   @Test
   @Ignore("DRILL-1824")
   public void schemaChangeValidate() throws Exception {
+    runBoth(() -> doSchemaChangeValidate());
+  }
+
+  private void doSchemaChangeValidate() throws Exception {
     testBuilder()
       .sqlQuery("select b from dfs.`vector/complex/writer/schemaChange/`")
       .unOrdered()
@@ -132,6 +167,8 @@ public class TestJsonReader extends BaseTestQuery {
       i++;
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testSelectStarWithUnionType() throws Exception {
@@ -181,9 +218,11 @@ public class TestJsonReader extends BaseTestQuery {
                       )
               ).go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testSelectFromListWithCase() throws Exception {
@@ -198,9 +237,11 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(13L, "BIGINT")
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testTypeCase() throws Exception {
@@ -218,9 +259,11 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(3L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testSumWithTypeCase() throws Exception {
@@ -240,6 +283,8 @@ public class TestJsonReader extends BaseTestQuery {
     }
   }
 
+  // TODO: Union not yet supported in V2.
+
   @Test
   public void testUnionExpressionMaterialization() throws Exception {
     try {
@@ -256,6 +301,8 @@ public class TestJsonReader extends BaseTestQuery {
       testNoResult("alter session set `exec.enable_union_type` = false");
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testSumMultipleBatches() throws Exception {
@@ -277,9 +324,11 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(20000L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test
   public void testSumFilesWithDifferentSchema() throws Exception {
@@ -306,25 +355,48 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(20000L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
+  }
+
+  // V1 version of the test. See TsetJsonReaderQueries for the V2 version.
+
+  @Test
+  public void drill_4032() throws Exception {
+    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4032"));
+    table_dir.mkdir();
+    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
+    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
+    os.write("{\"col1\": \"val1\",\"col2\": {\"col3\":\"abc\", \"col4\":\"xyz\"}}".getBytes());
+    os.flush();
+    os.close();
+    os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")));
+    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
+    os.write("{\"col1\": \"val1\",\"col2\": null}".getBytes());
+    os.flush();
+    os.close();
+    testNoResult("select t.col2.col3 from dfs.tmp.drill_4032 t");
   }
 
   @Test
   public void drill_4479() throws Exception {
-    try {
-      File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
-      table_dir.mkdir();
-      BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "mostlynulls.json")));
-      // Create an entire batch of null values for 3 columns
-      for (int i = 0; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH; i++) {
-        os.write("{\"a\": null, \"b\": null, \"c\": null}".getBytes());
-      }
-      // Add a row with {bigint,  float, string} values
-      os.write("{\"a\": 123456789123, \"b\": 99.999, \"c\": \"Hello World\"}".getBytes());
-      os.flush();
-      os.close();
+    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4479"));
+    table_dir.mkdir();
+    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "mostlynulls.json")));
+    // Create an entire batch of null values for 3 columns
+    for (int i = 0; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH; i++) {
+      os.write("{\"a\": null, \"b\": null, \"c\": null}".getBytes());
+    }
+    // Add a row with {bigint,  float, string} values
+    os.write("{\"a\": 123456789123, \"b\": 99.999, \"c\": \"Hello World\"}".getBytes());
+    os.flush();
+    os.close();
 
+    runBoth(() -> doDrill_4479());
+  }
+
+  private void doDrill_4479() throws Exception {
+    try {
       testBuilder()
         .sqlQuery("select c, count(*) as cnt from dfs.tmp.drill_4479 t group by c")
         .ordered()
@@ -352,7 +424,7 @@ public class TestJsonReader extends BaseTestQuery {
         .go();
 
     } finally {
-      testNoResult("alter session set `store.json.all_text_mode` = false");
+      testNoResult("alter session reset `store.json.all_text_mode`");
     }
   }
 
@@ -362,6 +434,10 @@ public class TestJsonReader extends BaseTestQuery {
       writer.write("{ \"a\": { \"b\": { \"c\": [] }, \"c\": [] } }");
     }
 
+    runBoth(() -> doTestFlattenEmptyArrayWithAllTextMode());
+  }
+
+  private void doTestFlattenEmptyArrayWithAllTextMode() throws Exception {
     try {
       String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
 
@@ -390,6 +466,10 @@ public class TestJsonReader extends BaseTestQuery {
       writer.write("{ \"a\": { \"b\": { \"c\": [] }, \"c\": [] } }");
     }
 
+    runBoth(() -> doTestFlattenEmptyArrayWithUnionType());
+  }
+
+  private void doTestFlattenEmptyArrayWithUnionType() throws Exception {
     try {
       String query = "select flatten(t.a.b.c) as c from dfs.`empty_array.json` t";
 
@@ -421,6 +501,10 @@ public class TestJsonReader extends BaseTestQuery {
       writer.write("{\"rk\": \"a\", \"m\": {\"a\":\"1\"}}");
     }
 
+    runBoth(() -> doTestKvgenWithUnionAll(fileName));
+  }
+
+  private void doTestKvgenWithUnionAll(String fileName) throws Exception {
     String query = String.format("select kvgen(m) as res from (select m from dfs.`%s` union all " +
         "select convert_from('{\"a\" : null}' ,'json') as m from (values(1)))", fileName);
     assertEquals("Row count should match", 2, testSql(query));
@@ -433,6 +517,10 @@ public class TestJsonReader extends BaseTestQuery {
       writer.write("{\"rk.q\": \"a\", \"m\": {\"a.b\":\"1\", \"a\":{\"b\":\"2\"}, \"c\":\"3\"}}");
     }
 
+    runBoth(() -> doTestFieldWithDots(fileName));
+  }
+
+  private void doTestFieldWithDots(String fileName) throws Exception {
     testBuilder()
       .sqlQuery("select t.m.`a.b` as a,\n" +
         "t.m.a.b as b,\n" +
@@ -445,6 +533,8 @@ public class TestJsonReader extends BaseTestQuery {
       .baselineValues("1", "2", "1", null, "a")
       .go();
   }
+
+  // TODO: Union not yet supported in V2.
 
   @Test // DRILL-6020
   public void testUntypedPathWithUnion() throws Exception {

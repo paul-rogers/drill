@@ -26,7 +26,6 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,11 +43,9 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
-import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.test.QueryResultSet;
 import org.apache.drill.test.rowSet.DirectRowSet;
@@ -66,7 +63,7 @@ import org.junit.experimental.categories.Category;
  */
 
 @Category(RowSetTests.class)
-public class TestJsonReaderQueries extends ClusterTest {
+public class TestJsonReaderQueries extends BaseTestJsonReader {
 
   @BeforeClass
   public static void setup() throws Exception {
@@ -74,15 +71,6 @@ public class TestJsonReaderQueries extends ClusterTest {
     dirTestWatcher.copyResourceToRoot(Paths.get("store", "json"));
     dirTestWatcher.copyResourceToRoot(Paths.get("vector","complex", "writer"));
     dirTestWatcher.copyResourceToRoot(Paths.get("jsoninput/drill_3353"));
-  }
-
-  private RowSet runTest(String sql) {
-    try {
-      return client.queryBuilder().sql(sql).rowSet();
-    } catch (RpcException e) {
-      fail(e.getMessage());
-      throw new IllegalStateException(e);
-    }
   }
 
   /**
@@ -193,6 +181,10 @@ public class TestJsonReaderQueries extends ClusterTest {
    */
   @Test
   public void testFieldSelectionBug() throws Exception {
+    runBoth(() -> doTestFieldSelectionBug());
+  }
+
+  private void doTestFieldSelectionBug() throws Exception {
     String sql = "select t.field_4.inner_3 as col_1, t.field_4 as col_2 from cp.`store/json/schema_change_int_to_string.json` t";
     try {
       client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
@@ -226,6 +218,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testReadCompressed() throws Exception {
+    runBoth(() -> doTestReadCompressed());
+  }
+
+  private void doTestReadCompressed() throws Exception {
     String filepath = "compressed_json.json";
     File f = new File(dirTestWatcher.getRootDir(), filepath);
     PrintWriter out = new PrintWriter(f);
@@ -270,6 +266,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testDrill_1419() throws Exception {
+    runBoth(() -> doTestDrill_1419());
+  }
+
+  private void doTestDrill_1419() throws Exception {
     String sql = "select t.trans_id, t.trans_info.prod_id[0],t.trans_info.prod_id[1] from cp.`store/json/clicks.json` t limit 5";
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     BatchSchema schema = new SchemaBuilder()
@@ -290,6 +290,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testSingleColumnRead_vector_fill_bug() throws Exception {
+    runBoth(() -> doTestSingleColumnRead_vector_fill_bug());
+  }
+
+  private void doTestSingleColumnRead_vector_fill_bug() throws Exception {
     String sql = "select * from cp.`store/json/single_column_long_file.json`";
     QuerySummary results = client.queryBuilder().sql(sql).run();
     assertEquals(13_512, results.recordCount());
@@ -297,6 +301,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testNonExistentColumnReadAlone() throws Exception {
+    runBoth(() -> doTestNonExistentColumnReadAlone());
+  }
+
+  private void doTestNonExistentColumnReadAlone() throws Exception {
     String sql = "select non_existent_column from cp.`store/json/single_column_long_file.json`";
     QuerySummary results = client.queryBuilder().sql(sql).run();
     assertEquals(13_512, results.recordCount());
@@ -304,6 +312,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testAllTextMode() throws Exception {
+    runBoth(() -> doTestAllTextMode());
+  }
+
+  private void doTestAllTextMode() throws Exception {
     client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
       String sql = "select * from cp.`store/json/schema_change_int_to_string.json`";
@@ -344,12 +356,20 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void readComplexWithStar() throws Exception {
+    runBoth(() -> doReadComplexWithStar());
+  }
+
+  private void doReadComplexWithStar() throws Exception {
     RowSet results = runTest("select * from cp.`store/json/test_complex_read_with_star.json`");
     testExistentColumns(results);
   }
 
   @Test
   public void testNullWhereListExpectedNumeric() throws Exception {
+    runBoth(() -> doTestNullWhereListExpectedNumeric());
+  }
+
+  private void doTestNullWhereListExpectedNumeric() throws Exception {
     String sql = "select * from cp.`store/json/null_where_list_expected.json`";
     RowSet results = runTest(sql);
 
@@ -368,6 +388,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testNullWhereMapExpectedNumeric() throws Exception {
+    runBoth(() -> doTestNullWhereMapExpectedNumeric());
+  }
+
+  private void doTestNullWhereMapExpectedNumeric() throws Exception {
     String sql = "select * from cp.`store/json/null_where_map_expected.json`";
     RowSet results = runTest(sql);
 
@@ -390,6 +414,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testNullWhereMapExpectedText() throws Exception {
+    runBoth(() -> doTestNullWhereMapExpectedText());
+  }
+
+  private void doTestNullWhereMapExpectedText() throws Exception {
     client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
       String sql = "select * from cp.`store/json/null_where_map_expected.json`";
@@ -417,6 +445,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testNullWhereListExpectedText() throws Exception {
+    runBoth(() -> doTestNullWhereListExpectedText());
+  }
+
+  private void doTestNullWhereListExpectedText() throws Exception {
     client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
       String sql = "select * from cp.`store/json/null_where_list_expected.json`";
@@ -440,6 +472,10 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void ensureProjectionPushdown() throws Exception {
+    runBoth(() -> doEnsureProjectionPushdown());
+  }
+
+  private void doEnsureProjectionPushdown() throws Exception {
     // Tests to make sure that we are correctly eliminating schema changing columns.
     // If completes, means that the projection pushdown was successful.
 
@@ -466,8 +502,9 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testProjectPushdown() throws Exception {
-    client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
     try {
+      enableV2Reader(true);
+      client.alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
       String plan = Files.asCharSource(DrillFileUtils.getResourceAsFile(
           "/store/json/project_pushdown_json_physical_plan.json"),
           Charsets.UTF_8).read();
@@ -505,11 +542,16 @@ public class TestJsonReaderQueries extends ClusterTest {
       new RowSetComparison(expected).verifyAndClearAll(results);
     } finally {
       client.resetSession(ExecConstants.JSON_ALL_TEXT_MODE);
+      resetV2Reader();
     }
   }
 
   @Test
   public void testJsonDirectoryWithEmptyFile() throws Exception {
+    runBoth(() -> doTestJsonDirectoryWithEmptyFile());
+  }
+
+  private void doTestJsonDirectoryWithEmptyFile() throws Exception {
     testBuilder()
         .sqlQuery("select * from dfs.`store/json/jsonDirectoryWithEmpyFile`")
         .unOrdered()
@@ -519,33 +561,40 @@ public class TestJsonReaderQueries extends ClusterTest {
         .run();
   }
 
+  // Only works in V2 reader.
+
   @Test
   public void drill_4032() throws Exception {
-    File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4032"));
-    table_dir.mkdir();
-    PrintWriter os = new PrintWriter(new FileWriter(new File(table_dir, "a.json")));
-    os.write("{\"col1\": \"val1\",\"col2\": null}");
-    os.write("{\"col1\": \"val2\",\"col2\": {\"col3\":\"abc\", \"col4\":\"xyz\"}}");
-    os.close();
-    os = new PrintWriter(new FileWriter(new File(table_dir, "b.json")));
-    os.write("{\"col1\": \"val3\",\"col2\": null}");
-    os.write("{\"col1\": \"val4\",\"col2\": null}");
-    os.close();
-    String sql = "select t.col1, t.col2.col3 from dfs.tmp.drill_4032 t order by col1";
-    RowSet results = runTest(sql);
+    try {
+      enableV2Reader(true);
+      File table_dir = dirTestWatcher.makeTestTmpSubDir(Paths.get("drill_4032"));
+      table_dir.mkdir();
+      PrintWriter os = new PrintWriter(new FileWriter(new File(table_dir, "a.json")));
+      os.write("{\"col1\": \"val1\",\"col2\": null}");
+      os.write("{\"col1\": \"val2\",\"col2\": {\"col3\":\"abc\", \"col4\":\"xyz\"}}");
+      os.close();
+      os = new PrintWriter(new FileWriter(new File(table_dir, "b.json")));
+      os.write("{\"col1\": \"val3\",\"col2\": null}");
+      os.write("{\"col1\": \"val4\",\"col2\": null}");
+      os.close();
+      String sql = "select t.col1, t.col2.col3 from dfs.tmp.drill_4032 t order by col1";
+      RowSet results = runTest(sql);
 
-    BatchSchema schema = new SchemaBuilder()
-        .addNullable("col1", MinorType.VARCHAR)
-        .addNullable("EXPR$1", MinorType.VARCHAR)
-        .build();
+      BatchSchema schema = new SchemaBuilder()
+          .addNullable("col1", MinorType.VARCHAR)
+          .addNullable("EXPR$1", MinorType.VARCHAR)
+          .build();
 
-    RowSet expected = client.rowSetBuilder(schema)
-        .addRow("val1", null)
-        .addRow("val2", "abc")
-        .addRow("val3", null)
-        .addRow("val4", null)
-        .build();
-    new RowSetComparison(expected).verifyAndClearAll(results);
+      RowSet expected = client.rowSetBuilder(schema)
+          .addRow("val1", null)
+          .addRow("val2", "abc")
+          .addRow("val3", null)
+          .addRow("val4", null)
+          .build();
+      new RowSetComparison(expected).verifyAndClearAll(results);
+    } finally {
+      resetV2Reader();
+    }
   }
 
   /** Test <pre>
@@ -558,16 +607,21 @@ public class TestJsonReaderQueries extends ClusterTest {
 
   @Test
   public void testMixedNumberTypes() throws Exception {
-    String sql = "select * from cp.`jsoninput/mixed_number_types.json`";
-    RowSet results = runTest(sql);
-    BatchSchema schema = new SchemaBuilder()
-        .addNullable("a", MinorType.FLOAT8)
-        .build();
+    try {
+      enableV2Reader(true);
+      String sql = "select * from cp.`jsoninput/mixed_number_types.json`";
+      RowSet results = runTest(sql);
+      BatchSchema schema = new SchemaBuilder()
+          .addNullable("a", MinorType.FLOAT8)
+          .build();
 
-    RowSet expected = client.rowSetBuilder(schema)
-        .addSingleCol(5.2D)
-        .addSingleCol(6.0D)
-        .build();
-    new RowSetComparison(expected).verifyAndClearAll(results);
+      RowSet expected = client.rowSetBuilder(schema)
+          .addSingleCol(5.2D)
+          .addSingleCol(6.0D)
+          .build();
+      new RowSetComparison(expected).verifyAndClearAll(results);
+    } finally {
+      resetV2Reader();
+    }
   }
 }
