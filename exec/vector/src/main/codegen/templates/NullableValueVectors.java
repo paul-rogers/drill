@@ -850,7 +850,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     @Override
     public void setSetCount(int n) {
       setCount = n;
-      <#if type.major = "VarLen">lastSet = n;</#if>
+      <#if type.major = "VarLen">lastSet = n - 1;</#if>
     }
 
     @VisibleForTesting

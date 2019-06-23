@@ -81,6 +81,7 @@ public class ClusterTest extends DrillTest {
 
   protected static void startCluster(ClusterFixtureBuilder builder) throws Exception {
     cluster = builder.build();
+    cluster.dirtyMemory(10);
     client = cluster.clientFixture();
   }
 

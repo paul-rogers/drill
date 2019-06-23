@@ -246,7 +246,7 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
       }
     }
   }
-  
+
   @Override
   protected boolean useEnhancedScan(OptionManager options) {
     // Create the "legacy", "V1" reader or the new "V2" version based on

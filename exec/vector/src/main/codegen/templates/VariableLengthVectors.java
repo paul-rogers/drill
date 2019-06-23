@@ -156,10 +156,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
     final int capacity = buffer.capacity();
     final int offsetsLength = offsetField.getBufferLength();
-    if (metadata.getBufferLength() > 0) {
-      data = buffer.slice(offsetsLength, capacity - offsetsLength);
-      data.retain();
-    }
+    data = buffer.slice(offsetsLength, capacity - offsetsLength);
+    data.retain();
   }
 
   @Override

@@ -89,6 +89,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseAccessor implements ValueVector.Accessor {
+    protected BaseAccessor() { }
 
     @Override
     public boolean isNull(int index) {
@@ -97,6 +98,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {
+    protected BaseMutator() { }
 
     @Override
     public void generateTestData(int values) {}

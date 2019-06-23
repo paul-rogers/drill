@@ -269,6 +269,9 @@ public class MaterializedField {
    */
 
   public boolean isEquivalent(MaterializedField other) {
+    if (this == other) {
+      return true;
+    }
     if (! name.equalsIgnoreCase(other.name)) {
       return false;
     }
