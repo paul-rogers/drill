@@ -54,6 +54,7 @@ public abstract class AbstractSV2Copier extends AbstractCopier {
   @Override
   public int copyRecords(int index, int recordCount) {
     if (sv2.canDoFullTransfer()) {
+      System.out.println("full transfer");
       for (TransferPair pair : transferPairs) {
         pair.transfer();
       }
@@ -61,6 +62,7 @@ public abstract class AbstractSV2Copier extends AbstractCopier {
       return recordCount;
     }
 
+    System.out.println("copy records");
     return super.copyRecords(index, recordCount);
   }
 }

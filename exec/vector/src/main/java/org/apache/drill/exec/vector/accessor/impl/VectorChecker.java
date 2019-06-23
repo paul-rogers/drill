@@ -42,7 +42,10 @@ public class VectorChecker {
     UInt4Vector.Accessor va = vector.getAccessor();
     int valueCount = va.getValueCount();
     if (valueCount == 0) {
-      return true;
+      System.out.println(String.format(
+          "Offset vector for %s: [0] has length 0, expected 1+",
+          name));
+      return false;
     }
     int prev = va.get(0);
     if (prev != 0) {
@@ -133,12 +136,6 @@ public class VectorChecker {
   public static boolean verifyVarChar(VarCharVector vector) {
     int size = vector.getAccessor().getValueCount();
 
-    // A pre-serialized VarChar has a one-item offset vector.
-    // A deserialized VarChar has a zero-item offset vector.
-
-    if (size == 0) {
-      return true;
-    }
     if (! verifyOffsets(vector.getField().getName(), vector.getOffsetVector())) {
       return false;
     }

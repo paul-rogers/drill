@@ -18,6 +18,7 @@
 package org.apache.drill.exec.record;
 
 import org.apache.drill.exec.vector.AllocationHelper;
+import org.apache.drill.exec.vector.accessor.impl.VectorChecker;
 
 /**
  * VectorAccessible is an interface. Yet, several operations are done
@@ -46,6 +47,12 @@ public class VectorAccessibleUtilities {
   public static void allocateVectors(VectorAccessible va, int targetRecordCount) {
     for (VectorWrapper<?> w: va) {
       AllocationHelper.allocateNew(w.getValueVector(), targetRecordCount);
+    }
+  }
+
+  public static void verify(VectorAccessible va) {
+    for (VectorWrapper<?> vw : va) {
+      VectorChecker.verify(vw.getValueVector());
     }
   }
 }

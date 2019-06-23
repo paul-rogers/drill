@@ -170,7 +170,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   @Override
   public void allocateNew() {
-    if(!allocateNewSafe()){
+    if (!allocateNewSafe()) {
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
@@ -188,6 +188,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     } finally {
       if (!success) {
         clear();
+        return false;
       }
     }
     bits.zeroVector();
@@ -579,13 +580,17 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#if type.major == "VarLen">
+    /**
+     * Fill up to, but not including, index.
+     */
+    
     private void fillEmpties(int index) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
-      valuesMutator.fillEmpties(lastSet, index+1);
-      while(index > bits.getValueCapacity()) {
+      valuesMutator.fillEmpties(lastSet, index);
+      while (index > bits.getValueCapacity()) {
         bits.reAlloc();
       }
-      lastSet = index;
+      lastSet = index - 1;
     }
 
     @Override

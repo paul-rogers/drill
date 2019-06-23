@@ -57,6 +57,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleRecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.store.ColumnExplorer;
@@ -226,7 +227,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       return IterOutcome.OUT_OF_MEMORY;
     }
     long projectStartTime = System.currentTimeMillis();
-    final int outputRecords = projector.projectRecords(this.incoming,0, maxOuputRecordCount, 0);
+    final int outputRecords = projector.projectRecords(incoming, 0, maxOuputRecordCount, 0);
     long projectEndTime = System.currentTimeMillis();
     logger.trace("doWork(): projection: records {}, time {} ms", outputRecords, (projectEndTime - projectStartTime));
 
@@ -247,6 +248,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     if (complexWriters != null) {
       container.buildSchema(SelectionVectorMode.NONE);
     }
+    VectorAccessibleUtilities.verify(getContainer());
 
     memoryManager.updateOutgoingStats(outputRecords);
     RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
@@ -304,7 +306,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   private boolean doAlloc(int recordCount) {
     //Allocate vv in the allocationVectors.
-    for (final ValueVector v : this.allocationVectors) {
+    for (final ValueVector v : allocationVectors) {
       AllocationHelper.allocateNew(v, recordCount);
     }
 
@@ -322,8 +324,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   private void setValueCount(final int count) {
     for (final ValueVector v : allocationVectors) {
-      final ValueVector.Mutator m = v.getMutator();
-      m.setValueCount(count);
+      v.getMutator().setValueCount(count);
     }
 
     container.setRecordCount(count);
@@ -391,7 +392,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     final ClassGenerator<Projector> cg = CodeGenerator.getRoot(Projector.TEMPLATE_DEFINITION, context.getOptions());
     cg.getCodeGenerator().plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-    //cg.getCodeGenerator().saveCodeForDebugging(true);
+    cg.getCodeGenerator().saveCodeForDebugging(true);
 
     final IntHashSet transferFieldIds = new IntHashSet();
 
@@ -562,7 +563,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       CodeGenerator<Projector> codeGen = cg.getCodeGenerator();
       codeGen.plainJavaCapable(true);
       // Uncomment out this line to debug the generated code.
-      //codeGen.saveCodeForDebugging(true);
+      codeGen.saveCodeForDebugging(true);
       this.projector = context.getImplementationClass(codeGen);
       projector.setup(context, incomingBatch, this, transfers);
     } catch (ClassTransformationException | IOException e) {

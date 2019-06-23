@@ -35,10 +35,12 @@ import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.VectorChecker;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
@@ -75,6 +77,7 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
 
   @Override
   protected IterOutcome doWork() {
+    VectorAccessibleUtilities.verify(incoming.getContainer());
     container.zeroVectors();
     int recordCount = incoming.getRecordCount();
     try {
@@ -83,25 +86,28 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
       throw new UnsupportedOperationException(e);
     }
 
+    VectorAccessibleUtilities.verify(getContainer());
     return getFinalOutcome(false);
   }
 
   @Override
   public void close() {
+    clearSv();
+    super.close();
+  }
+
+  private void clearSv() {
     if (sv2 != null) {
       sv2.clear();
     }
     if (sv4 != null) {
       sv4.clear();
     }
-    super.close();
   }
 
   @Override
   protected boolean setupNewSchema() throws SchemaChangeException {
-    if (sv2 != null) {
-      sv2.clear();
-    }
+    clearSv();
 
     switch (incoming.getSchema().getSelectionVectorMode()) {
       case NONE:
@@ -162,7 +168,6 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException("Failure while attempting to load generated class", e);
     }
-
   }
 
   protected Filterer generateSV2Filterer() throws SchemaChangeException {
@@ -170,8 +175,8 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
     final List<TransferPair> transfers = Lists.newArrayList();
     final ClassGenerator<Filterer> cg = CodeGenerator.getRoot(Filterer.TEMPLATE_DEFINITION2, context.getOptions());
     // Uncomment below lines to enable saving generated code file for debugging
-    // cg.getCodeGenerator().plainJavaCapable(true);
-    // cg.getCodeGenerator().saveCodeForDebugging(true);
+    cg.getCodeGenerator().plainJavaCapable(true);
+    cg.getCodeGenerator().saveCodeForDebugging(true);
 
     final LogicalExpression expr = ExpressionTreeMaterializer.materialize(popConfig.getExpr(), incoming, collector,
             context.getFunctionRegistry(), false, unionTypeEnabled);
