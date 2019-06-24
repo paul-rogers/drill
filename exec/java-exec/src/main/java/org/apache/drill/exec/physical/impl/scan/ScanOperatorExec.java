@@ -67,6 +67,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * {#link ResultSetLoader} to write values into value vectors.
  *
  * <h4>Schema Versions</h4>
+ *
  * Readers may change schemas from time to time. To track such changes,
  * this implementation tracks a batch schema version, maintained by comparing
  * one schema with the next.
@@ -151,6 +152,7 @@ public class ScanOperatorExec implements OperatorExec {
       switch (state) {
 
       case READER:
+      case START: // Occurs if no schema batch
         // Read another batch from the list of row readers. Keeps opening,
         // reading from, and closing readers as needed to locate a batch, or
         // until all readers are exhausted. Terminates when a batch is read,

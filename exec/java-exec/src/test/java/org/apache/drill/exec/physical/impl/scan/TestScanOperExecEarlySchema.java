@@ -97,6 +97,44 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     scan.close();
   }
 
+  @Test
+  public void testEarlySchemaLifecycleNoSchemaBatch() {
+
+    // Create a mock reader, return one batch with data.
+
+    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    reader.batchLimit = 1;
+
+    // Create the scan operator
+
+    BaseScanFixtureBuilder builder = simpleBuilder(reader);
+    builder.enableSchemaBatch = false;
+    ScanFixture scanFixture = builder.build();
+    ScanOperatorExec scan = scanFixture.scanOp;
+
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // First batch: return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next again: no-op
+
+    assertFalse(scan.next());
+    scanFixture.close();
+
+    // Close again: no-op
+
+    scan.close();
+  }
+
   private static class MockEarlySchemaReader3 extends MockEarlySchemaReader {
 
     @Override

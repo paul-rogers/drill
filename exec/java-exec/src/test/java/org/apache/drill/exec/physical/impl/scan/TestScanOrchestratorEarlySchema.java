@@ -27,6 +27,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.MockScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
@@ -61,7 +62,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaWildcard() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT * ...
 
@@ -152,7 +153,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectAll() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT a, b ...
 
@@ -204,7 +205,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectAllReorder() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT b, a ...
 
@@ -259,7 +260,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectExtra() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT a, b, c ...
 
@@ -315,7 +316,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectExtraCustomType() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // Null columns of type VARCHAR
 
@@ -378,7 +379,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectSubset() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT a ...
 
@@ -436,7 +437,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaSelectNone() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT ...
     // (Like SELECT COUNT(*) ...
@@ -517,7 +518,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEmptySchema() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT * ...
 
@@ -564,7 +565,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testEmptySchemaExtra() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT * ...
 
@@ -621,7 +622,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testTypeSmoothingExplicit() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
     TupleMetadata table1Schema = new SchemaBuilder()
         .add("A", MinorType.BIGINT)
         .addNullable("B", MinorType.VARCHAR)
@@ -734,7 +735,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testTypeSmoothing() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
 
     // SELECT a, b ...
 
@@ -836,7 +837,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testModeSmoothing() {
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
     builder.enableSchemaSmoothing(true);
     builder.setProjection(RowSetTestUtils.projectList("a"));
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator(), builder);
@@ -957,7 +958,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   @Test
   public void testColumnReordering() {
 
-    ScanOrchestratorBuilder builder = new ScanOrchestratorBuilder();
+    ScanOrchestratorBuilder builder = new MockScanBuilder();
     builder.enableSchemaSmoothing(true);
     builder.setProjection(RowSetTestUtils.projectList("a", "b", "c"));
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator(), builder);

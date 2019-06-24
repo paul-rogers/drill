@@ -95,7 +95,7 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
     }
 
     @Override
-    protected ManagedScanFramework newFramework() {
+    public ScanFixture build() {
 
       // Bass-ackward construction of the list of files from
       // a set of text fixture readers. Normal implementations
@@ -109,7 +109,7 @@ public class TestColumnsArrayFramework extends SubOperatorTest {
       builder.setConfig(new Configuration());
       builder.setFiles(blocks);
       builder.setReaderFactory(new MockFileReaderFactory(readers));
-      return new ColumnsScanFramework(builder);
+      return super.build();
     }
   }
 

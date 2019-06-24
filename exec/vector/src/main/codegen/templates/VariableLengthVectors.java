@@ -770,8 +770,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
      */
 
     public void fillEmpties(int lastWrite, int index) {
-      System.out.println(String.format("%s: lastWrite = %d, index = %d",
-          getClass().getName(), lastWrite, index));
       // If last write was 2, offsets are [0, 3, 6]
       // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
       // Remember the offsets are one more than row count.

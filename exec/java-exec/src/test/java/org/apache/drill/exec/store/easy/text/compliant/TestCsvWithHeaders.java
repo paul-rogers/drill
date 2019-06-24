@@ -354,12 +354,15 @@ public class TestCsvWithHeaders extends BaseCsvTest {
         .addNullable("dir0", MinorType.VARCHAR)
         .buildSchema();
 
-    // First batch is empty; just carries the schema.
+    RowSet rowSet;
+    if (SCHEMA_BATCH_ENABLED) {
+      // First batch is empty; just carries the schema.
 
-    assertTrue(iter.hasNext());
-    RowSet rowSet = iter.next();
-    assertEquals(0, rowSet.rowCount());
-    rowSet.clear();
+      assertTrue(iter.hasNext());
+      rowSet = iter.next();
+      assertEquals(0, rowSet.rowCount());
+      rowSet.clear();
+    }
 
     // Read the other two batches.
 
@@ -409,12 +412,15 @@ public class TestCsvWithHeaders extends BaseCsvTest {
         .addNullable("dir10", MinorType.VARCHAR)
         .buildSchema();
 
-    // First batch is empty; just carries the schema.
+    RowSet rowSet;
+    if (SCHEMA_BATCH_ENABLED) {
+      // First batch is empty; just carries the schema.
 
-    assertTrue(iter.hasNext());
-    RowSet rowSet = iter.next();
-    RowSetUtilities.verify(new RowSetBuilder(client.allocator(), expectedSchema).build(),
-        rowSet);
+      assertTrue(iter.hasNext());
+      rowSet = iter.next();
+      RowSetUtilities.verify(new RowSetBuilder(client.allocator(), expectedSchema).build(),
+          rowSet);
+    }
 
     // Read the two batches.
 
@@ -461,12 +467,15 @@ public class TestCsvWithHeaders extends BaseCsvTest {
         .addNullable("dir1", MinorType.VARCHAR)
         .buildSchema();
 
-    // First batch is empty; just carries the schema.
+    RowSet rowSet;
+    if (SCHEMA_BATCH_ENABLED) {
+      // First batch is empty; just carries the schema.
 
-    assertTrue(iter.hasNext());
-    RowSet rowSet = iter.next();
-    RowSetUtilities.verify(new RowSetBuilder(client.allocator(), expectedSchema).build(),
-        rowSet);
+      assertTrue(iter.hasNext());
+      rowSet = iter.next();
+      RowSetUtilities.verify(new RowSetBuilder(client.allocator(), expectedSchema).build(),
+          rowSet);
+    }
 
     // Read the two batches.
 

@@ -26,6 +26,19 @@ import org.apache.drill.exec.record.RecordBatch.IterOutcome;
  * between the iterator protocol and the operator executable protocol.
  * Implemented as a separate class in anticipation of eventually
  * changing the record batch (iterator) protocol.
+ *
+ * <h4>Schema-Only Batch</h4>
+ *
+ * The scan operator is designed to provide an initial, empty, schema-only
+ * batch. At the time that this code was written, it was (mis-?) understood
+ * that Drill used a "fast schema" path that provided a schema-only batch
+ * as the first batch. However, it turns out that most operators fail when
+ * presented with an empty batch: many do not properly set the offset
+ * vector for variable-width vectors to an initial 0 position, causing all
+ * kinds of issues.
+ * <p>
+ * To work around this issue, the code defaults to *not* providing the
+ * schema batch.
  */
 
 public class OperatorDriver {
@@ -38,16 +51,7 @@ public class OperatorDriver {
     START,
 
     /**
-     * The first call to next() has been made and schema (only)
-     * was returned. On the subsequent call to next(), return any
-     * data that might have accompanied that first batch.
-     */
-
-    SCHEMA,
-
-    /**
-     * The second call to next() has been made and there is more
-     * data to deliver on subsequent calls.
+     * Read from readers.
      */
 
     RUN,
@@ -93,11 +97,13 @@ public class OperatorDriver {
   private final OperatorExec operatorExec;
   private final BatchAccessor batchAccessor;
   private int schemaVersion;
+  private final boolean enableSchemaBatch;
 
-  public OperatorDriver(OperatorContext opContext, OperatorExec opExec) {
+  public OperatorDriver(OperatorContext opContext, OperatorExec opExec, boolean enableSchemaBatch) {
     this.opContext = opContext;
     this.operatorExec = opExec;
     batchAccessor = operatorExec.batchAccessor();
+    this.enableSchemaBatch = enableSchemaBatch;
   }
 
   /**
@@ -156,10 +162,12 @@ public class OperatorDriver {
    */
 
   private IterOutcome start() {
-    state = State.SCHEMA;
+    state = State.RUN;
+    if (!enableSchemaBatch) {
+      return doNext();
+    }
     if (operatorExec.buildSchema()) {
       schemaVersion = batchAccessor.schemaVersion();
-      state = State.RUN;
 
       // Report schema change.
 
@@ -206,7 +214,7 @@ public class OperatorDriver {
 
   private void cancelSilently() {
     try {
-      if (state == State.SCHEMA || state == State.RUN) {
+      if (state == State.RUN) {
         operatorExec.cancel();
       }
     } catch (Throwable t) {

@@ -746,7 +746,7 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertTrue(v instanceof NullableVarCharVector);
     NullableVarCharVector nvcv = (NullableVarCharVector) v;
     assertEquals(3, nvcv.getAccessor().getValueCount());
-    assertEquals(3, nvcv.getMutator().getLastSet());
+    assertEquals(2, nvcv.getMutator().getLastSet());
 
     // Data vector: 3 values written above.
 

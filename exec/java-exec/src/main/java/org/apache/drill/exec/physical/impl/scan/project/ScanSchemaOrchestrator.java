@@ -24,6 +24,12 @@ import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter;
@@ -31,6 +37,7 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 /**
  * Performs projection of a record reader, along with a set of static
@@ -152,7 +159,7 @@ public class ScanSchemaOrchestrator {
   public static final int DEFAULT_BATCH_BYTE_COUNT = ValueVector.MAX_BUFFER_SIZE;
   public static final int MAX_BATCH_ROW_COUNT = ValueVector.MAX_ROW_COUNT;
 
-  public static class ScanOrchestratorBuilder {
+  public abstract static class ScanOrchestratorBuilder {
 
     private MajorType nullType;
     private MetadataManager metadataManager;
@@ -164,6 +171,7 @@ public class ScanSchemaOrchestrator {
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
     private TypeConverter.Builder typeConverterBuilder = TypeConverter.builder();
+    private boolean enableSchemaBatch;
 
     /**
      * Context for error messages.
@@ -242,6 +250,10 @@ public class ScanSchemaOrchestrator {
       this.projection = projection;
     }
 
+    public void enableSchemaBatch(boolean option) {
+      enableSchemaBatch = option;
+    }
+
     public TypeConverter.Builder typeConverterBuilder() {
       return typeConverterBuilder;
     }
@@ -253,6 +265,17 @@ public class ScanSchemaOrchestrator {
     public CustomErrorContext errorContext() {
       return errorContext;
     }
+
+    @VisibleForTesting
+    public ScanOperatorExec buildScan() {
+      return new ScanOperatorExec(buildEvents());
+    }
+
+    public OperatorRecordBatch buildScanOperator(FragmentContext fragContext, PhysicalOperator pop) {
+      return new OperatorRecordBatch(fragContext, pop, buildScan(), enableSchemaBatch);
+    }
+
+    public abstract ScanOperatorEvents buildEvents();
   }
 
   public static class ScanSchemaOptions {

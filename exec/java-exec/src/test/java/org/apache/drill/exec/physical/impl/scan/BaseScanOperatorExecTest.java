@@ -161,20 +161,25 @@ public class BaseScanOperatorExecTest extends SubOperatorTest {
     }
 
     @Override
-    protected ManagedScanFramework newFramework() {
+    public ScanFixture build() {
       builder.setReaderFactory(new BasicScanFactory(readers.iterator()));
-      return new ManagedScanFramework(builder);
+      return super.build();
     }
   }
 
   @SafeVarargs
-  public static ScanFixture simpleFixture(ManagedReader<? extends SchemaNegotiator>...readers) {
+  public static BaseScanFixtureBuilder simpleBuilder(ManagedReader<? extends SchemaNegotiator>...readers) {
     BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     builder.projectAll();
     for (ManagedReader<? extends SchemaNegotiator> reader : readers) {
       builder.addReader(reader);
     }
-    return builder.build();
+    return builder;
+  }
+
+  @SafeVarargs
+  public static ScanFixture simpleFixture(ManagedReader<? extends SchemaNegotiator>...readers) {
+    return simpleBuilder(readers).build();
   }
 
 }

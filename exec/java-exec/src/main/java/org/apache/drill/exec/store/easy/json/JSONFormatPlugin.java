@@ -260,6 +260,7 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
   protected FileScanBuilder frameworkBuilder(
       OptionManager options, EasySubScan scan) throws ExecutionSetupException {
     FileScanBuilder builder = new FileScanBuilder();
+    initScanBuilder(builder, scan);
     builder.setReaderFactory(new JsonReaderCreator(null));
 
     // Project missing columns as Varchar, which is at least

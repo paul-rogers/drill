@@ -17,11 +17,14 @@
  */
 package org.apache.drill.exec.physical.impl.validate;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleVectorWrapper;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.FixedWidthVector;
@@ -193,7 +196,6 @@ public class BatchValidator {
 
   private void validateFixedWidthVector(String name, FixedWidthVector vector) {
     // TODO Auto-generated method stub
-
   }
 
   /**
@@ -203,4 +205,22 @@ public class BatchValidator {
    */
 
   public List<String> errors() { return errorList; }
+
+  /**
+   * Print a record batch. Uses code only available in a test build.
+   * Classes are not visible to the compiler; must load dynamically.
+   * Does nothing if the class is not available.
+   */
+
+  public static void print(RecordBatch batch) {
+    try {
+      Class<?> helper = Class.forName("org.apache.drill.test.rowSet.RowSetUtilities");
+      Method print = helper.getMethod("print", VectorContainer.class);
+      System.out.println(batch.getClass().getSimpleName());
+      print.invoke(null, batch.getContainer());
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
+      // Ignore
+    }
+  }
 }

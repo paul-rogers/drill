@@ -37,6 +37,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.Re
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ScanOrchestratorBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
@@ -62,10 +63,11 @@ public class ScanTestUtils {
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
 
-
   public static abstract class ScanFixtureBuilder {
 
     public final OperatorFixture opFixture;
+    // All tests are designed to use the schema batch
+    public boolean enableSchemaBatch = true;
 
     public ScanFixtureBuilder(OperatorFixture opFixture) {
       this.opFixture = opFixture;
@@ -89,11 +91,9 @@ public class ScanTestUtils {
       builder().setProjection(projection);
     }
 
-    protected abstract ManagedScanFramework newFramework();
-
     public ScanFixture build() {
-      ManagedScanFramework framework = newFramework();
-      ScanOperatorExec scanOp = new ScanOperatorExec(framework);
+      builder().enableSchemaBatch(enableSchemaBatch);
+      ScanOperatorExec scanOp = builder().buildScan();
       Scan scanConfig = new AbstractSubScan("bob") {
 
         @Override
@@ -124,6 +124,15 @@ public class ScanTestUtils {
         opContext.close();
       }
     }
+  }
+
+  public static class MockScanBuilder extends ScanOrchestratorBuilder {
+
+    @Override
+    public ScanOperatorEvents buildEvents() {
+      throw new IllegalStateException("Not used in this test.");
+    }
+
   }
 
   /**

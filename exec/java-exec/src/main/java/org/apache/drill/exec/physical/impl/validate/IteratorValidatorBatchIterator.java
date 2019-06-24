@@ -22,6 +22,7 @@ import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK_NEW_SCHEMA;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.STOP;
 
+import java.lang.reflect.Method;
 import java.util.Iterator;
 
 import org.apache.drill.common.expression.SchemaPath;
@@ -33,6 +34,7 @@ import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
+import org.apache.drill.exec.record.RecordBatch.IterOutcome;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.VectorValidator;
@@ -345,6 +347,7 @@ public class IteratorValidatorBatchIterator implements CloseableRecordBatch {
     if (validateBatches) {
       new BatchValidator(incoming).validate();
     }
+    //BatchValidator.print(incoming);
   }
 
   @Override

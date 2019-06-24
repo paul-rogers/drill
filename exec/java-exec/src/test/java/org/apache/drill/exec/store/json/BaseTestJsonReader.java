@@ -57,5 +57,4 @@ public class BaseTestJsonReader extends ClusterTest {
       throw new IllegalStateException(e);
     }
   }
-
 }

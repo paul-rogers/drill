@@ -193,14 +193,15 @@ public class TestCsvWithoutHeaders extends BaseCsvTest {
   }
 
   /**
-   * Test partition expansion in V3.
+   * Test partition expansion.
    * <p>
    * V3, as in V2 before Drill 1.12, puts partition columns after
    * data columns (so that data columns don't shift positions if
    * files are nested to another level.)
    */
+
   @Test
-  public void testPartitionExpansionV3() throws IOException {
+  public void testPartitionExpansion() throws IOException {
     String sql = "SELECT * FROM `dfs.data`.`%s`";
     Iterator<DirectRowSet> iter = client.queryBuilder().sql(sql, PART_DIR).rowSetIterator();
 
@@ -209,14 +210,17 @@ public class TestCsvWithoutHeaders extends BaseCsvTest {
         .addNullable("dir0", MinorType.VARCHAR)
         .buildSchema();
 
-    // First batch is empty; just carries the schema.
+    RowSet rowSet;
+    if (SCHEMA_BATCH_ENABLED) {
+      // First batch is empty; just carries the schema.
 
-    assertTrue(iter.hasNext());
-    RowSet rowSet = iter.next();
-    assertEquals(0, rowSet.rowCount());
-    rowSet.clear();
+      assertTrue(iter.hasNext());
+      rowSet = iter.next();
+      assertEquals(0, rowSet.rowCount());
+      rowSet.clear();
+    }
 
-    // Read the other two batches.
+    // Read the two data batches.
 
     for (int i = 0; i < 2; i++) {
       assertTrue(iter.hasNext());

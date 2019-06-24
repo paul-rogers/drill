@@ -144,7 +144,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   private OperatorRecordBatch makeOpBatch(MockOperatorExec opExec) {
     // Dummy operator definition
     PhysicalOperator popConfig = new Limit(null, 0, 100);
-    return new OperatorRecordBatch(fixture.getFragmentContext(), popConfig, opExec);
+    return new OperatorRecordBatch(fixture.getFragmentContext(), popConfig, opExec, true);
   }
 
   /**

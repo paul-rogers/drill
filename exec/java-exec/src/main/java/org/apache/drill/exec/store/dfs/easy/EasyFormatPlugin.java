@@ -348,47 +348,15 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   private CloseableRecordBatch buildScan(FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
 
-    // Assemble the scan operator and its wrapper.
-
     try {
       final FileScanBuilder builder = frameworkBuilder(context.getOptions(), scan);
-      builder.setProjection(scan.getColumns());
-      builder.setFiles(scan.getWorkUnits());
-      builder.setConfig(easyConfig().fsConf);
-      builder.setUserName(scan.getUserName());
-
-      // Pass along the output schema, if any
-
-      builder.typeConverterBuilder().providedSchema(scan.getSchema());
-      final Path selectionRoot = scan.getSelectionRoot();
-      if (selectionRoot != null) {
-        builder.metadataOptions().setSelectionRoot(selectionRoot);
-        builder.metadataOptions().setPartitionDepth(scan.getPartitionDepth());
-      }
 
       // Add batch reader, if none specified
 
       if (builder.readerFactory() == null) {
         builder.setReaderFactory(new EasyReaderFactory(this, scan, context));
       }
-
-      // Add error context, if none is specified
-
-      if (builder.errorContext() == null) {
-        builder.setContext(
-            new CustomErrorContext() {
-              @Override
-              public void addContext(UserException.Builder builder) {
-                builder.addContext("Format plugin:",
-                    EasyFormatPlugin.this.getClass().getSimpleName());
-                builder.addContext("Plugin config name:", getName());
-              }
-            });
-      }
-
-      FileScanFramework framework = builder.buildFileFramework();
-      return new OperatorRecordBatch(context, scan,
-          new ScanOperatorExec(framework));
+      return builder.buildScanOperator(context, scan);
     } catch (final UserException e) {
       // Rethrow user exceptions directly
       throw e;
@@ -396,6 +364,40 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       // Wrap all others
       throw new ExecutionSetupException(e);
     }
+  }
+
+  /**
+   * Initialize the scan framework builder with standard options.
+   * Call this from the plugin-specific
+   * {@link #frameworkBuilder(OptionManager, EasySubScan)} method.
+   * The plugin can then customize/revise options as needed.
+   */
+
+  protected void initScanBuilder(FileScanBuilder builder, EasySubScan scan) {
+    builder.setProjection(scan.getColumns());
+    builder.setFiles(scan.getWorkUnits());
+    builder.setConfig(easyConfig().fsConf);
+    builder.setUserName(scan.getUserName());
+
+    // Pass along the output schema, if any
+
+    builder.typeConverterBuilder().providedSchema(scan.getSchema());
+    final Path selectionRoot = scan.getSelectionRoot();
+    if (selectionRoot != null) {
+      builder.metadataOptions().setSelectionRoot(selectionRoot);
+      builder.metadataOptions().setPartitionDepth(scan.getPartitionDepth());
+    }
+
+    builder.setContext(
+        new CustomErrorContext() {
+          @Override
+          public void addContext(UserException.Builder builder) {
+            builder.addContext("Format plugin:", easyConfig.defaultName);
+            builder.addContext("Format plugin:",
+                EasyFormatPlugin.this.getClass().getSimpleName());
+            builder.addContext("Plugin config name:", getName());
+          }
+        });
   }
 
   public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(

@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -266,4 +267,20 @@ public class RowSetUtilities {
     return new BigDecimal(value);
   }
 
+  public static RowSet wrap(VectorContainer container) {
+    switch (container.getSchema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+      return HyperRowSetImpl.fromContainer(container, container.getSelectionVector4());
+    case NONE:
+      return DirectRowSet.fromContainer(container);
+    case TWO_BYTE:
+      return IndirectRowSet.fromSv2(container, container.getSelectionVector2());
+    default:
+      throw new IllegalStateException("Invalid selection mode");
+    }
+  }
+
+  public static void print(VectorContainer container) {
+    wrap(container).print();
+  }
 }
