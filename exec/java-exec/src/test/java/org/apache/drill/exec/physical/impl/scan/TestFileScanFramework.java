@@ -40,8 +40,8 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.S
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -308,6 +308,7 @@ public class TestFileScanFramework extends SubOperatorTest {
     assertTrue(reader.openCalled);
     assertEquals(1, reader.batchCount);
     assertEquals(0, scan.batchAccessor().getRowCount());
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
 
     // Create the expected result.
 
@@ -331,6 +332,7 @@ public class TestFileScanFramework extends SubOperatorTest {
     // Next call, return with data.
 
     assertTrue(scan.next());
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
     RowSetUtilities.verify(expected,
         fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
@@ -365,14 +367,12 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Expect data and implicit columns
 
-    SchemaBuilder schemaBuilder = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("filename", MinorType.VARCHAR)
-        .add("suffix", MinorType.VARCHAR);
-    BatchSchema expectedSchema = new BatchSchemaBuilder()
-        .withSchemaBuilder(schemaBuilder)
-        .build();
+        .add("suffix", MinorType.VARCHAR)
+        .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(10, "fred", MOCK_FILE_NAME, MOCK_SUFFIX)
         .addRow(20, "wilma", MOCK_FILE_NAME, MOCK_SUFFIX)
@@ -381,12 +381,14 @@ public class TestFileScanFramework extends SubOperatorTest {
     // Schema should include implicit columns.
 
     assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(RowSetUtilities.toBatchSchema(expectedSchema).isEquivalent(scan.batchAccessor().getSchema()));
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
     scan.batchAccessor().release();
 
     // Read one batch, should contain implicit columns
 
     assertTrue(scan.next());
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
     RowSetUtilities.verify(expected,
         fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
@@ -421,15 +423,13 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Expect data and implicit columns
 
-    SchemaBuilder schemaBuilder = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable("dir0", MinorType.VARCHAR)
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("filename", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
-        .add("suffix", MinorType.VARCHAR);
-    BatchSchema expectedSchema = new BatchSchemaBuilder()
-        .withSchemaBuilder(schemaBuilder)
-        .build();
+        .add("suffix", MinorType.VARCHAR)
+        .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(MOCK_DIR0, "fred", MOCK_FILE_NAME, null, MOCK_SUFFIX)
         .addRow(MOCK_DIR0, "wilma", MOCK_FILE_NAME, null, MOCK_SUFFIX)
@@ -438,12 +438,14 @@ public class TestFileScanFramework extends SubOperatorTest {
     // Schema should include implicit columns.
 
     assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(RowSetUtilities.toBatchSchema(expectedSchema).isEquivalent(scan.batchAccessor().getSchema()));
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
     scan.batchAccessor().release();
 
     // Read one batch, should contain implicit columns
 
     assertTrue(scan.next());
+    ScanTestUtils.verifyVectors(scan.batchAccessor().getOutgoingContainer());
     RowSetUtilities.verify(expected,
         fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
@@ -470,9 +472,8 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Expect data and implicit columns
 
-    BatchSchema expectedSchema = new BatchSchemaBuilder()
-        .withSchemaBuilder(new SchemaBuilder())
-        .build();
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow()
         .addRow()
@@ -481,7 +482,7 @@ public class TestFileScanFramework extends SubOperatorTest {
     // Schema should include implicit columns.
 
     assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(RowSetUtilities.toBatchSchema(expectedSchema).isEquivalent(scan.batchAccessor().getSchema()));
     scan.batchAccessor().release();
 
     // Read one batch, should contain implicit columns
@@ -541,19 +542,17 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     // Expect data and implicit columns
 
-    SchemaBuilder schemaBuilder = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .addMap("m1")
           .add("a", MinorType.INT)
-          .resumeSchema();
-    BatchSchema expectedSchema = new BatchSchemaBuilder()
-        .withSchemaBuilder(schemaBuilder)
-        .build();
+          .resumeSchema()
+        .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addSingleCol(new Object[] {10})
         .addSingleCol(new Object[] {20})
         .build();
     assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(RowSetUtilities.toBatchSchema(expectedSchema).isEquivalent(scan.batchAccessor().getSchema()));
     scan.batchAccessor().release();
 
     assertTrue(scan.next());

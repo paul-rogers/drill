@@ -41,5 +41,4 @@ public abstract class AbstractReaderBuilder {
       throw new UnsupportedOperationException(mode.toString());
     }
   }
-
 }

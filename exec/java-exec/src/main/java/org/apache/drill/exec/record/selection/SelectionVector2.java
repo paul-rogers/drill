@@ -35,15 +35,17 @@ import io.netty.buffer.DrillBuf;
 
 public class SelectionVector2 implements AutoCloseable {
 
+  public static final int RECORD_SIZE = 2;
+
   private final BufferAllocator allocator;
-  // Indicates number of indexes stored in the SV2 buffer which may be less than actual number of rows stored in
-  // RecordBatch container owning this SV2 instance
+  // Indicates number of indexes stored in the SV2 buffer which may be less
+  // than the actual number of rows stored in RecordBatch container owning
+  // this SV2 instance
   private int recordCount;
-  // Indicates actual number of rows in the RecordBatch container which owns this SV2 instance
+  // Indicates actual number of rows in the RecordBatch
+  // container which owns this SV2 instance
   private int batchActualRecordCount = -1;
   private DrillBuf buffer = DeadBuf.DEAD_BUFFER;
-
-  public static final int RECORD_SIZE = 2;
 
   public SelectionVector2(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -82,12 +84,11 @@ public class SelectionVector2 implements AutoCloseable {
     DrillBuf bufferHandle = this.buffer;
 
     if (clear) {
-      /* Increment the ref count for this buffer */
+      // Increment the ref count for this buffer
       bufferHandle.retain(1);
 
-      /* We are passing ownership of the buffer to the
-       * caller. clear the buffer from within our selection vector
-       */
+      // We are passing ownership of the buffer to the
+      // caller. clear the buffer from within our selection vector
       clear();
     }
 
@@ -95,7 +96,7 @@ public class SelectionVector2 implements AutoCloseable {
   }
 
   public void setBuffer(DrillBuf bufferHandle) {
-    /* clear the existing buffer */
+    // clear the existing buffer
     clear();
 
     this.buffer = bufferHandle;
@@ -139,10 +140,9 @@ public class SelectionVector2 implements AutoCloseable {
     newSV.batchActualRecordCount = batchActualRecordCount;
     newSV.buffer = buffer;
 
-    /* Since buffer and newSV.buffer essentially point to the
-     * same buffer, if we don't do a retain() on the newSV's
-     * buffer, it might get freed.
-     */
+    // Since buffer and newSV.buffer essentially point to the
+    // same buffer, if we don't do a retain() on the newSV's
+    // buffer, it might get freed.
     newSV.buffer.retain(1);
     clear();
     return newSV;
@@ -158,7 +158,6 @@ public class SelectionVector2 implements AutoCloseable {
   }
 
   public void setRecordCount(int recordCount){
-//    logger.debug("Setting record count to {}", recordCount);
     this.recordCount = recordCount;
   }
 

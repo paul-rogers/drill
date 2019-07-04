@@ -170,7 +170,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   @Override
   public void allocateNew() {
-    if(!allocateNewSafe()){
+    if (!allocateNewSafe()) {
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
@@ -188,6 +188,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     } finally {
       if (!success) {
         clear();
+        return false;
       }
     }
     bits.zeroVector();
@@ -447,13 +448,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.exchange(other.getMutator());
   }
 
-  @Override
-  public void finalizeLastSet(int count) {
-    <#if type.major = "VarLen">
-    mutator.lastSet = count;
-    </#if>
-  }
-
   <#if type.major != "VarLen">
   @Override
   public void toNullable(ValueVector nullableVector) {
@@ -537,7 +531,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void reset() {}
   }
 
-  public final class Mutator extends BaseDataValueVector.BaseMutator implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if> {
+  public final class Mutator extends BaseDataValueVector.BaseMutator
+      implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if>,
+                 NullableVector.Mutator {
     private int setCount;
     <#if type.major = "VarLen">private int lastSet = -1;</#if>
 
@@ -584,13 +580,17 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#if type.major == "VarLen">
+    /**
+     * Fill up to, but not including, index.
+     */
+    
     private void fillEmpties(int index) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
-      valuesMutator.fillEmpties(lastSet, index+1);
-      while(index > bits.getValueCapacity()) {
+      valuesMutator.fillEmpties(lastSet, index);
+      while (index > bits.getValueCapacity()) {
         bits.reAlloc();
       }
-      lastSet = index;
+      lastSet = index - 1;
     }
 
     @Override
@@ -850,8 +850,18 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     <#if type.major = "VarLen">
     @VisibleForTesting
     public int getLastSet() { return lastSet; }
-    
+
     </#if>
+    @Override
+    public void setSetCount(int n) {
+      setCount = n;
+      <#if type.major = "VarLen">lastSet = n - 1;</#if>
+    }
+
+    @VisibleForTesting
+    @Override
+    public int getSetCount() { return setCount; }
+    
     // For nullable vectors, exchanging buffers (done elsewhere)
     // requires also exchanging mutator state (done here.)
 

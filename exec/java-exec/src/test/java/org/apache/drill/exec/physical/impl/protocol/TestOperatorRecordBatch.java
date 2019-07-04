@@ -17,14 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.protocol;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.util.Iterator;
 
 import org.apache.drill.categories.RowSetTests;
@@ -40,13 +32,13 @@ import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor.Cont
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
-import org.apache.drill.exec.record.BatchSchemaBuilder;
-import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarCharVector;
@@ -54,6 +46,14 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Test the implementation of the Drill Volcano iterator protocol that
@@ -353,12 +353,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
   @Test
   public void testBatchAccessor() {
-    SchemaBuilder schemaBuilder = new SchemaBuilder()
-      .add("a", MinorType.INT)
-      .add("b", MinorType.VARCHAR);
-    BatchSchema schema = new BatchSchemaBuilder()
-        .withSchemaBuilder(schemaBuilder)
-        .build();
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
     SingleRowSet rs = fixture.rowSetBuilder(schema)
         .addRow(10, "fred")
         .addRow(20, "wilma")
@@ -368,7 +366,8 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
     try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
-      assertEquals(schema, opBatch.getSchema());
+      BatchSchema expectedSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
+      assertTrue(expectedSchema.isEquivalent(opBatch.getSchema()));
       assertEquals(2, opBatch.getRecordCount());
       assertSame(rs.container(), opBatch.getOutgoingContainer());
 

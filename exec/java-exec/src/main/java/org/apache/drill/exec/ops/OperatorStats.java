@@ -25,6 +25,7 @@ import org.apache.drill.exec.proto.UserBitShared.MetricValue;
 import org.apache.drill.exec.proto.UserBitShared.OperatorProfile;
 import org.apache.drill.exec.proto.UserBitShared.OperatorProfile.Builder;
 import org.apache.drill.exec.proto.UserBitShared.StreamProfile;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 import com.carrotsearch.hppc.IntDoubleHashMap;
 import com.carrotsearch.hppc.IntLongHashMap;
@@ -32,7 +33,6 @@ import com.carrotsearch.hppc.cursors.IntDoubleCursor;
 import com.carrotsearch.hppc.cursors.IntLongCursor;
 import com.carrotsearch.hppc.procedures.IntDoubleProcedure;
 import com.carrotsearch.hppc.procedures.IntLongProcedure;
-import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 public class OperatorStats {
   protected final int operatorId;
@@ -185,7 +185,7 @@ public class OperatorStats {
   public synchronized void batchReceived(int inputIndex, long records, boolean newSchema) {
     recordsReceivedByInput[inputIndex] += records;
     batchesReceivedByInput[inputIndex]++;
-    if(newSchema){
+    if (newSchema) {
       schemaCountByInput[inputIndex]++;
     }
   }

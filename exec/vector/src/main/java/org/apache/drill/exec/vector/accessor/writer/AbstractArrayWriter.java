@@ -175,8 +175,10 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   public static abstract class BaseArrayWriter extends AbstractArrayWriter {
 
-    public BaseArrayWriter(ColumnMetadata schema, UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
-      super(schema, elementObjWriter, new OffsetVectorWriterImpl(offsetVector));
+    public BaseArrayWriter(ColumnMetadata schema,
+        UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
+      super(schema, elementObjWriter,
+            new OffsetVectorWriterImpl(offsetVector));
     }
 
     @Override

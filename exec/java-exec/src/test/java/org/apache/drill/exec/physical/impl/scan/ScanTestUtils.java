@@ -19,8 +19,8 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
@@ -30,19 +30,26 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.VectorChecker;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.drill.test.OperatorFixture;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.rowSet.RowSet;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class ScanTestUtils {
 
@@ -53,7 +60,6 @@ public class ScanTestUtils {
   public static final String FILE_PATH_COL = "filepath";
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
-
 
   public static abstract class ScanFixtureBuilder {
 
@@ -196,5 +202,17 @@ public class ScanTestUtils {
     return RowSetTestUtils.concat(
         RowSetTestUtils.projectAll(),
         expandMetadata(dirCount));
+  }
+
+  public static void verifyVectors(RowSet rowSet) {
+    verifyVectors(rowSet.container());
+  }
+
+  public static void verifyVectors(VectorContainer vc) {
+    for (VectorWrapper<?> vw : vc) {
+      ValueVector v = vw.getValueVector();
+      assertEquals(vc.getRecordCount(), v.getAccessor().getValueCount());
+      assertTrue(VectorChecker.verify(v));
+    }
   }
 }

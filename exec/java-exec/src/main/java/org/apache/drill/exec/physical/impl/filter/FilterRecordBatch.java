@@ -35,11 +35,11 @@ import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
@@ -89,38 +89,39 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
 
   @Override
   public void close() {
+    clearSv();
+    super.close();
+  }
+
+  private void clearSv() {
     if (sv2 != null) {
       sv2.clear();
     }
     if (sv4 != null) {
       sv4.clear();
     }
-    super.close();
   }
 
   @Override
   protected boolean setupNewSchema() throws SchemaChangeException {
-    if (sv2 != null) {
-      sv2.clear();
-    }
+    clearSv();
 
     switch (incoming.getSchema().getSelectionVectorMode()) {
       case NONE:
         if (sv2 == null) {
           sv2 = new SelectionVector2(oContext.getAllocator());
         }
-        this.filter = generateSV2Filterer();
+        filter = generateSV2Filterer();
         break;
       case TWO_BYTE:
         sv2 = new SelectionVector2(oContext.getAllocator());
-        this.filter = generateSV2Filterer();
+        filter = generateSV2Filterer();
         break;
       case FOUR_BYTE:
         /*
          * Filter does not support SV4 handling. There are couple of minor issues in the
          * logic that handles SV4 + filter should always be pushed beyond sort so disabling
          * it in FilterPrel.
-         *
          */
       default:
         throw new UnsupportedOperationException();
@@ -164,7 +165,6 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException("Failure while attempting to load generated class", e);
     }
-
   }
 
   protected Filterer generateSV2Filterer() throws SchemaChangeException {

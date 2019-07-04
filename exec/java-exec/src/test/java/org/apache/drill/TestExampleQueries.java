@@ -563,15 +563,18 @@ public class TestExampleQueries extends BaseTestQuery {
     expectedRecordCount = 1;
     assertEquals(String.format("Received unexpected number of rows in output: expected=%d, received=%s",
         expectedRecordCount, actualRecordCount), expectedRecordCount, actualRecordCount);
+  }
+
+  @Test // DRILL-1867
+  public void testCaseInsensitiveSubQueryCsv() throws Exception {
 
     // source is CSV
     String root = "store/text/data/regions.csv";
     String query = String.format("select rid, x.name from (select columns[0] as RID, columns[1] as NAME from cp.`%s`) X where X.rid = 2", root);
-    actualRecordCount = testSql(query);
-    expectedRecordCount = 1;
+    int actualRecordCount = testSql(query);
+    int expectedRecordCount = 1;
     assertEquals(String.format("Received unexpected number of rows in output: expected=%d, received=%s",
         expectedRecordCount, actualRecordCount), expectedRecordCount, actualRecordCount);
-
   }
 
   @Test

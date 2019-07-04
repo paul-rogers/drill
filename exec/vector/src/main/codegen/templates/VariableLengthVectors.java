@@ -22,6 +22,7 @@ import java.util.Set;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
@@ -324,7 +325,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   @Override
   public void allocateNew() {
-    if(!allocateNewSafe()){
+    if (!allocateNewSafe()) {
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
@@ -351,7 +352,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
      * clear all the memory that we allocated
      */
     try {
-      final int requestedSize = (int)curAllocationSize;
+      final int requestedSize = (int) curAllocationSize;
       data = allocator.buffer(requestedSize);
       allocationSizeInBytes = requestedSize;
       offsetVector.allocateNew();
@@ -757,8 +758,9 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     /**
-     * Backfill missing offsets from the given last written position to the
-     * given current write position. Used by the "new" size-safe column
+     * Backfill missing offsets from the given last written position
+     * up to, but not including, the
+     * given current write position. Used by the size-safe column
      * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
      * <b>do not</b> fill empties. See DRILL-5529.
      * @param lastWrite the position of the last valid write: the offset
@@ -773,8 +775,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       // Remember the offsets are one more than row count.
 
       final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
+      if (fillOffset < 0 || lastWrite+1 == 0 && fillOffset != 0) {
+        throw new IllegalStateException("fillOffset = " + fillOffset);
+      }
       final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
-      for (int i = lastWrite; i < index; i++) {
+      for (int i = lastWrite + 1; i < index; i++) {
         offsetMutator.setSafe(i + 1, fillOffset);
       }
     }
@@ -823,10 +828,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     @Override
     public void setValueCount(int valueCount) {
       final int currentByteCapacity = getByteCapacity();
-      // Check if valueCount to be set is zero and current capacity is also zero. If yes then
-      // we should not call get to read start index from offset vector at that value count.
-      final int idx = (valueCount == 0 && currentByteCapacity == 0)
-        ? 0
+      // The initial offset is always zero. If this vector is within a repeated
+      // type, then (oddly) the offset vector may be empty if the value count
+      // is zero.
+      final int idx = (valueCount == 0) ? 0
         : offsetVector.getAccessor().get(valueCount);
       data.writerIndex(idx);
       if (valueCount > 0 && currentByteCapacity > idx * 2) {
@@ -834,8 +839,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       } else if (allocationMonitor > 0) {
         allocationMonitor = 0;
       }
-      VectorTrimmer.trim(data, idx);
-      offsetVector.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
+      // Offset vector must have 1 more value than the data vector,
+      // even if the data vector is zero. Unless (see above) the
+      // offset vector is empty, which should only occur in a repeated
+      // vector.
+      offsetVector.getMutator().setValueCount(
+          offsetVector.getValueCapacity() == 0 ? 0 : valueCount+1);
     }
 
     @Override

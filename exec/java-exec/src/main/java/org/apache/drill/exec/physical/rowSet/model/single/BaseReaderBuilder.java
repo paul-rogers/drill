@@ -46,7 +46,8 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * <p>
  * Derived classes handle the details of the various kinds of readers.
  * Today there is a single subclass that builds (test-time)
- * {@link RowSet} objects. The idea, however, is that we may eventually
+ * {@link org.apache.drill.test.rowSet.RowSet} objects. The idea, however,
+ * is that we may eventually
  * want to create a "result set reader" for use in internal operators,
  * in parallel to the "result set loader". The result set reader would
  * handle a stream of incoming batches. The extant RowSet class handles
@@ -73,6 +74,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
   }
 
   protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
+    // Enable to catch vector state issues during unit tests.
+    //assert VectorChecker.verify(vector);
+
     final VectorAccessor va = new SingleVectorAccessor(vector);
     final MajorType type = va.type();
 
@@ -105,15 +109,17 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
         buildMapMembers(vector,
             descrip.parent.childProvider(descrip.metadata)));
 
-    // Single map
+    if (isArray) {
 
-    if (! isArray) {
+      // Repeated map
+
+      return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
+    } else {
+
+      // Single map
+
       return mapReader;
     }
-
-    // Repeated map
-
-    return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
   }
 
   protected List<AbstractObjectReader> buildMapMembers(AbstractMapVector mapVector, MetadataProvider provider) {

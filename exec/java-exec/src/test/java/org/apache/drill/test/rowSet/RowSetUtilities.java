@@ -17,15 +17,17 @@
  */
 package org.apache.drill.test.rowSet;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.bouncycastle.util.Arrays;
@@ -34,6 +36,9 @@ import org.joda.time.Instant;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
 import org.joda.time.Period;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Various utilities useful for working with row sets, especially for testing.
@@ -265,4 +270,24 @@ public class RowSetUtilities {
     return new BigDecimal(value);
   }
 
+  public static RowSet wrap(VectorContainer container) {
+    switch (container.getSchema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+      return HyperRowSetImpl.fromContainer(container, container.getSelectionVector4());
+    case NONE:
+      return DirectRowSet.fromContainer(container);
+    case TWO_BYTE:
+      return IndirectRowSet.fromSv2(container, container.getSelectionVector2());
+    default:
+      throw new IllegalStateException("Invalid selection mode");
+    }
+  }
+
+  public static void print(VectorContainer container) {
+    wrap(container).print();
+  }
+
+  public static BatchSchema toBatchSchema(TupleMetadata schema) {
+    return new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
+  }
 }

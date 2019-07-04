@@ -22,6 +22,8 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
+import io.netty.buffer.DrillBuf;
+
 /**
  * Handy tool to visualize string and offset vectors for
  * debugging.
@@ -69,5 +71,13 @@ public class VectorPrinter {
 
   public static String stringAt(VarCharVector vector, int i) {
     return new String(vector.getAccessor().get(i), Charsets.UTF_8);
+  }
+
+  public static void printBuf(DrillBuf buf, int start, int len) {
+    len = Math.min(len, buf.writerIndex());
+    for (int i = 0; i < len; i++) {
+      System.out.print(String.format("%02x ", (buf.getByte(i)) & 0xFF));
+    }
+    System.out.println();
   }
 }

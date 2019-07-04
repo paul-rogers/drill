@@ -21,16 +21,17 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 
-import io.netty.buffer.DrillBuf;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.vector.complex.impl.NullReader;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
+
+import io.netty.buffer.DrillBuf;
 
 public class ZeroVector implements ValueVector {
   public final static ZeroVector INSTANCE = new ZeroVector();

@@ -135,6 +135,30 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  * offset. Note that when doing this, the calls are a bit different than for writing
  * a regular value because we want to write at the "last write position", not the
  * current row position. See {@link BaseVarWidthWriter} for an example.
+ *
+ * <h4>Outer vs. Inner Offset Vectors</h4>
+ *
+ * The serialization/deserialization code makes an awkward
+ * assumption: that if a repeated VarChar has zero inner" values, then
+ * the inner offset vector will have zero entries. That is:<tt><pre>
+ * Outer Offsets: [0, 0, 0, 0]  (for three rows)
+ * Inner Offsets: []
+ * Data:          []</pre></tt>
+ * <p>
+ * This is notable because, everywhere else, 0 entries in
+ * the vector means one entry in the offset vector. For a
+ * top-level VarChar vector:<tt><pre>
+ * Offsets: [0] (zero rows)
+ * Data:    []</pre></tt>
+ * <p>
+ * The form described above is not "natural": it means the offset
+ * vector must know if it is being used as an outer vector (so
+ * zero values means 1 offset) or an "inner" vector (so that zero
+ * values means 0 offsets.)
+ * <p>
+ * Changing the serialize/deserialize code to the "natural" case
+ * was too risky to do during this project; it is left as an
+ * exercise for later. If done, undo the inner/outer hack below.
  */
 
 public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements OffsetVectorWriter {
@@ -142,6 +166,14 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
 
   private final UInt4Vector vector;
+
+  /**
+   * Offset vector is an inner vector: uses the 0 values
+   * = 0 offsets semantics. Otherwise, is outer and uses the
+   * 0 values = 1 offsets semantics.
+   */
+
+  private boolean isInner;
 
   /**
    * Offset of the first value for the current row. Used during
@@ -166,6 +198,8 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override public BaseDataValueVector vector() { return vector; }
   @Override public int width() { return VALUE_WIDTH; }
+
+  public void becomeInner() { isInner = true; }
 
   @Override
   protected void realloc(int size) {
@@ -302,9 +336,16 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override
   public void setValueCount(int valueCount) {
+
+    if (isInner && valueCount == 0) {
+      return;
+    }
+
     mandatoryResize(valueCount);
 
-    // Value count is in row positions.
+    // Value count is in row positions, not index
+    // positions. (There are one more index positions
+    // than row positions.)
 
     fillEmpties(valueCount - lastWriteIndex - 1);
     vector().getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);

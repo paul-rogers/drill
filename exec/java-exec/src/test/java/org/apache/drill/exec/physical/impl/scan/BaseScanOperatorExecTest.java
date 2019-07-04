@@ -175,5 +175,4 @@ public class BaseScanOperatorExecTest extends SubOperatorTest {
     }
     return builder.build();
   }
-
 }

@@ -279,7 +279,7 @@ public class ClientFixture implements AutoCloseable {
    * before the SELECT statement.
    *
    * @param controls the controls string created by
-   * {@link org.apache.drill.exec.testing.Controls#newBuilder()} builder.
+   * {@link Controls#newBuilder()} builder.
    */
 
   public void setControls(String controls) {

@@ -29,11 +29,10 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
-import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
 
 public class VectorUtil {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VectorUtil.class);
@@ -57,7 +56,7 @@ public class VectorUtil {
       for (VectorWrapper<?> vw : va) {
         boolean lastColumn = columnCounter == width - 1;
         Object o;
-        try{
+        try {
           o = vw.getValueVector().getAccessor().getObject(row);
         } catch (Exception e) {
           throw new RuntimeException("failure while trying to read column " + vw.getField().getName());
