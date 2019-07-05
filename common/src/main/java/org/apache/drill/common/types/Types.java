@@ -19,13 +19,14 @@ package org.apache.drill.common.types;
 
 import static org.apache.drill.common.types.TypeProtos.DataMode.REPEATED;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 
 import com.google.protobuf.TextFormat;
 
@@ -770,29 +771,31 @@ public class Types {
       return false;
     }
 
-     if (type1.getMinorType() != MinorType.UNION) {
+    // Subtypes are only for unions and are seldom used.
 
-       // Subtypes are only for unions and are seldom used.
-
-      final List<MinorType> subtypes1 = type1.getSubTypeList();
-      final List<MinorType> subtypes2 = type2.getSubTypeList();
-      if (subtypes1 == subtypes2) { // Only occurs if both are null
-        return true;
-      }
-      if (subtypes1 == null || subtypes2 == null) {
-        return false;
-      }
-      if (subtypes1.size() != subtypes2.size()) {
-        return false;
-      }
-
-      // We treat fields with same set of Subtypes as equal, even if
-      // they are in a different order.
-
-      return Sets.newHashSet(type1.getSubTypeList()).equals(
-          Sets.newHashSet(type2.getSubTypeList()));
+    if (type1.getMinorType() != MinorType.UNION) {
+      return true;
     }
-    return true;
+
+    final List<MinorType> subtypes1 = type1.getSubTypeList();
+    final List<MinorType> subtypes2 = type2.getSubTypeList();
+    if (subtypes1 == subtypes2) { // Only occurs if both are null
+      return true;
+    }
+    if (subtypes1 == null || subtypes2 == null) {
+      return false;
+    }
+    if (subtypes1.size() != subtypes2.size()) {
+      return false;
+    }
+
+    // Now it gets slow because subtype lists are not ordered.
+
+    final List<MinorType> copy1 = new ArrayList<>(subtypes1);
+    final List<MinorType> copy2 = new ArrayList<>(subtypes2);
+    Collections.sort(copy1);
+    Collections.sort(copy2);
+    return copy1.equals(copy2);
   }
 
   /**

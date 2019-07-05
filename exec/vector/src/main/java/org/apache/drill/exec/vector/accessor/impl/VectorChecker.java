@@ -46,7 +46,7 @@ public class VectorChecker {
     UInt4Vector.Accessor va = vector.getAccessor();
     int valueCount = va.getValueCount();
     // Disabled because a large number of operators
-    // set up offset vectors wrongly.
+    // set up offset vectors incorrectly.
 //    if (!repeated && valueCount == 0) {
 //      System.out.println(String.format(
 //          "Offset vector for %s: [0] has length 0, expected 1+",

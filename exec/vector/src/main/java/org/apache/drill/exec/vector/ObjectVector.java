@@ -17,21 +17,21 @@
  */
 package org.apache.drill.exec.vector;
 
+import io.netty.buffer.DrillBuf;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.holders.ObjectHolder;
-import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
-
-import io.netty.buffer.DrillBuf;
 
 public class ObjectVector extends BaseValueVector {
   private final int ALLOCATION_SIZE = 4096;

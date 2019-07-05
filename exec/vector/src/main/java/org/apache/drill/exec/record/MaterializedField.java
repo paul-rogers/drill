@@ -19,10 +19,8 @@ package org.apache.drill.exec.record;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Objects;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -269,9 +267,6 @@ public class MaterializedField {
    */
 
   public boolean isEquivalent(MaterializedField other) {
-    if (this == other) {
-      return true;
-    }
     if (! name.equalsIgnoreCase(other.name)) {
       return false;
     }
@@ -298,21 +293,15 @@ public class MaterializedField {
       return false;
     }
 
-    // For maps, must consider children. Order does not matter,
-    // but children are stored ordered. Do an unordered comparison.
-    // TODO: would be faster to use TupleNameSpace which provides
-    // both ordered and name lookup, but doing so would break clients.
+    // Maps are name-based, not position. But, for our
+    // purposes, we insist on identical ordering.
 
-    Map<String, MaterializedField> children1 = new HashMap<>();
-    for (MaterializedField c : children) {
-      children1.put(c.getName(), c);
-    }
-    for (MaterializedField child2 : other.children) {
-      MaterializedField child1 = children1.get(child2.getName());
-      if (child1 == null) {
-        return false;
-      }
-      if (! child1.isEquivalent(child2)) {
+    final Iterator<MaterializedField> thisIter = children.iterator();
+    final Iterator<MaterializedField> otherIter = other.children.iterator();
+    while (thisIter.hasNext()) {
+      final MaterializedField thisChild = thisIter.next();
+      final MaterializedField otherChild = otherIter.next();
+      if (! thisChild.isEquivalent(otherChild)) {
         return false;
       }
     }

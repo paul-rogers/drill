@@ -176,7 +176,6 @@ public class BaseTestQuery extends ExecTest {
     }
 
     allocator = RootAllocatorFactory.newRoot(config);
-    BaseFixture.dirtyMemory(allocator, 20);
     serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     dirTestWatcher.newDfsTestTmpDir();
