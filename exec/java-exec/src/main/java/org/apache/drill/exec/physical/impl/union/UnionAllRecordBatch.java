@@ -17,8 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.union;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Stack;
+
 import org.apache.calcite.util.Pair;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -54,12 +58,8 @@ import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
-
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Stack;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class UnionAllRecordBatch extends AbstractBinaryRecordBatch<UnionAll> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnionAllRecordBatch.class);
@@ -108,7 +108,7 @@ public class UnionAllRecordBatch extends AbstractBinaryRecordBatch<UnionAll> {
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
 
     VectorAccessibleUtilities.allocateVectors(container, 0);
-    VectorAccessibleUtilities.setValueCount(container,0);
+    VectorAccessibleUtilities.setValueCount(container, 0);
   }
 
   @Override
