@@ -20,12 +20,22 @@ package org.apache.drill.exec.vector;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 public interface NullableVector extends ValueVector {
+
+  public interface Mutator extends ValueVector.Mutator {
+
+    // Used by the vector accessors to force the set count.
+
+    void setSetCount(int n);
+
+    @VisibleForTesting
+    int getSetCount();
+  }
 
   MaterializedField bitsField = MaterializedField.create(BITS_VECTOR_NAME, Types.required(MinorType.UINT1));
 
   ValueVector getBitsVector();
   ValueVector getValuesVector();
-  void finalizeLastSet(int count);
 }

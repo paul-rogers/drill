@@ -22,6 +22,7 @@ import java.util.Set;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
@@ -324,7 +325,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   @Override
   public void allocateNew() {
-    if(!allocateNewSafe()){
+    if (!allocateNewSafe()) {
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
@@ -351,7 +352,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
      * clear all the memory that we allocated
      */
     try {
-      final int requestedSize = (int)curAllocationSize;
+      final int requestedSize = (int) curAllocationSize;
       data = allocator.buffer(requestedSize);
       allocationSizeInBytes = requestedSize;
       offsetVector.allocateNew();
@@ -834,8 +835,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       } else if (allocationMonitor > 0) {
         allocationMonitor = 0;
       }
-      VectorTrimmer.trim(data, idx);
-      offsetVector.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
+      // Offset vector must have 1 more value than the data vector,
+      // even if the data vector is zero. Unless (see above) the
+      // offset vector is empty, which should only occur in a repeated
+      // vector.
+      offsetVector.getMutator().setValueCount(
+          offsetVector.getValueCapacity() == 0 ? 0 : valueCount+1);
     }
 
     @Override

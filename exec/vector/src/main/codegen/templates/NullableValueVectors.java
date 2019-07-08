@@ -448,13 +448,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.exchange(other.getMutator());
   }
 
-  @Override
-  public void finalizeLastSet(int count) {
-    <#if type.major = "VarLen">
-    mutator.lastSet = count;
-    </#if>
-  }
-
   <#if type.major != "VarLen">
   @Override
   public void toNullable(ValueVector nullableVector) {
@@ -538,7 +531,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void reset() {}
   }
 
-  public final class Mutator extends BaseDataValueVector.BaseMutator implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if> {
+  public final class Mutator extends BaseDataValueVector.BaseMutator
+      implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if>,
+                 NullableVector.Mutator {
     private int setCount;
     <#if type.major = "VarLen">private int lastSet = -1;</#if>
 
@@ -587,7 +582,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     <#if type.major == "VarLen">
     private void fillEmpties(int index) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
-      valuesMutator.fillEmpties(lastSet, index+1);
+      valuesMutator.fillEmpties(lastSet, index);
       while(index > bits.getValueCapacity()) {
         bits.reAlloc();
       }
@@ -749,7 +744,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;
       <#if type.major == "VarLen">
-      fillEmpties(valueCount - 1);
+      if (valueCount > 0) {
+        fillEmpties(valueCount - 1);
+      }
       </#if>
       values.getMutator().setValueCount(valueCount);
       bits.getMutator().setValueCount(valueCount);
@@ -851,8 +848,18 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     <#if type.major = "VarLen">
     @VisibleForTesting
     public int getLastSet() { return lastSet; }
-    
+
     </#if>
+    @Override
+    public void setSetCount(int n) {
+      setCount = n;
+      <#if type.major = "VarLen">lastSet = n - 1;</#if>
+    }
+
+    @VisibleForTesting
+    @Override
+    public int getSetCount() { return setCount; }
+    
     // For nullable vectors, exchanging buffers (done elsewhere)
     // requires also exchanging mutator state (done here.)
 
