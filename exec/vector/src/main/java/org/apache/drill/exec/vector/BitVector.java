@@ -17,19 +17,19 @@
  */
 package org.apache.drill.exec.vector;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import io.netty.buffer.DrillBuf;
-
+import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.OversizedAllocationException;
 import org.apache.drill.exec.expr.holders.BitHolder;
 import org.apache.drill.exec.expr.holders.NullableBitHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.vector.complex.impl.BitReaderImpl;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Bit implements a vector of bit-width values. Elements in the vector are accessed by position from the logical start
@@ -104,7 +104,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public int getValueCapacity() {
-    return (int) Math.min((long)Integer.MAX_VALUE, data.capacity() * 8L);
+    return (int) Math.min(Integer.MAX_VALUE, data.capacity() * 8L);
   }
 
   private int getByteIndex(int index) {
@@ -196,6 +196,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   // This version uses the base version because this vector appears to not be
   // used, so not worth the effort to avoid zero-fill.
 
+  @Override
   public DrillBuf reallocRaw(int newAllocationSize) {
     while (allocationSizeInBytes < newAllocationSize) {
       reAlloc();
@@ -234,8 +235,8 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public void load(SerializedField metadata, DrillBuf buffer) {
-    Preconditions.checkArgument(this.field.getName().equals(metadata.getNamePart().getName()),
-                                "The field %s doesn't match the provided metadata %s.", this.field, metadata);
+    Preconditions.checkArgument(field.getName().equals(metadata.getNamePart().getName()),
+                                "The field %s doesn't match the provided metadata %s.", field, metadata);
     final int valueCount = metadata.getValueCount();
     final int expectedLength = getSizeFromCount(valueCount);
     final int actualLength = metadata.getBufferLength();
@@ -348,6 +349,14 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     target.getMutator().setValueCount(length);
   }
 
+  @Override
+  public void exchange(ValueVector other) {
+    super.exchange(other);
+    int temp = valueCount;
+    valueCount = ((BitVector) other).valueCount;
+    ((BitVector) other).valueCount = temp;
+  }
+
   private class TransferImpl implements TransferPair {
     BitVector to;
 
@@ -378,13 +387,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     public void copyValueSafe(int fromIndex, int toIndex) {
       to.copyFromSafe(fromIndex, toIndex, BitVector.this);
     }
-  }
-
-  private void decrementAllocationMonitor() {
-    if (allocationMonitor > 0) {
-      allocationMonitor = 0;
-    }
-    --allocationMonitor;
   }
 
   private void incrementAllocationMonitor() {
@@ -440,8 +442,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    */
   public class Mutator extends BaseMutator {
 
-    private Mutator() {
-    }
+    private Mutator() { }
 
     /**
      * Set the bit at the given index to the specified value.
@@ -524,7 +525,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public void clear() {
-    this.valueCount = 0;
+    valueCount = 0;
     super.clear();
   }
 

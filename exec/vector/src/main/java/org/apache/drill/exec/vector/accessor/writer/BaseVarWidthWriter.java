@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.memory.BaseAllocator;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -53,6 +54,19 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
   public void bindIndex(final ColumnWriterIndex index) {
     offsetsWriter.bindIndex(index);
     super.bindIndex(index);
+  }
+
+  @Override
+  public void bindSchema(ColumnMetadata schema) {
+    super.bindSchema(schema);
+
+    // Determine if this is a repeated type. If so,
+    // the associated offset vector is an "inner" offset
+    // vector.
+
+    if (schema.isArray()) {
+      offsetsWriter.becomeInner();
+    }
   }
 
   @Override

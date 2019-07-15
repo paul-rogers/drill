@@ -447,13 +447,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.exchange(other.getMutator());
   }
 
-  @Override
-  public void finalizeLastSet(int count) {
-    <#if type.major = "VarLen">
-    mutator.lastSet = count;
-    </#if>
-  }
-
   <#if type.major != "VarLen">
   @Override
   public void toNullable(ValueVector nullableVector) {
@@ -537,7 +530,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void reset() {}
   }
 
-  public final class Mutator extends BaseDataValueVector.BaseMutator implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if> {
+  public final class Mutator extends BaseDataValueVector.BaseMutator
+      implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if>,
+                 NullableVector.Mutator {
     private int setCount;
     <#if type.major = "VarLen">private int lastSet = -1;</#if>
 
@@ -850,8 +845,18 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     <#if type.major = "VarLen">
     @VisibleForTesting
     public int getLastSet() { return lastSet; }
-    
+
     </#if>
+    @Override
+    public void setSetCount(int n) {
+      setCount = n;
+      <#if type.major = "VarLen">lastSet = n - 1;</#if>
+    }
+
+    @VisibleForTesting
+    @Override
+    public int getSetCount() { return setCount; }
+    
     // For nullable vectors, exchanging buffers (done elsewhere)
     // requires also exchanging mutator state (done here.)
 
