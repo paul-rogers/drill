@@ -50,8 +50,13 @@ public class TestBatchValidator extends SubOperatorTest {
 
     @Override
     public void error(String name, ValueVector vector, String msg) {
-      errors.add(String.format("%s (%s): %s",
+      error(String.format("%s (%s): %s",
           name, vector.getClass().getSimpleName(), msg));
+    }
+
+    @Override
+    public void error(String msg) {
+      errors.add(msg);
     }
 
     @Override
@@ -141,7 +146,7 @@ public class TestBatchValidator extends SubOperatorTest {
 
   private static void checkForError(SingleRowSet batch, String expectedError) {
     CapturingReporter cr = new CapturingReporter();
-    new BatchValidator(cr).validateBatch(batch.vectorAccessible());
+    new BatchValidator(cr).validateBatch(batch.vectorAccessible(), batch.rowCount());
     assertTrue(cr.errors.size() > 0);
     Pattern p = Pattern.compile(expectedError);
     Matcher m = p.matcher(cr.errors.get(0));

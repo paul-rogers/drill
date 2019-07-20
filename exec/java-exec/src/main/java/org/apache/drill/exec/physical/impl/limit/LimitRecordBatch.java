@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.impl.limit;
 
 import java.util.List;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -30,7 +29,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
-
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.EMIT;
@@ -122,7 +121,7 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
     container.clear();
     transfers.clear();
 
-    for(final VectorWrapper<?> v : incoming) {
+    for (final VectorWrapper<?> v : incoming) {
       final TransferPair pair = v.getValueVector().makeTransferPair(
         container.addOrGet(v.getField(), callBack));
       transfers.add(pair);
@@ -130,7 +129,7 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
 
     final BatchSchema.SelectionVectorMode svMode = incoming.getSchema().getSelectionVectorMode();
 
-    switch(svMode) {
+    switch (svMode) {
       case NONE:
         break;
       case TWO_BYTE:
@@ -174,10 +173,11 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
     final int inputRecordCount = incoming.getRecordCount();
     if (inputRecordCount == 0) {
       setOutgoingRecordCount(0);
+      container.setRecordCount(0);
       return getFinalOutcome(false);
     }
 
-    for(final TransferPair tp : transfers) {
+    for (final TransferPair tp : transfers) {
       tp.transfer();
     }
     // Check if current input record count is less than start offset. If yes then adjust the start offset since we
@@ -185,16 +185,20 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
     if (inputRecordCount <= recordStartOffset) {
       recordStartOffset -= inputRecordCount;
       setOutgoingRecordCount(0);
+      container.setRecordCount(0);
     } else {
       // Allocate SV2 vectors for the record count size since we transfer all the vectors buffer from input record
       // batch to output record batch and later an SV2Remover copies the needed records.
       outgoingSv.allocateNew(inputRecordCount);
       limit(inputRecordCount);
+      container.setRecordCount(inputRecordCount);
     }
 
     // clear memory for incoming sv (if any)
     if (incomingSv != null) {
-      outgoingSv.setBatchActualRecordCount(incomingSv.getBatchActualRecordCount());
+      int incomingCount = incomingSv.getBatchActualRecordCount();
+      outgoingSv.setBatchActualRecordCount(incomingCount);
+      container.setRecordCount(incomingCount);
       incomingSv.clear();
     }
 

@@ -17,8 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.validate;
 
+import org.apache.drill.exec.physical.impl.filter.FilterRecordBatch;
+import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleVectorWrapper;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.FixedWidthVector;
@@ -50,10 +53,11 @@ public class BatchValidator {
 
   public interface ErrorReporter {
     void error(String name, ValueVector vector, String msg);
+    void error(String msg);
     int errorCount();
   }
 
-  private abstract static class BaseErrorReporter implements ErrorReporter {
+  public abstract static class BaseErrorReporter implements ErrorReporter {
 
     private final String opName;
     private int errorCount;
@@ -74,6 +78,12 @@ public class BatchValidator {
     }
 
     @Override
+    public void error(String name, ValueVector vector, String msg) {
+      error(String.format("%s - %s: %s",
+            name, vector.getClass().getSimpleName(), msg));
+    }
+
+    @Override
     public int errorCount() { return errorCount; }
   }
 
@@ -84,12 +94,11 @@ public class BatchValidator {
     }
 
     @Override
-    public void error(String name, ValueVector vector, String msg) {
+    public void error(String msg) {
       if (startError()) {
-        System.out.println(String.format("%s - %s: %s",
-            name, vector.getClass().getSimpleName(), msg));
+        System.out.println(msg);
       }
-   }
+    }
   }
 
   private static class LogReporter extends BaseErrorReporter {
@@ -99,10 +108,9 @@ public class BatchValidator {
     }
 
     @Override
-    public void error(String name, ValueVector vector, String msg) {
+    public void error(String msg) {
       if (startError()) {
-        logger.error("Column {} of type {}: {}",
-            name, vector.getClass().getSimpleName( ), msg);
+        logger.error(msg);
       }
     }
   }
@@ -113,9 +121,41 @@ public class BatchValidator {
     this.errorReporter = errorReporter;
   }
 
+  public static boolean validate(RecordBatch batch) {
+    ErrorReporter reporter = errorReporter(batch);
+    int rowCount = batch.getRecordCount();
+    int valueCount = rowCount;
+    VectorContainer container = batch.getContainer();
+    if (! container.hasRecordCount()) {
+      reporter.error(String.format(
+          "%s: Container record count not set",
+          batch.getClass().getSimpleName()));
+    } else {
+      // Row count will = container count for most operators.
+      // Row count <= container count for the filter operator.
+
+      int containerRowCount = container.getRecordCount();
+      boolean valid;
+      if (batch instanceof FilterRecordBatch) {
+        valid = rowCount <= containerRowCount;
+        valueCount = containerRowCount;
+      } else {
+        valid = rowCount == containerRowCount;
+      }
+      if (! valid) {
+        reporter.error(String.format(
+            "Mismatch between %s record count = %d, container record count = %d",
+            batch.getClass().getSimpleName(),
+            rowCount, containerRowCount));
+      }
+    }
+    new BatchValidator(reporter).validateBatch(batch, valueCount);
+    return reporter.errorCount() == 0;
+  }
+
   public static boolean validate(VectorAccessible batch) {
     ErrorReporter reporter = errorReporter(batch);
-    new BatchValidator(reporter).validateBatch(batch);
+    new BatchValidator(reporter).validateBatch(batch, batch.getRecordCount());
     return reporter.errorCount() == 0;
   }
 
@@ -128,8 +168,7 @@ public class BatchValidator {
     }
   }
 
-  public void validateBatch(VectorAccessible batch) {
-    int rowCount = batch.getRecordCount();
+  public void validateBatch(VectorAccessible batch, int rowCount) {
     for (VectorWrapper<? extends ValueVector> w : batch) {
       validateWrapper(rowCount, w);
     }
@@ -235,7 +274,7 @@ public class BatchValidator {
     UInt4Vector.Accessor accessor = offsetVector.getAccessor();
     int offsetCount = accessor.getValueCount();
     // Disabled because a large number of operators
-    // set up offset vectors wrongly.
+    // set up offset vectors incorrectly.
 //    if (!repeated && offsetCount == 0) {
 //      System.out.println(String.format(
 //          "Offset vector for %s: [0] has length 0, expected 1+",

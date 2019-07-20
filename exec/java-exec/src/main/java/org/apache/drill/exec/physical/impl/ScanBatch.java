@@ -17,9 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl;
 
-import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import io.netty.buffer.DrillBuf;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -54,10 +56,10 @@ import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Record batch used for a particular scan. Operators against one or more
@@ -233,6 +235,7 @@ public class ScanBatch implements CloseableRecordBatch {
         // so we use toContinueIter to mark the decision whether we should continue the iteration
         toContinueIter = shouldContinueAfterNoRecords();
       }
+      container.setRecordCount(recordCount);
 
       if (isNewSchema) {
         // Even when recordCount = 0, we should return return OK_NEW_SCHEMA if current reader presents a new schema.
@@ -602,6 +605,7 @@ public class ScanBatch implements CloseableRecordBatch {
   public VectorContainer getContainer() {
     return container;
   }
+
   /**
    * Verify list of implicit column values is valid input:
    *   - Either implicit column list is empty;

@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.record;
 
-import io.netty.buffer.DrillBuf;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -38,10 +36,11 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.UntypedNullVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import io.netty.buffer.DrillBuf;
 
 
 /**
@@ -152,6 +151,7 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
       schema = builder.build();
       newVectors.buildSchema(BatchSchema.SelectionVectorMode.NONE);
       container = newVectors;
+      container.setRecordCount(def.getRecordCount());
     } catch (final Throwable cause) {
       // We have to clean up new vectors created here and pass over the actual cause. It is upper layer who should
       // adjudicate to call upper layer specific clean up logic.

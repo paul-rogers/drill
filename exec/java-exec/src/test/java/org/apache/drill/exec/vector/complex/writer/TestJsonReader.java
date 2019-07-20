@@ -17,12 +17,6 @@
  */
 package org.apache.drill.exec.vector.complex.writer;
 
-import static org.apache.drill.test.TestBuilder.listOf;
-import static org.apache.drill.test.TestBuilder.mapOf;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -35,9 +29,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-import org.apache.drill.exec.util.JsonStringHashMap;
-import org.apache.drill.exec.util.Text;
-import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -46,14 +37,22 @@ import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
+import org.apache.drill.exec.util.JsonStringHashMap;
+import org.apache.drill.exec.util.Text;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.RepeatedBigIntVector;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.apache.drill.test.BaseTestQuery;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import static org.apache.drill.test.TestBuilder.listOf;
+import static org.apache.drill.test.TestBuilder.mapOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class TestJsonReader extends BaseTestQuery {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestJsonReader.class);
@@ -109,7 +108,7 @@ public class TestJsonReader extends BaseTestQuery {
                   "inner_3", mapOf()))
           .go();
     } finally {
-      test("alter session set `store.json.all_text_mode` = false");
+      test("alter session reset `store.json.all_text_mode`");
     }
   }
 
@@ -265,12 +264,15 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testAllTextMode() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/schema_change_int_to_string.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    try {
+      test("alter system set `store.json.all_text_mode` = true");
+      String[] queries = {"select * from cp.`store/json/schema_change_int_to_string.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/schema_change_int_to_string.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      test("alter system reset `store.json.all_text_mode`");
+    }
   }
 
   @Test
@@ -291,22 +293,30 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testNullWhereListExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_list_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_list_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    try {
+      test("alter system set `store.json.all_text_mode` = true");
+      String[] queries = {"select * from cp.`store/json/null_where_list_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_list_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    }
+    finally {
+      test("alter system reset `store.json.all_text_mode`");
+    }
   }
 
   @Test
   public void testNullWhereMapExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_map_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_map_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    try {
+      test("alter system set `store.json.all_text_mode` = true");
+      String[] queries = {"select * from cp.`store/json/null_where_map_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_map_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    }
+    finally {
+      test("alter system reset `store.json.all_text_mode`");
+    }
   }
 
   @Test
@@ -438,7 +448,7 @@ public class TestJsonReader extends BaseTestQuery {
                       )
               ).go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -455,7 +465,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(13L, "BIGINT")
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -475,7 +485,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(3L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -493,7 +503,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(9L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -510,7 +520,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(11.0)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -534,7 +544,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(20000L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -563,7 +573,7 @@ public class TestJsonReader extends BaseTestQuery {
               .baselineValues(20000L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
 
@@ -626,7 +636,7 @@ public class TestJsonReader extends BaseTestQuery {
         .go();
 
     } finally {
-      testNoResult("alter session set `store.json.all_text_mode` = false");
+      testNoResult("alter session reset `store.json.all_text_mode`");
     }
   }
 

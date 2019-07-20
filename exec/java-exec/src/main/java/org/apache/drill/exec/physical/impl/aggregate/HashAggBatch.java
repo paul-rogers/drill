@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.drill.exec.planner.physical.AggPrelBase;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -50,6 +48,7 @@ import org.apache.drill.exec.physical.impl.aggregate.HashAggregator.AggOutcome;
 import org.apache.drill.exec.physical.impl.common.Comparator;
 import org.apache.drill.exec.physical.impl.common.HashTable;
 import org.apache.drill.exec.physical.impl.common.HashTableConfig;
+import org.apache.drill.exec.planner.physical.AggPrelBase;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -66,6 +65,7 @@ import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import com.sun.codemodel.JExpr;
 import com.sun.codemodel.JVar;
@@ -111,7 +111,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
 
   private class HashAggMemoryManager extends RecordBatchMemoryManager {
     @SuppressWarnings("unused")
-    private int valuesRowWidth = 0;
+    private int valuesRowWidth;
 
     HashAggMemoryManager(int outputBatchSize) {
       super(outputBatchSize);
@@ -221,7 +221,6 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     return aggregator.getOutputCount();
   }
 
-  @SuppressWarnings("incomplete-switch")
   @Override
   public void buildSchema() throws SchemaChangeException {
     IterOutcome outcome = next(incoming);
@@ -236,15 +235,18 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       case STOP:
         state = BatchState.STOP;
         return;
+      default:
+        break;
     }
 
-    this.incomingSchema = incoming.getSchema();
+    incomingSchema = incoming.getSchema();
     if (!createAggregator()) {
       state = BatchState.DONE;
     }
     for (VectorWrapper<?> w : container) {
       AllocationHelper.allocatePrecomputedChildCount(w.getValueVector(), 0, 0, 0);
     }
+    container.setRecordCount(0);
     if (incoming.getRecordCount() > 0) {
       hashAggMemoryManager.update();
     }
@@ -321,8 +323,10 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   }
 
   /**
-   * Creates a new Aggregator based on the current schema. If setup fails, this method is responsible for cleaning up
-   * and informing the context of the failure state, as well is informing the upstream operators.
+   * Creates a new Aggregator based on the current schema. If setup fails, this
+   * method is responsible for cleaning up
+   * and informing the context of the failure state, as well is informing the
+   * upstream operators.
    *
    * @return true if the aggregator was setup successfully. false if there was a failure.
    */
@@ -359,9 +363,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
 
     ErrorCollector collector = new ErrorCollectorImpl();
 
-    int i;
-
-    for (i = 0; i < numGroupByExprs; i++) {
+    for (int i = 0; i < numGroupByExprs; i++) {
       NamedExpression ne = popConfig.getGroupByExprs().get(i);
       final LogicalExpression expr =
           ExpressionTreeMaterializer.materialize(ne.getExpr(), incoming, collector, context.getFunctionRegistry());
@@ -378,7 +380,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     }
 
     int extraNonNullColumns = 0; // each of SUM, MAX and MIN gets an extra bigint column
-    for (i = 0; i < numAggrExprs; i++) {
+    for (int i = 0; i < numAggrExprs; i++) {
       NamedExpression ne = popConfig.getAggrExprs().get(i);
       final LogicalExpression expr = ExpressionTreeMaterializer.materialize(ne.getExpr(), incoming, collector, context.getFunctionRegistry());
 
