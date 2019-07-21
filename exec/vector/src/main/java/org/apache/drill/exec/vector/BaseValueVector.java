@@ -24,7 +24,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import io.netty.buffer.DrillBuf;
@@ -148,6 +147,29 @@ public abstract class BaseValueVector implements ValueVector {
   @Override
   public void toNullable(ValueVector nullableVector) {
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Backfill missing offsets from the given last written position to the
+   * given current write position. Used by the "new" size-safe column
+   * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
+   * <b>do not</b> fill empties. See DRILL-5529.
+   * @param lastWrite the position of the last valid write: the offset
+   * to be copied forward
+   * @param index the current write position filling occurs up to,
+   * but not including, this position
+   */
+
+  public static void fillEmptyOffsets(UInt4Vector offsetVector, int lastWrite, int index) {
+    // If last write was 2, offsets are [0, 3, 6]
+    // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
+    // Remember the offsets are one more than row count.
+
+    final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
+    final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
+    for (int i = lastWrite + 1; i < index; i++) {
+      offsetMutator.setSafe(i + 1, fillOffset);
+    }
   }
 }
 

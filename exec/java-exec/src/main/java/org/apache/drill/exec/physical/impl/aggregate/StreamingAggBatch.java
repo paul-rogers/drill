@@ -75,7 +75,7 @@ import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK_NEW_SCHEMA
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.STOP;
 
 public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StreamingAggBatch.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StreamingAggBatch.class);
 
   protected StreamingAggregator aggregator;
   protected final RecordBatch incoming;
@@ -208,6 +208,7 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
       firstBatchForDataSet = true;
       firstBatchForSchema = false;
       recordCount = 0;
+      container.setRecordCount(0);
       specialBatchSent = false;
       return EMIT;
     }

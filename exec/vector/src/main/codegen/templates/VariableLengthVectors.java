@@ -756,27 +756,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe(index + 1, outputStart + len);
     }
 
-    /**
-     * Backfill missing offsets from the given last written position to the
-     * given current write position. Used by the "new" size-safe column
-     * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
-     * <b>do not</b> fill empties. See DRILL-5529.
-     * @param lastWrite the position of the last valid write: the offset
-     * to be copied forward
-     * @param index the current write position filling occurs up to,
-     * but not including, this position
-     */
-
     public void fillEmpties(int lastWrite, int index) {
-      // If last write was 2, offsets are [0, 3, 6]
-      // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
-      // Remember the offsets are one more than row count.
-
-      final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
-      final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
-      for (int i = lastWrite; i < index; i++) {
-        offsetMutator.setSafe(i + 1, fillOffset);
-      }
+      fillEmptyOffsets(offsetVector, lastWrite, index);
     }
 
     protected void set(int index, int start, int length, DrillBuf buffer){

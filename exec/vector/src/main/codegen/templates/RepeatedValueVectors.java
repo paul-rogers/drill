@@ -46,7 +46,8 @@ package org.apache.drill.exec.vector;
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
 
-public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector implements Repeated<#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>VectorLike {
+public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector
+    implements Repeated<#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>VectorLike {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Repeated${minor.class}Vector.class);
 
   // we maintain local reference to concrete vector type for performance reasons.
@@ -387,25 +388,8 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    /**
-     * Backfill missing offsets from the given last written position to the
-     * given current write position. Used by the "new" size-safe column
-     * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
-     * <b>do not</b> fill empties. See DRILL-5529.
-     * @param lastWrite the position of the last valid write: the offset
-     * to be copied forward
-     * @param index the current write position to be initialized
-     */
-
     public void fillEmpties(int lastWrite, int index) {
-      // If last write was 2, offsets are [0, 3, 6]
-      // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
-      // Remember the offsets are one more than row count.
-      final int fillOffset = offsets.getAccessor().get(lastWrite+1);
-      final UInt4Vector.Mutator offsetMutator = offsets.getMutator();
-      for (int i = lastWrite; i < index; i++) {
-        offsetMutator.setSafe(i + 1, fillOffset);
-      }
+      fillEmptyOffsets(offsets, lastWrite, index);
     }
 
     <#if (fields?size > 1) && !(minor.class == "Decimal9" || minor.class == "Decimal18"
