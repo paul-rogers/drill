@@ -153,29 +153,31 @@ public class BatchValidator {
       // Row count <= container count for the filter operator.
 
       int containerRowCount = container.getRecordCount();
+      valueCount = containerRowCount;
       switch (batch.getSchema().getSelectionVectorMode()) {
       case FOUR_BYTE:
-        valueCount = batch.getSelectionVector4().getCount();
-        if (valueCount != rowCount) {
+        int sv4Count = batch.getSelectionVector4().getCount();
+        if (sv4Count != rowCount) {
           reporter.error(String.format(
               "Mismatch between %s record count = %d, SV4 record count = %d",
               batch.getClass().getSimpleName(),
-              rowCount, valueCount));
+              rowCount, sv4Count));
         }
-        break;
+        // Don't know how to check SV4 batches
+        return true;
       case TWO_BYTE:
-        valueCount = batch.getSelectionVector2().getCount();
-        if (valueCount != rowCount) {
+        int sv2Count = batch.getSelectionVector2().getCount();
+        if (sv2Count != rowCount) {
           reporter.error(String.format(
               "Mismatch between %s record count = %d, SV2 record count = %d",
               batch.getClass().getSimpleName(),
-              rowCount, valueCount));
+              rowCount, sv2Count));
         }
-        if (valueCount > containerRowCount) {
+        if (sv2Count > containerRowCount) {
           reporter.error(String.format(
               "Mismatch between %s container count = %d, SV2 record count = %d",
               batch.getClass().getSimpleName(),
-              containerRowCount, valueCount));
+              containerRowCount, sv2Count));
         }
         int svTotalCount = batch.getSelectionVector2().getBatchActualRecordCount();
         if (svTotalCount != containerRowCount) {

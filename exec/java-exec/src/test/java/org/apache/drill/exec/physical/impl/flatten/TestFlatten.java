@@ -17,10 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.flatten;
 
-import static org.apache.drill.test.TestBuilder.listOf;
-import static org.apache.drill.test.TestBuilder.mapOf;
-import static org.junit.Assert.assertEquals;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -28,21 +24,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.categories.OperatorTest;
-import org.apache.drill.test.TestBuilder;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.exec.fn.interp.TestConstantFolding;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.exec.util.JsonStringHashMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.test.SubDirTestWatcher;
+import org.apache.drill.test.TestBuilder;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import static org.apache.drill.test.TestBuilder.listOf;
+import static org.apache.drill.test.TestBuilder.mapOf;
+import static org.junit.Assert.assertEquals;
 
 @Category(OperatorTest.class)
 public class TestFlatten extends BaseTestQuery {
@@ -484,7 +483,6 @@ public class TestFlatten extends BaseTestQuery {
         .unOrdered()
         .jsonBaselineFile("flatten/drill-2106-result.json")
         .go();
-
   }
 
   @Test // see DRILL-2146

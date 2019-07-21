@@ -50,8 +50,8 @@ import org.apache.drill.exec.record.RecordBatchMemoryManager;
 import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.util.record.RecordBatchStats;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.ValueVector;
@@ -229,10 +229,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
 
     int incomingRecordCount = incoming.getRecordCount();
 
-    if (!doAlloc(flattenMemoryManager.getOutputRowCount())) {
-      outOfMemory = true;
-      return IterOutcome.OUT_OF_MEMORY;
-    }
+    doAlloc(flattenMemoryManager.getOutputRowCount());
 
     // we call this in setupSchema, but we also need to call it here so we have a reference to the appropriate vector
     // inside of the the flattener for the current batch
@@ -241,16 +238,13 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     int childCount = incomingRecordCount == 0 ? 0 : flattener.getFlattenField().getAccessor().getInnerValueCount();
     int outputRecords = childCount == 0 ? 0: flattener.flattenRecords(incomingRecordCount, 0, monitor);
     // TODO - change this to be based on the repeated vector length
+    setValueCount(outputRecords);
     if (outputRecords < childCount) {
-      setValueCount(outputRecords);
       hasRemainder = true;
       remainderIndex = outputRecords;
     } else {
-      setValueCount(outputRecords);
       flattener.resetGroupIndex();
-      for (VectorWrapper<?> v: incoming) {
-        v.clear();
-      }
+      VectorAccessibleUtilities.clear(incoming.getContainer());
     }
     // In case of complex writer expression, vectors would be added to batch run-time.
     // We have to re-build the schema.
@@ -271,25 +265,18 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
 
     // remainingRecordCount can be much higher than number of rows we will have in outgoing batch.
     // Do memory allocation only for number of rows we are going to have in the batch.
-    if (!doAlloc(Math.min(remainingRecordCount, flattenMemoryManager.getOutputRowCount()))) {
-      outOfMemory = true;
-      return;
-    }
+    doAlloc(Math.min(remainingRecordCount, flattenMemoryManager.getOutputRowCount()));
 
     int projRecords = flattener.flattenRecords(remainingRecordCount, 0, monitor);
     if (projRecords < remainingRecordCount) {
       setValueCount(projRecords);
-      this.recordCount = projRecords;
       remainderIndex += projRecords;
     } else {
       setValueCount(remainingRecordCount);
       hasRemainder = false;
       remainderIndex = 0;
-      for (VectorWrapper<?> v : incoming) {
-        v.clear();
-      }
+      VectorAccessibleUtilities.clear(incoming.getContainer());
       flattener.resetGroupIndex();
-      this.recordCount = remainingRecordCount;
     }
     // In case of complex writer expression, vectors would be added to batch run-time.
     // We have to re-build the schema.
@@ -304,7 +291,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     complexWriters.add(writer);
   }
 
-  private boolean doAlloc(int recordCount) {
+  private void doAlloc(int recordCount) {
 
     for (ValueVector v : this.allocationVectors) {
       // This will iteratively allocate memory for nested columns underneath.
@@ -313,31 +300,20 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     }
 
     //Allocate vv for complexWriters.
-    if (complexWriters == null) {
-      return true;
+    if (complexWriters != null) {
+      for (ComplexWriter writer : complexWriters) {
+        writer.allocate();
+      }
     }
-
-    for (ComplexWriter writer : complexWriters) {
-      writer.allocate();
-    }
-
-    return true;
   }
 
   private void setValueCount(int count) {
-    for (ValueVector v : allocationVectors) {
-      ValueVector.Mutator m = v.getMutator();
-      m.setValueCount(count);
-    }
-
-    container.setRecordCount(count);
     recordCount = count;
-    if (complexWriters == null) {
-      return;
-    }
-
-    for (ComplexWriter writer : complexWriters) {
-      writer.setValueCount(count);
+    container.setValueCount(count);
+    if (complexWriters != null) {
+      for (ComplexWriter writer : complexWriters) {
+        writer.setValueCount(count);
+      }
     }
   }
 
@@ -346,14 +322,18 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
   }
 
   /**
-   * The data layout is the same for the actual data within a repeated field, as it is in a scalar vector for
-   * the same sql type. For example, a repeated int vector has a vector of offsets into a regular int vector to
-   * represent the lists. As the data layout for the actual values in the same in the repeated vector as in the
-   * scalar vector of the same type, we can avoid making individual copies for the column being flattened, and just
-   * use vector copies between the inner vector of the repeated field to the resulting scalar vector from the flatten
-   * operation. This is completed after we determine how many records will fit (as we will hit either a batch end, or
-   * the end of one of the other vectors while we are copying the data of the other vectors alongside each new flattened
-   * value coming out of the repeated field.)
+   * The data layout is the same for the actual data within a repeated field, as
+   * it is in a scalar vector for the same sql type. For example, a repeated int
+   * vector has a vector of offsets into a regular int vector to represent the
+   * lists. As the data layout for the actual values in the same in the repeated
+   * vector as in the scalar vector of the same type, we can avoid making
+   * individual copies for the column being flattened, and just use vector
+   * copies between the inner vector of the repeated field to the resulting
+   * scalar vector from the flatten operation. This is completed after we
+   * determine how many records will fit (as we will hit either a batch end, or
+   * the end of one of the other vectors while we are copying the data of the
+   * other vectors alongside each new flattened value coming out of the repeated
+   * field.)
    */
   private TransferPair getFlattenFieldTransferPair(FieldReference reference) {
     final TypedFieldId fieldId = incoming.getValueVectorId(popConfig.getColumn());
