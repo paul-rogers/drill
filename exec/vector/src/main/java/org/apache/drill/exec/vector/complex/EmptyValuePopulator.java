@@ -46,12 +46,12 @@ public class EmptyValuePopulator {
    *          the last index (inclusive) in the offsets vector until which empty
    *          population takes place
    * @throws java.lang.IndexOutOfBoundsException
-   *           if lastIndex is negative or greater than offsets capacity.
+   *          if lastIndex is negative or greater than offsets capacity.
    */
   public void populate(int lastIndex) {
     Preconditions.checkElementIndex(lastIndex, Integer.MAX_VALUE);
-    assert lastSet <= lastIndex;
-    Preconditions.checkState(lastSet <= lastIndex);
+    // Note: the DrillParquetRecordMaterializer (maybe others) will
+    // move "backwards", so don't assert that lastSet <= lastIndex
     BaseValueVector.fillEmptyOffsets(offsets, lastSet, lastIndex);
     lastSet = lastIndex;
   }

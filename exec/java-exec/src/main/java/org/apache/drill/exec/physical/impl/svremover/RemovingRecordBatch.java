@@ -69,7 +69,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
         container.zeroVectors();
         container.setRecordCount(0);
       } else {
-        copier.copyRecords(0, incoming.getRecordCount());
+        copier.copyRecords(0, rowCount);
       }
     } catch (Exception e) {
       throw new IllegalStateException(e);
