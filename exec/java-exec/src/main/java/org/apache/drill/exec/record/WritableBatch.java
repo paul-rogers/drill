@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.record;
 
-import io.netty.buffer.DrillBuf;
-
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -26,9 +24,10 @@ import org.apache.drill.exec.proto.UserBitShared.RecordBatchDef;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * A specialized version of record batch that can moves out buffers and preps them for writing.
@@ -122,10 +121,7 @@ public class WritableBatch implements AutoCloseable {
     container.buildSchema(svMode);
 
     /* Set the record count in the value vector */
-    for (VectorWrapper<?> v : container) {
-      ValueVector.Mutator m = v.getValueVector().getMutator();
-      m.setValueCount(def.getRecordCount());
-    }
+    container.setValueCount(def.getRecordCount());
   }
 
   public void clear() {

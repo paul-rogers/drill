@@ -24,8 +24,6 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import org.apache.drill.exec.expr.BasicTypeHelper;
-import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ConvertExpression;
@@ -40,6 +38,7 @@ import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.expr.DrillFuncHolderExpr;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.TypeHelper;
@@ -56,7 +55,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.exec.vector.ValueVector;
-
+import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import io.netty.buffer.DrillBuf;
@@ -87,7 +86,6 @@ public class InterpreterEvaluator {
     }
 
     outVV.getMutator().setValueCount(recordCount);
-
   }
 
   /**

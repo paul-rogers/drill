@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.validate;
 
-import org.apache.drill.exec.physical.impl.filter.FilterRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleVectorWrapper;
 import org.apache.drill.exec.record.VectorAccessible;
@@ -53,6 +52,7 @@ public class BatchValidator {
 
   public interface ErrorReporter {
     void error(String name, ValueVector vector, String msg);
+    void warn(String name, ValueVector vector, String msg);
     void error(String msg);
     int errorCount();
   }
@@ -84,6 +84,14 @@ public class BatchValidator {
     }
 
     @Override
+    public void warn(String name, ValueVector vector, String msg) {
+      warn(String.format("%s - %s: %s",
+            name, vector.getClass().getSimpleName(), msg));
+    }
+
+    public abstract void warn(String msg);
+
+    @Override
     public int errorCount() { return errorCount; }
   }
 
@@ -99,6 +107,11 @@ public class BatchValidator {
         System.out.println(msg);
       }
     }
+
+    @Override
+    public void warn(String msg) {
+      System.out.println(msg);
+    }
   }
 
   private static class LogReporter extends BaseErrorReporter {
@@ -112,6 +125,11 @@ public class BatchValidator {
       if (startError()) {
         logger.error(msg);
       }
+    }
+
+    @Override
+    public void warn(String msg) {
+      logger.error(msg);
     }
   }
 
@@ -128,25 +146,53 @@ public class BatchValidator {
     VectorContainer container = batch.getContainer();
     if (! container.hasRecordCount()) {
       reporter.error(String.format(
-          "%s: Container record count not set",
+          "%s: Container record count  not set",
           batch.getClass().getSimpleName()));
     } else {
       // Row count will = container count for most operators.
       // Row count <= container count for the filter operator.
 
       int containerRowCount = container.getRecordCount();
-      boolean valid;
-      if (batch instanceof FilterRecordBatch) {
-        valid = rowCount <= containerRowCount;
-        valueCount = containerRowCount;
-      } else {
-        valid = rowCount == containerRowCount;
-      }
-      if (! valid) {
-        reporter.error(String.format(
-            "Mismatch between %s record count = %d, container record count = %d",
-            batch.getClass().getSimpleName(),
-            rowCount, containerRowCount));
+      switch (batch.getSchema().getSelectionVectorMode()) {
+      case FOUR_BYTE:
+        valueCount = batch.getSelectionVector4().getCount();
+        if (valueCount != rowCount) {
+          reporter.error(String.format(
+              "Mismatch between %s record count = %d, SV4 record count = %d",
+              batch.getClass().getSimpleName(),
+              rowCount, valueCount));
+        }
+        break;
+      case TWO_BYTE:
+        valueCount = batch.getSelectionVector2().getCount();
+        if (valueCount != rowCount) {
+          reporter.error(String.format(
+              "Mismatch between %s record count = %d, SV2 record count = %d",
+              batch.getClass().getSimpleName(),
+              rowCount, valueCount));
+        }
+        if (valueCount > containerRowCount) {
+          reporter.error(String.format(
+              "Mismatch between %s container count = %d, SV2 record count = %d",
+              batch.getClass().getSimpleName(),
+              containerRowCount, valueCount));
+        }
+        int svTotalCount = batch.getSelectionVector2().getBatchActualRecordCount();
+        if (svTotalCount != containerRowCount) {
+          reporter.error(String.format(
+              "Mismatch between %s container count = %d, SV2 total count = %d",
+              batch.getClass().getSimpleName(),
+              containerRowCount, svTotalCount));
+        }
+        break;
+      default:
+        if (rowCount != containerRowCount) {
+          reporter.error(String.format(
+              "Mismatch between %s record count = %d, container record count = %d",
+              batch.getClass().getSimpleName(),
+              rowCount, containerRowCount));
+        }
+        break;
       }
     }
     new BatchValidator(reporter).validateBatch(batch, valueCount);
@@ -315,7 +361,9 @@ public class BatchValidator {
     if (errorReporter == null) {
       assert false;
     } else {
-      errorReporter.error(name, vector, msg);
+      // Temporary during debugging
+
+      errorReporter.warn(name, vector, msg);
     }
   }
 

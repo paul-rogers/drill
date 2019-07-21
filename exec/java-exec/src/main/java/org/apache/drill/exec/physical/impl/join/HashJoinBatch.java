@@ -604,10 +604,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
 
           outputRecords = hashJoinProbe.probeAndProject();
 
-          for (final VectorWrapper<?> v : container) {
-            v.getValueVector().getMutator().setValueCount(outputRecords);
-          }
-          container.setRecordCount(outputRecords);
+          container.setValueCount(outputRecords);
 
           batchMemoryManager.updateOutgoingStats(outputRecords);
           RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());

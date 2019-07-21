@@ -191,7 +191,6 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
       // batch to output record batch and later an SV2Remover copies the needed records.
       outgoingSv.allocateNew(inputRecordCount);
       limit(inputRecordCount);
-      container.setRecordCount(inputRecordCount);
     }
 
     // clear memory for incoming sv (if any)
@@ -222,7 +221,7 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
     }
 
     int svIndex = 0;
-    for(int i = recordStartOffset; i < endRecordIndex; svIndex++, i++) {
+    for (int i = recordStartOffset; i < endRecordIndex; svIndex++, i++) {
       if (incomingSv != null) {
         outgoingSv.setIndex(svIndex, incomingSv.getIndex(i));
       } else {
@@ -230,12 +229,17 @@ public class LimitRecordBatch extends AbstractSingleRecordBatch<Limit> {
       }
     }
     outgoingSv.setRecordCount(svIndex);
+    outgoingSv.setBatchActualRecordCount(inputRecordCount);
+    // Actual number of values in the container; not the number in
+    // the SV.
+    container.setRecordCount(inputRecordCount);
     // Update the start offset
     recordStartOffset = 0;
   }
 
   private void setOutgoingRecordCount(int outputCount) {
     outgoingSv.setRecordCount(outputCount);
+    outgoingSv.setBatchActualRecordCount(outputCount);
   }
 
   /**

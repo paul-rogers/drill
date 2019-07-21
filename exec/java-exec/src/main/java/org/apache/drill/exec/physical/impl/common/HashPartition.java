@@ -17,12 +17,18 @@
  */
 package org.apache.drill.exec.physical.impl.common;
 
-import com.carrotsearch.hppc.IntArrayList;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.exceptions.RetryAfterSpillException;
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.cache.VectorSerializer;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
@@ -47,14 +53,10 @@ import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.ObjectVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+
+import com.carrotsearch.hppc.IntArrayList;
 
 import static org.apache.drill.exec.physical.impl.common.HashTable.BATCH_SIZE;
 
@@ -349,15 +351,13 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
     numInMemoryRecords = 0L;
     inMemoryBatchStats.clear();
 
-    while ( tmpBatchesList.size() > 0 ) {
+    while (tmpBatchesList.size() > 0) {
       VectorContainer vc = tmpBatchesList.remove(0);
 
       int numRecords = vc.getRecordCount();
 
       // set the value count for outgoing batch value vectors
-      for (VectorWrapper<?> v : vc) {
-        v.getValueVector().getMutator().setValueCount(numRecords);
-      }
+      vc.setValueCount(numRecords);
 
       WritableBatch wBatch = WritableBatch.getBatchNoHVWrap(numRecords, vc, false);
       try {

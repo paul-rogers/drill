@@ -31,7 +31,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.LogicalExpression;
-
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.cache.VectorSerializer.Writer;
 import org.apache.drill.exec.compile.sig.RuntimeOverridden;
@@ -40,7 +39,6 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
-
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -55,33 +53,24 @@ import org.apache.drill.exec.physical.impl.common.HashTable;
 import org.apache.drill.exec.physical.impl.common.HashTableConfig;
 import org.apache.drill.exec.physical.impl.common.HashTableStats;
 import org.apache.drill.exec.physical.impl.common.IndexPointer;
-
 import org.apache.drill.exec.physical.impl.common.SpilledState;
-import org.apache.drill.exec.record.RecordBatchSizer;
-
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.planner.physical.AggPrelBase;
-
-import org.apache.drill.exec.record.MaterializedField;
-
-import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
-
-import org.apache.drill.exec.record.VectorContainer;
-
-import org.apache.drill.exec.record.TypedFieldId;
-
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
+import org.apache.drill.exec.record.RecordBatchSizer;
+import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.util.record.RecordBatchStats;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.AllocationHelper;
-
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.ObjectVector;
 import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.exec.vector.VariableWidthVector;
 
 import static org.apache.drill.exec.physical.impl.common.HashTable.BATCH_MASK;
@@ -1009,11 +998,7 @@ public abstract class HashAggTemplate implements HashAggregator {
       this.htables[part].outputKeys(currOutBatchIndex, this.outContainer, numOutputRecords);
 
       // set the value count for outgoing batch value vectors
-      for (VectorWrapper<?> v : outgoing) {
-        v.getValueVector().getMutator().setValueCount(numOutputRecords);
-      }
-
-      outContainer.setRecordCount(numOutputRecords);
+      outContainer.setValueCount(numOutputRecords);
       WritableBatch batch = WritableBatch.getBatchNoHVWrap(numOutputRecords, outContainer, false);
       try {
         writers[part].write(batch, null);
@@ -1067,10 +1052,8 @@ public abstract class HashAggTemplate implements HashAggregator {
     if ( handleEmit && ( batchHolders == null || batchHolders[0].size() == 0 ) ) {
       lastBatchOutputCount = 0; // empty
       allocateOutgoing(0);
-      for (VectorWrapper<?> v : outgoing) {
-        v.getValueVector().getMutator().setValueCount(0);
-      }
-      outgoing.getContainer().setRecordCount(0);
+      outgoing.getContainer().setValueCount(0);
+
       // When returning the last outgoing batch (following an incoming EMIT), then replace OK with EMIT
       this.outcome = IterOutcome.EMIT;
       handleEmit = false; // finish handling EMIT
@@ -1184,9 +1167,7 @@ public abstract class HashAggTemplate implements HashAggregator {
     this.htables[partitionToReturn].outputKeys(currOutBatchIndex, this.outContainer, numPendingOutput);
 
     // set the value count for outgoing batch value vectors
-    for (VectorWrapper<?> v : outgoing) {
-      v.getValueVector().getMutator().setValueCount(numOutputRecords);
-    }
+    outgoing.getContainer().setValueCount(numOutputRecords);
 
     outgoing.getRecordBatchMemoryManager().updateOutgoingStats(numOutputRecords);
     RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, outgoing, outgoing.getRecordBatchStatsContext());

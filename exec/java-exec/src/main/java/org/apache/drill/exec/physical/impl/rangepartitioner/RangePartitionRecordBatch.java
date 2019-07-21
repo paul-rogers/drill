@@ -35,8 +35,6 @@ import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 /**
@@ -91,10 +89,7 @@ public class RangePartitionRecordBatch extends AbstractSingleRecordBatch<RangePa
       partitionIdVector.allocateNew(num);
 
       recordCount = projectRecords(num, 0);
-      for (VectorWrapper<?> v : container) {
-        ValueVector.Mutator m = v.getValueVector().getMutator();
-        m.setValueCount(recordCount);
-      }
+      container.setValueCount(recordCount);
     }
     // returning OK here is fine because the base class AbstractSingleRecordBatch
     // is handling the actual return status; thus if there was a new schema, the

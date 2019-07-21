@@ -24,11 +24,10 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
-
-import org.apache.drill.shaded.guava.com.google.common.collect.Range;
-import org.apache.drill.shaded.guava.com.google.common.collect.TreeRangeMap;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.shaded.guava.com.google.common.collect.Range;
+import org.apache.drill.shaded.guava.com.google.common.collect.TreeRangeMap;
 
 /**
  * RecordIterator iterates over incoming record batches one record at a time.
@@ -217,6 +216,7 @@ public class RecordIterator implements VectorAccessible {
               container.addOrGet(w.getField());
             }
             container.buildSchema(rbd.getContainer().getSchema().getSelectionVectorMode());
+            container.setRecordCount(0);
             initialized = true;
           }
           if (innerRecordCount > 0) {

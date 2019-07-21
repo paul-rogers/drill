@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -36,9 +35,9 @@ import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.expr.BatchReference;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.expr.BatchReference;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.NestedLoopJoinPOP;
@@ -47,6 +46,7 @@ import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.ExpandableHyperContainer;
+import org.apache.drill.exec.record.JoinBatchMemoryManager;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TypedFieldId;
@@ -54,13 +54,14 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.util.record.RecordBatchStats;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
-import org.apache.drill.exec.record.JoinBatchMemoryManager;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.AbstractContainerVector;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+
 import com.sun.codemodel.JExpr;
 import com.sun.codemodel.JExpression;
 import com.sun.codemodel.JVar;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.complex.AbstractContainerVector;
 
 /*
  * RecordBatch implementation for the nested loop join operator
@@ -73,16 +74,16 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
   protected static final int RIGHT_INPUT = 1;
 
   // Schema on the left side
-  private BatchSchema leftSchema = null;
+  private BatchSchema leftSchema;
 
   // Schema on the right side
-  private BatchSchema rightSchema = null;
+  private BatchSchema rightSchema;
 
   // Runtime generated class implementing the NestedLoopJoin interface
-  private NestedLoopJoin nljWorker = null;
+  private NestedLoopJoin nljWorker;
 
   // Number of output records in the current outgoing batch
-  private int outputRecords = 0;
+  private int outputRecords;
 
   // We accumulate all the batches on the right side in a hyper container.
   private ExpandableHyperContainer rightContainer = new ExpandableHyperContainer();
@@ -198,12 +199,7 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
     outputRecords = nljWorker.outputRecords(popConfig.getJoinType());
 
     // Set the record count
-    for (final VectorWrapper<?> vw : container) {
-      vw.getValueVector().getMutator().setValueCount(outputRecords);
-    }
-
-    // Set the record count in the container
-    container.setRecordCount(outputRecords);
+    container.setValueCount(outputRecords);
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
 
     RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
@@ -401,6 +397,7 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
         batchMemoryManager.getRecordBatchSizer(LEFT_INDEX), getRecordBatchStatsContext());
 
       container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
+      container.setRecordCount(0);
 
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException(e);

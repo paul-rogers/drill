@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Iterables;
-
 import org.apache.drill.common.exceptions.DrillException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.FunctionCall;
@@ -47,10 +45,11 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
-
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import com.sun.codemodel.JExpr;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.shaded.guava.com.google.common.collect.Iterables;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+
+import com.sun.codemodel.JExpr;
 
 /**
  * support for OVER(PARTITION BY expression1,expression2,... [ORDER BY expressionA, expressionB,...])
@@ -181,10 +180,7 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       tp.transfer();
     }
 
-    container.setRecordCount(recordCount);
-    for (VectorWrapper<?> v : container) {
-      v.getValueVector().getMutator().setValueCount(recordCount);
-    }
+    container.setValueCount(recordCount);
 
     // we can safely free the current batch
     current.clear();

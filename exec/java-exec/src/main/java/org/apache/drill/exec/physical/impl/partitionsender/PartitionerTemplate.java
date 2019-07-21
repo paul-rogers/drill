@@ -51,7 +51,6 @@ import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public abstract class PartitionerTemplate implements Partitioner {
@@ -332,11 +331,7 @@ public abstract class PartitionerTemplate implements Partitioner {
         return;
       }
 
-      if (recordCount != 0) {
-        for (VectorWrapper<?> w : vectorContainer) {
-          w.getValueVector().getMutator().setValueCount(recordCount);
-        }
-      }
+      vectorContainer.setValueCount(recordCount);
 
       FragmentWritableBatch writableBatch = new FragmentWritableBatch(isLastBatch,
           handle.getQueryId(),

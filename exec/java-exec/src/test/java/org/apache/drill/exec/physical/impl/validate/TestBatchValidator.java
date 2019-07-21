@@ -55,6 +55,11 @@ public class TestBatchValidator extends SubOperatorTest {
     }
 
     @Override
+    public void warn(String name, ValueVector vector, String msg) {
+      error(name, vector, msg);
+    }
+
+    @Override
     public void error(String msg) {
       errors.add(msg);
     }

@@ -42,12 +42,12 @@ import org.apache.drill.exec.expr.ValueVectorWriteExpression;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.config.FlattenPOP;
-import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.RecordBatchMemoryManager;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.RecordBatchMemoryManager;
+import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
@@ -58,9 +58,9 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import com.carrotsearch.hppc.IntHashSet;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import com.sun.codemodel.JExpr;
 
 // TODO - handle the case where a user tries to flatten a scalar, should just act as a project all of the columns exactly
@@ -71,8 +71,8 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
   private Flattener flattener;
   private List<ValueVector> allocationVectors;
   private List<ComplexWriter> complexWriters;
-  private boolean hasRemainder = false;
-  private int remainderIndex = 0;
+  private boolean hasRemainder;
+  private int remainderIndex;
   private int recordCount;
   private final FlattenMemoryManager flattenMemoryManager;
 
@@ -80,7 +80,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     @Override
     public int getBufferSizeFor(int recordCount) {
       int bufferSize = 0;
-      for(final ValueVector vv : allocationVectors) {
+      for (final ValueVector vv : allocationVectors) {
         bufferSize += vv.getBufferSizeFor(recordCount);
       }
       return bufferSize;
@@ -97,7 +97,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
         outputNames.clear();
       }
 
-      // note:  don't clear the internal maps since they have cumulative data..
+      // note:  don't clear the internal maps since they have cumulative data.
     }
   }
 
@@ -181,13 +181,11 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     return recordCount;
   }
 
-
   @Override
   protected void killIncoming(boolean sendUpstream) {
     super.killIncoming(sendUpstream);
     hasRemainder = false;
   }
-
 
   @Override
   public IterOutcome innerNext() {
@@ -201,7 +199,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
 
   @Override
   public VectorContainer getOutgoingContainer() {
-    return this.container;
+    return container;
   }
 
   private void setFlattenVector() {
@@ -247,14 +245,12 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       setValueCount(outputRecords);
       hasRemainder = true;
       remainderIndex = outputRecords;
-      this.recordCount = remainderIndex;
     } else {
       setValueCount(outputRecords);
       flattener.resetGroupIndex();
-      for(VectorWrapper<?> v: incoming) {
+      for (VectorWrapper<?> v: incoming) {
         v.clear();
       }
-      this.recordCount = outputRecords;
     }
     // In case of complex writer expression, vectors would be added to batch run-time.
     // We have to re-build the schema.
@@ -302,7 +298,6 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     }
 
     flattenMemoryManager.updateOutgoingStats(projRecords);
-
   }
 
   public void addComplexWriter(ComplexWriter writer) {
@@ -335,6 +330,8 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       m.setValueCount(count);
     }
 
+    container.setRecordCount(count);
+    recordCount = count;
     if (complexWriters == null) {
       return;
     }
@@ -481,7 +478,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     container.buildSchema(SelectionVectorMode.NONE);
 
     try {
-      this.flattener = context.getImplementationClass(cg.getCodeGenerator());
+      flattener = context.getImplementationClass(cg.getCodeGenerator());
       flattener.setup(context, incoming, this, transfers);
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException("Failure while attempting to load generated class", e);

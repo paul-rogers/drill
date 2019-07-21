@@ -17,13 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.join;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import com.sun.codemodel.JClass;
-import com.sun.codemodel.JConditional;
-import com.sun.codemodel.JExpr;
-import com.sun.codemodel.JMod;
-import com.sun.codemodel.JVar;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -62,10 +59,13 @@ import org.apache.drill.exec.util.record.RecordBatchStats;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JConditional;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JVar;
 
 import static org.apache.drill.exec.compile.sig.GeneratorMapping.GM;
 
@@ -177,6 +177,7 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
     }
 
     allocateBatch(true);
+    container.setRecordCount(0);
   }
 
   @Override
@@ -269,11 +270,7 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
   }
 
   private void setRecordCountInContainer() {
-    for (VectorWrapper vw : container) {
-      Preconditions.checkArgument(!vw.isHyper());
-      vw.getValueVector().getMutator().setValueCount(getRecordCount());
-    }
-
+    container.setValueCount(getRecordCount());
     RecordBatchStats.logRecordBatchStats(RecordBatchIOType.OUTPUT, this, getRecordBatchStatsContext());
     batchMemoryManager.updateOutgoingStats(getRecordCount());
   }
@@ -479,7 +476,7 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
     // Allocate memory for the vectors.
     // This will iteratively allocate memory for all nested columns underneath.
     int outputRowCount = batchMemoryManager.getOutputRowCount();
-    for (VectorWrapper w : container) {
+    for (VectorWrapper<?> w : container) {
       RecordBatchSizer.ColumnSize colSize = batchMemoryManager.getColumnSize(w.getField().getName());
       colSize.allocateVector(w.getValueVector(), outputRowCount);
     }

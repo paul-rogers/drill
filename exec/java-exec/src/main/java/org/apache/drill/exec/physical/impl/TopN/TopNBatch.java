@@ -65,8 +65,8 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -559,12 +559,8 @@ public class TopNBatch extends AbstractRecordBatch<TopN> {
       // Transfers count number of records from hyperBatch to simple container
       final int copiedRecords = copier.copyRecords(0, count);
       assert copiedRecords == count;
-      for (VectorWrapper<?> v : newContainer) {
-        ValueVector.Mutator m = v.getValueVector().getMutator();
-        m.setValueCount(count);
-      }
       newContainer.buildSchema(BatchSchema.SelectionVectorMode.NONE);
-      newContainer.setRecordCount(count);
+      newContainer.setValueCount(count);
       // Store all the batches containing limit number of records
       batchBuilder.add(newBatch);
     } while (queueSv4.next());
