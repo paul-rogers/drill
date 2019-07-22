@@ -83,6 +83,8 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
   public static enum BatchState {
     /** Need to build schema and return. */
     BUILD_SCHEMA,
+    /** Schema contained null types, expect an empty result set. */
+    EXPECT_EMPTY,
     /** This is still the first data batch. */
     FIRST,
     /** The first data batch has already been returned. */

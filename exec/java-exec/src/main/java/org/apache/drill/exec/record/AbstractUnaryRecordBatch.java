@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.record;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -112,7 +113,16 @@ public abstract class AbstractUnaryRecordBatch<T extends PhysicalOperator> exten
         // fall through.
       case OK:
       case EMIT:
-        assert state != BatchState.FIRST : "First batch should be OK_NEW_SCHEMA";
+        if (state == BatchState.EXPECT_EMPTY) {
+          if (incoming.getRecordCount() != 0) {
+            throw UserException
+              .unsupportedError()
+              .message("Flatten does not support inputs of non-list values.")
+              .build(logger);
+          }
+        } else {
+          assert state != BatchState.FIRST : "First batch should be OK_NEW_SCHEMA";
+        }
         container.zeroVectors();
         IterOutcome out = doWork();
 

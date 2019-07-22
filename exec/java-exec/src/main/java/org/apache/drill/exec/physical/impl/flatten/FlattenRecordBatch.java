@@ -343,14 +343,19 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
     TransferPair tp = null;
     if (flattenField instanceof RepeatedMapVector) {
       tp = ((RepeatedMapVector)flattenField).getTransferPairToSingleMap(reference.getAsNamePart().getName(), oContext.getAllocator());
-    } else if ( !(flattenField instanceof RepeatedValueVector) ) {
-      if(incoming.getRecordCount() != 0) {
-        throw UserException.unsupportedError().message("Flatten does not support inputs of non-list values.").build(logger);
+    } else if (!(flattenField instanceof RepeatedValueVector)) {
+      if (incoming.getRecordCount() == 0) {
+        state = BatchState.EXPECT_EMPTY;
+        final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
+        tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
       }
-      logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
-      //when incoming recordCount is 0, don't throw exception since the type being seen here is not solid
-      final ValueVector vv = new RepeatedMapVector(flattenField.getField(), oContext.getAllocator(), null);
-      tp = RepeatedValueVector.class.cast(vv).getTransferPair(reference.getAsNamePart().getName(), oContext.getAllocator());
+      else {
+        logger.error("Cannot cast {} to RepeatedValueVector", flattenField);
+        throw UserException
+          .unsupportedError()
+          .message("Flatten does not support inputs of non-list values.")
+          .build(logger);
+      }
     } else {
       final ValueVector vvIn = RepeatedValueVector.class.cast(flattenField).getDataVector();
       // vvIn may be null because of fast schema return for repeated list vectors

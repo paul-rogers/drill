@@ -17,17 +17,15 @@
  */
 package org.apache.drill.exec.server;
 
-import com.codahale.metrics.MetricRegistry;
-import io.netty.channel.EventLoopGroup;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.SynchronousQueue;
+
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.KerberosUtil;
 import org.apache.drill.common.config.DrillConfig;
@@ -46,6 +44,10 @@ import org.apache.drill.exec.server.options.OptionDefinition;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import com.codahale.metrics.MetricRegistry;
+
+import io.netty.channel.EventLoopGroup;
 
 public class BootStrapContext implements AutoCloseable {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BootStrapContext.class);
@@ -256,9 +258,9 @@ public class BootStrapContext implements AutoCloseable {
     }
 
     try {
-      AutoCloseables.close(allocator, authProvider);
       shutdown(loop);
       shutdown(loop2);
+      AutoCloseables.close(allocator, authProvider);
 
     } catch (final Exception e) {
       logger.error("Error while closing", e);

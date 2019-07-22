@@ -128,6 +128,7 @@ public class VectorContainer implements VectorAccessible {
     for (int i = 0; i < this.wrappers.size(); ++i) {
       containerIn.wrappers.get(i).transfer(this.wrappers.get(i));
     }
+    setRecordCount(containerIn.getRecordCount());
   }
 
   /**

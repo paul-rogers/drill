@@ -17,6 +17,19 @@
  */
 package org.apache.drill.exec.server;
 
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.tools.ToolProvider;
+
 import org.apache.curator.framework.api.ACLProvider;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.StackTrace;
@@ -25,6 +38,8 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
+import org.apache.drill.common.util.GuavaPatcher;
+import org.apache.drill.common.util.ProtobufPatcher;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.ClusterCoordinator.RegistrationHandle;
@@ -46,25 +61,11 @@ import org.apache.drill.exec.store.sys.PersistentStoreRegistry;
 import org.apache.drill.exec.store.sys.store.provider.CachingPersistentStoreProvider;
 import org.apache.drill.exec.store.sys.store.provider.InMemoryStoreProvider;
 import org.apache.drill.exec.store.sys.store.provider.LocalPersistentStoreProvider;
-import org.apache.drill.common.util.GuavaPatcher;
-import org.apache.drill.common.util.ProtobufPatcher;
 import org.apache.drill.exec.work.WorkManager;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.zookeeper.Environment;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-
-import javax.tools.ToolProvider;
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Starts, tracks and stops all the required services for a Drillbit daemon to work.
@@ -250,19 +251,18 @@ public class Drillbit implements AutoCloseable {
     }
   }
 
-  /*
-
-   */
   public void shutdown() {
     this.close();
   }
- /*
-  The drillbit is moved into Quiescent state and the drillbit waits for grace period amount of time.
-  Then drillbit moves into draining state and waits for all the queries and fragments to complete.
-  */
+
+  /**
+   * The drillbit is moved into Quiescent state and the drillbit waits for grace
+   * period amount of time. Then drillbit moves into draining state and waits
+   * for all the queries and fragments to complete.
+   */
   @Override
   public synchronized void close() {
-    if ( !stateManager.getState().equals(DrillbitState.ONLINE)) {
+    if (!stateManager.getState().equals(DrillbitState.ONLINE)) {
       return;
     }
     final Stopwatch w = Stopwatch.createStarted();
@@ -287,7 +287,7 @@ public class Drillbit implements AutoCloseable {
     //safe to exit
     updateState(State.OFFLINE);
     stateManager.setState(DrillbitState.OFFLINE);
-    if(quiescentMode) {
+    if (quiescentMode) {
       return;
     }
     if (coord != null && registrationHandle != null) {
@@ -307,11 +307,11 @@ public class Drillbit implements AutoCloseable {
       AutoCloseables.close(
           webServer,
           engine,
+          context,
           storeProvider,
           coord,
           manager,
-          storageRegistry,
-          context);
+          storageRegistry);
 
       //Closing the profile store provider if distinct
       if (storeProvider != profileStoreProvider) {
@@ -327,7 +327,6 @@ public class Drillbit implements AutoCloseable {
     if (interruptPollShutdown) {
       gracefulShutdownThread.interrupt();
     }
-
   }
 
   private void javaPropertiesToSystemOptions() {

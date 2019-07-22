@@ -17,11 +17,6 @@
  */
 package org.apache.drill.exec.rpc.user;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.DrillBuf;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,15 +29,19 @@ import org.apache.drill.exec.proto.UserBitShared.QueryResult;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.rpc.BaseRpcOutcomeListener;
-import org.apache.drill.exec.rpc.user.UserClient.UserToBitConnection;
 import org.apache.drill.exec.rpc.ConnectionThrottle;
 import org.apache.drill.exec.rpc.RpcBus;
 import org.apache.drill.exec.rpc.RpcConnectionHandler;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
-
+import org.apache.drill.exec.rpc.user.UserClient.UserToBitConnection;
 import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.drill.shaded.guava.com.google.common.collect.Queues;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.DrillBuf;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 /**
  * Encapsulates the future management of query submissions.  This entails a
@@ -98,7 +97,7 @@ public class QueryResultHandler {
     final boolean isFailureResult = QueryState.FAILED == queryState;
     // CANCELED queries are handled the same way as COMPLETED
     final boolean isTerminalResult;
-    switch ( queryState ) {
+    switch (queryState) {
       case FAILED:
       case CANCELED:
       case COMPLETED:
@@ -134,12 +133,12 @@ public class QueryResultHandler {
         logger.warn("queryState {} was ignored", queryState);
       }
     } finally {
-      if ( isTerminalResult ) {
+      if (isTerminalResult) {
         // TODO:  What exactly are we checking for?  How should we really check
         // for it?
-        if ( (! ( resultsListener instanceof BufferingResultsListener )
-          || ((BufferingResultsListener) resultsListener).output != null ) ) {
-          queryIdToResultsListenersMap.remove( queryId, resultsListener );
+        if ( (! (resultsListener instanceof BufferingResultsListener)
+          || ((BufferingResultsListener) resultsListener).output != null)) {
+          queryIdToResultsListenersMap.remove(queryId, resultsListener);
         }
       }
     }
@@ -151,10 +150,10 @@ public class QueryResultHandler {
    */
   public void batchArrived( ConnectionThrottle throttle,
                             ByteBuf pBody, ByteBuf dBody ) throws RpcException {
-    final QueryData queryData = RpcBus.get( pBody, QueryData.PARSER );
+    final QueryData queryData = RpcBus.get(pBody, QueryData.PARSER);
     // Current batch coming in.
     final DrillBuf drillBuf = (DrillBuf) dBody;
-    final QueryDataBatch batch = new QueryDataBatch( queryData, drillBuf );
+    final QueryDataBatch batch = new QueryDataBatch(queryData, drillBuf);
 
     final QueryId queryId = queryData.getQueryId();
 
@@ -169,7 +168,7 @@ public class QueryResultHandler {
     try {
       resultsListener.dataArrived(batch, throttle);
       // That releases batch if successful.
-    } catch ( Exception e ) {
+    } catch (Exception e) {
       batch.release();
       resultsListener.submissionFailed(UserException.systemError(e).build(logger));
     }
@@ -184,7 +183,7 @@ public class QueryResultHandler {
   private UserResultsListener newUserResultsListener(QueryId queryId) {
     UserResultsListener resultsListener = queryIdToResultsListenersMap.get( queryId );
     logger.trace( "For QueryId [{}], retrieved results listener {}", queryId, resultsListener );
-    if ( null == resultsListener ) {
+    if (null == resultsListener) {
       // WHO?? didn't get query ID response and set submission listener yet,
       // so install a buffering listener for now
 
@@ -192,7 +191,7 @@ public class QueryResultHandler {
       resultsListener = queryIdToResultsListenersMap.putIfAbsent( queryId, bl );
       // If we had a successful insertion, use that reference.  Otherwise, just
       // throw away the new buffering listener.
-      if ( null == resultsListener ) {
+      if (null == resultsListener) {
         resultsListener = bl;
       }
     }
