@@ -29,6 +29,11 @@ import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
 public class VectorPrinter {
 
+  public static void printOffsets(UInt4Vector vector, int maxPrint) {
+    int length = Math.max(maxPrint, vector.getAccessor().getValueCount());
+    printOffsets(vector, 0, length);
+  }
+
   public static void printOffsets(UInt4Vector vector, int start, int length) {
     header(vector, start, length);
     for (int i = start, j = 0; j < length; i++, j++) {

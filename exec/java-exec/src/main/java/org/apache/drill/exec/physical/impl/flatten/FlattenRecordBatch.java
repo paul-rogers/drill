@@ -299,7 +299,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       colSize.allocateVector(v, recordCount);
     }
 
-    //Allocate vv for complexWriters.
+    // Allocate vv for complexWriters.
     if (complexWriters != null) {
       for (ComplexWriter writer : complexWriters) {
         writer.allocate();

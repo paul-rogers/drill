@@ -17,8 +17,11 @@
  */
 package org.apache.drill;
 
-import org.apache.drill.exec.record.BatchSchemaBuilder;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Paths;
+import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.categories.OperatorTest;
@@ -28,19 +31,15 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 import org.apache.drill.exec.work.foreman.UnsupportedRelOperatorException;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.test.BaseTestQuery;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.nio.file.Paths;
-import java.util.List;
 
 @Category({SqlTest.class, OperatorTest.class})
 public class TestUnionAll extends BaseTestQuery {
@@ -347,7 +346,6 @@ public class TestUnionAll extends BaseTestQuery {
         .baselineColumns("n_nationkey", "n_regionkey", "n_name")
         .build().run();
 
-
     testBuilder()
         .sqlQuery(query2)
         .unOrdered()
@@ -355,7 +353,7 @@ public class TestUnionAll extends BaseTestQuery {
         .baselineTypes(TypeProtos.MinorType.INT, TypeProtos.MinorType.INT, TypeProtos.MinorType.VARCHAR)
         .baselineColumns("n_nationkey", "n_regionkey", "n_name")
         .build().run();
-    }
+  }
 
   @Test // see DRILL-1977, DRILL-2376, DRILL-2377, DRILL-2378, DRILL-2379
   @Category(UnlikelyTest.class)

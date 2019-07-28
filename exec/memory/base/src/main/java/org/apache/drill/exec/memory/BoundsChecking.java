@@ -20,24 +20,35 @@ package org.apache.drill.exec.memory;
 import java.lang.reflect.Field;
 import java.util.Formatter;
 
+import org.apache.drill.exec.util.AssertionUtil;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import static org.apache.drill.exec.util.SystemPropertyUtil.getBoolean;
 
 import io.netty.buffer.AbstractByteBuf;
 import io.netty.buffer.DrillBuf;
 import io.netty.util.IllegalReferenceCountException;
 
-import static org.apache.drill.exec.util.SystemPropertyUtil.getBoolean;
-
 public class BoundsChecking {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BoundsChecking.class);
 
   public static final String ENABLE_UNSAFE_BOUNDS_CHECK_PROPERTY = "drill.exec.memory.enable_unsafe_bounds_check";
-  // for backward compatibility check "drill.enable_unsafe_memory_access" property and enable bounds checking when
-  // unsafe memory access is explicitly disabled
   public static final String ENABLE_UNSAFE_MEMORY_ACCESS_PROPERTY = "drill.enable_unsafe_memory_access";
-  public static final boolean BOUNDS_CHECKING_ENABLED =
-      getBoolean(ENABLE_UNSAFE_BOUNDS_CHECK_PROPERTY, !getBoolean(ENABLE_UNSAFE_MEMORY_ACCESS_PROPERTY, true));
+  public static final boolean BOUNDS_CHECKING_ENABLED = boundsCheckEnabled();
   private static final boolean checkAccessible = getStaticBooleanField(AbstractByteBuf.class, "checkAccessible", false);
+
+  /**
+   * Bounds checking is on either if it is explicitly turned on via a
+   * supported option, or if we're running with assertions enabled, typically
+   * in an IDE.
+   */
+  private static boolean boundsCheckEnabled() {
+    // for backward compatibility check "drill.enable_unsafe_memory_access" property and enable bounds checking when
+    // unsafe memory access is explicitly disabled
+    return AssertionUtil.isAssertionsEnabled() ||
+        getBoolean(ENABLE_UNSAFE_BOUNDS_CHECK_PROPERTY,
+            !getBoolean(ENABLE_UNSAFE_MEMORY_ACCESS_PROPERTY, true));
+  }
 
   static {
     if (BOUNDS_CHECKING_ENABLED) {
@@ -47,10 +58,9 @@ public class BoundsChecking {
     }
   }
 
-  private BoundsChecking() {
-  }
+  private BoundsChecking() { }
 
-  private static boolean getStaticBooleanField(Class cls, String name, boolean def) {
+  private static boolean getStaticBooleanField(Class<?> cls, String name, boolean def) {
     try {
       Field field = cls.getDeclaredField(name);
       field.setAccessible(true);

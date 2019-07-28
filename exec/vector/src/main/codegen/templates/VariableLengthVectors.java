@@ -757,7 +757,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     public void fillEmpties(int lastWrite, int index) {
-      fillEmptyOffsets(offsetVector, lastWrite, index);
+      // Maps don't properly initialize offset vectors for their
+      // members, so don't try to fill at 0: the required offset
+      // 0 may not exist.
+      if (index > 0) {
+        fillEmptyOffsets(offsetVector, lastWrite, index);
+      }
     }
 
     protected void set(int index, int start, int length, DrillBuf buffer){

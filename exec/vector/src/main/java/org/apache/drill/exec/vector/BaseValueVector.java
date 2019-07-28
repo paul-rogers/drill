@@ -165,6 +165,9 @@ public abstract class BaseValueVector implements ValueVector {
     // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
     // Remember the offsets are one more than row count.
 
+    if (index <= lastWrite) {
+      return;
+    }
     final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
     final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
     for (int i = lastWrite + 1; i < index; i++) {

@@ -17,8 +17,9 @@
  */
 package org.apache.drill;
 
-import org.apache.drill.exec.record.BatchSchemaBuilder;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import java.io.File;
+import java.nio.file.Paths;
+import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -28,17 +29,15 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 import org.apache.drill.exec.work.foreman.UnsupportedRelOperatorException;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.test.BaseTestQuery;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import java.io.File;
-import java.nio.file.Paths;
-import java.util.List;
 
 @Category({SqlTest.class, OperatorTest.class})
 public class TestUnionDistinct extends BaseTestQuery {

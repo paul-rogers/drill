@@ -87,7 +87,6 @@ public class TestFlatten extends BaseTestQuery {
         .setRecord(jsonRecords)
         .createFiles(1, numCopies, "json");
 
-    @SuppressWarnings("unchecked")
     List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
         mapOf("uid", 1l,
             "lst_lst_0", listOf(1l, 2l, 3l, 4l, 5l),
@@ -122,7 +121,6 @@ public class TestFlatten extends BaseTestQuery {
 
   @Test
   public void testFlattenReferenceImpl() throws Exception {
-    @SuppressWarnings("unchecked")
     List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
         mapOf("a",1,
               "b",2,
@@ -132,7 +130,6 @@ public class TestFlatten extends BaseTestQuery {
                   listOf(1000,999)
             )));
     List<JsonStringHashMap<String, Object>> result = flatten(flatten(flatten(data, "list_col"), "nested_list_col"), "nested_list_col");
-     @SuppressWarnings("unchecked")
     List<JsonStringHashMap<String, Object>> expectedResult = Lists.newArrayList(
         mapOf("nested_list_col", 100,  "list_col", 10,"a", 1, "b",2),
         mapOf("nested_list_col", 99,   "list_col", 10,"a", 1, "b",2),
@@ -194,7 +191,6 @@ public class TestFlatten extends BaseTestQuery {
         .setRecord(jsonRecord)
         .createFiles(1, numRecords, "json");
 
-    @SuppressWarnings("unchecked")
     List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
         mapOf("int_list", inputList)
     );
@@ -392,7 +388,6 @@ public class TestFlatten extends BaseTestQuery {
           "        select flatten(categories) catl from dfs.`tmp/yelp_academic_dataset_business.json` b\n" +
           "    )  celltbl");
     }
-
   }
 
   @Test
@@ -401,7 +396,6 @@ public class TestFlatten extends BaseTestQuery {
     if(RUN_ADVANCED_TESTS){
       test("select id, flatten(evnts) as rpt from dfs.`tmp/drill1665.json`");
     }
-
   }
 
   @Test
