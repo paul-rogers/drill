@@ -35,13 +35,18 @@ public class KuduStoragePlugin extends AbstractStoragePlugin {
   private final KuduSchemaFactory schemaFactory;
 
   private final KuduClient client;
-
   public KuduStoragePlugin(KuduStoragePluginConfig configuration, DrillbitContext context, String name)
-      throws IOException {
+    throws IOException {
     super(context, name);
     this.schemaFactory = new KuduSchemaFactory(this, name);
     this.engineConfig = configuration;
     this.client = new KuduClient.KuduClientBuilder(configuration.getMasterAddresses()).build();
+  }
+
+
+  @Override
+  public void start() throws IOException {
+
   }
 
   public KuduClient getClient() {
