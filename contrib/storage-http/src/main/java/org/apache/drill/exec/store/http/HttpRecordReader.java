@@ -27,12 +27,17 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
+import org.apache.drill.exec.ExecConstants;
+
+import org.apache.drill.exec.planner.fragment.Fragment;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.http.util.JsonConverter;
 import org.apache.drill.exec.store.http.util.SimpleHttp;
 import org.apache.drill.exec.vector.BaseValueVector;
-import org.apache.drill.exec.vector.complex.fn.JsonReader;
 import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
+import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Charsets;
@@ -47,12 +52,40 @@ public class HttpRecordReader extends AbstractRecordReader {
   private FragmentContext fragmentContext;
   private HttpSubScan subScan;
   private Iterator<JsonNode> jsonIt;
+  private ResultSetLoader loader;
+  private final boolean enableAllTextMode;
+  private final boolean enableNanInf;
+  private final boolean readNumbersAsDouble;
+  private final HttpStoragePluginConfig config;
 
-  public HttpRecordReader(FragmentContext context, HttpSubScan subScan) {
+
+  public HttpRecordReader(FragmentContext context, HttpStoragePluginConfig config, HttpSubScan subScan) {
+    this.config = config;
     this.subScan = subScan;
     fragmentContext = context;
     Set<SchemaPath> transformed = Sets.newLinkedHashSet();
-    transformed.add(STAR_COLUMN);
+    SchemaBuilder builder = new SchemaBuilder();
+
+    enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
+    enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
+    readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
+
+    //transformed.add(STAR_COLUMN);
+    setColumns(transformed);
+  }
+
+  public HttpRecordReader(FragmentContext context, HttpSubScan subScan) {
+    this.subScan = subScan;
+    this.config = null;
+    fragmentContext = context;
+    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
+    SchemaBuilder builder = new SchemaBuilder();
+
+    enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
+    enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
+    readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
+
+    //transformed.add(STAR_COLUMN);
     setColumns(transformed);
   }
 
@@ -61,8 +94,12 @@ public class HttpRecordReader extends AbstractRecordReader {
     throws ExecutionSetupException {
     logger.debug("HttpRecordReader setup, query {}", subScan.getFullURL());
     this.writer = new VectorContainerWriter(output);
-    this.jsonReader = new JsonReader(fragmentContext.getManagedBuffer(),
-      Lists.newArrayList(getColumns()), true, false, true);
+    this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
+      .schemaPathColumns(Lists.newArrayList(getColumns()))
+      .allTextMode(enableAllTextMode)
+      .readNumbersAsDouble(readNumbersAsDouble)
+      .enableNanInf(enableNanInf)
+      .build();
     String q = subScan.getURL();
     if (q.startsWith("file://")) {
       loadFile();
@@ -124,5 +161,4 @@ public class HttpRecordReader extends AbstractRecordReader {
   public void close() {
     logger.debug("HttpRecordReader cleanup");
   }
-
 }

@@ -21,24 +21,22 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
-import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
 import com.google.common.collect.Lists;
 
-public class HttpScanBatchCreator implements BatchCreator<HttpSubScan>{
+public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpScanBatchCreator.class);
 
   @Override
-  public ScanBatch getBatch(ExecutorFragmentContext context, HttpSubScan subScan, List<RecordBatch> children)
-    throws ExecutionSetupException {
+  public ScanBatch getBatch(ExecutorFragmentContext context, HttpSubScan subScan, List<RecordBatch> children) throws ExecutionSetupException {
     logger.debug("getBatch called");
     HttpStoragePluginConfig config = subScan.getStorageConfig();
     List<RecordReader> readers = Lists.newArrayList();
 
-    readers.add(new HttpRecordReader(context, config));
+    readers.add(new HttpRecordReader(context, config, subScan));
     return new ScanBatch(subScan, context, readers);
+  }
 }

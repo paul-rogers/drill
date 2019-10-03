@@ -26,6 +26,7 @@ import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 
 
 import java.io.IOException;

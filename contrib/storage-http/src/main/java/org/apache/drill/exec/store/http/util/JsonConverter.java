@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -68,7 +68,7 @@ public class JsonConverter {
     return "";
   }
 
- private static JsonNode from(String content) throws IOException {
+  private static JsonNode from(String content) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     JsonNode root = mapper.readTree(content);
     return root;
