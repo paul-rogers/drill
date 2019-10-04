@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.http;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -30,7 +31,6 @@ import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.ExecConstants;
 
-import org.apache.drill.exec.planner.fragment.Fragment;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.http.util.JsonConverter;
@@ -40,9 +40,10 @@ import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
 import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import static org.apache.drill.common.expression.SchemaPath.STAR_COLUMN;
 
 public class HttpRecordReader extends AbstractRecordReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpRecordReader.class);
@@ -52,6 +53,7 @@ public class HttpRecordReader extends AbstractRecordReader {
   private FragmentContext fragmentContext;
   private HttpSubScan subScan;
   private Iterator<JsonNode> jsonIt;
+  private JsonNode root;
   private ResultSetLoader loader;
   private final boolean enableAllTextMode;
   private final boolean enableNanInf;
@@ -59,34 +61,18 @@ public class HttpRecordReader extends AbstractRecordReader {
   private final HttpStoragePluginConfig config;
 
 
-  public HttpRecordReader(FragmentContext context, HttpStoragePluginConfig config, HttpSubScan subScan) {
+  public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
     this.config = config;
     this.subScan = subScan;
     fragmentContext = context;
-    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
+    setColumns(projectedColumns);
     SchemaBuilder builder = new SchemaBuilder();
 
     enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
     enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
     readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
 
-    //transformed.add(STAR_COLUMN);
-    setColumns(transformed);
-  }
 
-  public HttpRecordReader(FragmentContext context, HttpSubScan subScan) {
-    this.subScan = subScan;
-    this.config = null;
-    fragmentContext = context;
-    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
-    SchemaBuilder builder = new SchemaBuilder();
-
-    enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
-    enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
-    readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
-
-    //transformed.add(STAR_COLUMN);
-    setColumns(transformed);
   }
 
   @Override
@@ -112,7 +98,7 @@ public class HttpRecordReader extends AbstractRecordReader {
     String url = subScan.getFullURL();
     SimpleHttp http = new SimpleHttp();
     String content = http.get(url);
-    logger.debug("http '{}' response {} bytes", url, content.length());
+    logger.info("http '{}' response {} bytes", url, content.length());
     parseResult(content);
   }
 
@@ -125,7 +111,7 @@ public class HttpRecordReader extends AbstractRecordReader {
 
   private void parseResult(String content) {
     String key = subScan.getStorageConfig().getResultKey();
-    JsonNode root = key.length() == 0 ? JsonConverter.parse(content) :
+    this.root = key.length() == 0 ? JsonConverter.parse(content) :
       JsonConverter.parse(content, key);
     if (root != null) {
       logger.debug("response object count {}", root.size());
@@ -135,7 +121,7 @@ public class HttpRecordReader extends AbstractRecordReader {
 
   @Override
   public int next() {
-    logger.debug("HttpRecordReader next");
+    logger.warn("HttpRecordReader next");
     if (jsonIt == null || !jsonIt.hasNext()) {
       return 0;
     }
@@ -145,12 +131,12 @@ public class HttpRecordReader extends AbstractRecordReader {
     try {
       while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
         JsonNode node = jsonIt.next();
-        jsonReader.setSource(node.toString().getBytes(Charsets.UTF_8));
+        jsonReader.setSource(root);
         writer.setPosition(docCount);
         jsonReader.write(writer);
         docCount ++;
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
     writer.setValueCount(docCount);

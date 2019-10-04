@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 
 public class JsonConverter {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonConverter.class);
   public static JsonNode parse(String content, String key) {
     String []path = key.split("/");
     try {

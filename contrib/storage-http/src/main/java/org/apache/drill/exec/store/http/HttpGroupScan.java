@@ -38,17 +38,21 @@ public class HttpGroupScan extends AbstractGroupScan {
   private HttpScanSpec scanSpec;
   private HttpStoragePluginConfig config;
   private boolean filterPushedDown = false;
+  private List<SchemaPath> columns;
 
-  public HttpGroupScan(String userName, HttpStoragePluginConfig config, HttpScanSpec spec) {
+
+  public HttpGroupScan(String userName, HttpStoragePluginConfig config, List<SchemaPath> columns,  HttpScanSpec spec) {
     super(userName);
     scanSpec = spec;
     this.config = config;
+    this.columns = columns;
   }
 
   public HttpGroupScan(HttpGroupScan that) {
     super(that);
     scanSpec = that.scanSpec;
     config = that.config;
+    columns = that.columns;
   }
 
   public HttpScanSpec getScanSpec() {
@@ -63,7 +67,7 @@ public class HttpGroupScan extends AbstractGroupScan {
   @Override
   public SubScan getSpecificScan(int minorFragmentId) { // pass to HttpScanBatchCreator
     logger.debug("HttpGroupScan getSpecificScan");
-    return new HttpSubScan(config, scanSpec);
+    return new HttpSubScan(config, scanSpec, columns);
   }
 
   @Override
@@ -81,6 +85,10 @@ public class HttpGroupScan extends AbstractGroupScan {
   @Override
   public String getDigest() {
     return toString();
+  }
+
+  public List<SchemaPath> getColumns() {
+    return columns;
   }
 
   @Override

@@ -20,7 +20,9 @@ package org.apache.drill.exec.store.http;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
@@ -35,8 +37,15 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
     logger.debug("getBatch called");
     HttpStoragePluginConfig config = subScan.getStorageConfig();
     List<RecordReader> readers = Lists.newArrayList();
-
-    readers.add(new HttpRecordReader(context, config, subScan));
+    List<SchemaPath> columns = null;
+    try {
+      if ((columns = subScan.getColumns()) == null) {
+        columns = GroupScan.ALL_COLUMNS;
+      }
+    } catch (Exception e) {
+      throw new ExecutionSetupException(e);
+    }
+    readers.add(new HttpRecordReader(context,columns, config, subScan));
     return new ScanBatch(subScan, context, readers);
   }
 }

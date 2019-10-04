@@ -76,6 +76,6 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
     /* selection only represent database and collection name */
     HttpScanSpec spec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
     logger.debug("getPhysicalScan {} {} {} {}", userName, selection, selection.getRoot(), spec);
-    return new HttpGroupScan(userName, engineConfig, spec);
+    return new HttpGroupScan(userName, engineConfig, null, spec);
   }
 }

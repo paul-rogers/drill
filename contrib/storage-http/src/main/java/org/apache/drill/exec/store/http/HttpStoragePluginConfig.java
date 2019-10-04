@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
+import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 /* created from drill web storage configuration */
+
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfig {
   static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
@@ -37,7 +39,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfig {
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
                                  @JsonProperty("resultKey") String resultKey) {
-    logger.info("initialize HttpStoragePluginConfig {}", connection);
+    logger.debug("initialize HttpStoragePluginConfig {}", connection);
     this.connection = connection;
     this.resultKey = resultKey;
   }

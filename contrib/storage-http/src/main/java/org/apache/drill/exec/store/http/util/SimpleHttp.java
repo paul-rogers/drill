@@ -23,26 +23,28 @@ import java.net.URL;
 import java.net.URLConnection;
 
 public class SimpleHttp {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SimpleHttp.class);
+
   public String get(String urlStr) {
-    String res = "";
+
+    String data = "";
     try {
       URL url = new URL(urlStr);
       URLConnection conn = url.openConnection();
       conn.setDoOutput(true);
-
+      logger.debug("Getting page: " + urlStr);
       BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
       String line;
       while ((line = rd.readLine()) != null) {
-        res += line;
+        data += line;
       }
+      logger.debug("Retrieved data: ");
+      logger.debug(data);
+
       rd.close();
     } catch (Exception e) {
+      // TODO Throw exception here if can't get the URL
     }
-    return res;
-  }
-
-  public static void main(String[] args) {
-    SimpleHttp http = new SimpleHttp();
-    System.out.println(http.get("https://api.sunrise-sunset.org/json?lat=36.7201600&lng=-4.4203400&date=today"));
+    return data;
   }
 }

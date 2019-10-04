@@ -20,7 +20,9 @@ package org.apache.drill.exec.store.http;
 import java.util.Iterator;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
@@ -33,10 +35,14 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   private HttpScanSpec scanSpec;
   private HttpStoragePluginConfig config;
+  private final List<SchemaPath> columns;
 
-  public HttpSubScan(HttpStoragePluginConfig config, HttpScanSpec spec) {
+  public HttpSubScan(@JsonProperty("HttpPluginConfig") HttpStoragePluginConfig config,
+                     @JsonProperty("tabletScanSpecList") HttpScanSpec spec,
+                     @JsonProperty("columns") List<SchemaPath> columns) {
     this.scanSpec = spec;
     this.config = config;
+    this.columns = columns;
   }
 
   HttpScanSpec getScanSpec() {
@@ -49,6 +55,10 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   String getFullURL() {
     return config.getConnection() + getURL();
+  }
+
+  public List<SchemaPath> getColumns() {
+    return columns;
   }
 
   HttpStoragePluginConfig getStorageConfig() {
@@ -64,7 +74,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
     throws ExecutionSetupException {
-    return new HttpSubScan(config, scanSpec);
+    return new HttpSubScan(config, scanSpec, columns);
   }
 
   @Override
