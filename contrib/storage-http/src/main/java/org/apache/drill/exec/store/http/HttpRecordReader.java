@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -121,7 +122,7 @@ public class HttpRecordReader extends AbstractRecordReader {
 
   @Override
   public int next() {
-    logger.warn("HttpRecordReader next");
+    logger.info("HttpRecordReader next");
     if (jsonIt == null || !jsonIt.hasNext()) {
       return 0;
     }
@@ -130,14 +131,17 @@ public class HttpRecordReader extends AbstractRecordReader {
     int docCount = 0;
     try {
       while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
+        writer.rootAsMap();
         JsonNode node = jsonIt.next();
         jsonReader.setSource(root);
         writer.setPosition(docCount);
         jsonReader.write(writer);
-        docCount ++;
+        docCount++;  // TODO Start here... Map writer returning n rows for n columns
       }
+
+      jsonReader.ensureAtLeastOneField(writer);
     } catch (Exception e) {
-      e.printStackTrace();
+
     }
     writer.setValueCount(docCount);
     return docCount;

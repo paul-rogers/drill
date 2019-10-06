@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.http;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
@@ -50,13 +51,17 @@ public class HttpSchemaFactory implements SchemaFactory{
     parent.add(schema.getName(), schema);
   }
 
-  public class HttpSchema extends AbstractSchema {
+  class HttpSchema extends AbstractSchema {
     private Set<String> tableNames = Sets.newHashSet();
 
-    public HttpSchema(String name) {
+    HttpSchema(String name) {
+      super(Collections.emptyList(), name);
+    }
+
+    /*public HttpSchema(String name) {
       super(ImmutableList.<String> of(), name);
       tableNames.add("static"); // TODO: not necessary
-    }
+    }*/
 
     @Override
     public String getTypeName() {

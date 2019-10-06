@@ -112,10 +112,12 @@ public class TestHttpPlugin extends ClusterTest {
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
       .addRow("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM")
       .build();
-
+    System.out.println("Result Count: " + results.rowCount());
     new RowSetComparison(expected).verifyAndClearAll(results);
   }
 
+
+  // TODO Fix Column Projection... Columns not being projected in anything other than a star query
   @Test
   public void simpleSpecificQuery() throws Exception{
     String sql = "SELECT sunrise, sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
@@ -132,5 +134,4 @@ public class TestHttpPlugin extends ClusterTest {
 
     new RowSetComparison(expected).verifyAndClearAll(results);
   }
-
 }

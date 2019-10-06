@@ -26,8 +26,6 @@ import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
-
 
 import java.io.IOException;
 
@@ -72,8 +70,7 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    /* selection only represent database and collection name */
+  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
     HttpScanSpec spec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
     logger.debug("getPhysicalScan {} {} {} {}", userName, selection, selection.getRoot(), spec);
     return new HttpGroupScan(userName, engineConfig, null, spec);

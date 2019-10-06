@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.http;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
@@ -32,10 +33,14 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+@JsonTypeName("http-scan")
 public class HttpGroupScan extends AbstractGroupScan {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpGroupScan.class);
 
+  private HttpStoragePlugin httpStoragePlugin;
   private HttpScanSpec scanSpec;
+  private HttpScanSpec httpScanSpec;
+
   private HttpStoragePluginConfig config;
   private boolean filterPushedDown = false;
   private List<SchemaPath> columns;
@@ -45,7 +50,7 @@ public class HttpGroupScan extends AbstractGroupScan {
     super(userName);
     scanSpec = spec;
     this.config = config;
-    this.columns = columns;
+    this.columns = columns == null || columns.size() == 0? ALL_COLUMNS : columns;
   }
 
   public HttpGroupScan(HttpGroupScan that) {
@@ -53,6 +58,16 @@ public class HttpGroupScan extends AbstractGroupScan {
     scanSpec = that.scanSpec;
     config = that.config;
     columns = that.columns;
+  }
+
+  public HttpGroupScan(HttpStoragePlugin kuduStoragePlugin,
+                       HttpScanSpec httpScanSpec,
+                       List<SchemaPath> columns) {
+    super((String) null);
+    this.httpStoragePlugin = httpStoragePlugin;
+    this.httpScanSpec = httpScanSpec;
+    this.columns = columns == null || columns.size() == 0? ALL_COLUMNS : columns;
+    //init();
   }
 
   public HttpScanSpec getScanSpec() {
@@ -121,5 +136,4 @@ public class HttpGroupScan extends AbstractGroupScan {
   public HttpStoragePluginConfig getStorageConfig() {
     return config;
   }
-
 }
