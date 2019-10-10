@@ -23,7 +23,6 @@ import org.apache.drill.common.JSONOptions;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 

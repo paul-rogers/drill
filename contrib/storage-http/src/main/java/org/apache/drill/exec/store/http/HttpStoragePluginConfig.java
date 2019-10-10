@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-import jdk.nashorn.internal.ir.annotations.Ignore;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

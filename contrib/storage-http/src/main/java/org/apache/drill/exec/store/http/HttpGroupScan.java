@@ -42,7 +42,7 @@ public class HttpGroupScan extends AbstractGroupScan {
   private HttpScanSpec httpScanSpec;
 
   private HttpStoragePluginConfig config;
-  private boolean filterPushedDown = false;
+  private boolean filterPushedDown = true;
   private List<SchemaPath> columns;
 
 
