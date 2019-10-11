@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.http;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -113,20 +112,12 @@ public class HttpGroupScan extends AbstractGroupScan {
     logger.debug("HttpGroupScan applyAssignments");
   }
 
-  /*@Override
-  public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
-    throws ExecutionSetupException {
-    logger.debug("HttpGroupScan getNewWithChildren");
-    return new HttpGroupScan(this);
-  }
-*/
   @Override
   @JsonIgnore
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
     Preconditions.checkArgument(children.isEmpty());
     return new HttpGroupScan(this);
   }
-
 
   @Override
   public ScanStats getScanStats() {

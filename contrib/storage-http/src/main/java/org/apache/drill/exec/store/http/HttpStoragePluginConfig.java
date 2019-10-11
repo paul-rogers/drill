@@ -25,15 +25,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
-/* created from drill web storage configuration */
-
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfig {
   static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
 
   public static final String NAME = "http";
   private String connection;
-  private String resultKey; // result key
+  private String resultKey;
 
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("connection") String connection,

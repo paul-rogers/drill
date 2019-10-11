@@ -45,11 +45,6 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public void start() throws IOException {
-
-  }
-
-  @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
     schemaFactory.registerSchemas(schemaConfig, parent);
   }
