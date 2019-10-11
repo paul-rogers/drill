@@ -40,7 +40,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
   public HttpSubScan(@JsonProperty("HttpPluginConfig") HttpStoragePluginConfig config,
                      @JsonProperty("tabletScanSpecList") HttpScanSpec spec,
                      @JsonProperty("columns") List<SchemaPath> columns) {
-    this.scanSpec = spec;
+    scanSpec = spec;
     this.config = config;
     this.columns = columns;
   }

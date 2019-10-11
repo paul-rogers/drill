@@ -22,6 +22,8 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
@@ -39,7 +41,6 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   private HttpStoragePlugin httpStoragePlugin;
   private HttpScanSpec scanSpec;
-  private HttpScanSpec httpScanSpec;
 
   private HttpStoragePluginConfig config;
   private boolean filterPushedDown = true;
@@ -65,7 +66,7 @@ public class HttpGroupScan extends AbstractGroupScan {
                        List<SchemaPath> columns) {
     super((String) null);
     this.httpStoragePlugin = httpStoragePlugin;
-    this.httpScanSpec = httpScanSpec;
+    this.scanSpec = httpScanSpec;
     this.columns = columns == null || columns.size() == 0? ALL_COLUMNS : columns;
     //init();
   }
@@ -87,7 +88,7 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public int getMaxParallelizationWidth() {
-    return 0;
+    return 1;
   }
 
   @Override
@@ -112,16 +113,24 @@ public class HttpGroupScan extends AbstractGroupScan {
     logger.debug("HttpGroupScan applyAssignments");
   }
 
-  @Override
+  /*@Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
     throws ExecutionSetupException {
     logger.debug("HttpGroupScan getNewWithChildren");
     return new HttpGroupScan(this);
   }
+*/
+  @Override
+  @JsonIgnore
+  public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
+    Preconditions.checkArgument(children.isEmpty());
+    return new HttpGroupScan(this);
+  }
+
 
   @Override
   public ScanStats getScanStats() {
-    return new ScanStats(GroupScanProperty.EXACT_ROW_COUNT, 1, 1, (float) 10);
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,1, 1, 1);
   }
 
   @JsonIgnore

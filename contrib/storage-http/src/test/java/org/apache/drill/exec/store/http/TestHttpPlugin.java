@@ -114,6 +114,8 @@ public class TestHttpPlugin extends ClusterTest {
       .build();
     System.out.println("Result Count: " + results.rowCount());
     new RowSetComparison(expected).verifyAndClearAll(results);
+
+    assertEquals(1,  results.rowCount());
   }
 
 
