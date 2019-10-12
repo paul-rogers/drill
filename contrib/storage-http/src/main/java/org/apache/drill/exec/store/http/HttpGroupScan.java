@@ -67,7 +67,6 @@ public class HttpGroupScan extends AbstractGroupScan {
     this.httpStoragePlugin = httpStoragePlugin;
     this.scanSpec = httpScanSpec;
     this.columns = columns == null || columns.size() == 0? ALL_COLUMNS : columns;
-    //init();
   }
 
   public HttpScanSpec getScanSpec() {
