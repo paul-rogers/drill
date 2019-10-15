@@ -25,6 +25,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
+import java.util.Arrays;
+
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfig {
   static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
@@ -55,7 +57,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfig {
 
   @Override
   public int hashCode() {
-    return this.connection != null ? this.connection.hashCode() : 0;
+    return Arrays.hashCode(new Object[]{connection, resultKey});
   }
 
   @Override

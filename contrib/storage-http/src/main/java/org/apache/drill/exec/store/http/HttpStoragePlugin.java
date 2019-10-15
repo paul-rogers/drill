@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.http;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.JSONOptions;
+import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
@@ -63,10 +64,16 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
     return true;
   }
 
-  @Override
-  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
+  /*@Override
+  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws ExecutionSetupException, IOException {
     HttpScanSpec spec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
     logger.debug("getPhysicalScan {} {} {} {}", userName, selection, selection.getRoot(), spec);
-    return new HttpGroupScan(userName, engineConfig, null, spec);
+    return new HttpGroupScan(this, spec, null);
+  }*/
+
+  @Override
+  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
+    HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
+    return new HttpGroupScan(this, scanSpec, null);
   }
 }

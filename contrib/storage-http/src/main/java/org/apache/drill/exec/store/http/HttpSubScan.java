@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 
 import com.google.common.collect.Iterators;
+import org.apache.drill.exec.proto.UserBitShared;
 
 public class HttpSubScan extends AbstractBase implements SubScan {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpSubScan.class);
@@ -79,7 +80,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @Override
   public int getOperatorType() {
-    return 1009;
+    return UserBitShared.CoreOperatorType.HTTP_SUB_SCAN_VALUE;
   }
 
   @Override

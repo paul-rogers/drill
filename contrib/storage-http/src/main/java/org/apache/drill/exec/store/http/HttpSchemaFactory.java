@@ -28,7 +28,6 @@ import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.SchemaFactory;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 

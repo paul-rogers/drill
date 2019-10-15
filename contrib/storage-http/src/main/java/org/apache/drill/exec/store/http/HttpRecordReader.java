@@ -18,10 +18,8 @@
 
 package org.apache.drill.exec.store.http;
 
-import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -30,12 +28,10 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.ExecConstants;
-import com.google.common.base.Charsets;
 
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.http.util.JsonConverter;
 import org.apache.drill.exec.store.http.util.SimpleHttp;
-import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
 import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
@@ -72,7 +68,6 @@ public class HttpRecordReader extends AbstractRecordReader {
   @Override
   public void setup(OperatorContext context, OutputMutator output)
     throws ExecutionSetupException {
-    logger.debug("HttpRecordReader setup, query {}", subScan.getFullURL());
     this.writer = new VectorContainerWriter(output);
     this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
       .schemaPathColumns(Lists.newArrayList(getColumns()))
@@ -129,7 +124,7 @@ public class HttpRecordReader extends AbstractRecordReader {
         writer.setPosition(docCount);
         jsonReader.write(writer);
         root = jsonIt.next();
-        docCount++;  // TODO Start here... Map writer returning n rows for n columns
+        docCount++;
       //}
 
       jsonReader.ensureAtLeastOneField(writer);
