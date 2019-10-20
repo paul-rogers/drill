@@ -28,7 +28,8 @@ import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.SchemaFactory;
 
-import com.google.common.collect.Sets;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 
 
 public class HttpSchemaFactory implements SchemaFactory{
@@ -53,14 +54,14 @@ public class HttpSchemaFactory implements SchemaFactory{
   class HttpSchema extends AbstractSchema {
     private Set<String> tableNames = Sets.newHashSet();
 
-    HttpSchema(String name) {
+    /*HttpSchema(String name) {
       super(Collections.emptyList(), name);
-    }
+    }*/
 
-    /*public HttpSchema(String name) {
+    public HttpSchema(String name) {
       super(ImmutableList.<String> of(), name);
       tableNames.add("static"); // TODO: not necessary
-    }*/
+    }
 
     @Override
     public String getTypeName() {

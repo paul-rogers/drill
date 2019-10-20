@@ -22,7 +22,7 @@ import java.io.IOException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
 public class JsonConverter {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonConverter.class);

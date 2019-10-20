@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 
-import com.google.common.collect.Iterators;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.exec.proto.UserBitShared;
 
 public class HttpSubScan extends AbstractBase implements SubScan {
@@ -85,6 +85,6 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @Override
   public Iterator<PhysicalOperator> iterator() {
-    return Iterators.emptyIterator();
+    return ImmutableSet.<PhysicalOperator>of().iterator();
   }
 }

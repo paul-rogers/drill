@@ -17,9 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
-import java.io.IOException;
 import java.util.List;
-
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
