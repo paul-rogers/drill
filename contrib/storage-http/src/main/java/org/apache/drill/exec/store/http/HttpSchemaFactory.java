@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.http;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
