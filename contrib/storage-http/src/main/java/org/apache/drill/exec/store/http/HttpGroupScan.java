@@ -37,10 +37,12 @@ import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @JsonTypeName("http-scan")
 public class HttpGroupScan extends AbstractGroupScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpGroupScan.class);
+  static final Logger logger = LoggerFactory.getLogger(HttpGroupScan.class);
 
 
   private HttpStoragePlugin httpStoragePlugin;
@@ -51,7 +53,7 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @JsonCreator
   public HttpGroupScan(@JsonProperty("httpScanSpec") HttpScanSpec httpScanSpec,
-                       @JsonProperty("kuduStoragePluginConfig") HttpStoragePluginConfig httpStoragePluginConfig,
+                       @JsonProperty("httpStoragePluginConfig") HttpStoragePluginConfig httpStoragePluginConfig,
                        @JsonProperty("columns") List<SchemaPath> columns,
                        @JacksonInject StoragePluginRegistry pluginRegistry) throws ExecutionSetupException {
     this((HttpStoragePlugin) pluginRegistry.getPlugin(httpStoragePluginConfig), httpScanSpec, columns);
