@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.unorderedreceiver;
 
-import io.netty.buffer.ByteBuf;
-
 import java.io.IOException;
 import java.util.Iterator;
 
@@ -51,9 +49,13 @@ import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ControlsInjectorFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.netty.buffer.ByteBuf;
 
 public class UnorderedReceiverBatch implements CloseableRecordBatch {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnorderedReceiverBatch.class);
+  private static final Logger logger = LoggerFactory.getLogger(UnorderedReceiverBatch.class);
   private static final ControlsInjector injector = ControlsInjectorFactory.getInjector(UnorderedReceiverBatch.class);
 
   private final RecordBatchLoader batchLoader;
@@ -78,11 +80,15 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
     }
   }
 
-  public UnorderedReceiverBatch(final ExchangeFragmentContext context, final RawFragmentBatchProvider fragProvider, final UnorderedReceiver config) throws OutOfMemoryException {
+  public UnorderedReceiverBatch(final ExchangeFragmentContext context,
+      final RawFragmentBatchProvider fragProvider, final UnorderedReceiver config)
+          throws OutOfMemoryException {
     this.fragProvider = fragProvider;
     this.context = context;
-    // In normal case, batchLoader does not require an allocator. However, in case of splitAndTransfer of a value vector,
-    // we may need an allocator for the new offset vector. Therefore, here we pass the context's allocator to batchLoader.
+    // In normal case, batchLoader does not require an allocator. However, in
+    // case of splitAndTransfer of a value vector,
+    // we may need an allocator for the new offset vector. Therefore, here we
+    // pass the context's allocator to batchLoader.
     oContext = context.newOperatorContext(config);
     this.batchLoader = new RecordBatchLoader(oContext.getAllocator());
 
@@ -90,8 +96,10 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
     this.stats.setLongStat(Metric.NUM_SENDERS, config.getNumSenders());
     this.config = config;
 
-    // Register this operator's buffer allocator so that incoming buffers are owned by this allocator
-    context.getBuffers().getCollector(config.getOppositeMajorFragmentId()).setAllocator(oContext.getAllocator());
+    // Register this operator's buffer allocator so that incoming buffers are
+    // owned by this allocator
+    context.getBuffers().getCollector(config.getOppositeMajorFragmentId())
+      .setAllocator(oContext.getAllocator());
   }
 
   @Override
@@ -147,7 +155,8 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
       injector.injectInterruptiblePause(context.getExecutionControls(), "waiting-for-data", logger);
       return fragProvider.getNext();
     } catch(final InterruptedException e) {
-      // Preserve evidence that the interruption occurred so that code higher up on the call stack can learn of the
+      // Preserve evidence that the interruption occurred so that code higher up
+      // on the call stack can learn of the
       // interruption and respond to it if it wants to.
       Thread.currentThread().interrupt();
 
@@ -230,7 +239,9 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
 
   @Override
   public VectorContainer getOutgoingContainer() {
-    throw new UnsupportedOperationException(String.format(" You should not call getOutgoingContainer() for class %s", this.getClass().getCanonicalName()));
+    throw new UnsupportedOperationException(
+        String.format("You should not call getOutgoingContainer() for class %s",
+            getClass().getCanonicalName()));
   }
 
   @Override

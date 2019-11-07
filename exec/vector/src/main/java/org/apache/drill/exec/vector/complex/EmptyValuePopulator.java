@@ -17,11 +17,11 @@
  */
 package org.apache.drill.exec.vector.complex;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.exec.vector.UInt4Vector;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
- * A helper class that is used to track and populate empty values in repeated value vectors.
+ * Tracks and populate empty values in repeated value vectors.
  */
 public class EmptyValuePopulator {
   private final UInt4Vector offsets;
@@ -31,21 +31,27 @@ public class EmptyValuePopulator {
   }
 
   /**
-   * Marks all values since the last set as empty. The last set value is obtained from underlying offsets vector.
+   * Marks all values since the last set as empty. The last set value is
+   * obtained from underlying offsets vector.
    *
-   * @param lastIndex  the last index (inclusive) in the offsets vector until which empty population takes place
-   * @throws java.lang.IndexOutOfBoundsException  if lastIndex is negative or greater than offsets capacity.
+   * @param lastIndex
+   *          the last index (inclusive) in the offsets vector until which empty
+   *          population takes place
+   * @throws java.lang.IndexOutOfBoundsException
+   *           if lastIndex is negative or greater than offsets capacity.
    */
   public void populate(int lastIndex) {
     Preconditions.checkElementIndex(lastIndex, Integer.MAX_VALUE);
-    final UInt4Vector.Accessor accessor = offsets.getAccessor();
-    final UInt4Vector.Mutator mutator = offsets.getMutator();
-    final int lastSet = Math.max(accessor.getValueCount() - 1, 0);
-    final int previousEnd = accessor.get(lastSet);//0 ? 0 : accessor.get(lastSet);
-    for (int i = lastSet; i < lastIndex; i++) {
+    UInt4Vector.Accessor accessor = offsets.getAccessor();
+    int valueCount = accessor.getValueCount();
+    if (valueCount == 0) {
+      return;
+    }
+    int previousEnd = accessor.get(valueCount);
+    UInt4Vector.Mutator mutator = offsets.getMutator();
+    for (int i = valueCount; i <= lastIndex; i++) {
       mutator.setSafe(i + 1, previousEnd);
     }
     mutator.setValueCount(lastIndex+1);
   }
-
 }

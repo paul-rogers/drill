@@ -15,23 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector;
+package org.apache.drill.exec.physical.rowSet;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 
-public interface NullableVector extends ValueVector {
+public class RowSets {
 
-  public interface Mutator extends ValueVector.Mutator {
-
-    // Used by the vector accessors to force the set count.
-
-    void setSetCount(int n);
+  public static RowSet wrap(VectorContainer container) {
+    switch (container.getSchema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+      return HyperRowSetImpl.fromContainer(container, container.getSelectionVector4());
+    case NONE:
+      return DirectRowSet.fromContainer(container);
+    case TWO_BYTE:
+      return IndirectRowSet.fromSv2(container, container.getSelectionVector2());
+    default:
+      throw new IllegalStateException("Invalid selection mode");
+    }
   }
-
-  MaterializedField bitsField = MaterializedField.create(BITS_VECTOR_NAME, Types.required(MinorType.UINT1));
-
-  ValueVector getBitsVector();
-  ValueVector getValuesVector();
 }

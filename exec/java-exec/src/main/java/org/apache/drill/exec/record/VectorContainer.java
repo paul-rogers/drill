@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
@@ -124,9 +125,15 @@ public class VectorContainer implements VectorAccessible {
    * Transfer vectors from containerIn to this.
    */
   public void transferIn(VectorContainer containerIn) {
-    Preconditions.checkArgument(this.wrappers.size() == containerIn.wrappers.size());
-    for (int i = 0; i < this.wrappers.size(); ++i) {
-      containerIn.wrappers.get(i).transfer(this.wrappers.get(i));
+    rawTransferIn(containerIn);
+    setRecordCount(containerIn.getRecordCount());
+  }
+
+  @VisibleForTesting
+  public void rawTransferIn(VectorContainer containerIn) {
+    Preconditions.checkArgument(wrappers.size() == containerIn.wrappers.size());
+    for (int i = 0; i < wrappers.size(); ++i) {
+      containerIn.wrappers.get(i).transfer(wrappers.get(i));
     }
   }
 
@@ -539,11 +546,9 @@ public class VectorContainer implements VectorAccessible {
   public void setEmpty() {
     // May not be needed; retaining for safety.
     zeroVectors();
-    // Better to only allocate minimum-size offset vectors,
-    // but no good way to do that presently.
-    allocateNew();
-    // The "fill empties" logic will set the zero
-    // in the offset vectors that need it.
+    // The "fill empties" logic will special-case the zero
+    // value count, and will not try to fill empties or set
+    // the n+1st offset value location.
     setValueCount(0);
   }
 }

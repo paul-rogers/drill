@@ -27,7 +27,6 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
@@ -37,8 +36,6 @@ import org.apache.drill.test.rowSet.test.TestFixedWidthWriter.TestIndex;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import io.netty.buffer.DrillBuf;
 
 /**
  * The offset vector writer is unique: it follows the same API as
@@ -62,16 +59,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
 
   @BeforeClass
   public static void setup() {
-    DrillBuf bufs[] = new DrillBuf[100];
-    for (int i = 0; i < bufs.length; i++) {
-      bufs[i] = fixture.allocator().buffer(ValueVector.MAX_BUFFER_SIZE);
-      for (int j = 0; j < ValueVector.MAX_BUFFER_SIZE; j++) {
-        bufs[i].setByte(j, (byte) (j & 0x7f));
-      }
-    }
-    for (int i = 0; i < bufs.length; i++) {
-      bufs[i].close();
-    }
+    fixture.dirtyMemory(100);
   }
 
   /**

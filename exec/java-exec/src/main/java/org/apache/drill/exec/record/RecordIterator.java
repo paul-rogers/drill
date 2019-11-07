@@ -36,7 +36,6 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
  * RecordIterator will hold onto multiple record batches in order to support resetting beyond record batch boundary.
  */
 public class RecordIterator implements VectorAccessible {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RecordIterator.class);
 
   private final RecordBatch incoming;
   private final AbstractRecordBatch<?> outgoing;
@@ -217,6 +216,7 @@ public class RecordIterator implements VectorAccessible {
               container.addOrGet(w.getField());
             }
             container.buildSchema(rbd.getContainer().getSchema().getSelectionVectorMode());
+            container.setRecordCount(0);
             initialized = true;
           }
           if (innerRecordCount > 0) {

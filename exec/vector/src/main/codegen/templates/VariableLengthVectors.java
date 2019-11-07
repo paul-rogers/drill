@@ -764,25 +764,38 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     /**
-     * Backfill missing offsets from the given last written position to the
-     * given current write position. Used by the "new" size-safe column
-     * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
-     * <b>do not</b> fill empties. See DRILL-5529.
-     * @param lastWrite the position of the last valid write: the offset
-     * to be copied forward
-     * @param index the current write position filling occurs up to,
-     * but not including, this position
+     * Backfill missing offsets from the given last written position up to, but
+     * not including the given current write position. Used by the "new"
+     * size-safe column writers to allow skipping values. The <tt>set()</tt> and
+     * <tt>setSafe()</tt> <b>do not</b> fill empties. See DRILL-5529.
+     * 
+     * @param lastWrite
+     *          the position of the last valid write: the offset to be copied
+     *          forward
+     * @param index
+     *          the current write position filling occurs up to, but not
+     *          including, this position
      */
 
     public void fillEmpties(int lastWrite, int index) {
+
       // If last write was 2, offsets are [0, 3, 6]
       // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
       // Remember the offsets are one more than row count.
 
-      final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
-      final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
-      for (int i = lastWrite; i < index; i++) {
-        offsetMutator.setSafe(i + 1, fillOffset);
+      int startWrite = lastWrite + 1;
+      if (startWrite < index) {
+
+        // Don't access the offset vector if nothing to fill.
+        // This handles the special case of a zero-size batch
+        // in which the 0th position of the offset vector does
+        // not even exist.
+
+        int fillOffset = offsetVector.getAccessor().get(startWrite);
+        UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
+        for (int i = startWrite; i < index; i++) {
+          offsetMutator.setSafe(i + 1, fillOffset);
+        }
       }
     }
 
@@ -841,7 +854,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       } else if (allocationMonitor > 0) {
         allocationMonitor = 0;
       }
-      VectorTrimmer.trim(data, idx);
       offsetVector.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
     }
 
