@@ -150,7 +150,7 @@ public class PartitionLimitRecordBatch extends AbstractSingleRecordBatch<Partiti
       // Must allocate vectors to allow for offset vectors which
       // require a zero in the 0th position.
       container.allocateNew();
-      container.setRecordCount(0);
+      container.setEmpty();
       // Release buffer for sv2 (if any)
       if (incomingSv != null) {
         incomingSv.clear();
@@ -224,7 +224,7 @@ public class PartitionLimitRecordBatch extends AbstractSingleRecordBatch<Partiti
       }
     }
 
-    outgoingSv.setRecordCount(svIndex);
+    setOutgoingRecordCount(inputRecordCount, svIndex);
   }
 
   private void updateOutputSV2(int svIndex, int incomingIndex) {
@@ -241,6 +241,12 @@ public class PartitionLimitRecordBatch extends AbstractSingleRecordBatch<Partiti
     } else {
       return partitionColumn.getAccessor().get(incomingIndex);
     }
+  }
+
+  private void setOutgoingRecordCount(int inputRecordCount, int outputCount) {
+    outgoingSv.setRecordCount(outputCount);
+    outgoingSv.setBatchActualRecordCount(inputRecordCount);
+    container.setRecordCount(inputRecordCount);
   }
 
   /**

@@ -767,7 +767,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
      * not including the given current write position. Used by nullable
      * vectors to allow skipping values. The <tt>set()</tt> and
      * <tt>setSafe()</tt> <b>do not</b> fill empties. See DRILL-5529.
-     * 
+     *
      * @param lastWrite
      *          the position of the last valid write: the offset to be copied
      *          forward

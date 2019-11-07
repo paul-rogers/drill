@@ -237,14 +237,14 @@ public class VectorContainer implements VectorAccessible {
     * @param srcIndex The index of the row to copy from the source {@link VectorContainer}.
     * @return Position one above where the row was appended
     */
-    public int appendRow(VectorContainer srcContainer, int srcIndex) {
-      for (int vectorIndex = 0; vectorIndex < wrappers.size(); vectorIndex++) {
-        ValueVector destVector = wrappers.get(vectorIndex).getValueVector();
-        ValueVector srcVector = srcContainer.wrappers.get(vectorIndex).getValueVector();
-        destVector.copyEntry(recordCount, srcVector, srcIndex);
-      }
-      return incRecordCount();
+  public int appendRow(VectorContainer srcContainer, int srcIndex) {
+    for (int vectorIndex = 0; vectorIndex < wrappers.size(); vectorIndex++) {
+      ValueVector destVector = wrappers.get(vectorIndex).getValueVector();
+      ValueVector srcVector = srcContainer.wrappers.get(vectorIndex).getValueVector();
+      destVector.copyEntry(recordCount, srcVector, srcIndex);
     }
+    return incRecordCount();
+  }
 
   public TypedFieldId add(ValueVector vv) {
     schemaChanged();
