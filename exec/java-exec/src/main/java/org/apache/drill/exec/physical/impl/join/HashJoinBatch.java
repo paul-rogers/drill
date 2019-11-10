@@ -51,7 +51,6 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.impl.ValueVectorHashHelper;
 import org.apache.drill.exec.memory.BaseAllocator;
@@ -462,7 +461,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
     } else {
       // Got our first batch(es)
       if (spilledState.isFirstCycle()) {
-        // Only collect stats for the first cylce
+        // Only collect stats for the first cycle
         memoryManagerUpdate.run();
       }
       state = BatchState.FIRST;
@@ -1059,7 +1058,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
 
           }
           // Append the new inner row to the appropriate partition; spill (that partition) if needed
-          partitions[currPart].appendInnerRow(buildBatch.getContainer(), ind, hashCode, buildCalc); // may spill if needed
+          partitions[currPart].appendInnerRow(buildBatch.getContainer(), ind, hashCode, buildCalc);
         }
 
         if ( read_right_HV_vector != null ) {
@@ -1101,9 +1100,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
     HashJoinMemoryCalculator.PostBuildCalculations postBuildCalc = buildCalc.next();
     postBuildCalc.initialize(probeSideIsEmpty.booleanValue()); // probeEmpty
 
-    //
     //  Traverse all the in-memory partitions' incoming batches, and build their hash tables
-    //
 
     for (int index = 0; index < partitions.length; index++) {
       HashPartition partn = partitions[index];
@@ -1467,18 +1464,15 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
       batchMemoryManager.getNumOutgoingBatches(), batchMemoryManager.getAvgOutputBatchSize(),
       batchMemoryManager.getAvgOutputRowWidth(), batchMemoryManager.getTotalOutputRecords());
 
-    this.cleanup();
+    cleanup();
     super.close();
   }
 
   public HashJoinProbe setupHashJoinProbe() throws ClassTransformationException, IOException {
-    CodeGenerator<HashJoinProbe> cg = CodeGenerator.get(HashJoinProbe.TEMPLATE_DEFINITION, context.getOptions());
-    cg.plainJavaCapable(true);
-    // cg.saveCodeForDebugging(true);
 
     //  No real code generation !!
 
-    return context.getImplementationClass(cg);
+    return new HashJoinProbeTemplate();
   }
 
   @Override

@@ -80,8 +80,8 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
     }
   }
 
-  public UnorderedReceiverBatch(final ExchangeFragmentContext context,
-      final RawFragmentBatchProvider fragProvider, final UnorderedReceiver config)
+  public UnorderedReceiverBatch(ExchangeFragmentContext context,
+      RawFragmentBatchProvider fragProvider, UnorderedReceiver config)
           throws OutOfMemoryException {
     this.fragProvider = fragProvider;
     this.context = context;
@@ -118,7 +118,7 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
   }
 
   @Override
-  public void kill(final boolean sendUpstream) {
+  public void kill(boolean sendUpstream) {
     if (sendUpstream) {
       informSenders();
     }
@@ -141,12 +141,12 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
   }
 
   @Override
-  public TypedFieldId getValueVectorId(final SchemaPath path) {
+  public TypedFieldId getValueVectorId(SchemaPath path) {
     return batchLoader.getValueVectorId(path);
   }
 
   @Override
-  public VectorWrapper<?> getValueAccessorById(final Class<?> clazz, final int... ids) {
+  public VectorWrapper<?> getValueAccessorById(Class<?> clazz, int... ids) {
     return batchLoader.getValueAccessorById(clazz, ids);
   }
 
@@ -154,7 +154,7 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
     try {
       injector.injectInterruptiblePause(context.getExecutionControls(), "waiting-for-data", logger);
       return fragProvider.getNext();
-    } catch(final InterruptedException e) {
+    } catch(InterruptedException e) {
       // Preserve evidence that the interruption occurred so that code higher up
       // on the call stack can learn of the
       // interruption and respond to it if it wants to.
@@ -199,8 +199,8 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
         return lastOutcome;
       }
 
-      final RecordBatchDef rbd = batch.getHeader().getDef();
-      final boolean schemaChanged = batchLoader.load(rbd, batch.getBody());
+      RecordBatchDef rbd = batch.getHeader().getDef();
+      boolean schemaChanged = batchLoader.load(rbd, batch.getBody());
       // TODO:  Clean:  DRILL-2933:  That load(...) no longer throws
       // SchemaChangeException, so check/clean catch clause below.
       stats.addLongStat(Metric.BYTES_RECEIVED, batch.getByteCount());
@@ -251,15 +251,15 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
 
   private void informSenders() {
     logger.info("Informing senders of request to terminate sending.");
-    final FragmentHandle handlePrototype = FragmentHandle.newBuilder()
+    FragmentHandle handlePrototype = FragmentHandle.newBuilder()
             .setMajorFragmentId(config.getOppositeMajorFragmentId())
             .setQueryId(context.getHandle().getQueryId())
             .build();
-    for (final MinorFragmentEndpoint providingEndpoint : config.getProvidingEndpoints()) {
-      final FragmentHandle sender = FragmentHandle.newBuilder(handlePrototype)
+    for (MinorFragmentEndpoint providingEndpoint : config.getProvidingEndpoints()) {
+      FragmentHandle sender = FragmentHandle.newBuilder(handlePrototype)
               .setMinorFragmentId(providingEndpoint.getId())
               .build();
-      final FinishedReceiver finishedReceiver = FinishedReceiver.newBuilder()
+      FinishedReceiver finishedReceiver = FinishedReceiver.newBuilder()
               .setReceiver(context.getHandle())
               .setSender(sender)
               .build();
@@ -273,19 +273,19 @@ public class UnorderedReceiverBatch implements CloseableRecordBatch {
   private class OutcomeListener implements RpcOutcomeListener<Ack> {
 
     @Override
-    public void failed(final RpcException ex) {
+    public void failed(RpcException ex) {
       logger.warn("Failed to inform upstream that receiver is finished");
     }
 
     @Override
-    public void success(final Ack value, final ByteBuf buffer) {
+    public void success(Ack value, ByteBuf buffer) {
       // Do nothing
     }
 
     @Override
-    public void interrupted(final InterruptedException e) {
+    public void interrupted(InterruptedException e) {
       if (context.getExecutorState().shouldContinue()) {
-        final String errMsg = "Received an interrupt RPC outcome while sending ReceiverFinished message";
+        String errMsg = "Received an interrupt RPC outcome while sending ReceiverFinished message";
         logger.error(errMsg, e);
         context.getExecutorState().fail(new RpcException(errMsg, e));
       }
