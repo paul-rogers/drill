@@ -29,7 +29,7 @@
       </appender>
 
       <logger name="org.apache.drill" additivity="false">
-        <level value="ERROR"/>
+        <level value="DEBUG"/>
         <appender-ref ref="SOCKET"/>
       </logger>
 

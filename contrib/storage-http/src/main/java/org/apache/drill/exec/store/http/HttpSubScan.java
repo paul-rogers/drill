@@ -30,9 +30,11 @@ import org.apache.drill.exec.physical.base.SubScan;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.exec.proto.UserBitShared;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpSubScan extends AbstractBase implements SubScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpSubScan.class);
+  static final Logger logger = LoggerFactory.getLogger(HttpSubScan.class);
 
   private HttpScanSpec scanSpec;
   private HttpStoragePluginConfig config;

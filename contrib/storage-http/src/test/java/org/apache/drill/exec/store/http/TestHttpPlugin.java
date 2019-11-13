@@ -30,12 +30,14 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 
 @Ignore("requires remote http server")
 public class TestHttpPlugin extends ClusterTest {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestHttpPlugin.class);
+  static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
 
   @BeforeClass
   public static void setup() throws Exception {
@@ -135,8 +137,8 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
-  public void testSerDe() throws Exception {
-    String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+   public void testSerDe() throws Exception {
+    String sql = "SELECT COUNT(*) FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
     String plan = queryBuilder().sql(sql).explainJson();
     long cnt = queryBuilder().physical(plan).singletonLong();
     assertEquals("Counts should match",1L, cnt);

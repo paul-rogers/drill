@@ -71,8 +71,9 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   public HttpGroupScan(HttpGroupScan that) {
     super(that);
+    httpStoragePlugin = that.httpStoragePlugin;
+    httpStoragePluginConfig = httpStoragePlugin.getConfig();
     httpScanSpec = that.httpScanSpec;
-    httpStoragePluginConfig = that.httpStoragePluginConfig;
     columns = that.columns;
   }
 
@@ -82,7 +83,7 @@ public class HttpGroupScan extends AbstractGroupScan {
     httpStoragePluginConfig = config;
     this.columns = columns == null || columns.size() == 0? ALL_COLUMNS : columns;
   }
-
+  @JsonProperty("HttpScanSpec")
   public HttpScanSpec getScanSpec() {
     return httpScanSpec;
   }
@@ -115,6 +116,8 @@ public class HttpGroupScan extends AbstractGroupScan {
     return toString();
   }
 
+  @Override
+  @JsonProperty
   public List<SchemaPath> getColumns() {
     return columns;
   }
@@ -142,11 +145,20 @@ public class HttpGroupScan extends AbstractGroupScan {
     return filterPushedDown;
   }
 
+  @JsonIgnore
   public void setFilterPushedDown(boolean filterPushedDown) {
     this.filterPushedDown = filterPushedDown;
   }
 
+  @JsonProperty
   public HttpStoragePluginConfig getStorageConfig() {
     return httpStoragePluginConfig;
+  }
+
+  @Override
+  public String toString() {
+    return "HttpGroupScan [HttpScanSpec="
+      + httpScanSpec + ", columns="
+      + columns + "]";
   }
 }

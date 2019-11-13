@@ -61,6 +61,7 @@ public class HttpScanSpec {
     return url;
   }
 
+  @JsonIgnore
   public void merge(HttpScanSpec that) {
     for (Map.Entry<String, Object> entry : that.args.entrySet()) {
       this.args.put(entry.getKey(), entry.getValue());
