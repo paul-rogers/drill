@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.ops;
 
-import io.netty.buffer.DrillBuf;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -68,6 +67,7 @@ import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.PartitionExplorer;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
@@ -77,6 +77,8 @@ import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * This is the core Context which implements all the Context interfaces:
@@ -254,6 +256,11 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
   @Override
   public PhysicalPlanReader getPlanReader() {
     return context.getPlanReader();
+  }
+
+  @Override
+  public StoragePluginRegistry getStorageRegistry() {
+    return context.getStorage();
   }
 
   @Override

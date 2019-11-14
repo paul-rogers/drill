@@ -222,7 +222,7 @@ public class ScanLevelProjection {
 
   public static class Builder {
     private List<SchemaPath> projectionList;
-    private List<ScanProjectionParser> parsers = new ArrayList<>();
+    private final List<ScanProjectionParser> parsers = new ArrayList<>();
     private TupleMetadata outputSchema;
     /**
      * Context used with error messages.
@@ -298,7 +298,7 @@ public class ScanLevelProjection {
   protected List<ColumnProjection> outputCols = new ArrayList<>();
 
   /**
-   * Projection definition for the scan a whole. Parsed form of the input
+   * Projection definition for the scan a whole. Parsed from of the input
    * projection list.
    */
 

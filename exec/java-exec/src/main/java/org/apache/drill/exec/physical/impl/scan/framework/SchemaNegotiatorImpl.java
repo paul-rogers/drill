@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.framework;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
+import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -123,10 +124,11 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     return listener.build(this);
   }
 
+  public boolean isSchemaComplete() { return isSchemaComplete; }
+
   @Override
-  public boolean isProjectionEmpty() {
-    return framework.scanOrchestrator().isProjectNone();
+  public RequestedTuple rootProjection() {
+    return framework.scanOrchestrator().rootProjection();
   }
 
-  public boolean isSchemaComplete() { return isSchemaComplete; }
 }

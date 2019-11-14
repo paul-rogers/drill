@@ -23,8 +23,8 @@ import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.TupleProjectionType;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTupleImpl;
+import org.apache.drill.exec.physical.resultSet.project.TupleProjectionType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 public class ProjectionSetBuilder {

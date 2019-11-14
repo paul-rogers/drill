@@ -17,15 +17,19 @@
  */
 package org.apache.drill.exec.expr;
 
+import java.util.List;
+
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
 import org.apache.drill.exec.expr.stat.RowsMatch;
-
-import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanOperator implements FilterPredicate<C> {
+
+  private static final Logger logger = LoggerFactory.getLogger(BooleanPredicate.class);
 
   private BooleanPredicate(String name, List<LogicalExpression> args, ExpressionPosition pos) {
     super(name, args, pos);
@@ -101,9 +105,9 @@ public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanO
   public static <C extends Comparable<C>> LogicalExpression createBooleanPredicate(
       String function, String name, List<LogicalExpression> args, ExpressionPosition pos) {
     switch (function) {
-      case "booleanOr":
+      case BooleanOperator.OR_FN:
         return BooleanPredicate.<C>createOrPredicate(name, args, pos);
-      case "booleanAnd":
+      case BooleanOperator.AND_FN:
         return BooleanPredicate.<C>createAndPredicate(name, args, pos);
       default:
         logger.warn("Unknown Boolean '{}' predicate.", function);

@@ -17,11 +17,11 @@
  */
 package org.apache.drill.exec.client;
 
+import static org.apache.drill.exec.proto.UserProtos.QueryResultsMode.STREAM_FULL;
+import static org.apache.drill.exec.proto.UserProtos.RunQuery.newBuilder;
 import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkState;
-import static org.apache.drill.exec.proto.UserProtos.QueryResultsMode.STREAM_FULL;
-import static org.apache.drill.exec.proto.UserProtos.RunQuery.newBuilder;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -86,13 +86,13 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.rpc.user.UserClient;
 import org.apache.drill.exec.rpc.user.UserResultsListener;
 import org.apache.drill.exec.rpc.user.UserRpcUtils;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import org.apache.drill.shaded.guava.com.google.common.base.Strings;
+import org.apache.drill.shaded.guava.com.google.common.util.concurrent.SettableFuture;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
-import org.apache.drill.shaded.guava.com.google.common.base.Strings;
-import org.apache.drill.shaded.guava.com.google.common.util.concurrent.SettableFuture;
 
 import io.netty.channel.EventLoopGroup;
 
@@ -580,7 +580,22 @@ public class DrillClient implements Closeable, ConnectionThrottle {
     final UserProtos.RunQuery query = newBuilder().setResultsMode(STREAM_FULL).setType(type).setPlan(plan).build();
     final ListHoldingResultsListener listener = new ListHoldingResultsListener(query);
     client.submitQuery(listener, query);
-    return listener.getResults();
+    try {
+      return listener.getResults();
+    } catch (Throwable e) {
+
+      // For tests, throw away all the RPC and client wrappers,
+      // just throw the core underlying exception.
+
+      while (e.getCause() != null && e.getCause() != e) {
+        e = e.getCause();
+      }
+      if (e instanceof RuntimeException) {
+        throw (RuntimeException) e;
+      } else {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   /**
