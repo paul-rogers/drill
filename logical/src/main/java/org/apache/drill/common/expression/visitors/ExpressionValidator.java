@@ -51,7 +51,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 public class ExpressionValidator implements ExprVisitor<Void, ErrorCollector, RuntimeException> {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpressionValidator.class);
 
   @Override
   public Void visitFunctionCall(FunctionCall call, ErrorCollector errors) throws RuntimeException {
@@ -78,7 +77,7 @@ public class ExpressionValidator implements ExprVisitor<Void, ErrorCollector, Ru
   public Void visitBooleanOperator(BooleanOperator op, ErrorCollector errors) throws RuntimeException {
     int i = 0;
     for (LogicalExpression arg : op.args) {
-      if ( arg.getMajorType().getMinorType() != MinorType.BIT) {
+      if (arg.getMajorType().getMinorType() != MinorType.BIT) {
         errors
             .addGeneralError(
                 arg.getPosition(),
@@ -98,7 +97,7 @@ public class ExpressionValidator implements ExprVisitor<Void, ErrorCollector, Ru
     // confirm that all conditions are required boolean values.
     IfCondition cond = ifExpr.ifCondition;
     MajorType majorType = cond.condition.getMajorType();
-    if ( majorType
+    if (majorType
         .getMinorType() != MinorType.BIT) {
       errors
           .addGeneralError(

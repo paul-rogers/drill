@@ -17,18 +17,20 @@
  */
 package org.apache.drill.exec.store.ischema;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.exec.store.ischema.InfoSchemaFilter.ExprNode.Type;
-import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
+import static org.apache.drill.exec.expr.fn.impl.RegexpUtil.sqlToRegexLike;
 
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static org.apache.drill.exec.expr.fn.impl.RegexpUtil.sqlToRegexLike;
+import org.apache.drill.common.expression.FunctionCall;
+import org.apache.drill.exec.store.ischema.InfoSchemaFilter.ExprNode.Type;
+import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("info-schema-filter")
 public class InfoSchemaFilter {
@@ -162,16 +164,16 @@ public class InfoSchemaFilter {
 
         return Result.INCONCLUSIVE;
       }
-      case "equal":
+      case "equal": // FunctionCall.EQ_FN
       case "not equal":
       case "notequal":
-      case "not_equal": {
+      case "not_equal": { // FunctionCall.NE_FN
         FieldExprNode arg0 = (FieldExprNode) exprNode.args.get(0);
         ConstantExprNode arg1 = (ConstantExprNode) exprNode.args.get(1);
 
         final String value = recordValues.get(arg0.field);
         if (value != null) {
-          if (exprNode.function.equals("equal")) {
+          if (exprNode.function.equals(FunctionCall.EQ_FN)) {
             return arg1.value.equals(value) ? Result.TRUE : Result.FALSE;
           } else {
             return arg1.value.equals(value) ? Result.FALSE : Result.TRUE;
@@ -181,7 +183,7 @@ public class InfoSchemaFilter {
         return Result.INCONCLUSIVE;
       }
 
-      case "booleanor": {
+      case "booleanor": { // BooleanOperator.OR_FN
         // If at least one arg returns TRUE, then the OR function value is TRUE
         // If all args return FALSE, then OR function value is FALSE
         // For all other cases, return INCONCLUSIVE
@@ -198,7 +200,7 @@ public class InfoSchemaFilter {
         return result;
       }
 
-      case "booleanand": {
+      case "booleanand": { // BooleanOperator.AND_FN
         // If at least one arg returns FALSE, then the AND function value is FALSE
         // If at least one arg returns INCONCLUSIVE, then the AND function value is INCONCLUSIVE
         // If all args return TRUE, then the AND function value is TRUE

@@ -70,4 +70,9 @@ public class ImpliedTupleRequest implements RequestedTuple {
   public TupleProjectionType type() {
     return allProjected ? TupleProjectionType.ALL : TupleProjectionType.NONE;
   }
+
+  @Override
+  public boolean isProjected(String colName) {
+    return allProjected;
+  }
 }

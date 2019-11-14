@@ -17,16 +17,22 @@
  */
 package org.apache.drill.exec.physical.unit;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.common.expression.FunctionCall;
-import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.ExpressionPosition;
+import org.apache.drill.common.expression.FieldReference;
+import org.apache.drill.common.expression.FunctionCall;
+import org.apache.drill.common.expression.LogicalExpression;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.FlattenPOP;
@@ -38,8 +44,8 @@ import org.apache.drill.exec.physical.config.Project;
 import org.apache.drill.exec.physical.config.UnionAll;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.planner.physical.AggPrelBase;
-import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.RecordBatchSizer;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.util.JsonStringArrayList;
@@ -49,17 +55,11 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedListVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.test.LegacyOperatorTestBuilder;
 import org.apache.drill.test.PhysicalOpUnitTestBase;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   private static final long initReservation = AbstractBase.INIT_ALLOCATION;
@@ -2296,7 +2296,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
 
   @Test
   public void testNestedLoopJoinMultipleOutputBatches() throws Exception {
-    LogicalExpression functionCallExpr = new FunctionCall("equal",
+    LogicalExpression functionCallExpr = new FunctionCall(FunctionCall.EQ_FN,
             ImmutableList.of((LogicalExpression) new FieldReference("c1", ExpressionPosition.UNKNOWN),
                     (LogicalExpression) new FieldReference("c2", ExpressionPosition.UNKNOWN)),
             ExpressionPosition.UNKNOWN);
@@ -2369,7 +2369,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
 
   @Test
   public void testNestedLoopJoinSingleOutputBatch() throws Exception {
-    LogicalExpression functionCallExpr = new FunctionCall("equal",
+    LogicalExpression functionCallExpr = new FunctionCall(FunctionCall.EQ_FN,
             ImmutableList.of((LogicalExpression) new FieldReference("c1", ExpressionPosition.UNKNOWN),
                     (LogicalExpression) new FieldReference("c2", ExpressionPosition.UNKNOWN)),
             ExpressionPosition.UNKNOWN);
@@ -2502,7 +2502,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testNestedLoopJoinLowerLimit() throws Exception {
     // test the lower limit of at least one batch
-    LogicalExpression functionCallExpr = new FunctionCall("equal",
+    LogicalExpression functionCallExpr = new FunctionCall(FunctionCall.EQ_FN,
             ImmutableList.of((LogicalExpression) new FieldReference("c1", ExpressionPosition.UNKNOWN),
                     (LogicalExpression) new FieldReference("c2", ExpressionPosition.UNKNOWN)),
             ExpressionPosition.UNKNOWN);
@@ -2559,7 +2559,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
 
   @Test
   public void testLeftNestedLoopJoin() throws Exception {
-    LogicalExpression functionCallExpr = new FunctionCall("equal",
+    LogicalExpression functionCallExpr = new FunctionCall(FunctionCall.EQ_FN,
             ImmutableList.of((LogicalExpression) new FieldReference("c1", ExpressionPosition.UNKNOWN),
                     (LogicalExpression) new FieldReference("c2", ExpressionPosition.UNKNOWN)),
             ExpressionPosition.UNKNOWN);

@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(KuduStoragePluginConfig.NAME)
 public class KuduStoragePluginConfig extends StoragePluginConfigBase {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KuduStoragePluginConfig.class);
 
   public static final String NAME = "kudu";
 
@@ -69,7 +68,4 @@ public class KuduStoragePluginConfig extends StoragePluginConfigBase {
     }
     return true;
   }
-
-
-
 }

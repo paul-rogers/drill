@@ -32,8 +32,10 @@ import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection.ReaderProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter;
 import org.apache.drill.exec.physical.resultSet.impl.ResultVectorCacheImpl;
+import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -165,12 +167,12 @@ public class ScanSchemaOrchestrator {
     private MetadataManager metadataManager;
     private int scanBatchRecordLimit = DEFAULT_BATCH_ROW_COUNT;
     private int scanBatchByteLimit = DEFAULT_BATCH_BYTE_COUNT;
-    private List<ScanProjectionParser> parsers = new ArrayList<>();
-    private List<ReaderProjectionResolver> schemaResolvers = new ArrayList<>();
+    private final List<ScanProjectionParser> parsers = new ArrayList<>();
+    private final List<ReaderProjectionResolver> schemaResolvers = new ArrayList<>();
     private boolean useSchemaSmoothing;
     private boolean allowRequiredNullColumns;
     private List<SchemaPath> projection;
-    private TypeConverter.Builder typeConverterBuilder = TypeConverter.builder();
+    private final TypeConverter.Builder typeConverterBuilder = TypeConverter.builder();
 
     /**
      * Option that enables whether the scan operator starts with an empty
@@ -456,6 +458,10 @@ public class ScanSchemaOrchestrator {
     return scanProj.isEmptyProjection();
   }
 
+  public ScanProjectionType projectionType() {
+    return scanProj.projectionType();
+  }
+
   public boolean hasSchema() {
     return currentReader != null && currentReader.hasSchema();
   }
@@ -479,5 +485,9 @@ public class ScanSchemaOrchestrator {
     }
     vectorCache.close();
     metadataManager.close();
+  }
+
+  public RequestedTuple rootProjection() {
+    return scanProj.rootProjection();
   }
 }

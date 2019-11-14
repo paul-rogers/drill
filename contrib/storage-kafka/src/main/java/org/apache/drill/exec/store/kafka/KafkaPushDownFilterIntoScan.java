@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.store.kafka;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import java.util.List;
+
 import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.plan.RelOptRuleOperand;
 import org.apache.calcite.rex.RexNode;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.physical.base.GroupScan;
@@ -30,17 +30,18 @@ import org.apache.drill.exec.planner.physical.FilterPrel;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-import java.util.List;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KafkaPushDownFilterIntoScan extends StoragePluginOptimizerRule {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KafkaPushDownFilterIntoScan.class);
+  static final Logger logger = LoggerFactory.getLogger(KafkaPushDownFilterIntoScan.class);
 
-  public static final StoragePluginOptimizerRule INSTANCE =
-      new KafkaPushDownFilterIntoScan(RelOptHelper.some(FilterPrel.class, RelOptHelper.any(ScanPrel.class)),
+  public static final StoragePluginOptimizerRule INSTANCE = new KafkaPushDownFilterIntoScan();
+
+  private KafkaPushDownFilterIntoScan() {
+    super(RelOptHelper.some(FilterPrel.class, RelOptHelper.any(ScanPrel.class)),
           "KafkaPushFilterIntoScan:Filter_On_Scan");
-
-  private KafkaPushDownFilterIntoScan(RelOptRuleOperand operand, String description) {
-    super(operand, description);
   }
 
   @Override
@@ -57,10 +58,10 @@ public class KafkaPushDownFilterIntoScan extends StoragePluginOptimizerRule {
     KafkaPartitionScanSpecBuilder builder = new KafkaPartitionScanSpecBuilder(groupScan, conditionExp);
     List<KafkaPartitionScanSpec> newScanSpec = null;
     newScanSpec = builder.parseTree();
-    builder.close(); //Close consumer
+    builder.close(); // Close consumer
 
-    //No pushdown
-    if(newScanSpec == null) {
+    // No pushdown
+    if (newScanSpec == null) {
       return;
     }
 
@@ -73,10 +74,10 @@ public class KafkaPushDownFilterIntoScan extends StoragePluginOptimizerRule {
 
   @Override
   public boolean matches(RelOptRuleCall call) {
-    final ScanPrel scan = (ScanPrel) call.rel(1);
-    if (scan.getGroupScan() instanceof KafkaGroupScan) {
-      return super.matches(call);
+    if (!super.matches(call)) {
+      return false;
     }
-    return false;
+    final ScanPrel scan = call.rel(1);
+    return scan.getGroupScan() instanceof KafkaGroupScan;
   }
 }

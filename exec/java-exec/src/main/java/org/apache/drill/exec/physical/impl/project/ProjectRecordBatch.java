@@ -110,7 +110,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         outputNames.clear();
       }
 
-      // note:  don't clear the internal maps since they have cumulative data..
+      // Don't clear the internal maps since they have cumulative data.
     }
   }
 

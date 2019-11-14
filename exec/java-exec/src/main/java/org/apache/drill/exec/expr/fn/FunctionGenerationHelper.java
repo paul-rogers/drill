@@ -20,7 +20,6 @@ package org.apache.drill.exec.expr.fn;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.ExpressionPosition;
@@ -35,17 +34,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.HoldingContainerExpression;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class FunctionGenerationHelper {
   public static final String COMPARE_TO_NULLS_HIGH = "compare_to_nulls_high";
   public static final String COMPARE_TO_NULLS_LOW = "compare_to_nulls_low";
-
-  public static final String EQ = "equal";
-  public static final String NE = "not_equal";
-  public static final String GT = "greater_than";
-  public static final String GE = "greater_than_or_equal_to";
-  public static final String LT = "less_than";
-  public static final String LE = "less_than_or_equal_to";
 
   public static final String IS_NULL = "isnull";
   public static final String IS_NOT_NULL = "isnotnull";
@@ -122,8 +115,8 @@ public class FunctionGenerationHelper {
   }
 
   /**
-   * Wraps the comparison function in an If-statement which compares the types first, evaluating the comaprison function only
-   * if the types are equivialent
+   * Wraps the comparison function in an If-statement which compares the types first, evaluating the comparison function only
+   * if the types are equivalent
    *
    * @param comparisonFunction
    * @param args
@@ -141,7 +134,7 @@ public class FunctionGenerationHelper {
     List<LogicalExpression> newArgs = Lists.newArrayList();
     newArgs.add(call);
     newArgs.add(new IntExpression(0, ExpressionPosition.UNKNOWN));
-    FunctionCall notEqual = new FunctionCall("not_equal", newArgs, ExpressionPosition.UNKNOWN);
+    FunctionCall notEqual = new FunctionCall(FunctionCall.NE_FN, newArgs, ExpressionPosition.UNKNOWN);
 
     IfExpression.IfCondition ifCondition = new IfCondition(notEqual, call);
     IfExpression ifExpression = IfExpression.newBuilder().setIfCondition(ifCondition).setElse(comparisonFunction).build();
@@ -175,5 +168,4 @@ public class FunctionGenerationHelper {
 
     return sb.toString();
   }
-
 }

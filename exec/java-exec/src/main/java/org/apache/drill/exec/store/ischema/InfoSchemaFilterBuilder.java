@@ -17,6 +17,16 @@
  */
 package org.apache.drill.exec.store.ischema;
 
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.CATS_COL_CATALOG_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.COLS_COL_COLUMN_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.FILES_COL_ROOT_SCHEMA_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.FILES_COL_WORKSPACE_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SCHS_COL_SCHEMA_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_NAME;
+import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_SCHEMA;
+
+import java.util.List;
+
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.CastExpression;
 import org.apache.drill.common.expression.FieldReference;
@@ -31,16 +41,6 @@ import org.apache.drill.exec.store.ischema.InfoSchemaFilter.FieldExprNode;
 import org.apache.drill.exec.store.ischema.InfoSchemaFilter.FunctionExprNode;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-
-import java.util.List;
-
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.CATS_COL_CATALOG_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.COLS_COL_COLUMN_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.FILES_COL_ROOT_SCHEMA_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.FILES_COL_WORKSPACE_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SCHS_COL_SCHEMA_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_NAME;
-import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_SCHEMA;
 
 /**
  * Builds a InfoSchemaFilter out of the Filter condition. Currently we look only for certain conditions. Mainly
@@ -73,10 +73,10 @@ public class InfoSchemaFilterBuilder extends AbstractExprVisitor<ExprNode, Void,
   public ExprNode visitFunctionCall(FunctionCall call, Void value) throws RuntimeException {
     final String funcName = call.getName().toLowerCase();
     switch (funcName) {
-      case "equal":
+      case "equal": // FunctionCall.EQ_FN
       case "not equal":
       case "notequal":
-      case "not_equal": {
+      case "not_equal": { // FunctionCall.NE_FN
         final ExprNode col = call.args.get(0).accept(this, value);
         final ExprNode constant = call.args.get(1).accept(this, value);
 
@@ -99,7 +99,7 @@ public class InfoSchemaFilterBuilder extends AbstractExprVisitor<ExprNode, Void,
         break;
       }
 
-      case "booleanand": {
+      case "booleanand": { // BooleanOperator.AND_FN
         List<ExprNode> args = Lists.newArrayList();
         for(LogicalExpression arg : call.args) {
           ExprNode exprNode = arg.accept(this, value);
@@ -114,7 +114,7 @@ public class InfoSchemaFilterBuilder extends AbstractExprVisitor<ExprNode, Void,
         return visitUnknown(call, value);
       }
 
-      case "booleanor": {
+      case "booleanor": { // BooleanOperator.OR_FN
         List<ExprNode> args = Lists.newArrayList();
         for(LogicalExpression arg : call.args) {
           ExprNode exprNode = arg.accept(this, value);

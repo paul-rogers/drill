@@ -168,29 +168,29 @@ message SerializedField {
 }
 
 message NodeStatus {
-	optional int32 node_id = 1;
-	optional int64 memory_footprint = 2;
+  optional int32 node_id = 1;
+  optional int64 memory_footprint = 2;
 }
 
 /*
  * Used by the server to report informations about the query state to the client
  */
 message QueryResult {
-	enum QueryState {
-	  STARTING = 0; // query has been scheduled for execution. This is post-enqueued.
-	  RUNNING = 1;
-	  COMPLETED = 2; // query has completed successfully
-	  CANCELED = 3; // query has been cancelled, and all cleanup is complete
-	  FAILED = 4;
-	  CANCELLATION_REQUESTED = 5; // cancellation has been requested, and is being processed
-	  ENQUEUED = 6; // query has been enqueued. this is pre-starting.
-	  PREPARING = 7; // query is at preparation stage, foreman is initializing
-	  PLANNING = 8; // query is at planning stage (includes logical or / and physical planning)
-	}
+  enum QueryState {
+    STARTING = 0; // query has been scheduled for execution. This is post-enqueued.
+    RUNNING = 1;
+    COMPLETED = 2; // query has completed successfully
+    CANCELED = 3; // query has been cancelled, and all cleanup is complete
+    FAILED = 4;
+    CANCELLATION_REQUESTED = 5; // cancellation has been requested, and is being processed
+    ENQUEUED = 6; // query has been enqueued. this is pre-starting.
+    PREPARING = 7; // query is at preparation stage, foreman is initializing
+    PLANNING = 8; // query is at planning stage (includes logical or / and physical planning)
+  }
 
-	optional QueryState query_state = 1;
-	optional QueryId query_id = 2;
-	repeated DrillPBError error = 3;
+  optional QueryState query_state = 1;
+  optional QueryId query_id = 2;
+  repeated DrillPBError error = 3;
 }
 
 /*
@@ -360,6 +360,8 @@ enum CoreOperatorType {
   SHP_SUB_SCAN = 65;
   METADATA_HANDLER = 66;
   METADATA_CONTROLLER = 67;
+  SUMO_SUB_SCAN = 68;
+  BASE_SUB_SCAN = 69;
 }
 
 /* Registry that contains list of jars, each jar contains its name and list of function signatures.

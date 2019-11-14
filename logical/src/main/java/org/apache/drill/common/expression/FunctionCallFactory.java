@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class FunctionCallFactory {
@@ -40,16 +39,16 @@ public class FunctionCallFactory {
     opToFuncTable.put("%", "modulo");
     opToFuncTable.put("^", "xor");
     opToFuncTable.put("||", "concatOperator");
-    opToFuncTable.put("or", "booleanOr");
-    opToFuncTable.put("and", "booleanAnd");
-    opToFuncTable.put(">", "greater_than");
-    opToFuncTable.put("<", "less_than");
-    opToFuncTable.put("==", "equal");
-    opToFuncTable.put("=", "equal");
-    opToFuncTable.put("!=", "not_equal");
-    opToFuncTable.put("<>", "not_equal");
-    opToFuncTable.put(">=", "greater_than_or_equal_to");
-    opToFuncTable.put("<=", "less_than_or_equal_to");
+    opToFuncTable.put("or", BooleanOperator.OR_FN);
+    opToFuncTable.put("and", BooleanOperator.AND_FN);
+    opToFuncTable.put(">", FunctionCall.GT_FN);
+    opToFuncTable.put("<", FunctionCall.LT_FN);
+    opToFuncTable.put("==", FunctionCall.EQ_FN);
+    opToFuncTable.put("=", FunctionCall.EQ_FN);
+    opToFuncTable.put("!=", FunctionCall.NE_FN);
+    opToFuncTable.put("<>", FunctionCall.NE_FN);
+    opToFuncTable.put(">=", FunctionCall.GE_FN);
+    opToFuncTable.put("<=", FunctionCall.LT_FN);
     opToFuncTable.put("is null", "isnull");
     opToFuncTable.put("is not null", "isnotnull");
     opToFuncTable.put("is true", "istrue");
@@ -68,7 +67,7 @@ public class FunctionCallFactory {
 
   public static boolean isBooleanOperator(String funcName) {
     String opName  = replaceOpWithFuncName(funcName);
-    return opName.equals("booleanAnd") || opName.equals("booleanOr");
+    return opName.equals(BooleanOperator.AND_FN) || opName.equals(BooleanOperator.OR_FN);
   }
 
   /*

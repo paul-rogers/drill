@@ -72,7 +72,6 @@ import org.apache.drill.exec.store.ischema.Records.Column;
 import org.apache.drill.exec.store.ischema.Records.Schema;
 import org.apache.drill.exec.store.ischema.Records.Table;
 import org.apache.drill.exec.store.pojo.PojoRecordReader;
-
 import org.apache.drill.metastore.MetastoreRegistry;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ComparisonChain;
@@ -87,8 +86,8 @@ public class MetadataProvider {
 
   private static final String IN_FUNCTION = "in";
   private static final String LIKE_FUNCTION = "like";
-  private static final String AND_FUNCTION = "booleanand";
-  private static final String OR_FUNCTION = "booleanor";
+  private static final String AND_FUNCTION = "booleanand"; // BooleanOperator.AND_FN
+  private static final String OR_FUNCTION = "booleanor"; // BooleanOperator.OR_FN
 
   /**
    * @return Runnable that fetches the catalog metadata for given {@link GetCatalogsReq} and sends response at the end.

@@ -78,6 +78,8 @@ import org.apache.drill.metastore.statistics.Statistic;
 import org.apache.drill.metastore.statistics.TableStatisticsKind;
 import org.apache.drill.metastore.util.SchemaPathUtils;
 import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -86,6 +88,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Represents table group scan with metadata usage.
  */
 public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupScan {
+
+  private static final Logger logger = LoggerFactory.getLogger(AbstractGroupScanWithMetadata.class);
 
   protected TableMetadataProvider metadataProvider;
 

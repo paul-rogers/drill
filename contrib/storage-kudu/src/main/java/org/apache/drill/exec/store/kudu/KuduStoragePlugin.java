@@ -30,7 +30,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class KuduStoragePlugin extends AbstractStoragePlugin {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KuduStoragePlugin.class);
 
   private final KuduStoragePluginConfig engineConfig;
   private final KuduSchemaFactory schemaFactory;
@@ -47,7 +46,6 @@ public class KuduStoragePlugin extends AbstractStoragePlugin {
 
   @Override
   public void start() throws IOException {
-
   }
 
   public KuduClient getClient() {
@@ -84,5 +82,4 @@ public class KuduStoragePlugin extends AbstractStoragePlugin {
   public KuduStoragePluginConfig getConfig() {
     return engineConfig;
   }
-
 }

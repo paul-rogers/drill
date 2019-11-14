@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.expr.fn.impl;
 
+import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.FunctionScope;
@@ -34,7 +35,7 @@ import org.apache.drill.exec.expr.holders.IntHolder;
  */
 public class BitFunctions {
 
-  @FunctionTemplate(names = {"booleanOr", "or", "||", "orNoShortCircuit"},
+  @FunctionTemplate(names = {BooleanOperator.OR_FN, "or", "||", "orNoShortCircuit"},
                     scope = FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class BitOr implements DrillSimpleFunc {
@@ -43,14 +44,16 @@ public class BitFunctions {
     @Param BitHolder right;
     @Output BitHolder out;
 
+    @Override
     public void setup() {}
 
+    @Override
     public void eval() {
       out.value = left.value | right.value;
     }
   }
 
-  @FunctionTemplate(names = {"booleanAnd", "and", "&&"},
+  @FunctionTemplate(names = {BooleanOperator.AND_FN, "and", "&&"},
                     scope = FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class BitAnd implements DrillSimpleFunc {
@@ -59,8 +62,10 @@ public class BitFunctions {
     @Param BitHolder right;
     @Output BitHolder out;
 
+    @Override
     public void setup() {}
 
+    @Override
     public void eval() {
       out.value = left.value & right.value;
     }
@@ -76,8 +81,10 @@ public class BitFunctions {
     @Param IntHolder right;
     @Output IntHolder out;
 
+    @Override
     public void setup() {}
 
+    @Override
     public void eval() {
       out.value = left.value ^ right.value;
     }

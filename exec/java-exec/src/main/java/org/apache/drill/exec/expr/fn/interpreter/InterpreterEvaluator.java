@@ -25,8 +25,6 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import org.apache.drill.exec.expr.BasicTypeHelper;
-import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ConvertExpression;
@@ -41,6 +39,7 @@ import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.expr.DrillFuncHolderExpr;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.TypeHelper;
@@ -57,7 +56,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.exec.vector.ValueVector;
-
+import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import io.netty.buffer.DrillBuf;
@@ -152,7 +151,7 @@ public class InterpreterEvaluator {
 
   private static class InitVisitor extends AbstractExprVisitor<LogicalExpression, VectorAccessible, RuntimeException> {
 
-    private UdfUtilities udfUtilities;
+    private final UdfUtilities udfUtilities;
 
     protected InitVisitor(UdfUtilities udfUtilities) {
       super();
@@ -210,8 +209,8 @@ public class InterpreterEvaluator {
 
 
   public static class EvalVisitor extends AbstractExprVisitor<ValueHolder, Integer, RuntimeException> {
-    private VectorAccessible incoming;
-    private UdfUtilities udfUtilities;
+    private final VectorAccessible incoming;
+    private final UdfUtilities udfUtilities;
 
     protected EvalVisitor(VectorAccessible incoming, UdfUtilities udfUtilities) {
       super();
@@ -383,9 +382,9 @@ public class InterpreterEvaluator {
     @Override
     public ValueHolder visitBooleanOperator(BooleanOperator op, Integer inIndex) {
       // Apply short circuit evaluation to boolean operator.
-      if (op.getName().equals("booleanAnd")) {
+      if (op.getName().equals(BooleanOperator.AND_FN)) {
         return visitBooleanAnd(op, inIndex);
-      }else if(op.getName().equals("booleanOr")) {
+      }else if(op.getName().equals(BooleanOperator.OR_FN)) {
         return visitBooleanOr(op, inIndex);
       } else {
         throw new UnsupportedOperationException("BooleanOperator can only be booleanAnd, booleanOr. You are using " + op.getName());

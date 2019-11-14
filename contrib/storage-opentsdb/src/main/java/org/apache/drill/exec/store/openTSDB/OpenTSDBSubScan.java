@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.store.openTSDB;
 
-import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractBase;
@@ -31,22 +30,18 @@ import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("openTSDB-sub-scan")
 public class OpenTSDBSubScan extends AbstractBase implements SubScan {
 
-  private static final Logger log =
-      LoggerFactory.getLogger(OpenTSDBSubScan.class);
-
-  public final OpenTSDBStoragePluginConfig storage;
-
+  private final OpenTSDBStoragePluginConfig storage;
   private final List<SchemaPath> columns;
   private final OpenTSDBStoragePlugin openTSDBStoragePlugin;
   private final List<OpenTSDBSubScanSpec> tabletScanSpecList;
@@ -128,6 +123,5 @@ public class OpenTSDBSubScan extends AbstractBase implements SubScan {
     public String getTableName() {
       return tableName;
     }
-
   }
 }

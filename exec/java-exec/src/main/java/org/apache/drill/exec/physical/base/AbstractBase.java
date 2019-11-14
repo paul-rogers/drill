@@ -17,16 +17,15 @@
  */
 package org.apache.drill.exec.physical.base;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.drill.common.graph.GraphVisitor;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.planner.cost.PrelCostEstimates;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public abstract class AbstractBase implements PhysicalOperator {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBase.class);
 
   public static long INIT_ALLOCATION = 1_000_000L;
   public static long MAX_ALLOCATION = 10_000_000_000L;

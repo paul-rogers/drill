@@ -31,11 +31,10 @@ import org.apache.drill.exec.planner.logical.CreateTableEntry;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.ListTablesResponse;
-
-import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 
 public class KuduSchemaFactory extends AbstractSchemaFactory {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KuduSchemaFactory.class);
@@ -100,7 +99,7 @@ public class KuduSchemaFactory extends AbstractSchemaFactory {
 
     @Override
     public CreateTableEntry createNewTable(final String tableName, List<String> partitionColumns) {
-      return new CreateTableEntry(){
+      return new CreateTableEntry() {
 
         @Override
         public Writer getWriter(PhysicalOperator child) throws IOException {
@@ -111,7 +110,6 @@ public class KuduSchemaFactory extends AbstractSchemaFactory {
         public List<String> getPartitionColumns() {
           return Collections.emptyList();
         }
-
       };
     }
 
@@ -136,7 +134,5 @@ public class KuduSchemaFactory extends AbstractSchemaFactory {
     public String getTypeName() {
       return KuduStoragePluginConfig.NAME;
     }
-
   }
-
 }

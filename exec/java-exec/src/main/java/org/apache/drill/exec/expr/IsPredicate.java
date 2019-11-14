@@ -17,6 +17,11 @@
  */
 package org.apache.drill.exec.expr;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.BiFunction;
+
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.LogicalExpressionBase;
 import org.apache.drill.common.expression.TypedFieldExpr;
@@ -27,13 +32,12 @@ import org.apache.drill.metastore.statistics.ColumnStatistics;
 import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
 import org.apache.drill.metastore.statistics.Statistic;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.function.BiFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase implements FilterPredicate<C> {
+
+  private static final Logger logger = LoggerFactory.getLogger(IsPredicate.class);
 
   private final LogicalExpression expr;
 
@@ -71,7 +75,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * @param stat statistics object
    * @return <tt>true</tt> if the input stat object is null or has invalid statistics; false otherwise
    */
-  static boolean isNullOrEmpty(ColumnStatistics stat) {
+  static boolean isNullOrEmpty(ColumnStatistics<?> stat) {
     return stat == null
         || !stat.contains(ColumnStatisticsKind.MIN_VALUE)
         || !stat.contains(ColumnStatisticsKind.MAX_VALUE)
@@ -80,12 +84,14 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
   }
 
   /**
-   * After the applying of the filter against the statistics of the rowgroup, if the result is RowsMatch.ALL,
-   * then we still must know if the rowgroup contains some null values, because it can change the filter result.
-   * If it contains some null values, then we change the RowsMatch.ALL into RowsMatch.SOME, which sya that maybe
-   * some values (the null ones) should be disgarded.
+   * After the applying of the filter against the statistics of the rowgroup, if
+   * the result is RowsMatch.ALL, then we still must know if the rowgroup
+   * contains some null values, because it can change the filter result. If it
+   * contains some null values, then we change the RowsMatch.ALL into
+   * RowsMatch.SOME, which says that maybe some values (the null ones) should be
+   * disregarded.
    */
-  private static RowsMatch checkNull(ColumnStatistics exprStat) {
+  private static RowsMatch checkNull(ColumnStatistics<?> exprStat) {
     return hasNoNulls(exprStat) ? RowsMatch.ALL : RowsMatch.SOME;
   }
 
@@ -95,7 +101,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * @param stat column statistics
    * @return <tt>true</tt> if the statistics does not have nulls and <tt>false</tt> otherwise
    */
-  static boolean hasNoNulls(ColumnStatistics stat) {
+  static boolean hasNoNulls(ColumnStatistics<?> stat) {
     return ColumnStatisticsKind.NULLS_COUNT.getFrom(stat) == 0;
   }
 

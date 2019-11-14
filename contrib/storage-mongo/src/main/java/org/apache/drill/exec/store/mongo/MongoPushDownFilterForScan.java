@@ -19,6 +19,9 @@ package org.apache.drill.exec.store.mongo;
 
 import java.io.IOException;
 
+import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rex.RexNode;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.planner.logical.DrillOptiq;
@@ -28,13 +31,9 @@ import org.apache.drill.exec.planner.physical.FilterPrel;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.rex.RexNode;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 public class MongoPushDownFilterForScan extends StoragePluginOptimizerRule {
   private static final Logger logger = LoggerFactory
@@ -90,16 +89,14 @@ public class MongoPushDownFilterForScan extends StoragePluginOptimizerRule {
       call.transformTo(filter.copy(filter.getTraitSet(),
           ImmutableList.of((RelNode) newScanPrel)));
     }
-
   }
 
   @Override
   public boolean matches(RelOptRuleCall call) {
-    final ScanPrel scan = (ScanPrel) call.rel(1);
-    if (scan.getGroupScan() instanceof MongoGroupScan) {
-      return super.matches(call);
+    if (!super.matches(call)) {
+      return false;
     }
-    return false;
+    final ScanPrel scan = (ScanPrel) call.rel(1);
+    return scan.getGroupScan() instanceof MongoGroupScan;
   }
-
 }

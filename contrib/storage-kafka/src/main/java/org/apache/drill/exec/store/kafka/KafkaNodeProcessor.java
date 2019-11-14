@@ -30,7 +30,6 @@ import org.apache.drill.common.expression.ValueExpressions.QuotedString;
 import org.apache.drill.common.expression.ValueExpressions.TimeExpression;
 import org.apache.drill.common.expression.ValueExpressions.TimeStampExpression;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
@@ -72,7 +71,6 @@ class KafkaNodeProcessor extends AbstractExprVisitor<Boolean, LogicalExpression,
   }
 
   public boolean isSuccess() {
-    // TODO Auto-generated method stub
     return success;
   }
 
@@ -92,39 +90,39 @@ class KafkaNodeProcessor extends AbstractExprVisitor<Boolean, LogicalExpression,
   public Boolean visitSchemaPath(SchemaPath path, LogicalExpression valueArg) throws RuntimeException {
     this.path = path.getRootSegmentPath();
 
-    if(valueArg == null) {
+    if (valueArg == null) {
       return false;
     }
 
     switch (this.path) {
       case "kafkaMsgOffset":
         /*
-         * Do not pushdown "not_equal" on kafkaMsgOffset.
+         * Do not pushdown FunctionCall.NE_FN on kafkaMsgOffset.
          */
-        if(functionName.equals("not_equal")) {
+        if (functionName.equals(FunctionCall.NE_FN)) {
           return false;
         }
       case "kafkaPartitionId":
-        if(valueArg instanceof IntExpression) {
+        if (valueArg instanceof IntExpression) {
           value = (long) ((IntExpression) valueArg).getInt();
           return true;
         }
 
-        if(valueArg instanceof LongExpression) {
+        if (valueArg instanceof LongExpression) {
           value = ((LongExpression) valueArg).getLong();
           return true;
         }
         break;
       case "kafkaMsgTimestamp":
         /*
-        Only pushdown "equal", "greater_than", "greater_than_or_equal" on kafkaMsgTimestamp
+        Only pushdown FunctionCall.EQ_FN, FunctionCall.GT_FN, "greater_than_or_equal" on kafkaMsgTimestamp
          */
-        if(!functionName.equals("equal") && !functionName.equals("greater_than")
-               && !functionName.equals("greater_than_or_equal_to")) {
+        if (!functionName.equals(FunctionCall.EQ_FN) && !functionName.equals(FunctionCall.GT_FN)
+               && !functionName.equals(FunctionCall.GE_FN)) {
           return false;
         }
 
-        if(valueArg instanceof LongExpression) {
+        if (valueArg instanceof LongExpression) {
           value = ((LongExpression) valueArg).getLong();
           return true;
         }
@@ -144,7 +142,7 @@ class KafkaNodeProcessor extends AbstractExprVisitor<Boolean, LogicalExpression,
           return true;
         }
 
-        if(valueArg instanceof IntExpression) {
+        if (valueArg instanceof IntExpression) {
           value = (long) ((IntExpression) valueArg).getInt();
           return true;
         }
@@ -172,15 +170,12 @@ class KafkaNodeProcessor extends AbstractExprVisitor<Boolean, LogicalExpression,
   static {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     COMPARE_FUNCTIONS_TRANSPOSE_MAP = builder
-                                          .put("equal", "equal")
-                                          .put("not_equal", "not_equal")
-                                          .put("greater_than_or_equal_to", "less_than_or_equal_to")
-                                          .put("greater_than", "less_than")
-                                          .put("less_than_or_equal_to", "greater_than_or_equal_to")
-                                          .put("less_than", "greater_than")
+                                          .put(FunctionCall.EQ_FN, FunctionCall.EQ_FN)
+                                          .put(FunctionCall.NE_FN, FunctionCall.NE_FN)
+                                          .put(FunctionCall.GE_FN, FunctionCall.LE_FN)
+                                          .put(FunctionCall.GT_FN, FunctionCall.LT_FN)
+                                          .put(FunctionCall.LE_FN, FunctionCall.GE_FN)
+                                          .put(FunctionCall.LT_FN, FunctionCall.GT_FN)
                                           .build();
   }
-
 }
-
-

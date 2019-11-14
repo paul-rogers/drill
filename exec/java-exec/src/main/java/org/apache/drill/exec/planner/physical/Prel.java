@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.physical;
 
 import java.io.IOException;
 import java.util.List;
+
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
@@ -28,13 +29,14 @@ import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 public interface Prel extends DrillRelNode, Iterable<Prel> {
-  org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Prel.class);
 
   Convention DRILL_PHYSICAL = new Convention.Impl("PHYSICAL", Prel.class) {
+    @Override
     public boolean canConvertConvention(Convention toConvention) {
       return true;
     }
 
+    @Override
     public boolean useAbstractConvertersForConversion(RelTraitSet fromTraits,
         RelTraitSet toTraits) {
       return true;

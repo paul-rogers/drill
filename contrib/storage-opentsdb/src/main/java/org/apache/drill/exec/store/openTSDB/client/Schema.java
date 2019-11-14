@@ -17,16 +17,6 @@
  */
 package org.apache.drill.exec.store.openTSDB.client;
 
-import org.apache.drill.exec.store.openTSDB.dto.ColumnDTO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.apache.drill.exec.store.openTSDB.Constants.AGGREGATOR_PARAM;
 import static org.apache.drill.exec.store.openTSDB.Constants.DEFAULT_TIME;
 import static org.apache.drill.exec.store.openTSDB.Constants.METRIC_PARAM;
@@ -38,13 +28,18 @@ import static org.apache.drill.exec.store.openTSDB.client.Schema.DefaultColumns.
 import static org.apache.drill.exec.store.openTSDB.client.Schema.DefaultColumns.METRIC;
 import static org.apache.drill.exec.store.openTSDB.client.Schema.DefaultColumns.TIMESTAMP;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.drill.exec.store.openTSDB.dto.ColumnDTO;
+
 /**
  * Abstraction for representing structure of openTSDB table
  */
 public class Schema {
-
-  private static final Logger log =
-      LoggerFactory.getLogger(Schema.class);
 
   private final List<ColumnDTO> columns = new ArrayList<>();
   private final Service db;

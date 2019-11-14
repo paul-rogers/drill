@@ -164,6 +164,7 @@
 
 package org.apache.drill.exec.expr.fn.impl;
 
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.NullHandling;
@@ -186,7 +187,6 @@ public class GCompare${leftTypeBase}Vs${rightTypeBase} {
 <#-- 3.  For each combination of Nullable vs. not (of given non-nullable types):  -->
 <#list ["${leftTypeBase}", "Nullable${leftTypeBase}"] as leftType >
 <#list ["${rightTypeBase}", "Nullable${rightTypeBase}"] as rightType >
-
 
   <#-- Comparison function for sorting and grouping relational operators
        (not for comparison expression operators (=, <, etc.)). -->
@@ -229,240 +229,227 @@ public class GCompare${leftTypeBase}Vs${rightTypeBase} {
 </#list>
 </#list> <#-- 3. Nullable combinations -->
 
-
-
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"less_than", "<"},
+  @FunctionTemplate(names = {FunctionCall.LT_FN, "<"},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class LessThan${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(left.value) || ( Double.isNaN(left.value) && Double.isNaN(right.value))) {
-          out.value=0;
-        } else if (Double.isNaN(right.value) && !Double.isNaN(left.value)) {
-          out.value = 1;
-        } else {
-          out.value = left.value < right.value ? 1 : 0;
-        }
-        <#elseif typeGroup.mode == "varString"
-            || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp == -1 ? 1 : 0;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(left.value) || ( Double.isNaN(left.value) && Double.isNaN(right.value))) {
+        out.value=0;
+      } else if (Double.isNaN(right.value) && !Double.isNaN(left.value)) {
+        out.value = 1;
+      } else {
+        out.value = left.value < right.value ? 1 : 0;
       }
+      <#elseif typeGroup.mode == "varString"
+          || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp == -1 ? 1 : 0;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
+    }
   }
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"less_than_or_equal_to", "<="},
+  @FunctionTemplate(names = {FunctionCall.LE_FN, "<="},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class LessThanEq${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(right.value)){
-          out.value = 1;
-        } else if (!Double.isNaN(right.value) && Double.isNaN(left.value)) {
-          out.value = 0;
-        } else {
-          out.value = left.value <= right.value ? 1 : 0;
-        }
-        <#elseif typeGroup.mode == "varString"
-            || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp < 1 ? 1 : 0;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(right.value)){
+        out.value = 1;
+      } else if (!Double.isNaN(right.value) && Double.isNaN(left.value)) {
+        out.value = 0;
+      } else {
+        out.value = left.value <= right.value ? 1 : 0;
+      }
+      <#elseif typeGroup.mode == "varString"
+          || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp < 1 ? 1 : 0;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
     }
   }
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"greater_than", ">"},
+  @FunctionTemplate(names = {FunctionCall.GT_FN, ">"},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class GreaterThan${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(right.value) || ( Double.isNaN(left.value) && Double.isNaN(right.value))) {
-          out.value = 0;
-        } else if (Double.isNaN(left.value) && !Double.isNaN(right.value)) {
-          out.value = 1;
-        } else {
-          out.value = left.value > right.value ? 1 : 0;
-        }
-        <#elseif typeGroup.mode == "varString"
-            || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp == 1 ? 1 : 0;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(right.value) || ( Double.isNaN(left.value) && Double.isNaN(right.value))) {
+        out.value = 0;
+      } else if (Double.isNaN(left.value) && !Double.isNaN(right.value)) {
+        out.value = 1;
+      } else {
+        out.value = left.value > right.value ? 1 : 0;
+      }
+      <#elseif typeGroup.mode == "varString"
+          || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp == 1 ? 1 : 0;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
     }
   }
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"greater_than_or_equal_to", ">="},
+  @FunctionTemplate(names = {FunctionCall.GE_FN, ">="},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class GreaterThanEq${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(left.value)){
-          out.value=1;
-        } else if (!Double.isNaN(left.value) && Double.isNaN(right.value)) {
-          out.value = 0;
-        } else {
-          out.value = left.value >= right.value ? 1 : 0;
-        }
-
-        <#elseif typeGroup.mode == "varString"
-            || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp > -1 ? 1 : 0;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(left.value)){
+        out.value=1;
+      } else if (!Double.isNaN(left.value) && Double.isNaN(right.value)) {
+        out.value = 0;
+      } else {
+        out.value = left.value >= right.value ? 1 : 0;
       }
+
+      <#elseif typeGroup.mode == "varString"
+          || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp > -1 ? 1 : 0;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
+    }
   }
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"equal", "==", "="},
+  @FunctionTemplate(names = {FunctionCall.EQ_FN, "==", "="},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class Equals${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(left.value) && Double.isNaN(right.value)) {
-          out.value = 1;
-        } else {
-          out.value = left.value == right.value ? 1 : 0;
-        }
-        <#elseif typeGroup.mode == "varString" >
-          out.value = org.apache.drill.exec.expr.fn.impl.ByteFunctionHelpers.equal(
-              left.buffer, left.start, left.end, right.buffer, right.start, right.end);
-        <#elseif typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp == 0 ? 1 : 0;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(left.value) && Double.isNaN(right.value)) {
+        out.value = 1;
+      } else {
+        out.value = left.value == right.value ? 1 : 0;
       }
+      <#elseif typeGroup.mode == "varString" >
+        out.value = org.apache.drill.exec.expr.fn.impl.ByteFunctionHelpers.equal(
+            left.buffer, left.start, left.end, right.buffer, right.start, right.end);
+      <#elseif typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp == 0 ? 1 : 0;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
+    }
   }
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
        not for sorting and grouping relational operators. -->
-  @FunctionTemplate(names = {"not_equal", "<>", "!="},
+  @FunctionTemplate(names = {FunctionCall.NE_FN, "<>", "!="},
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class NotEquals${leftTypeBase}Vs${rightTypeBase} implements DrillSimpleFunc {
 
-      @Param ${leftTypeBase}Holder left;
-      @Param ${rightTypeBase}Holder right;
-      @Output BitHolder out;
+    @Param ${leftTypeBase}Holder left;
+    @Param ${rightTypeBase}Holder right;
+    @Output BitHolder out;
 
-      public void setup() {}
+    public void setup() {}
 
-      public void eval() {
+    public void eval() {
 
-        <#if typeGroup.mode == "primitive">
-        // NaN is the biggest possible value, and NaN == NaN
-        if (Double.isNaN(left.value) && Double.isNaN(right.value)) {
-          out.value = 0;
-        } else {
-          out.value = left.value != right.value ? 1 : 0;
-        }
-        <#elseif typeGroup.mode == "varString"
-            || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
-          int cmp;
-          <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
-                         output="cmp" nullCompare=false nullComparesHigh=false />
-          out.value = cmp == 0 ? 0 : 1;
-        <#-- TODO:  Refactor other comparison code to here. -->
-        <#else>
-          ${mode_HAS_BAD_VALUE}
-        </#if>
-
+      <#if typeGroup.mode == "primitive">
+      // NaN is the biggest possible value, and NaN == NaN
+      if (Double.isNaN(left.value) && Double.isNaN(right.value)) {
+        out.value = 0;
+      } else {
+        out.value = left.value != right.value ? 1 : 0;
       }
+      <#elseif typeGroup.mode == "varString"
+          || typeGroup.mode == "intervalNameThis" || typeGroup.mode == "intervalDay" >
+        int cmp;
+        <@compareBlock mode=typeGroup.mode leftType=leftTypeBase rightType=rightTypeBase
+                       output="cmp" nullCompare=false nullComparesHigh=false />
+        out.value = cmp == 0 ? 0 : 1;
+      <#-- TODO:  Refactor other comparison code to here. -->
+      <#else>
+        ${mode_HAS_BAD_VALUE}
+      </#if>
+    }
   }
-
 }
-
-
 </#list> <#-- 2.  Pair of types-->
 </#list>
-
 </#list> <#-- 1. Group -->
-

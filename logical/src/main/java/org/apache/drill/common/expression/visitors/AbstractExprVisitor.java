@@ -89,7 +89,6 @@ public abstract class AbstractExprVisitor<T, VAL, EXCEP extends Exception> imple
     return visitUnknown(intExpr, value);
   }
 
-
   @Override
   public T visitDecimal9Constant(Decimal9Expression decExpr, VAL value) throws EXCEP {
     return visitUnknown(decExpr, value);

@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.store.openTSDB;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.exec.server.DrillbitContext;
@@ -27,7 +27,8 @@ import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.openTSDB.client.services.ServiceImpl;
 import org.apache.drill.exec.store.openTSDB.schema.OpenTSDBSchemaFactory;
 
-import java.io.IOException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class OpenTSDBStoragePlugin extends AbstractStoragePlugin {
 

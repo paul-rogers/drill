@@ -17,15 +17,6 @@
  */
 package org.apache.drill.exec.expr;
 
-import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.common.expression.LogicalExpressionBase;
-import org.apache.drill.common.expression.visitors.ExprVisitor;
-import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.expr.stat.RowsMatch;
-import org.apache.drill.metastore.statistics.ColumnStatistics;
-import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -34,6 +25,15 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiFunction;
+
+import org.apache.drill.common.expression.FunctionCall;
+import org.apache.drill.common.expression.LogicalExpression;
+import org.apache.drill.common.expression.LogicalExpressionBase;
+import org.apache.drill.common.expression.visitors.ExprVisitor;
+import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.expr.stat.RowsMatch;
+import org.apache.drill.metastore.statistics.ColumnStatistics;
+import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
 
 /**
  * Comparison predicates for metadata filter pushdown.
@@ -256,17 +256,17 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
   public static <C extends Comparable<C>> LogicalExpression createComparisonPredicate(
       String function, LogicalExpression left, LogicalExpression right) {
     switch (function) {
-      case FunctionGenerationHelper.EQ:
+      case FunctionCall.EQ_FN:
         return ComparisonPredicate.<C>createEqualPredicate(left, right);
-      case FunctionGenerationHelper.GT:
+      case FunctionCall.GT_FN:
         return ComparisonPredicate.<C>createGTPredicate(left, right);
-      case FunctionGenerationHelper.GE:
+      case FunctionCall.GE_FN:
         return ComparisonPredicate.<C>createGEPredicate(left, right);
-      case FunctionGenerationHelper.LT:
+      case FunctionCall.LT_FN:
         return ComparisonPredicate.<C>createLTPredicate(left, right);
-      case FunctionGenerationHelper.LE:
+      case FunctionCall.LE_FN:
         return ComparisonPredicate.<C>createLEPredicate(left, right);
-      case FunctionGenerationHelper.NE:
+      case FunctionCall.NE_FN:
         return ComparisonPredicate.<C>createNEPredicate(left, right);
       default:
         return null;

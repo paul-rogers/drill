@@ -17,20 +17,23 @@
  */
 package org.apache.drill.exec.expr;
 
-import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
-import org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers;
-import org.apache.drill.exec.expr.holders.VarCharHolder;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.drill.common.expression.BooleanOperator;
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.FunctionHolderExpression;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.TypedFieldExpr;
 import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.expression.fn.FuncHolder;
+import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.DrillSimpleFuncHolder;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
+import org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers;
 import org.apache.drill.exec.expr.fn.interpreter.InterpreterEvaluator;
 import org.apache.drill.exec.expr.holders.BigIntHolder;
 import org.apache.drill.exec.expr.holders.BitHolder;
@@ -41,15 +44,13 @@ import org.apache.drill.exec.expr.holders.IntHolder;
 import org.apache.drill.exec.expr.holders.TimeHolder;
 import org.apache.drill.exec.expr.holders.TimeStampHolder;
 import org.apache.drill.exec.expr.holders.ValueHolder;
+import org.apache.drill.exec.expr.holders.VarCharHolder;
 import org.apache.drill.exec.expr.holders.VarDecimalHolder;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.util.DecimalUtility;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 /**
  * A visitor which visits a materialized logical expression, and build FilterPredicate
@@ -320,12 +321,12 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   static {
     ImmutableSet.Builder<String> builder = ImmutableSet.builder();
     COMPARE_FUNCTIONS_SET = builder
-        .add(FunctionGenerationHelper.EQ)
-        .add(FunctionGenerationHelper.GT)
-        .add(FunctionGenerationHelper.GE)
-        .add(FunctionGenerationHelper.LT)
-        .add(FunctionGenerationHelper.LE)
-        .add(FunctionGenerationHelper.NE)
+        .add(FunctionCall.EQ_FN)
+        .add(FunctionCall.GT_FN)
+        .add(FunctionCall.GE_FN)
+        .add(FunctionCall.LT_FN)
+        .add(FunctionCall.LE_FN)
+        .add(FunctionCall.NE_FN)
         .build();
   }
 

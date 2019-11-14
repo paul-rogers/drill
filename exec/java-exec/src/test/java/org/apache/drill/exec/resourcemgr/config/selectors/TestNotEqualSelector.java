@@ -17,10 +17,18 @@
  */
 package org.apache.drill.exec.resourcemgr.config.selectors;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValueFactory;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.drill.categories.ResourceManagerTest;
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.resourcemgr.config.exception.RMConfigException;
@@ -28,22 +36,16 @@ import org.apache.drill.exec.server.options.OptionValue;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 @Category(ResourceManagerTest.class)
 public final class TestNotEqualSelector {
 
   private ResourcePoolSelector testCommonHelper(Map<String, ? extends Object> selectorValue) throws RMConfigException {
     Config testConfig = ConfigFactory.empty()
-      .withValue("not_equal", ConfigValueFactory.fromMap(selectorValue));
+      .withValue(FunctionCall.NE_FN, ConfigValueFactory.fromMap(selectorValue));
     final ResourcePoolSelector testSelector = ResourcePoolSelectorFactory.createSelector(testConfig);
     assertTrue("TestSelector is not a not_equal selector", testSelector instanceof NotEqualSelector);
     return testSelector;
@@ -114,7 +116,7 @@ public final class TestNotEqualSelector {
   @Test(expected = RMConfigException.class)
   public void testNotEqualSelectorStringValue() throws Exception {
     Config testConfig = ConfigFactory.empty()
-      .withValue("not_equal", ConfigValueFactory.fromAnyRef("null"));
+      .withValue(FunctionCall.NE_FN, ConfigValueFactory.fromAnyRef("null"));
     ResourcePoolSelectorFactory.createSelector(testConfig);
   }
 }

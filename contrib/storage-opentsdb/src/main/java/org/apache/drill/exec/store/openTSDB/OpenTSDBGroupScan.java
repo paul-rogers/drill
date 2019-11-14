@@ -17,14 +17,13 @@
  */
 package org.apache.drill.exec.store.openTSDB;
 
-import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import com.madhukaraphatak.sizeof.SizeEstimator;
+import static org.apache.drill.exec.store.openTSDB.Util.fromRowData;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -36,21 +35,22 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.openTSDB.OpenTSDBSubScan.OpenTSDBSubScanSpec;
 import org.apache.drill.exec.store.openTSDB.client.services.ServiceImpl;
 import org.apache.drill.exec.store.openTSDB.dto.MetricDTO;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.apache.drill.exec.store.openTSDB.Util.fromRowData;
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.madhukaraphatak.sizeof.SizeEstimator;
 
 @JsonTypeName("openTSDB-scan")
 public class OpenTSDBGroupScan extends AbstractGroupScan {
 
-  private OpenTSDBStoragePluginConfig storagePluginConfig;
-  private OpenTSDBScanSpec openTSDBScanSpec;
-  private OpenTSDBStoragePlugin storagePlugin;
-
+  private final OpenTSDBStoragePluginConfig storagePluginConfig;
+  private final OpenTSDBScanSpec openTSDBScanSpec;
+  private final OpenTSDBStoragePlugin storagePlugin;
   private List<SchemaPath> columns;
 
   @JsonCreator
@@ -96,7 +96,7 @@ public class OpenTSDBGroupScan extends AbstractGroupScan {
   public OpenTSDBSubScan getSpecificScan(int minorFragmentId) {
     List<OpenTSDBSubScanSpec> scanSpecList = Lists.newArrayList();
     scanSpecList.add(new OpenTSDBSubScanSpec(getTableName()));
-    return new OpenTSDBSubScan(storagePlugin, storagePluginConfig, scanSpecList, this.columns);
+    return new OpenTSDBSubScan(storagePlugin, storagePluginConfig, scanSpecList, columns);
   }
 
   @Override

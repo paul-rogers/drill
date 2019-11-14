@@ -17,20 +17,25 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.calcite.rel.core.Filter;
-import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
-import org.apache.drill.exec.expr.FilterPredicate;
-import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptRuleOperand;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.ValueExpressions;
+import org.apache.drill.exec.expr.FilterPredicate;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
+import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.planner.logical.DrillOptiq;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
@@ -40,16 +45,13 @@ import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.physical.ProjectPrel;
 import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetPushDownFilter.class);
+  private static final Logger logger = LoggerFactory.getLogger(ParquetPushDownFilter.class);
 
   private static final Collection<String> BANNED_OPERATORS;
 
@@ -65,11 +67,11 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
       @Override
       public boolean matches(RelOptRuleCall call) {
-        final ScanPrel scan = call.rel(2);
-        if (scan.getGroupScan() instanceof AbstractParquetGroupScan) {
-          return super.matches(call);
+        if (!super.matches(call)) {
+          return false;
         }
-        return false;
+        final ScanPrel scan = call.rel(2);
+        return scan.getGroupScan() instanceof AbstractParquetGroupScan;
       }
 
       @Override
@@ -79,7 +81,6 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
         final ScanPrel scanRel = call.rel(2);
         doOnMatch(call, filterRel, projectRel, scanRel);
       }
-
     };
   }
 
@@ -90,11 +91,11 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
       @Override
       public boolean matches(RelOptRuleCall call) {
-        final ScanPrel scan = call.rel(1);
-        if (scan.getGroupScan() instanceof AbstractParquetGroupScan) {
-          return super.matches(call);
+        if (!super.matches(call)) {
+          return false;
         }
-        return false;
+        final ScanPrel scan = call.rel(1);
+        return scan.getGroupScan() instanceof AbstractParquetGroupScan;
       }
 
       @Override
@@ -106,7 +107,6 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
     };
   }
 
-  // private final boolean useNewReader;
   protected final OptimizerRulesContext optimizerContext;
 
   private ParquetPushDownFilter(RelOptRuleOperand operand, String id, OptimizerRulesContext optimizerContext) {
@@ -133,7 +133,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
     }
 
     // get a conjunctions of the filter condition. For each conjunction, if it refers to ITEM or FLATTEN expression
-    // then we could not pushed down. Otherwise, it's qualified to be pushed down.
+    // then it cannot be pushed down. Otherwise, it's qualified to be pushed down.
     final List<RexNode> predList = RelOptUtil.conjunctions(RexUtil.toCnf(filter.getCluster().getRexBuilder(), condition));
 
     final List<RexNode> qualifiedPredList = new ArrayList<>();
@@ -147,7 +147,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
             new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, pred);
 
         // checks whether predicate may be used for filter pushdown
-        FilterPredicate parquetFilterPredicate =
+        FilterPredicate<?> parquetFilterPredicate =
             groupScan.getFilterPredicate(drillPredicate,
                 optimizerContext,
                 optimizerContext.getFunctionRegistry(), optimizerContext.getPlannerSettings().getOptions(), false);
@@ -171,7 +171,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
     LogicalExpression conditionExp = DrillOptiq.toDrill(
         new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, qualifiedPred);
 
-    // Default - pass the original filter expr to (potentialy) be used at run-time
+    // Default - pass the original filter expr to (potentially) be used at run-time
     groupScan.setFilterForRuntime(conditionExp, optimizerContext); // later may remove or set to another filter (see below)
 
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
@@ -198,7 +198,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
         } else {
           // If some of the predicates weren't used in the filter, creates new filter with them
           // on top of current scan. Excludes the case when all predicates weren't used in the filter.
-          Filter theNewFilter  = filter.copy(filter.getTraitSet(), child,
+          Filter theNewFilter = filter.copy(filter.getTraitSet(), child,
             RexUtil.composeConjunction(
               filter.getCluster().getRexBuilder(),
               nonConvertedPredList,

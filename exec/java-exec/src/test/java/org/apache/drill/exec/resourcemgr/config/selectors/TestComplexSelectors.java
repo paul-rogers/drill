@@ -17,10 +17,18 @@
  */
 package org.apache.drill.exec.resourcemgr.config.selectors;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValueFactory;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.drill.categories.ResourceManagerTest;
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.resourcemgr.config.exception.RMConfigException;
@@ -30,15 +38,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 @Category(ResourceManagerTest.class)
 public final class TestComplexSelectors {
@@ -153,7 +155,7 @@ public final class TestComplexSelectors {
   public void testAndSelectorWithNotEqualSelector() throws Exception {
     // setup NotEqualSelector config
     Map<String, Object> notEqualConfig = new HashMap<>();
-    notEqualConfig.put("not_equal", tagSelectorConfig1);
+    notEqualConfig.put(FunctionCall.NE_FN, tagSelectorConfig1);
 
     // setup complex selector value
     complexSelectorValue.add(notEqualConfig);
@@ -179,7 +181,7 @@ public final class TestComplexSelectors {
   public void testORSelectorWithNotEqualSelector() throws Exception {
     // setup NotEqualSelector config
     Map<String, Object> notEqualConfig = new HashMap<>();
-    notEqualConfig.put("not_equal", tagSelectorConfig1);
+    notEqualConfig.put(FunctionCall.NE_FN, tagSelectorConfig1);
 
     // setup complex selector value
     complexSelectorValue.add(notEqualConfig);

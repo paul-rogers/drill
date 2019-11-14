@@ -19,8 +19,6 @@ package org.apache.drill.exec.service;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import io.netty.channel.EventLoopGroup;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
@@ -42,8 +40,9 @@ import org.apache.drill.exec.rpc.data.DataConnectionCreator;
 import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.BootStrapContext;
 import org.apache.drill.exec.work.WorkManager;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+
+import io.netty.channel.EventLoopGroup;
 
 public class ServiceEngine implements AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ServiceEngine.class);
@@ -113,7 +112,7 @@ public class ServiceEngine implements AutoCloseable {
     return userPort;
   }
 
-  public DataConnectionCreator getDataConnectionCreator(){
+  public DataConnectionCreator getDataConnectionCreator() {
     return dataPool;
   }
 

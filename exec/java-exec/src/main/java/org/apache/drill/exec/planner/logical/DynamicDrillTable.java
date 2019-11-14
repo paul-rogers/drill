@@ -17,18 +17,17 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Schema;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.planner.types.RelDataTypeDrillImpl;
 import org.apache.drill.exec.planner.types.RelDataTypeHolder;
 import org.apache.drill.exec.store.StoragePlugin;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 
-public class DynamicDrillTable extends DrillTable{
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DynamicDrillTable.class);
+public class DynamicDrillTable extends DrillTable {
 
-  private RelDataTypeHolder holder = new RelDataTypeHolder();
+  private final RelDataTypeHolder holder = new RelDataTypeHolder();
 
   public DynamicDrillTable(StoragePlugin plugin, String storageEngineName, String userName, Object selection) {
     super(storageEngineName, plugin, userName, selection);

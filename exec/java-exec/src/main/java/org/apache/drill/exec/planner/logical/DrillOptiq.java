@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import static org.apache.drill.exec.planner.physical.PlannerSettings.ENABLE_DECIMAL_DATA_TYPE;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
@@ -24,10 +26,27 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.calcite.avatica.util.TimeUnit;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexLocalRef;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexOver;
+import org.apache.calcite.rex.RexRangeRef;
+import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlSyntax;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.NlsString;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.UserException;
@@ -47,37 +66,19 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.planner.StarColumnHelper;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexCorrelVariable;
-import org.apache.calcite.rex.RexDynamicParam;
-import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexInputRef;
-import org.apache.calcite.rex.RexLiteral;
-import org.apache.calcite.rex.RexLocalRef;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexOver;
-import org.apache.calcite.rex.RexRangeRef;
-import org.apache.calcite.rex.RexVisitorImpl;
-import org.apache.calcite.sql.SqlSyntax;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.util.NlsString;
-
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.work.ExecErrorConstants;
-
-import static org.apache.drill.exec.planner.physical.PlannerSettings.ENABLE_DECIMAL_DATA_TYPE;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for Drill's planner.
  */
 public class DrillOptiq {
   public static final String UNSUPPORTED_REX_NODE_ERROR = "Cannot convert RexNode to equivalent Drill expression. ";
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillOptiq.class);
+  private static final Logger logger = LoggerFactory.getLogger(DrillOptiq.class);
 
   /**
    * Converts a tree of {@link RexNode} operators into a scalar expression in Drill syntax using one input.
@@ -103,6 +104,7 @@ public class DrillOptiq {
     final RexToDrill visitor = new RexToDrill(context, inputs);
     return expr.accept(visitor);
   }
+
   public static LogicalExpression toDrill(DrillParseContext context, RelDataType type,
                                           RexBuilder builder, RexNode expr) {
     final RexToDrill visitor = new RexToDrill(context, type, builder);
@@ -110,7 +112,6 @@ public class DrillOptiq {
   }
 
   public static class RexToDrill extends RexVisitorImpl<LogicalExpression> {
-    private final List<RelNode> inputs;
     private final DrillParseContext context;
     private final List<RelDataTypeField> fieldList;
     private final RelDataType rowType;
@@ -119,7 +120,6 @@ public class DrillOptiq {
     RexToDrill(DrillParseContext context, List<RelNode> inputs) {
       super(true);
       this.context = context;
-      this.inputs = inputs;
       this.fieldList = Lists.newArrayList();
       if (inputs.size() > 0 && inputs.get(0)!=null) {
         this.rowType = inputs.get(0).getRowType();
@@ -148,6 +148,7 @@ public class DrillOptiq {
         }
       }
     }
+
     public RexToDrill(DrillParseContext context, RelNode input) {
       this(context, Lists.newArrayList(input));
     }
@@ -157,7 +158,6 @@ public class DrillOptiq {
       this.context = context;
       this.rowType = rowType;
       this.builder = builder;
-      this.inputs = Lists.newArrayList();
       this.fieldList = rowType.getFieldList();
     }
 
@@ -178,7 +178,6 @@ public class DrillOptiq {
 
     @Override
     public LogicalExpression visitCall(RexCall call) {
-//      logger.debug("RexCall {}, {}", call);
       final SqlSyntax syntax = call.getOperator().getSyntax();
       switch (syntax) {
       case BINARY:
@@ -201,8 +200,9 @@ public class DrillOptiq {
         case OTHER:
           return FunctionCallFactory.createExpression(call.getOperator().getName().toLowerCase(),
               ExpressionPosition.UNKNOWN, call.getOperands().get(0).accept(this));
+        default:
+          throw notImplementedException(syntax, call);
         }
-        throw notImplementedException(syntax, call);
       case PREFIX:
         LogicalExpression arg = call.getOperands().get(0).accept(this);
         switch(call.getKind()){
@@ -213,8 +213,9 @@ public class DrillOptiq {
             List<LogicalExpression> operands = Lists.newArrayList();
             operands.add(call.getOperands().get(0).accept(this));
             return FunctionCallFactory.createExpression("u-", operands);
+          default:
+            throw notImplementedException(syntax, call);
         }
-        throw notImplementedException(syntax, call);
       case SPECIAL:
         switch(call.getKind()){
         case CAST:
@@ -250,6 +251,8 @@ public class DrillOptiq {
               .setIfCondition(new IfCondition(caseArgs.get(i + 1), caseArgs.get(i))).build();
           }
           return elseExpression;
+        default:
+          break;
         }
 
         if (call.getOperator() == SqlStdOperatorTable.ITEM) {
@@ -723,12 +726,11 @@ public class DrillOptiq {
         case MILLENNIUM:
           final String functionPostfix = StringUtils.capitalize(timeUnitStr.toLowerCase());
           return FunctionCallFactory.createExpression("date_trunc_" + functionPostfix, args.subList(1, 2));
+        default:
+          throw new UnsupportedOperationException("date_trunc function supports the following time units: " +
+              "YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, WEEK, QUARTER, DECADE, CENTURY, MILLENNIUM");
       }
-
-      throw new UnsupportedOperationException("date_trunc function supports the following time units: " +
-          "YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, WEEK, QUARTER, DECADE, CENTURY, MILLENNIUM");
     }
-
 
     @Override
     public LogicalExpression visitLiteral(RexLiteral literal) {

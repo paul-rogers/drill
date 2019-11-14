@@ -18,7 +18,6 @@
 package org.apache.drill.exec.planner.logical;
 
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
-
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
@@ -28,7 +27,7 @@ public class DrillScanRule  extends RelOptRule {
 
   private DrillScanRule() {
     super(RelOptHelper.any(EnumerableTableScan.class),
-        DrillRelFactories.LOGICAL_BUILDER, "DrillScanRule");
+        DrillRelFactories.LOGICAL_BUILDER, DrillScanRule.class.getSimpleName());
   }
 
   @Override

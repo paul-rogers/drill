@@ -31,7 +31,6 @@ import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.physical.ProjectPrel;
 import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 public abstract class HBasePushFilterIntoScan extends StoragePluginOptimizerRule {
@@ -108,14 +107,13 @@ public abstract class HBasePushFilterIntoScan extends StoragePluginOptimizerRule
     }
   };
 
-
   protected void doPushFilterToScan(final RelOptRuleCall call, final FilterPrel filter, final ProjectPrel project, final ScanPrel scan, final HBaseGroupScan groupScan, final RexNode condition) {
 
     final LogicalExpression conditionExp = DrillOptiq.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
     final HBaseFilterBuilder hbaseFilterBuilder = new HBaseFilterBuilder(groupScan, conditionExp);
     final HBaseScanSpec newScanSpec = hbaseFilterBuilder.parseTree();
     if (newScanSpec == null) {
-      return; //no filter pushdown ==> No transformation.
+      return; // no filter pushdown ==> No transformation.
     }
 
     final HBaseGroupScan newGroupsScan = new HBaseGroupScan(groupScan.getUserName(), groupScan.getStoragePlugin(),
@@ -137,5 +135,4 @@ public abstract class HBasePushFilterIntoScan extends StoragePluginOptimizerRule
       call.transformTo(filter.copy(filter.getTraitSet(), ImmutableList.of(childRel)));
     }
   }
-
 }

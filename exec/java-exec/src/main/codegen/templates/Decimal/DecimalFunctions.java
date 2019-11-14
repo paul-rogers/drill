@@ -107,6 +107,7 @@ package org.apache.drill.exec.expr.fn.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.NullHandling;
@@ -379,7 +380,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.LT,
+  @FunctionTemplate(name = FunctionCall.LT_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}LessThan implements DrillSimpleFunc {
@@ -398,7 +399,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.LE,
+  @FunctionTemplate(name = FunctionCall.LE_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}LessThanEq implements DrillSimpleFunc {
@@ -418,7 +419,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.GT,
+  @FunctionTemplate(name = FunctionCall.GT_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}GreaterThan implements DrillSimpleFunc {
@@ -438,7 +439,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.GE,
+  @FunctionTemplate(name = FunctionCall.GE_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}GreaterThanEq implements DrillSimpleFunc {
@@ -458,7 +459,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.EQ,
+  @FunctionTemplate(name = FunctionCall.EQ_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}Equal implements DrillSimpleFunc {
@@ -478,7 +479,7 @@ public class ${type.name}Functions {
 
   <#-- Comparison function for comparison expression operator (=, &lt;, etc.),
          not for sorting and grouping relational operators.) -->
-  @FunctionTemplate(name = FunctionGenerationHelper.NE,
+  @FunctionTemplate(name = FunctionCall.NE_FN,
                     scope = FunctionTemplate.FunctionScope.SIMPLE,
                     nulls = NullHandling.NULL_IF_NULL)
   public static class ${type.name}NotEqual implements DrillSimpleFunc {

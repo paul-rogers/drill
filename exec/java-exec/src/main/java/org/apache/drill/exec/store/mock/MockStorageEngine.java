@@ -20,10 +20,9 @@ package org.apache.drill.exec.store.mock;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,18 +38,19 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.io.Resources;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.drill.shaded.guava.com.google.common.io.Resources;
 
 public class MockStorageEngine extends AbstractStoragePlugin {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockStorageEngine.class);
+  static final Logger logger = LoggerFactory.getLogger(MockStorageEngine.class);
 
   private final MockStorageEngineConfig configuration;
   private final MockSchema schema;
@@ -116,16 +116,16 @@ public class MockStorageEngine extends AbstractStoragePlugin {
 
   private static class MockSchema extends AbstractSchema {
 
-    private MockStorageEngine engine;
+    private final MockStorageEngine engine;
     private final Map<String, Table> tableCache = new WeakHashMap<>();
 
     public MockSchema(MockStorageEngine engine) {
-      super(ImmutableList.<String>of(), MockStorageEngineConfig.NAME);
+      super(Collections.emptyList(), MockStorageEngineConfig.NAME);
       this.engine = engine;
     }
 
     public MockSchema(MockStorageEngine engine, String name) {
-      super(ImmutableList.<String>of(), name);
+      super(Collections.emptyList(), name);
       this.engine = engine;
     }
 
@@ -179,14 +179,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
       else if (unit.equalsIgnoreCase("K")) { n *= 1000; }
       else if (unit.equalsIgnoreCase("M")) { n *= 1_000_000; }
       MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(n, true, 0, 1, null);
-      List<MockTableDef.MockScanEntry> list = new ArrayList<>();
-      list.add(entry);
-      return new DynamicDrillTable(engine, this.name, list);
-    }
-
-    @Override
-    public Set<String> getTableNames() {
-      return new HashSet<>();
+      return new DynamicDrillTable(engine, this.name, Collections.singletonList(entry));
     }
 
     @Override

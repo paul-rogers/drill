@@ -72,5 +72,4 @@ public abstract class LogicalExpressionBase implements LogicalExpression {
 
     return cost;
   }
-
 }

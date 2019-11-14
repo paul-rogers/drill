@@ -32,7 +32,6 @@ import org.apache.drill.common.expression.ValueExpressions.QuotedString;
 import org.apache.drill.common.expression.ValueExpressions.TimeExpression;
 import org.apache.drill.common.expression.ValueExpressions.VarDecimalExpression;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
-
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
@@ -40,7 +39,7 @@ public class MongoCompareFunctionProcessor extends
     AbstractExprVisitor<Boolean, LogicalExpression, RuntimeException> {
   private Object value;
   private boolean success;
-  private boolean isEqualityFn;
+  private final boolean isEqualityFn;
   private SchemaPath path;
   private String functionName;
 
@@ -254,11 +253,13 @@ public class MongoCompareFunctionProcessor extends
         .put("isNull", "isNull")
         .put("is null", "is null")
         // binary functions
-        .put("equal", "equal").put("not_equal", "not_equal")
-        .put("greater_than_or_equal_to", "less_than_or_equal_to")
-        .put("greater_than", "less_than")
-        .put("less_than_or_equal_to", "greater_than_or_equal_to")
-        .put("less_than", "greater_than").build();
+        .put(FunctionCall.EQ_FN, FunctionCall.EQ_FN)
+        .put(FunctionCall.NE_FN, FunctionCall.NE_FN)
+        .put(FunctionCall.GE_FN, FunctionCall.LE_FN)
+        .put(FunctionCall.GT_FN, FunctionCall.LT_FN)
+        .put(FunctionCall.LE_FN, FunctionCall.GE_FN)
+        .put(FunctionCall.LT_FN, FunctionCall.GT_FN)
+        .build();
   }
 
 }

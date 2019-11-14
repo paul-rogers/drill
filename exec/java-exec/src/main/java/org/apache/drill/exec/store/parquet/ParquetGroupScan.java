@@ -24,31 +24,32 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.drill.exec.exception.MetadataException;
-import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
-import org.apache.drill.exec.metastore.analyze.AnalyzeInfoProvider;
-import org.apache.drill.exec.metastore.analyze.AnalyzeParquetInfoProvider;
-import org.apache.drill.exec.metastore.analyze.FileMetadataInfoCollector;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
-import org.apache.drill.exec.metastore.ParquetTableMetadataProvider;
-import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.drill.metastore.metadata.LocationProvider;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.exec.exception.MetadataException;
+import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
+import org.apache.drill.exec.metastore.MetadataProviderManager;
+import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
+import org.apache.drill.exec.metastore.ParquetTableMetadataProvider;
+import org.apache.drill.exec.metastore.analyze.AnalyzeInfoProvider;
+import org.apache.drill.exec.metastore.analyze.AnalyzeParquetInfoProvider;
+import org.apache.drill.exec.metastore.analyze.FileMetadataInfoCollector;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.metastore.metadata.LocationProvider;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
@@ -57,7 +58,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 @JsonTypeName("parquet-scan")
 public class ParquetGroupScan extends AbstractParquetGroupScan {
@@ -65,12 +65,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   private final ParquetFormatPlugin formatPlugin;
   private final ParquetFormatConfig formatConfig;
 
-  private boolean usedMetadataCache; // false by default
+  private final boolean usedMetadataCache; // false by default
   // may change when filter push down / partition pruning is applied
-  private Path selectionRoot;
-  private Path cacheFileRoot;
+  private final Path selectionRoot;
+  private final Path cacheFileRoot;
 
-  @SuppressWarnings("unused")
   @JsonCreator
   public ParquetGroupScan(@JacksonInject StoragePluginRegistry engineRegistry,
                           @JsonProperty("userName") String userName,
@@ -198,6 +197,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     return formatPlugin.getStorageConfig();
   }
 
+  @Override
   @JsonProperty
   public Path getSelectionRoot() {
     return selectionRoot;
@@ -288,7 +288,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected RowGroupScanFilterer getFilterer() {
+  protected RowGroupScanFilterer<?> getFilterer() {
     return new ParquetGroupScanFilterer(this);
   }
 

@@ -59,7 +59,7 @@ public class MapRDBFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void
   public HBaseScanSpec parseTree() {
     HBaseScanSpec parsedSpec = le.accept(this, null);
     if (parsedSpec != null) {
-      parsedSpec = mergeScanSpecs("booleanAnd", this.groupScan.getHBaseScanSpec(), parsedSpec);
+      parsedSpec = mergeScanSpecs(B, this.groupScan.getHBaseScanSpec(), parsedSpec);
       /*
        * If RowFilter is THE filter attached to the scan specification,
        * remove it since its effect is also achieved through startRow and stopRow.

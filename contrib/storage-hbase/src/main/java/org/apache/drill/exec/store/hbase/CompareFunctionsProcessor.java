@@ -17,9 +17,6 @@
  */
 package org.apache.drill.exec.store.hbase;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.regex.Matcher;
@@ -40,17 +37,18 @@ import org.apache.drill.common.expression.ValueExpressions.QuotedString;
 import org.apache.drill.common.expression.ValueExpressions.TimeExpression;
 import org.apache.drill.common.expression.ValueExpressions.TimeStampExpression;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.PrefixFilter;
 import org.apache.hadoop.hbase.util.Order;
 import org.apache.hadoop.hbase.util.PositionedByteRange;
 import org.apache.hadoop.hbase.util.SimplePositionedMutableByteRange;
 
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.PrefixFilter;
-
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, LogicalExpression, RuntimeException> {
 
@@ -59,7 +57,7 @@ public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, Logi
 
   private byte[] value;
   private boolean success;
-  private boolean isEqualityFn;
+  private final boolean isEqualityFn;
   private SchemaPath path;
   private String functionName;
   private boolean sortOrderAscending;
@@ -381,21 +379,21 @@ public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, Logi
 
       // For TIME_EPOCH_BE/BIGINT_BE encoding, the operators that we push-down are =, <>, <, <=, >, >=
       switch (functionName) {
-        case "equal":
+        case FunctionCall.EQ_FN:
           rowKeyPrefixFilter = new PrefixFilter(ByteBuffer.allocate(4).putInt(val).array());
           rowKeyPrefixStartRow = ByteBuffer.allocate(4).putInt(val).array();
           rowKeyPrefixStopRow = ByteBuffer.allocate(4).putInt(val + 1).array();
           return true;
-        case "greater_than_or_equal_to":
+        case FunctionCall.GE_FN:
           rowKeyPrefixStartRow = ByteBuffer.allocate(4).putInt(val).array();
           return true;
-        case "greater_than":
+        case FunctionCall.GT_FN:
           rowKeyPrefixStartRow = ByteBuffer.allocate(4).putInt(val + 1).array();
           return true;
-        case "less_than_or_equal_to":
+        case FunctionCall.LE_FN:
           rowKeyPrefixStopRow = ByteBuffer.allocate(4).putInt(val + 1).array();
           return true;
-        case "less_than":
+        case FunctionCall.LT_FN:
           rowKeyPrefixStopRow = ByteBuffer.allocate(4).putInt(val).array();
           return true;
       }
@@ -437,21 +435,21 @@ public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, Logi
 
       // For TIME_EPOCH_BE/BIGINT_BE encoding, the operators that we push-down are =, <>, <, <=, >, >=
       switch (functionName) {
-        case "equal":
+        case FunctionCall.EQ_FN:
           rowKeyPrefixFilter = new PrefixFilter(ByteBuffer.allocate(8).putLong(val).array());
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(val).array();
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(val + 1).array();
           return true;
-        case "greater_than_or_equal_to":
+        case FunctionCall.GE_FN:
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(val).array();
           return true;
-        case "greater_than":
+        case FunctionCall.GT_FN:
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(val + 1).array();
           return true;
-        case "less_than_or_equal_to":
+        case FunctionCall.LE_FN:
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(val + 1).array();
           return true;
-        case "less_than":
+        case FunctionCall.LT_FN:
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(val).array();
           return true;
       }
@@ -472,25 +470,25 @@ public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, Logi
       long dateToSet;
       // For DATE encoding, the operators that we push-down are =, <>, <, <=, >, >=
       switch (functionName) {
-        case "equal":
+        case FunctionCall.EQ_FN:
           long startDate = ((DateExpression) valueArg).getDate();
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(startDate).array();
           long stopDate = ((DateExpression) valueArg).getDate() + MILLISECONDS_IN_A_DAY;
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(stopDate).array();
           return true;
-        case "greater_than_or_equal_to":
+        case FunctionCall.GE_FN:
           dateToSet = ((DateExpression) valueArg).getDate();
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(dateToSet).array();
           return true;
-        case "greater_than":
+        case FunctionCall.GT_FN:
           dateToSet = ((DateExpression) valueArg).getDate() + MILLISECONDS_IN_A_DAY;
           rowKeyPrefixStartRow = ByteBuffer.allocate(8).putLong(dateToSet).array();
           return true;
-        case "less_than_or_equal_to":
+        case FunctionCall.LE_FN:
           dateToSet = ((DateExpression) valueArg).getDate() + MILLISECONDS_IN_A_DAY;
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(dateToSet).array();
           return true;
-        case "less_than":
+        case FunctionCall.LT_FN:
           dateToSet = ((DateExpression) valueArg).getDate();
           rowKeyPrefixStopRow = ByteBuffer.allocate(8).putLong(dateToSet).array();
           return true;
@@ -562,12 +560,12 @@ public class CompareFunctionsProcessor extends AbstractExprVisitor<Boolean, Logi
         .put("is null", "is null")
         // binary functions
         .put("like", "like")
-        .put("equal", "equal")
-        .put("not_equal", "not_equal")
-        .put("greater_than_or_equal_to", "less_than_or_equal_to")
-        .put("greater_than", "less_than")
-        .put("less_than_or_equal_to", "greater_than_or_equal_to")
-        .put("less_than", "greater_than")
+        .put(FunctionCall.EQ_FN, FunctionCall.EQ_FN)
+        .put(FunctionCall.NE_FN, FunctionCall.NE_FN)
+        .put(FunctionCall.GE_FN, FunctionCall.LE_FN)
+        .put(FunctionCall.GT_FN, FunctionCall.LT_FN)
+        .put(FunctionCall.LE_FN, FunctionCall.GE_FN)
+        .put(FunctionCall.LT_FN, FunctionCall.GT_FN)
         .build();
   }
 }

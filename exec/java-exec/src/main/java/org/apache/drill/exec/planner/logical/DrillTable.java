@@ -32,13 +32,13 @@ import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
-import org.apache.drill.metastore.metadata.TableMetadataProvider;
-import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.metastore.metadata.TableMetadataProvider;
 
 public abstract class DrillTable implements Table {
 
@@ -112,9 +112,9 @@ public abstract class DrillTable implements Table {
   public GroupScan getGroupScan() throws IOException {
     if (scan == null) {
       if (selection instanceof FileSelection && ((FileSelection) selection).isEmptyDirectory()) {
-        this.scan = new SchemalessScan(userName, ((FileSelection) selection).getSelectionRoot());
+        scan = new SchemalessScan(userName, ((FileSelection) selection).getSelectionRoot());
       } else {
-        this.scan = plugin.getPhysicalScan(userName, new JSONOptions(selection), options, metadataProviderManager);
+        scan = plugin.getPhysicalScan(userName, new JSONOptions(selection), options, metadataProviderManager);
       }
     }
     return scan;

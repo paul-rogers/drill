@@ -23,14 +23,12 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-
 public class DrillKuduTable extends DynamicDrillTable {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillKuduTable.class);
 
   private final Schema schema;
 

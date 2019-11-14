@@ -85,10 +85,6 @@ public interface RequestedTuple {
     String summary();
   }
 
-  public enum TupleProjectionType {
-    ALL, NONE, SOME
-  }
-
   TupleProjectionType type();
   void parseSegment(PathSegment child);
   RequestedColumn get(String colName);
@@ -96,4 +92,17 @@ public interface RequestedTuple {
   RequestedTuple mapProjection(String colName);
   List<RequestedColumn> projections();
   void buildName(StringBuilder buf);
+
+  /**
+   * Returns whether a particular top-level column is projected in
+   * this scan.
+   * <p>
+   * Note that it is safe to create a reader for any column; the framework
+   * will silently ignore any unprojected columns.
+   *
+   * @param colName the case-insensitive column name
+   * @return <tt>true</tt> if the column is projected in the query,
+   * </tt>false</tt> if not
+   */
+  boolean isProjected(String colName);
 }

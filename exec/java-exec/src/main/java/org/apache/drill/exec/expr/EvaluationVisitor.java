@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
-import io.netty.buffer.DrillBuf;
 import org.apache.calcite.util.Pair;
 import org.apache.drill.common.expression.AnyValueExpression;
 import org.apache.drill.common.expression.BooleanOperator;
@@ -76,8 +75,8 @@ import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.physical.impl.filter.ReturnValueExpression;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Function;
+
 import com.sun.codemodel.JBlock;
 import com.sun.codemodel.JClass;
 import com.sun.codemodel.JConditional;
@@ -88,6 +87,8 @@ import com.sun.codemodel.JInvocation;
 import com.sun.codemodel.JLabel;
 import com.sun.codemodel.JType;
 import com.sun.codemodel.JVar;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Visitor that generates code for eval
@@ -117,9 +118,9 @@ public class EvaluationVisitor {
   }
 
   private class ExpressionHolder {
-    private LogicalExpression expression;
-    private GeneratorMapping mapping;
-    private MappingSet mappingSet;
+    private final LogicalExpression expression;
+    private final GeneratorMapping mapping;
+    private final MappingSet mappingSet;
 
     ExpressionHolder(LogicalExpression expression, MappingSet mappingSet) {
       this.expression = expression;
@@ -182,9 +183,9 @@ public class EvaluationVisitor {
     @Override
     public HoldingContainer visitBooleanOperator(BooleanOperator op,
         ClassGenerator<?> generator) throws RuntimeException {
-      if (op.getName().equals("booleanAnd")) {
+      if (op.getName().equals(BooleanOperator.AND_FN)) {
         return visitBooleanAnd(op, generator);
-      } else if(op.getName().equals("booleanOr")) {
+      } else if(op.getName().equals(BooleanOperator.OR_FN)) {
         return visitBooleanOr(op, generator);
       } else {
         throw new UnsupportedOperationException("BooleanOperator can only be booleanAnd, booleanOr. You are using " + op.getName());
@@ -1293,7 +1294,7 @@ public class EvaluationVisitor {
 
   private class ConstantFilter extends EvalVisitor {
 
-    private Set<LogicalExpression> constantBoundaries;
+    private final Set<LogicalExpression> constantBoundaries;
 
     public ConstantFilter(Set<LogicalExpression> constantBoundaries) {
       super();

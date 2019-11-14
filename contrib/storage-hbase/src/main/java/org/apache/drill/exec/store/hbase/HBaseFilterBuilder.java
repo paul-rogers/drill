@@ -24,6 +24,8 @@ import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.filter.BinaryComparator;
 import org.apache.hadoop.hbase.filter.ByteArrayComparable;
@@ -33,9 +35,6 @@ import org.apache.hadoop.hbase.filter.NullComparator;
 import org.apache.hadoop.hbase.filter.RegexStringComparator;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
-
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void, RuntimeException> implements DrillHBaseConstants {
 
@@ -55,7 +54,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
   public HBaseScanSpec parseTree() {
     HBaseScanSpec parsedSpec = le.accept(this, null);
     if (parsedSpec != null) {
-      parsedSpec = mergeScanSpecs("booleanAnd", this.groupScan.getHBaseScanSpec(), parsedSpec);
+      parsedSpec = mergeScanSpecs(BooleanOperator.AND_FN, groupScan.getHBaseScanSpec(), parsedSpec);
       /*
        * If RowFilter is THE filter attached to the scan specification,
        * remove it since its effect is also achieved through startRow and stopRow.
@@ -106,8 +105,8 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
       }
     } else {
       switch (functionName) {
-      case "booleanAnd":
-      case "booleanOr":
+      case BooleanOperator.AND_FN:
+      case BooleanOperator.OR_FN:
         HBaseScanSpec firstScanSpec = args.get(0).accept(this, null);
         for (int i = 1; i < args.size(); ++i) {
           HBaseScanSpec nextScanSpec = args.get(i).accept(this, null);
@@ -115,7 +114,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
             nodeScanSpec = mergeScanSpecs(functionName, firstScanSpec, nextScanSpec);
           } else {
             allExpressionsConverted = false;
-            if ("booleanAnd".equals(functionName)) {
+            if (BooleanOperator.AND_FN.equals(functionName)) {
               nodeScanSpec = firstScanSpec == null ? nextScanSpec : firstScanSpec;
             }
           }
@@ -138,12 +137,12 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
     byte[] stopRow = HConstants.EMPTY_END_ROW;
 
     switch (functionName) {
-    case "booleanAnd":
+    case BooleanOperator.AND_FN:
       newFilter = HBaseUtils.andFilterAtIndex(leftScanSpec.filter, HBaseUtils.LAST_FILTER, rightScanSpec.filter);
       startRow = HBaseUtils.maxOfStartRows(leftScanSpec.startRow, rightScanSpec.startRow);
       stopRow = HBaseUtils.minOfStopRows(leftScanSpec.stopRow, rightScanSpec.stopRow);
       break;
-    case "booleanOr":
+    case BooleanOperator.OR_FN:
       newFilter = HBaseUtils.orFilterAtIndex(leftScanSpec.filter, HBaseUtils.LAST_FILTER, rightScanSpec.filter);
       startRow = HBaseUtils.minOfStartRows(leftScanSpec.startRow, rightScanSpec.startRow);
       stopRow = HBaseUtils.maxOfStopRows(leftScanSpec.stopRow, rightScanSpec.stopRow);
@@ -179,7 +178,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
     byte[] startRow = HConstants.EMPTY_START_ROW;
     byte[] stopRow = HConstants.EMPTY_END_ROW;
     switch (functionName) {
-    case "equal":
+    case FunctionCall.EQ_FN:
       compareOp = CompareOp.EQUAL;
       if (isRowKey) {
         startRow = fieldValue;
@@ -188,10 +187,10 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
         compareOp = CompareOp.EQUAL;
       }
       break;
-    case "not_equal":
+    case FunctionCall.NE_FN:
       compareOp = CompareOp.NOT_EQUAL;
       break;
-    case "greater_than_or_equal_to":
+    case FunctionCall.GE_FN:
       if (sortOrderAscending) {
         compareOp = CompareOp.GREATER_OR_EQUAL;
         if (isRowKey) {
@@ -205,7 +204,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
         }
       }
       break;
-    case "greater_than":
+    case FunctionCall.GT_FN:
       if (sortOrderAscending) {
         compareOp = CompareOp.GREATER;
         if (isRowKey) {
@@ -219,7 +218,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
         }
       }
       break;
-    case "less_than_or_equal_to":
+    case FunctionCall.LE_FN:
       if (sortOrderAscending) {
         compareOp = CompareOp.LESS_OR_EQUAL;
         if (isRowKey) {
@@ -233,7 +232,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
         }
       }
       break;
-    case "less_than":
+    case FunctionCall.LT_FN:
       if (sortOrderAscending) {
         compareOp = CompareOp.LESS;
         if (isRowKey) {
@@ -266,7 +265,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
       compareOp = CompareOp.NOT_EQUAL;
       comparator = new NullComparator();
       break;
-    case "like":
+    case FunctionCall.LIKE_FN:
       /*
        * Convert the LIKE operand to Regular Expression pattern so that we can
        * apply RegexStringComparator()
