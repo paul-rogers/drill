@@ -27,6 +27,8 @@ import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Represents an explicit projection at some tuple level.
@@ -74,7 +76,7 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 public class RequestedTupleImpl implements RequestedTuple {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RequestedTupleImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(RequestedTupleImpl.class);
   private static final Collection<SchemaPath> PROJECT_ALL = Collections.singletonList(SchemaPath.STAR_COLUMN);
 
   private final RequestedColumnImpl parent;
@@ -320,5 +322,13 @@ public class RequestedTupleImpl implements RequestedTuple {
       }
     }
     return TupleProjectionType.SOME;
+  }
+
+  @Override
+  public boolean isProjected(String colName) {
+    if (get(colName) != null) {
+      return true;
+    }
+    return type() == TupleProjectionType.ALL;
   }
 }

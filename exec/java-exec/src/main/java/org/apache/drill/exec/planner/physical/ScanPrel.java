@@ -108,19 +108,21 @@ public class ScanPrel extends DrillScanRelBase implements Prel, HasDistributionA
   @Override
   public RelOptCost computeSelfCost(final RelOptPlanner planner, RelMetadataQuery mq) {
     final PlannerSettings settings = PrelUtil.getPlannerSettings(planner);
-    final ScanStats stats = this.getGroupScan().getScanStats(settings);
-    final int columnCount = this.getRowType().getFieldCount();
+    final ScanStats stats = getGroupScan().getScanStats(settings);
+    final int columnCount = getRowType().getFieldCount();
 
     if (PrelUtil.getSettings(getCluster()).useDefaultCosting()) {
       return planner.getCostFactory().makeCost(stats.getRecordCount() * columnCount, stats.getCpuCost(), stats.getDiskCost());
     }
 
     double rowCount = mq.getRowCount(this);
-    //double rowCount = stats.getRecordCount();
 
     // As DRILL-4083 points out, when columnCount == 0, cpuCost becomes zero,
     // which makes the costs of HiveScan and HiveDrillNativeParquetScan the same
-    double cpuCost = rowCount * Math.max(columnCount, 1); // For now, assume cpu cost is proportional to row count.
+    // For now, assume cpu cost is proportional to row count.
+    // Note that this ignores the disk cost estimate (which should be a proxy for
+    // row count * row width.)
+    double cpuCost = rowCount * Math.max(columnCount, 1);
 
     // If a positive value for CPU cost is given multiply the default CPU cost by given CPU cost.
     if (stats.getCpuCost() > 0) {

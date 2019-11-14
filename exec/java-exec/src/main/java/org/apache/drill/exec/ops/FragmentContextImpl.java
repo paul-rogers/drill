@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.ops;
 
-import io.netty.buffer.DrillBuf;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -67,6 +66,7 @@ import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.PartitionExplorer;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
@@ -74,6 +74,8 @@ import org.apache.drill.exec.work.filter.RuntimeFilterWritable;
 import org.apache.drill.metastore.MetastoreRegistry;
 import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * <p>
@@ -120,8 +122,8 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
   private final BufferManager bufferManager;
   private ExecutorState executorState;
   private final ExecutionControls executionControls;
-  private boolean enableRuntimeFilter;
-  private boolean enableRFWaiting;
+  private final boolean enableRuntimeFilter;
+  private final boolean enableRFWaiting;
   private Lock lock4RF;
   private Condition condition4RF;
 
@@ -145,8 +147,8 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
   private final AccountingUserConnection accountingUserConnection;
   /** Stores constants and their holders by type */
   private final Map<String, Map<MinorType, ValueHolder>> constantValueHolderCache;
-  private Map<Long, RuntimeFilterWritable> rfIdentifier2RFW = new ConcurrentHashMap<>();
-  private Map<Long, Boolean> rfIdentifier2fetched = new ConcurrentHashMap<>();
+  private final Map<Long, RuntimeFilterWritable> rfIdentifier2RFW = new ConcurrentHashMap<>();
+  private final Map<Long, Boolean> rfIdentifier2fetched = new ConcurrentHashMap<>();
 
   /**
    * Create a FragmentContext instance for non-root fragment.
@@ -243,6 +245,11 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
   @Override
   public PhysicalPlanReader getPlanReader() {
     return context.getPlanReader();
+  }
+
+  @Override
+  public StoragePluginRegistry getStorageRegistry() {
+    return context.getStorage();
   }
 
   @Override
