@@ -39,6 +39,8 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
     List<RecordReader> readers = Lists.newArrayList();
     List<SchemaPath> columns = null;
     try {
+
+      // TODO columns doesn't seem to be assigned
       if ((columns = subScan.getColumns()) == null) {
         columns = GroupScan.ALL_COLUMNS;
       }
