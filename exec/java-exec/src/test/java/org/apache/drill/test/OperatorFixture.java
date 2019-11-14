@@ -17,16 +17,12 @@
  */
 package org.apache.drill.test;
 
-import org.apache.drill.metastore.MetastoreRegistry;
-import org.apache.drill.shaded.guava.com.google.common.base.Function;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import org.apache.drill.shaded.guava.com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import io.netty.buffer.DrillBuf;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
@@ -50,6 +46,12 @@ import org.apache.drill.exec.ops.OpProfileDef;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.rowSet.DirectRowSet;
+import org.apache.drill.exec.physical.rowSet.HyperRowSetImpl;
+import org.apache.drill.exec.physical.rowSet.IndirectRowSet;
+import org.apache.drill.exec.physical.rowSet.RowSet;
+import org.apache.drill.exec.physical.rowSet.RowSet.ExtendableRowSet;
+import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
 import org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory;
 import org.apache.drill.exec.proto.ExecProtos;
 import org.apache.drill.exec.record.BatchSchema;
@@ -61,18 +63,19 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.store.PartitionExplorer;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.sys.store.provider.LocalPersistentStoreProvider;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.work.filter.RuntimeFilterWritable;
+import org.apache.drill.metastore.MetastoreRegistry;
+import org.apache.drill.shaded.guava.com.google.common.base.Function;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.util.concurrent.ListenableFuture;
 import org.apache.drill.test.ClusterFixtureBuilder.RuntimeOption;
-import org.apache.drill.exec.physical.rowSet.DirectRowSet;
-import org.apache.drill.exec.physical.rowSet.HyperRowSetImpl;
-import org.apache.drill.exec.physical.rowSet.IndirectRowSet;
-import org.apache.drill.exec.physical.rowSet.RowSet;
-import org.apache.drill.exec.physical.rowSet.RowSet.ExtendableRowSet;
-import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
 import org.apache.hadoop.security.UserGroupInformation;
-import java.util.concurrent.TimeUnit;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Test fixture for operator and (especially) "sub-operator" tests.
@@ -171,8 +174,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private final List<OperatorContext> contexts = Lists.newLinkedList();
 
 
-    private ExecutorState executorState = new OperatorFixture.MockExecutorState();
-    private ExecutionControls controls;
+    private final ExecutorState executorState = new OperatorFixture.MockExecutorState();
+    private final ExecutionControls controls;
 
     public MockFragmentContext(final DrillConfig config,
                                final OptionManager options,
@@ -337,6 +340,11 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
     @Override
     public MetastoreRegistry getMetastoreRegistry() {
+      return null;
+    }
+
+    @Override
+    public StoragePluginRegistry getStorageRegistry() {
       return null;
     }
   }

@@ -32,7 +32,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.resultSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.TupleProjectionType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 

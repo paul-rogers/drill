@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.apache.drill.contrib</groupId>
+    <artifactId>drill-contrib-parent</artifactId>
+    <version>1.17.0-SNAPSHOT</version>
+  </parent>
+  <groupId>drill.contrib.sumo</groupId>
+  <artifactId>storage-sumo</artifactId>
+  <name>storage-sumo</name>
+  <url>http://maven.apache.org</url>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+     <dependency>
+       <groupId>com.sumologic.api.client</groupId>
+       <artifactId>sumo-java-client</artifactId>
+       <version>2.7</version>
+     </dependency>
+
+     <dependency>
+       <groupId>org.apache.drill.exec</groupId>
+       <artifactId>drill-java-exec</artifactId>
+       <version>${project.version}</version>
+     </dependency>
+
+     <!-- Test dependencies -->
+     <dependency>
+       <groupId>org.apache.drill.exec</groupId>
+       <artifactId>drill-java-exec</artifactId>
+       <classifier>tests</classifier>
+       <version>${project.version}</version>
+       <scope>test</scope>
+     </dependency>
+
+     <dependency>
+       <groupId>org.apache.drill</groupId>
+       <artifactId>drill-common</artifactId>
+       <classifier>tests</classifier>
+       <version>${project.version}</version>
+       <scope>test</scope>
+     </dependency>
+  </dependencies>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+       <groupId>com.sumologic.api.client</groupId>
+       <artifactId>sumo-java-client</artifactId>
+       <version>2.7</version>
+        <exclusions>
+          <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

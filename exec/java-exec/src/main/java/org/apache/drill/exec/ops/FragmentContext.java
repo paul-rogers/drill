@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.drill.metastore.MetastoreRegistry;
-import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.compile.CodeCompiler;
@@ -37,8 +35,11 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.ExecProtos;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.work.filter.RuntimeFilterWritable;
+import org.apache.drill.metastore.MetastoreRegistry;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 import io.netty.buffer.DrillBuf;
 
@@ -200,6 +201,14 @@ public interface FragmentContext extends UdfUtilities, AutoCloseable {
    * @return Metastore registry
    */
   MetastoreRegistry getMetastoreRegistry();
+
+  /**
+   * Get instance of the storage plugin registry to resolve storage plugin
+   * configs to their matching storage plugins.
+   *
+   * @return the storage plugin registry
+   */
+  StoragePluginRegistry getStorageRegistry();
 
   interface ExecutorState {
     /**
