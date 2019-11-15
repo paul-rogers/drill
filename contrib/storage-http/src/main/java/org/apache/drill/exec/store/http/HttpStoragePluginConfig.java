@@ -60,10 +60,10 @@ public class HttpStoragePluginConfig extends StoragePluginConfig {
     return Arrays.hashCode(new Object[]{connection, resultKey});
   }
 
-  @Override
+  /*@Override
   public String toString() {
     return "HttpStoragePluginConfig[connection=" + connection + "]";
-  }
+  }*/
 
   public String getConnection() {
     return connection;

@@ -39,15 +39,13 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
     List<RecordReader> readers = Lists.newArrayList();
     List<SchemaPath> columns = null;
     try {
-
-      // TODO columns doesn't seem to be assigned
       if ((columns = subScan.getColumns()) == null) {
         columns = GroupScan.ALL_COLUMNS;
       }
+      readers.add(new HttpRecordReader(context,columns, config, subScan));
     } catch (Exception e) {
       throw new ExecutionSetupException(e);
     }
-    readers.add(new HttpRecordReader(context,columns, config, subScan));
     return new ScanBatch(subScan, context, readers);
   }
 }

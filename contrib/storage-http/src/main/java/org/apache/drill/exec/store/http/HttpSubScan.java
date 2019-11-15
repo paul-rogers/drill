@@ -64,6 +64,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
     return columns;
   }
 
+
   HttpStoragePluginConfig getStorageConfig() {
     return config;
   }

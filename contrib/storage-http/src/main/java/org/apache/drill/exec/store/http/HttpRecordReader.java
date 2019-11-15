@@ -53,7 +53,6 @@ public class HttpRecordReader extends AbstractRecordReader {
   private final boolean readNumbersAsDouble;
   private final HttpStoragePluginConfig config;
 
-
   public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
     this.config = config;
     this.subScan = subScan;
@@ -66,7 +65,8 @@ public class HttpRecordReader extends AbstractRecordReader {
   }
 
   @Override
-  public void setup(OperatorContext context, OutputMutator output)
+  public void setup(OperatorContext context,
+                    OutputMutator output)
     throws ExecutionSetupException {
     this.writer = new VectorContainerWriter(output);
     this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
