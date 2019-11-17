@@ -41,9 +41,9 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
 
   public HttpStoragePlugin(HttpStoragePluginConfig configuration, DrillbitContext context, String name) throws IOException {
     super(context, name);
+    this.engineConfig = configuration;
     this.schemaFactory = new HttpSchemaFactory(this, name);
     this.context = context;
-    this.engineConfig = configuration;
   }
 
   @Override
@@ -56,6 +56,7 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
     return engineConfig;
   }
 
+  @Override
   public DrillbitContext getContext() {
     return this.context;
   }
@@ -64,13 +65,6 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   public boolean supportsRead() {
     return true;
   }
-
-  /*@Override
-  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws ExecutionSetupException, IOException {
-    HttpScanSpec spec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
-    logger.debug("getPhysicalScan {} {} {} {}", userName, selection, selection.getRoot(), spec);
-    return new HttpGroupScan(this, spec, null);
-  }*/
 
   @Override
   public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {

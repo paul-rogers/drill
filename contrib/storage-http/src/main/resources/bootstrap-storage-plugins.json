@@ -1,6 +1,6 @@
 {
   "storage":{
-    "httpApi" : {
+    "http" : {
       "type":"http",
       "connection": "https://api.sunrise-sunset.org/json",
       "resultKey": "results",

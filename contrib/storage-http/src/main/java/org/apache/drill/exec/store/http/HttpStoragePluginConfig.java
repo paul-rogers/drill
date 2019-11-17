@@ -17,7 +17,8 @@
  */
 package org.apache.drill.exec.store.http;
 
-import org.apache.drill.common.logical.StoragePluginConfig;
+import com.google.common.base.MoreObjects;
+import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,16 +29,17 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import java.util.Arrays;
 
 @JsonTypeName(HttpStoragePluginConfig.NAME)
-public class HttpStoragePluginConfig extends StoragePluginConfig {
+public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
 
-  public static final String NAME = "http";
-  private String connection;
-  private String resultKey;
+  static final String NAME = "http";
+
+  public String connection;
+
+  public String resultKey;
 
   @JsonCreator
-  public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
-                                 @JsonProperty("resultKey") String resultKey) {
+  public HttpStoragePluginConfig(@JsonProperty("connection") String connection, @JsonProperty("resultKey") String resultKey) {
     logger.debug("initialize HttpStoragePluginConfig {}", connection);
     this.connection = connection;
     this.resultKey = resultKey;
@@ -50,7 +52,6 @@ public class HttpStoragePluginConfig extends StoragePluginConfig {
     } else if (that == null || getClass() != that.getClass()) {
       return false;
     }
-    logger.debug("HttpStoragePluginConfig equals {}", connection);
     HttpStoragePluginConfig t = (HttpStoragePluginConfig) that;
     return this.connection.equals(t.connection) && this.resultKey.equals(t.resultKey);
   }
@@ -60,10 +61,13 @@ public class HttpStoragePluginConfig extends StoragePluginConfig {
     return Arrays.hashCode(new Object[]{connection, resultKey});
   }
 
-  /*@Override
+  @Override
   public String toString() {
-    return "HttpStoragePluginConfig[connection=" + connection + "]";
-  }*/
+    return MoreObjects.toStringHelper(this)
+      .add("connection", connection)
+      .add("resultKey", resultKey)
+      .toString();
+  }
 
   public String getConnection() {
     return connection;

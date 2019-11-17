@@ -23,8 +23,10 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 
+@JsonTypeName("http-scan-spec")
 public class HttpScanSpec {
   private String uri;
   private Map<String, Object> args = new HashMap<String, Object>();

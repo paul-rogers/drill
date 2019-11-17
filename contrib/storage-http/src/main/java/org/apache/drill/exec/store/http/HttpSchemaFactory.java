@@ -18,12 +18,16 @@
 package org.apache.drill.exec.store.http;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
+import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.SchemaFactory;
 
@@ -31,14 +35,16 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 
 
-public class HttpSchemaFactory implements SchemaFactory{
+public class HttpSchemaFactory extends AbstractSchemaFactory {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpSchemaFactory.class);
 
   private final HttpStoragePlugin plugin;
   private final String schemaName;
 
+  public static final String MY_TABLE = "result_table";
+
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
-    super();
+    super(plugin.getName());
     this.plugin = plugin;
     this.schemaName = schemaName;
   }
@@ -51,15 +57,33 @@ public class HttpSchemaFactory implements SchemaFactory{
   }
 
   class HttpSchema extends AbstractSchema {
-    private Set<String> tableNames = Sets.newHashSet();
+    //private Set<String> tableNames = Sets.newHashSet();
 
-    /*HttpSchema(String name) {
+    private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
+
+    HttpSchema(String name) {
       super(Collections.emptyList(), name);
-    }*/
+    }
 
-    public HttpSchema(String name) {
-      super(ImmutableList.<String> of(), name);
-      tableNames.add("static"); // TODO: not necessary
+    @Override
+    public Table getTable(String tableName) { // table name can be any of string
+      /*DynamicDrillTable table = activeTables.get(tableName);
+      if (table != null) {
+        return table;
+      }
+      if (MY_TABLE.contentEquals(tableName)) {
+        return null; // TODO
+      }
+      return null; // Unknown table*/
+
+      logger.debug("HttpSchema.getTable {}", tableName);
+      HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan
+      return new DynamicDrillTable(plugin, schemaName, null, spec);
+    }
+
+    private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {
+      activeTables.put(name, table);
+      return table;
     }
 
     @Override
@@ -67,16 +91,15 @@ public class HttpSchemaFactory implements SchemaFactory{
       return HttpStoragePluginConfig.NAME;
     }
 
-    @Override
+    /*@Override
     public Set<String> getTableNames() {
-      return tableNames;
-    }
+      return Set<String>.newHashSet(MY_TABLE);
+      //return tableNames;
+    }*/
 
     @Override
-    public Table getTable(String tableName) { // table name can be any of string
-      logger.debug("HttpSchema.getTable {}", tableName);
-      HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan
-      return new DynamicDrillTable(plugin, schemaName, null, spec);
+    public Set<String> getTableNames() {
+      return Sets.newHashSet(MY_TABLE);
     }
   }
 }
