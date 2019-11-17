@@ -38,9 +38,8 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 public class MajorTypeSerDe {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MajorTypeSerDe.class);
 
-
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<MajorType> {
 
     public De() {
@@ -52,9 +51,9 @@ public class MajorTypeSerDe {
         JsonProcessingException {
       return jp.readValueAs(MajorTypeHolder.class).getMajorType();
     }
-
   }
 
+  @SuppressWarnings("serial")
   public static class Se extends StdSerializer<MajorType> {
 
     public Se() {
@@ -67,7 +66,6 @@ public class MajorTypeSerDe {
       MajorTypeHolder holder = MajorTypeHolder.get(value);
       jgen.writeObject(holder);
     }
-
   }
 
   @JsonInclude(Include.NON_NULL)
@@ -123,5 +121,4 @@ public class MajorTypeSerDe {
       return h;
     }
   }
-
 }

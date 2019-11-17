@@ -18,13 +18,17 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -37,12 +41,12 @@ import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Describes a "group" scan of a (logical) mock table. The mock table has a
@@ -54,15 +58,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
  */
 
 @JsonTypeName("mock-scan")
-public class MockGroupScanPOP extends AbstractGroupScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
-      .getLogger(MockGroupScanPOP.class);
-
-  /**
-   * URL for the scan. Unused. Appears to be a vestige of an earlier design that
-   * required them.
-   */
-  private final String url;
+public class MockGroupScan extends AbstractGroupScan {
 
   /**
    * The set of simulated files to scan.
@@ -79,11 +75,10 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   private ScanStats scanStats = ScanStats.TRIVIAL_TABLE;
 
   @JsonCreator
-  public MockGroupScanPOP(@JsonProperty("url") String url,
+  public MockGroupScan(
       @JsonProperty("entries") List<MockScanEntry> readEntries) {
     super((String) null);
     this.readEntries = readEntries;
-    this.url = url;
 
     // Compute decent row-count stats for this mock data source so that
     // the planner is "fooled" into thinking that this operator will do
@@ -107,13 +102,13 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
         for (MockColumn col : entry.getTypes()) {
           int colWidth = 0;
-          if (col.getWidthValue() == 0) {
+          if (col.getType().getPrecision() == 0) {
             // Fixed width columns
-            colWidth = TypeHelper.getSize(col.getMajorType());
+            colWidth = TypeHelper.getSize(col.getType());
           } else {
             // Variable width columns with a specified column
             // width
-            colWidth = col.getWidthValue();
+            colWidth = col.getType().getPrecision();
           }
 
           // Columns can repeat
@@ -136,10 +131,6 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   @Override
   public ScanStats getScanStats() {
     return scanStats;
-  }
-
-  public String getUrl() {
-    return url;
   }
 
   @JsonProperty("entries")
@@ -174,7 +165,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     assert minorFragmentId < mappings.length : String.format(
         "Mappings length [%d] should be longer than minor fragment id [%d] but it isn't.",
         mappings.length, minorFragmentId);
-    return new MockSubScanPOP(url, extended, mappings[minorFragmentId]);
+    return new MockSubScan(extended, mappings[minorFragmentId]);
   }
 
   @Override
@@ -186,7 +177,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   @JsonIgnore
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
     Preconditions.checkArgument(children.isEmpty());
-    return new MockGroupScanPOP(url, readEntries);
+    return new MockGroupScan(readEntries);
   }
 
   @Override
@@ -195,7 +186,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       throw new IllegalArgumentException("No columns for mock scan");
     }
     List<MockColumn> mockCols = new ArrayList<>();
-    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)");
+    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)(n(\\d*))?");
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (SchemaPath.DYNAMIC_STAR.equals(col)) {
@@ -232,8 +223,28 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         throw new IllegalArgumentException(
             "Unsupported field type " + type + " for mock column " + col);
       }
+      DataMode mode;
+      Map<String, Object> props = null;
+      if (m.group(4) == null) {
+        mode = DataMode.REQUIRED;
+       } else {
+        mode = DataMode.OPTIONAL;
+        String rateStr = m.group(5);
+        if (! Strings.isEmpty(rateStr)) {
+          int nullRate = Math.min(100,
+              Math.max(0, Integer.parseInt(rateStr)));
+          props = new HashMap<>();
+          props.put(MockColumn.NULL_RATE_PROPERTY, nullRate);
+        }
+      }
+      MajorType.Builder b = MajorType.newBuilder();
+      b.setMode(mode);
+      b.setMinorType(minorType);
+      if (width != 0) {
+        b.setPrecision(width);
+      }
       MockTableDef.MockColumn mockCol = new MockColumn(
-          col, minorType, DataMode.REQUIRED, width, 0, 0, null, 1, null);
+          col, b.build(), null, 1, props);
       mockCols.add(mockCol);
     }
     MockScanEntry entry = readEntries.get(0);
@@ -242,7 +253,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     MockScanEntry newEntry = new MockScanEntry(entry.records, true, 0, 1, types);
     List<MockScanEntry> newEntries = new ArrayList<>();
     newEntries.add(newEntry);
-    return new MockGroupScanPOP(url, newEntries);
+    return new MockGroupScan(newEntries);
   }
 
   @Override
@@ -252,8 +263,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
   @Override
   public String toString() {
-    return "MockGroupScanPOP [url=" + url + ", readEntries=" + readEntries
-        + "]";
+    return "MockGroupScanPOP [readEntries=" + readEntries + "]";
   }
 
   @Override

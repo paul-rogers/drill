@@ -27,12 +27,12 @@ import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Describes a physical scan operation for the mock data source. Each operator
@@ -41,10 +41,8 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
  */
 
 @JsonTypeName("mock-sub-scan")
-public class MockSubScanPOP extends AbstractBase implements SubScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockGroupScanPOP.class);
+public class MockSubScan extends AbstractBase implements SubScan {
 
-  private final String url;
   protected final List<MockScanEntry> readEntries;
   private final boolean extended;
 
@@ -67,23 +65,12 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
    */
 
   @JsonCreator
-  public MockSubScanPOP(@JsonProperty("url") String url,
-                        @JsonProperty("extended") Boolean extended,
-                        @JsonProperty("entries") List<MockScanEntry> readEntries) {
+  public MockSubScan(@JsonProperty("extended") Boolean extended,
+                     @JsonProperty("entries") List<MockScanEntry> readEntries) {
     this.readEntries = readEntries;
-//    OperatorCost cost = new OperatorCost(0,0,0,0);
-//    Size size = new Size(0,0);
-//    for(MockGroupScanPOP.MockScanEntry r : readEntries){
-//      cost = cost.add(r.getCost());
-//      size = size.add(r.getSize());
-//    }
-//    this.cost = cost;
-//    this.size = size;
-    this.url = url;
     this.extended = extended == null ? false : extended;
   }
 
-  public String getUrl() { return url; }
   public boolean isExtended() { return extended; }
 
   @JsonProperty("entries")
@@ -112,7 +99,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   @JsonIgnore
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
     Preconditions.checkArgument(children.isEmpty());
-    return new MockSubScanPOP(url, extended, readEntries);
+    return new MockSubScan(extended, readEntries);
 
   }
 

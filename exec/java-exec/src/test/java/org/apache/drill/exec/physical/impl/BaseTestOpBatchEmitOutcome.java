@@ -17,25 +17,24 @@
  */
 package org.apache.drill.exec.physical.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.test.PhysicalOpUnitTestBase;
+import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.store.mock.MockStorePOP;
-import org.apache.drill.exec.physical.rowSet.RowSet;
+import org.apache.drill.test.PhysicalOpUnitTestBase;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class BaseTestOpBatchEmitOutcome extends PhysicalOpUnitTestBase {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseTestOpBatchEmitOutcome.class);
 
   // input batch schema
   protected static TupleMetadata inputSchema;

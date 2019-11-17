@@ -20,7 +20,6 @@ package org.apache.drill.exec.memory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import io.netty.buffer.DrillBuf;
 
 import java.util.Iterator;
 import java.util.List;
@@ -51,17 +50,19 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.StoragePluginRegistryImpl;
 import org.apache.drill.exec.vector.BitVector;
 import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.test.DrillTest;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.apache.drill.test.DrillTest;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
+
+import io.netty.buffer.DrillBuf;
 
 @Category(MemoryTest.class)
 public class TestAllocators extends DrillTest {
 
+  @SuppressWarnings("serial")
   private static final Properties TEST_CONFIGURATIONS = new Properties() {
     {
       put(RootAllocatorFactory.TOP_LEVEL_MAX_ALLOC, "14000000");
@@ -86,6 +87,7 @@ public class TestAllocators extends DrillTest {
   public void ensureDrillBufReadIndexIsZero() throws Exception {
     final int length = 10;
 
+    @SuppressWarnings("serial")
     final Properties props = new Properties() {
       {
         put(RootAllocatorFactory.TOP_LEVEL_MAX_ALLOC, "1000000");
@@ -98,6 +100,7 @@ public class TestAllocators extends DrillTest {
     builder.setMinorType(TypeProtos.MinorType.INT);
     builder.setMode(TypeProtos.DataMode.REQUIRED);
 
+    @SuppressWarnings("resource")
     final IntVector iv = new IntVector(MaterializedField.create("Field", builder.build()), allc);
     iv.allocateNew();
 
@@ -130,6 +133,7 @@ public class TestAllocators extends DrillTest {
 
   @Test
   public void testClearBitVector() {
+    @SuppressWarnings("serial")
     final Properties props = new Properties() {
       {
         put(RootAllocatorFactory.TOP_LEVEL_MAX_ALLOC, "1000000");
@@ -142,6 +146,7 @@ public class TestAllocators extends DrillTest {
     builder.setMinorType(TypeProtos.MinorType.BIT);
     builder.setMode(TypeProtos.DataMode.REQUIRED);
 
+    @SuppressWarnings("resource")
     final BitVector bv = new BitVector(MaterializedField.create("Field", builder.build()), allc);
     bv.getMutator().setValueCount(1);
     assertEquals(bv.getAccessor().getValueCount(), 1);
@@ -152,6 +157,7 @@ public class TestAllocators extends DrillTest {
 
   @Test
   public void testTransfer() throws Exception {
+    @SuppressWarnings("serial")
     final Properties props = new Properties() {
       {
         put(RootAllocatorFactory.TOP_LEVEL_MAX_ALLOC, "1049600");
@@ -290,7 +296,6 @@ public class TestAllocators extends DrillTest {
       fragmentContext1.close();
       fragmentContext2.close();
       fragmentContext3.close();
-
     }
   }
 

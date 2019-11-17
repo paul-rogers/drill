@@ -92,7 +92,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     for (int i = 0; i < fields.length; i++) {
       final ColumnDef col = fields[i];
       final MaterializedField field = MaterializedField.create(col.getName(),
-                                          col.getConfig().getMajorType());
+                                          col.getConfig().getType());
       schema.add(field);
     }
     schemaNegotiator.setTableSchema(schema, true);

@@ -44,8 +44,8 @@ import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.rpc.UserClientConnection;
+import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.RemoteServiceSet;
@@ -55,11 +55,9 @@ import org.apache.drill.exec.vector.Float8Vector;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarBinaryVector;
 import org.apache.drill.exec.vector.VarCharVector;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
-
+import org.junit.Test;
 import org.mockito.Mockito;
 
 public class TestCastFunctions extends PopUnitTestBase {
@@ -388,14 +386,14 @@ public class TestCastFunctions extends PopUnitTestBase {
 
   private Object[][] getRunResult(VectorAccessible va) {
     int size = 0;
-    for (final VectorWrapper v : va) {
+    for (final VectorWrapper<?> v : va) {
       size++;
     }
 
     final Object[][] res = new Object [va.getRecordCount()][size];
     for (int j = 0; j < va.getRecordCount(); j++) {
       int i = 0;
-      for (final VectorWrapper v : va) {
+      for (final VectorWrapper<?> v : va) {
         final Object o =  v.getValueVector().getAccessor().getObject(j);
         if (o instanceof byte[]) {
           res[j][i++] =  new String((byte[]) o);

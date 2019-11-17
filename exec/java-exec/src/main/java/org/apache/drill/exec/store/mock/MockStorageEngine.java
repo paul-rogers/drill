@@ -33,21 +33,24 @@ import org.apache.calcite.schema.Table;
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
+import org.apache.drill.exec.record.MajorTypeSerDe;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.io.Resources;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.drill.shaded.guava.com.google.common.io.Resources;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class MockStorageEngine extends AbstractStoragePlugin {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockStorageEngine.class);
@@ -65,12 +68,17 @@ public class MockStorageEngine extends AbstractStoragePlugin {
   public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns)
       throws IOException {
 
-    List<MockTableDef.MockScanEntry> readEntries = selection.getListWith(new ObjectMapper(),
+    SimpleModule serDeModule = new SimpleModule("PhysicalOperatorModule")
+        .addSerializer(MajorType.class, new MajorTypeSerDe.Se())
+        .addDeserializer(MajorType.class, new MajorTypeSerDe.De());
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.registerModule(serDeModule);
+    List<MockTableDef.MockScanEntry> readEntries = selection.getListWith(mapper,
         new TypeReference<ArrayList<MockTableDef.MockScanEntry>>() {
         });
 
     assert ! readEntries.isEmpty();
-    return new MockGroupScanPOP(null, readEntries);
+    return new MockGroupScan(readEntries);
   }
 
   @Override
@@ -116,7 +124,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
 
   private static class MockSchema extends AbstractSchema {
 
-    private MockStorageEngine engine;
+    private final MockStorageEngine engine;
     private final Map<String, Table> tableCache = new WeakHashMap<>();
 
     public MockSchema(MockStorageEngine engine) {

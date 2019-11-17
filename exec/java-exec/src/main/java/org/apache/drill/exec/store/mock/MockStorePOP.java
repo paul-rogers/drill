@@ -32,7 +32,6 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("mock-store")
 public class MockStorePOP extends AbstractStore {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockStorePOP.class);
 
   @JsonCreator
   public MockStorePOP(@JsonProperty("child") PhysicalOperator child) {

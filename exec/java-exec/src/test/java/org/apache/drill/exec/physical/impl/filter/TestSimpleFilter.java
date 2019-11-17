@@ -35,12 +35,10 @@ import org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.rpc.UserClientConnection;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.junit.Ignore;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
-
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.mockito.Mockito;
 
@@ -58,13 +56,13 @@ public class TestSimpleFilter extends ExecTest {
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
     final FragmentContextImpl context = new FragmentContextImpl(bitContext, PlanFragment.getDefaultInstance(), connection, registry);
     final SimpleRootExec exec = new SimpleRootExec(ImplCreator.getExec(context, (FragmentRoot) plan.getSortedOperators(false).iterator().next()));
-    while(exec.next()) {
+    while (exec.next()) {
       assertEquals(50, exec.getRecordCount());
     }
 
     exec.close();
 
-    if(context.getExecutorState().getFailureCause() != null) {
+    if (context.getExecutorState().getFailureCause() != null) {
       throw context.getExecutorState().getFailureCause();
     }
     assertTrue(!context.getExecutorState().isFailed());
@@ -82,13 +80,13 @@ public class TestSimpleFilter extends ExecTest {
     final FragmentContextImpl context = new FragmentContextImpl(bitContext, PlanFragment.getDefaultInstance(), connection, registry);
     final SimpleRootExec exec = new SimpleRootExec(ImplCreator.getExec(context, (FragmentRoot) plan.getSortedOperators(false).iterator().next()));
     int recordCount = 0;
-    while(exec.next()) {
+    while (exec.next()) {
       recordCount += exec.getSelectionVector4().getCount();
     }
     exec.close();
     assertEquals(50, recordCount);
 
-    if(context.getExecutorState().getFailureCause() != null) {
+    if (context.getExecutorState().getFailureCause() != null) {
       throw context.getExecutorState().getFailureCause();
     }
     assertTrue(!context.getExecutorState().isFailed());

@@ -25,6 +25,7 @@ import org.apache.drill.common.JSONOptions.De;
 import org.apache.drill.common.JSONOptions.Se;
 import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.exceptions.LogicalPlanParsingException;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,6 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.node.TreeTraversingParser;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 @JsonSerialize(using = Se.class)
 @JsonDeserialize(using = De.class)
@@ -101,12 +101,16 @@ public class JSONOptions {
   }
 
   public JsonNode asNode(){
-    Preconditions.checkArgument(this.root != null, "Attempted to grab JSONOptions as JsonNode when no root node was stored.  You can only convert non-opaque JSONOptions values to JsonNodes.");
+    Preconditions.checkArgument(this.root != null,
+        "Attempted to grab JSONOptions as JsonNode when no root node was stored. " +
+        "You can only convert non-opaque JSONOptions values to JsonNodes.");
     return root;
   }
 
   public JsonParser asParser(){
-    Preconditions.checkArgument(this.root != null, "Attempted to grab JSONOptions as Parser when no root node was stored.  You can only convert non-opaque JSONOptions values to parsers.");
+    Preconditions.checkArgument(this.root != null,
+        "Attempted to grab JSONOptions as Parser when no root node was stored. " +
+        "You can only convert non-opaque JSONOptions values to parsers.");
     return new TreeTraversingParser(root);
   }
 
@@ -138,6 +142,7 @@ public class JSONOptions {
       return root;
   }
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<JSONOptions> {
 
     public De() {
@@ -158,9 +163,9 @@ public class JSONOptions {
         throw new IllegalArgumentException(String.format("Received something other than a JsonNode %s", n));
       }
     }
-
   }
 
+  @SuppressWarnings("serial")
   public static class Se extends StdSerializer<JSONOptions> {
 
     public Se() {
@@ -175,9 +180,6 @@ public class JSONOptions {
       } else {
         jgen.writeTree(value.root);
       }
-
     }
-
   }
-
 }

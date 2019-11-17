@@ -10,15 +10,14 @@
         {
             @id:1,
             pop:"mock-sub-scan",
-            url: "http://apache.org",
             entries:[
                 {records: 5, types: [
-                  {name: "float4col", type: "FLOAT4", mode: "REQUIRED"},
-                  {name: "bigintcol", type: "BIGINT", mode: "REQUIRED"},
-                  {name: "intcol", type: "INT", mode: "REQUIRED"},
-                  {name: "float4col", type: "FLOAT4", mode: "REQUIRED"},
-                  {name: "float8col", type: "FLOAT8", mode: "REQUIRED"},
-                  {name: "varcharcol", type: "VARCHAR", mode: "REQUIRED"}
+                  {name: "float4col", type: {type: "FLOAT4", mode: "REQUIRED"}},
+                  {name: "bigintcol", type: {type: "BIGINT", mode: "REQUIRED"}},
+                  {name: "intcol", type: {type: "INT", mode: "REQUIRED"}},
+                  {name: "float4col", type: {type: "FLOAT4", mode: "REQUIRED"}},
+                  {name: "float8col", type: {type: "FLOAT8", mode: "REQUIRED"}},
+                  {name: "varcharcol", type: {type: "VARCHAR", mode: "REQUIRED"}}
              ]}
             ]
         },

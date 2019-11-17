@@ -40,8 +40,6 @@ public class MockRecordReader extends AbstractRecordReader {
   private ValueVector[] valueVectors;
   private int recordsRead;
   private int batchRecordCount;
-  @SuppressWarnings("unused")
-  private OperatorContext operatorContext;
 
   public MockRecordReader(FragmentContext context, MockScanEntry config) {
     this.context = context;
@@ -55,7 +53,7 @@ public class MockRecordReader extends AbstractRecordReader {
 
     int x = 0;
     for (int i = 0; i < types.length; i++) {
-      x += TypeHelper.getSize(types[i].getMajorType());
+      x += TypeHelper.getSize(types[i].getType());
     }
     return x;
   }
@@ -77,7 +75,7 @@ public class MockRecordReader extends AbstractRecordReader {
       batchRecordCount = 250000 / estimateRowSize;
 
       for (int i = 0; i < config.getTypes().length; i++) {
-        final MajorType type = config.getTypes()[i].getMajorType();
+        final MajorType type = config.getTypes()[i].getType();
         final MaterializedField field = getVector(config.getTypes()[i].getName(), type);
         final Class<? extends ValueVector> vvClass = TypeHelper.getValueVectorClass(field.getType().getMinorType(), field.getDataMode());
         valueVectors[i] = output.addField(field, vvClass);

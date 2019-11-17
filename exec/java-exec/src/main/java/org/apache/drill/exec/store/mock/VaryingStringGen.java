@@ -25,7 +25,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 public class VaryingStringGen extends AbstractFieldGen {
 
-  private Random rand = new Random();
+  private final Random rand = new Random();
   private int length;
   private int span;
   private int deltaPerSpan;
@@ -34,7 +34,7 @@ public class VaryingStringGen extends AbstractFieldGen {
   @Override
   public void setup(ColumnDef colDef, ScalarWriter colLoader) {
     super.setup(colDef, colLoader);
-    length = colDef.width;
+    length = colDef.getConfig().getType().getPrecision();
     Map<String,Object> props = colDef.mockCol.properties;
     span = 1000;
     deltaPerSpan = 100;

@@ -31,7 +31,9 @@ import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.scan.BaseScanOperatorExecTest.BaseScanFixtureBuilder;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
@@ -55,7 +57,7 @@ import org.junit.experimental.categories.Category;
 @Category({RowSetTests.class, UnlikelyTest.class})
 public class TestMockRowReader extends SubOperatorTest {
 
-  private static ScanFixture buildScan(MockSubScanPOP config, List<ManagedReader<SchemaNegotiator>> readers) {
+  private static ScanFixture buildScan(MockSubScan config, List<ManagedReader<SchemaNegotiator>> readers) {
     BaseScanFixtureBuilder builder = new BaseScanFixtureBuilder();
     List<SchemaPath> projList = new ArrayList<>();
     projList.add(SchemaPath.STAR_COLUMN);
@@ -71,12 +73,17 @@ public class TestMockRowReader extends SubOperatorTest {
   @Test
   public void testBasics() {
     int rowCount = 10;
+    MajorType bType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.REQUIRED)
+        .setPrecision(10)
+        .build();
     MockTableDef.MockColumn cols[] = new MockTableDef.MockColumn[] {
-        new MockTableDef.MockColumn("a", MinorType.INT, DataMode.REQUIRED, null, null, null, null, null, null ),
-        new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
+        new MockTableDef.MockColumn("a", Types.required(MinorType.INT), null, null, null),
+        new MockTableDef.MockColumn("b", bType, null, null, null)
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    MockSubScanPOP config = new MockSubScanPOP("dummy", true, Collections.singletonList(entry));
+    MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
 
     ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
     List<ManagedReader<SchemaNegotiator>> readers = Collections.singletonList(reader);
@@ -122,13 +129,18 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testOptional() {
     int rowCount = 10;
     Map<String,Object> props = new HashMap<>();
-    props.put("nulls", 50);
+    props.put(MockTableDef.MockColumn.NULL_RATE_PROPERTY, 50);
+    MajorType bType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.OPTIONAL)
+        .setPrecision(10)
+        .build();
     MockTableDef.MockColumn cols[] = new MockTableDef.MockColumn[] {
-        new MockTableDef.MockColumn("a", MinorType.INT, DataMode.OPTIONAL, null, null, null, null, null, null ),
-        new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.OPTIONAL, 10, null, null, null, null, props )
+        new MockTableDef.MockColumn("a", Types.optional(MinorType.INT), null, null, null),
+        new MockTableDef.MockColumn("b", bType, null, null, props)
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    MockSubScanPOP config = new MockSubScanPOP("dummy", true, Collections.singletonList(entry));
+    MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
     ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
     List<ManagedReader<SchemaNegotiator>> readers = Collections.singletonList(reader);
 
@@ -169,12 +181,17 @@ public class TestMockRowReader extends SubOperatorTest {
   @Test
   public void testColumnRepeat() {
     int rowCount = 10;
+    MajorType bType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.REQUIRED)
+        .setPrecision(10)
+        .build();
     MockTableDef.MockColumn cols[] = new MockTableDef.MockColumn[] {
-        new MockTableDef.MockColumn("a", MinorType.INT, DataMode.REQUIRED, null, null, null, null, 3, null ),
-        new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
+        new MockTableDef.MockColumn("a", Types.required(MinorType.INT), null, 3, null),
+        new MockTableDef.MockColumn("b", bType, null, null, null)
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    MockSubScanPOP config = new MockSubScanPOP("dummy", true, Collections.singletonList(entry));
+    MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
 
     ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
      List<ManagedReader<SchemaNegotiator>> readers = Collections.singletonList(reader);
@@ -220,11 +237,11 @@ public class TestMockRowReader extends SubOperatorTest {
     int rowCount = 20;
     int batchSize = 10;
     MockTableDef.MockColumn cols[] = new MockTableDef.MockColumn[] {
-        new MockTableDef.MockColumn("a", MinorType.INT, DataMode.REQUIRED, null, null, null, null, null, null ),
-        new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
+        new MockTableDef.MockColumn("a", Types.required(MinorType.INT), null, null, null),
+        new MockTableDef.MockColumn("b", Types.required(MinorType.VARCHAR), null, null, null)
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, batchSize, null, cols);
-    MockSubScanPOP config = new MockSubScanPOP("dummy", true, Collections.singletonList(entry));
+    MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
 
     ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
     List<ManagedReader<SchemaNegotiator>> readers = Collections.singletonList(reader);
@@ -264,14 +281,13 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testOverflow() {
     int rowCount = ValueVector.MAX_ROW_COUNT;
     MockTableDef.MockColumn cols[] = new MockTableDef.MockColumn[] {
-        new MockTableDef.MockColumn("a", MinorType.INT, DataMode.REQUIRED, null, null, null, null, null, null ),
-        new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 1000, null, null, null, null, null )
+        new MockTableDef.MockColumn("a", Types.required(MinorType.INT), null, null, null),
+        new MockTableDef.MockColumn("b", Types.required(MinorType.VARCHAR), null, null, null)
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    MockSubScanPOP config = new MockSubScanPOP("dummy", true, Collections.singletonList(entry));
+    MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
 
     ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
-    @SuppressWarnings("unchecked")
     List<ManagedReader<SchemaNegotiator>> readers = Collections.singletonList(reader);
 
     // Create options and the scan operator

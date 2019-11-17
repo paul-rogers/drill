@@ -48,7 +48,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.mock.MockScanBatchCreator;
-import org.apache.drill.exec.store.mock.MockSubScanPOP;
+import org.apache.drill.exec.store.mock.MockSubScan;
 import org.apache.drill.exec.store.mock.MockTableDef;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -166,11 +166,11 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
     final MockTableDef.MockColumn[] columns = new MockTableDef.MockColumn[colNames.length];
 
     for (int i = 0; i < colNames.length; i++ ) {
-      columns[i] = new MockTableDef.MockColumn(colNames[i], colTypes[i].getMinorType(), colTypes[i].getMode(), 0, 0, 0, null, null, null);
+      columns[i] = new MockTableDef.MockColumn(colNames[i], colTypes[i], null, null, null);
     }
 
     final MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(10, false, 0, 1, columns);
-    final MockSubScanPOP scanPOP = new MockSubScanPOP("testTable", false, java.util.Collections.singletonList(entry));
+    final MockSubScan scanPOP = new MockSubScan(false, java.util.Collections.singletonList(entry));
 
     final CloseableRecordBatch batch = createMockScanBatch(bit1, scanPOP, planFragment);
 
@@ -191,7 +191,7 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
     bit1.close();
   }
 
-  private CloseableRecordBatch createMockScanBatch(Drillbit bit, MockSubScanPOP scanPOP, BitControl.PlanFragment planFragment) {
+  private CloseableRecordBatch createMockScanBatch(Drillbit bit, MockSubScan scanPOP, BitControl.PlanFragment planFragment) {
     final List<RecordBatch> children = Lists.newArrayList();
     final MockScanBatchCreator creator = new MockScanBatchCreator();
 

@@ -41,14 +41,13 @@ import org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory;
 import org.apache.drill.exec.planner.cost.PrelCostEstimates;
 import org.apache.drill.exec.proto.CoordinationProtos;
 import org.apache.drill.exec.store.direct.DirectSubScan;
-import org.apache.drill.exec.store.mock.MockSubScanPOP;
+import org.apache.drill.exec.store.mock.MockSubScan;
 import org.apache.drill.exec.store.pojo.DynamicPojoRecordReader;
-
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectWriter;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class TestOpSerialization {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestOpSerialization.class);
@@ -94,18 +93,17 @@ public class TestOpSerialization {
 
   @Test
   public void testMockSubScan() throws Exception {
-    MockSubScanPOP scan = new MockSubScanPOP("abc", false, null);
+    MockSubScan scan = new MockSubScan(false, null);
     scan.setOperatorId(1);
-    scan = (MockSubScanPOP) reader.readFragmentLeaf(writer.writeValueAsString(setupPhysicalOperator(scan)));
+    scan = (MockSubScan) reader.readFragmentLeaf(writer.writeValueAsString(setupPhysicalOperator(scan)));
     assertOperator(scan);
-    assertEquals("abc", scan.getUrl());
     assertNull(scan.getReadEntries());
     assertFalse(scan.isExtended());
   }
 
   @Test
   public void testSerializedDeserialize() throws Throwable {
-    MockSubScanPOP s = new MockSubScanPOP("abc", false, null);
+    MockSubScan s = new MockSubScan(false, null);
     s.setOperatorId(3);
     Filter f = new Filter(s, new ValueExpressions.BooleanExpression("true", ExpressionPosition.UNKNOWN), 0.1f);
     f.setOperatorId(2);

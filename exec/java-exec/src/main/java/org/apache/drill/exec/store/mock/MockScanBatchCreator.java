@@ -39,10 +39,10 @@ import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
+public class MockScanBatchCreator implements BatchCreator<MockSubScan> {
 
   @Override
-  public CloseableRecordBatch getBatch(ExecutorFragmentContext context, MockSubScanPOP config, List<RecordBatch> children)
+  public CloseableRecordBatch getBatch(ExecutorFragmentContext context, MockSubScan config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
     final List<MockScanEntry> entries = config.getReadEntries();
@@ -57,7 +57,7 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
   }
 
   private CloseableRecordBatch extendedMockScan(FragmentContext context,
-      MockSubScanPOP config, List<MockScanEntry> entries) {
+      MockSubScan config, List<MockScanEntry> entries) {
     List<SchemaPath> projList = new LinkedList<>();
     projList.add(SchemaPath.STAR_COLUMN);
 
@@ -93,7 +93,7 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
   }
 
   private CloseableRecordBatch legacyMockScan(FragmentContext context,
-      MockSubScanPOP config,
+      MockSubScan config,
       List<MockScanEntry> entries) throws ExecutionSetupException {
     final List<RecordReader> readers = new LinkedList<>();
     for (final MockTableDef.MockScanEntry e : entries) {

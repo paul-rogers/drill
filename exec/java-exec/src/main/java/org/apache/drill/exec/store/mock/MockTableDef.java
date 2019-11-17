@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -31,6 +32,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.common.base.Objects;
 
 /**
  * Structure of a mock table definition file. Yes, using Jackson deserialization to parse
@@ -92,18 +94,15 @@ public class MockTableDef {
   @JsonInclude(Include.NON_NULL)
   public static class MockColumn {
 
+    public static final String NULL_RATE_PROPERTY = "nulls";
+
     /**
      * Column type given as a Drill minor type (that is, a type without the
      * extra information such as cardinality, width, etc.
      */
 
-    @JsonProperty("type")
-    public MinorType minorType;
     public String name;
-    public DataMode mode;
-    public Integer width;
-    public Integer precision;
-    public Integer scale;
+    public MajorType type;
 
     /**
      * The scan can request to use a specific data generator class. The name of
@@ -125,66 +124,37 @@ public class MockTableDef {
      */
 
     public Integer repeat;
+    public int nullRate;
     public Map<String,Object> properties;
 
     @JsonCreator
     public MockColumn(@JsonProperty("name") String name,
-                      @JsonProperty("type") MinorType minorType,
-                      @JsonProperty("mode") DataMode mode,
-                      @JsonProperty("width") Integer width,
-                      @JsonProperty("precision") Integer precision,
-                      @JsonProperty("scale") Integer scale,
+                      @JsonProperty("type") MajorType type,
                       @JsonProperty("generator") String generator,
                       @JsonProperty("repeat") Integer repeat,
                       @JsonProperty("properties") Map<String,Object> properties) {
       this.name = name;
-      this.minorType = minorType;
-      this.mode = mode;
-      this.width = width;
-      this.precision = precision;
-      this.scale = scale;
+      this.type = type;
       this.generator = generator;
       this.repeat = repeat;
       this.properties = properties;
     }
 
-    @JsonProperty("type")
-    public MinorType getMinorType() { return minorType; }
     public String getName() { return name; }
-    public DataMode getMode() { return mode; }
-    public Integer getWidth() { return width; }
-    public Integer getPrecision() { return precision; }
-    public Integer getScale() { return scale; }
+    public MajorType getType() { return type; }
     public String getGenerator() { return generator; }
     public Integer getRepeat() { return repeat; }
     @JsonIgnore
     public int getRepeatCount() { return repeat == null ? 1 : repeat; }
-    @JsonIgnore
-    public int getWidthValue() { return width == null ? 0 : width; }
     public Map<String,Object> getProperties() { return properties; }
-
-    @JsonIgnore
-    public MajorType getMajorType() {
-      MajorType.Builder b = MajorType.newBuilder();
-      b.setMode(mode);
-      b.setMinorType(minorType);
-      if (precision != null) {
-        b.setPrecision(precision);
-      }
-      if (width != null) {
-        //b.setWidth(width); // Legacy
-        b.setPrecision(width); // Since DRILL-5419
-      }
-      if (scale != null) {
-        b.setScale(scale);
-      }
-      return b.build();
-    }
 
     @Override
     public String toString() {
-      return "MockColumn [minorType=" + minorType + ", name=" + name + ", mode="
-          + mode + "]";
+      return MoreObjects.toStringHelper(getClass())
+          .add("name", name)
+          .add("type", type)
+          .add("repeate", repeat)
+          .toString();
     }
   }
 

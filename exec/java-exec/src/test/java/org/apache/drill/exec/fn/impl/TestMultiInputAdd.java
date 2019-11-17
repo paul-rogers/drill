@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.drill.categories.OperatorTest;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.pop.PopUnitTestBase;
@@ -32,15 +31,13 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.vector.ValueVector;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(OperatorTest.class)
 public class TestMultiInputAdd extends PopUnitTestBase {
-  private final DrillConfig c = DrillConfig.create();
 
   @Test
   public void testMultiInputAdd() throws Throwable {

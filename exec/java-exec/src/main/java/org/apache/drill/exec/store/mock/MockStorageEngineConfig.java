@@ -20,25 +20,16 @@ package org.apache.drill.exec.store.mock;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(MockStorageEngineConfig.NAME)
 public class MockStorageEngineConfig extends StoragePluginConfigBase {
 
-  private String url;
-
   public static final String NAME = "mock";
-  public static final MockStorageEngineConfig INSTANCE = new MockStorageEngineConfig("mock:///");
+  public static final MockStorageEngineConfig INSTANCE = new MockStorageEngineConfig();
 
   @JsonCreator
-  public MockStorageEngineConfig(@JsonProperty("url") String url) {
-    this.url = url;
-  }
-
-  public String getUrl() {
-    return url;
-  }
+  public MockStorageEngineConfig() { }
 
   @Override
   public boolean equals(Object o) {
@@ -49,17 +40,11 @@ public class MockStorageEngineConfig extends StoragePluginConfigBase {
       return false;
     }
 
-    MockStorageEngineConfig that = (MockStorageEngineConfig) o;
-
-    if (url != null ? !url.equals(that.url) : that.url != null) {
-      return false;
-    }
-
     return true;
   }
 
   @Override
   public int hashCode() {
-    return url != null ? url.hashCode() : 0;
+    return 0;
   }
 }

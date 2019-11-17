@@ -59,5 +59,4 @@ public abstract class StoragePluginConfig {
   public String getValue(String key) {
     return null;
   }
-
 }

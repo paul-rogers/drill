@@ -24,6 +24,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -38,7 +41,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 @JsonSerialize(using = DataType.Se.class)
 @JsonDeserialize(using = DataType.De.class)
 abstract class DataType {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DataType.class);
+  private static final Logger logger = LoggerFactory.getLogger(DataType.class);
 
   public static enum Comparability{
     UNKNOWN, NONE, EQUAL, ORDERED;
@@ -50,8 +53,6 @@ abstract class DataType {
   public abstract DataType getChildType();
   public abstract Comparability getComparability();
   public abstract boolean isNumericType();
-
-
 
   public static final DataType LATEBIND = new LateBindType();
   public static final DataType BOOLEAN = new AtomType("BOOLEAN", Comparability.EQUAL, false);
@@ -116,6 +117,7 @@ abstract class DataType {
     }
   }
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<DataType> {
 
     public De() {
@@ -127,9 +129,9 @@ abstract class DataType {
         JsonProcessingException {
       return getDataType(this._parseString(jp, ctxt));
     }
-
   }
 
+  @SuppressWarnings("serial")
   public static class Se extends StdSerializer<DataType> {
 
     public Se() {
@@ -141,7 +143,5 @@ abstract class DataType {
         JsonGenerationException {
       jgen.writeString(value.getName());
     }
-
   }
-
 }
