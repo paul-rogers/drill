@@ -344,4 +344,6 @@ public interface ColumnMetadata extends Propertied {
    * @return column metadata string representation
    */
   String columnString();
+
+  String planString();
 }

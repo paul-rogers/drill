@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
  * Defines a column for the "enhanced" version of the mock data
@@ -29,24 +28,18 @@ import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
  */
 
 public class ColumnDef {
-  public MockColumn mockCol;
-  public String name;
-  public FieldGen generator;
-  public boolean nullable;
-  public int nullablePercent;
+  protected ColumnMetadata mockCol;
+  protected String name;
+  protected FieldGen generator;
+  protected boolean nullable;
+  protected int nullablePercent;
 
-  public ColumnDef(MockColumn mockCol) {
+  public ColumnDef(ColumnMetadata mockCol) {
     this.mockCol = mockCol;
-    name = mockCol.getName();
-    nullable = mockCol.getType().getMode() == DataMode.OPTIONAL;
+    name = mockCol.name();
+    nullable = mockCol.isNullable();
     if (nullable) {
-      nullablePercent = 25;
-      if (mockCol.properties != null) {
-        Object value = mockCol.properties.get(MockColumn.NULL_RATE_PROPERTY);
-        if (value != null  && value instanceof Integer) {
-          nullablePercent = (Integer) value;
-        }
-      }
+      nullablePercent = mockCol.intProperty(MockTableDef.NULL_RATE_PROP, 25);
     }
     makeGenerator();
   }
@@ -61,7 +54,7 @@ public class ColumnDef {
    */
 
   private void makeGenerator() {
-    String genName = mockCol.getGenerator();
+    String genName = mockCol.property(MockTableDef.GENERATOR_PROP);
     if (genName != null) {
       if (! genName.contains(".")) {
         genName = "org.apache.drill.exec.store.mock." + genName;
@@ -82,14 +75,14 @@ public class ColumnDef {
     makeDefaultGenerator();
   }
 
-  public ColumnDef(MockColumn mockCol, int rep) {
+  public ColumnDef(ColumnMetadata mockCol, int rep) {
     this(mockCol);
     name += Integer.toString(rep);
   }
 
   private void makeDefaultGenerator() {
 
-    MinorType minorType = mockCol.getType().getMinorType();
+    MinorType minorType = mockCol.type();
     switch (minorType) {
     case BIGINT:
       break;
@@ -179,10 +172,10 @@ public class ColumnDef {
     if (generator == null) {
       throw new IllegalArgumentException(
           String.format("No default column generator for column %s of type %s",
-              mockCol.getName(), minorType));
+              mockCol.name(), minorType));
     }
   }
 
-  public MockColumn getConfig() { return mockCol; }
+  public ColumnMetadata getConfig() { return mockCol; }
   public String getName() { return name; }
 }

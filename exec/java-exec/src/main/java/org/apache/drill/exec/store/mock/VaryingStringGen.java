@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import java.util.Map;
 import java.util.Random;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -34,20 +33,9 @@ public class VaryingStringGen extends AbstractFieldGen {
   @Override
   public void setup(ColumnDef colDef, ScalarWriter colLoader) {
     super.setup(colDef, colLoader);
-    length = colDef.getConfig().getType().getPrecision();
-    Map<String,Object> props = colDef.mockCol.properties;
-    span = 1000;
-    deltaPerSpan = 100;
-    if (props != null) {
-      Integer value = (Integer) props.get("span");
-      if (value != null) {
-        span = Math.max(1, value);
-      }
-      value = (Integer) props.get("delta");
-      if (value != null) {
-        deltaPerSpan = value;
-      }
-    }
+    length = colDef.getConfig().precision();
+    span = colDef.mockCol.intProperty(MockTableDef.SPAN_PROP, 1000);
+    deltaPerSpan = colDef.mockCol.intProperty(MockTableDef.DELTA_PROP, 100);
   }
 
   public String value() {

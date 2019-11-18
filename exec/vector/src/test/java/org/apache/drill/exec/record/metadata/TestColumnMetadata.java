@@ -145,7 +145,7 @@ public class TestColumnMetadata {
     // Precision differs
 
     ColumnMetadata col5 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
-        .precision(12)
+        .precision(11)
         .scale(4)
         .build();
    assertNotEquals(col3, col5);
@@ -217,6 +217,36 @@ public class TestColumnMetadata {
 
       ColumnMetadata deser = mapper.readerFor(PrimitiveColumnMetadata.class).readValue(ser);
       assertEquals(col, deser);
+    }
+  }
+
+  @Test
+  public void testToStrings() {
+    {
+      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.INT, DataMode.REQUIRED).build();
+      assertEquals("(`foo` INT NOT NULL)", col.planString());
+    }
+    {
+      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.OPTIONAL).build();
+      assertEquals("(`foo` VARDECIMAL(38,0))", col.planString());
+    }
+    {
+      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REPEATED)
+          .precision(10)
+          .scale(4)
+          .build();
+      assertEquals("(`foo` ARRAY<VARDECIMAL(10,4)>)", col.planString());
+    }
+    {
+      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARCHAR, DataMode.OPTIONAL)
+          .precision(10)
+          .build();
+      assertEquals("(`foo` VARCHAR(10))", col.planString());
+    }
+    {
+      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.INT, DataMode.REQUIRED).build();
+      col.setProperty(ColumnMetadata.FORMAT_PROP, "bar");
+      assertEquals("(`foo` INT NOT NULL, properties={drill.format=bar})", col.planString());
     }
   }
 }

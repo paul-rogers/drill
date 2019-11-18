@@ -33,7 +33,10 @@ public class StringGen extends AbstractFieldGen {
   @Override
   public void setup(ColumnDef colDef, ScalarWriter colLoader) {
     super.setup(colDef, colLoader);
-    length = colDef.getConfig().getType().getPrecision();
+    length = colDef.getConfig().precision();
+    if (length == 0) {
+      length = 10;
+    }
   }
 
   private String value() {

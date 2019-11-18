@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.record.metadata;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,10 +26,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.joda.time.format.DateTimeFormatter;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -45,7 +42,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * since maps (and the row itself) will, by definition, differ between
  * the two views.
  */
-public abstract class AbstractColumnMetadata extends AbstractPropertied implements ColumnMetadata {
+public abstract class AbstractColumnMetadata extends AbstractPropertied
+      implements ColumnMetadata {
 
   // Capture the key schema information. We cannot use the MaterializedField
   // or MajorType because they encode child information that we encode here
@@ -264,12 +262,6 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
         .toString();
   }
 
-  @JsonProperty("type")
-  @Override
-  public String typeString() {
-    return majorType().toString();
-  }
-
   @Override
   public String columnString() {
     StringBuilder builder = new StringBuilder();
@@ -315,6 +307,53 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
    */
   private String escapeSpecialSymbols(String value) {
     return value.replaceAll("(\\\\)|(`)", "\\\\$0");
+  }
+
+  public String typeDef() {
+    StringBuilder buf = new StringBuilder();
+    if (mode() == DataMode.REPEATED) {
+      buf.append("ARRAY<");
+    }
+    buf.append(type.name());
+    if (precision() != UNDEFINED) {
+      buf.append("(").append(precision());
+      if (scale() != UNDEFINED) {
+        buf.append(",").append(scale());
+      }
+      buf.append(")");
+    }
+    switch (mode()) {
+    case REQUIRED:
+      buf.append(" NOT NULL");
+      break;
+    case REPEATED:
+      buf.append(">");
+    default:
+      break;
+    }
+    return buf.toString();
+  }
+
+  @Override
+  public String planString() {
+    StringBuilder buf = new StringBuilder()
+        .append("(`")
+        .append(name())
+        .append("` ")
+        .append(typeDef());
+    if (variantSchema() != null) {
+      buf.append(", variant=")
+         .append(variantSchema().toString());
+    }
+    if (mapSchema() != null) {
+      buf.append(", schema=")
+         .append(mapSchema().toString());
+    }
+    if (hasProperties()) {
+      buf.append(", properties=")
+        .append(properties());
+    }
+    return buf.append(")").toString();
   }
 
   @Override

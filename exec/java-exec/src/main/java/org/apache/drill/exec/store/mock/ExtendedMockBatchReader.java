@@ -29,9 +29,9 @@ import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 /**
@@ -65,14 +65,14 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     // opportunity to review the column definitions.
 
     final Set<String> names = new HashSet<>();
-    final MockColumn cols[] = config.getTypes();
+    final ColumnMetadata cols[] = config.getTypes();
     for (int i = 0; i < cols.length; i++) {
-      final MockTableDef.MockColumn col = cols[i];
-      if (names.contains(col.name)) {
-        throw new IllegalArgumentException("Duplicate column name: " + col.name);
+      final ColumnMetadata col = cols[i];
+      if (names.contains(col.name())) {
+        throw new IllegalArgumentException("Duplicate column name: " + col.name());
       }
-      names.add(col.name);
-      final int repeat = Math.max(1, col.getRepeatCount());
+      names.add(col.name());
+      final int repeat = Math.max(1, col.intProperty(MockTableDef.REPEAT_PROP, 1));
       if (repeat == 1) {
         defs.add(new ColumnDef(col));
       } else {
@@ -92,7 +92,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     for (int i = 0; i < fields.length; i++) {
       final ColumnDef col = fields[i];
       final MaterializedField field = MaterializedField.create(col.getName(),
-                                          col.getConfig().getType());
+                                          col.getConfig().majorType());
       schema.add(field);
     }
     schemaNegotiator.setTableSchema(schema, true);

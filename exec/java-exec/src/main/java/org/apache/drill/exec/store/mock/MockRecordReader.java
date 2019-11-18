@@ -28,8 +28,8 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.AbstractRecordReader;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
@@ -46,14 +46,14 @@ public class MockRecordReader extends AbstractRecordReader {
     this.config = config;
   }
 
-  private int getEstimatedRecordSize(MockColumn[] types) {
+  private int getEstimatedRecordSize(ColumnMetadata[] types) {
     if (types == null) {
       return 0;
     }
 
     int x = 0;
     for (int i = 0; i < types.length; i++) {
-      x += TypeHelper.getSize(types[i].getType());
+      x += TypeHelper.getSize(types[i].majorType());
     }
     return x;
   }
@@ -75,8 +75,8 @@ public class MockRecordReader extends AbstractRecordReader {
       batchRecordCount = 250000 / estimateRowSize;
 
       for (int i = 0; i < config.getTypes().length; i++) {
-        final MajorType type = config.getTypes()[i].getType();
-        final MaterializedField field = getVector(config.getTypes()[i].getName(), type);
+        final MajorType type = config.getTypes()[i].majorType();
+        final MaterializedField field = getVector(config.getTypes()[i].name(), type);
         final Class<? extends ValueVector> vvClass = TypeHelper.getValueVectorClass(field.getType().getMinorType(), field.getDataMode());
         valueVectors[i] = output.addField(field, vvClass);
       }

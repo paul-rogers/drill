@@ -18,17 +18,14 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -39,7 +36,8 @@ import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -100,19 +98,19 @@ public class MockGroupScan extends AbstractGroupScan {
         // The normal case: we do have columns. Use them
         // to compute the row width.
 
-        for (MockColumn col : entry.getTypes()) {
+        for (ColumnMetadata col : entry.getTypes()) {
           int colWidth = 0;
-          if (col.getType().getPrecision() == 0) {
+          if (col.precision() == ColumnMetadata.UNDEFINED) {
             // Fixed width columns
-            colWidth = TypeHelper.getSize(col.getType());
+            colWidth = TypeHelper.getSize(col.majorType());
           } else {
             // Variable width columns with a specified column
             // width
-            colWidth = col.getType().getPrecision();
+            colWidth = col.precision();
           }
 
           // Columns can repeat
-          colWidth *= col.getRepeatCount();
+          colWidth *= col.intProperty(MockTableDef.REPEAT_PROP, 1);
           groupRowWidth += colWidth;
         }
       }
@@ -185,75 +183,83 @@ public class MockGroupScan extends AbstractGroupScan {
     if (columns.isEmpty()) {
       throw new IllegalArgumentException("No columns for mock scan");
     }
-    List<MockColumn> mockCols = new ArrayList<>();
-    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)(n(\\d*))?");
+    List<ColumnMetadata> mockCols = new ArrayList<>();
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (SchemaPath.DYNAMIC_STAR.equals(col)) {
         return this;
       }
-      Matcher m = p.matcher(col);
-      if (!m.matches()) {
-        throw new IllegalArgumentException(
-            "Badly formatted mock column name: " + col);
-      }
-      @SuppressWarnings("unused")
-      String name = m.group(1);
-      String type = m.group(2);
-      String length = m.group(3);
-      int width = 10;
-      if (!length.isEmpty()) {
-        width = Integer.parseInt(length);
-      }
-      MinorType minorType;
-      switch (type) {
-      case "i":
-        minorType = MinorType.INT;
-        break;
-      case "s":
-        minorType = MinorType.VARCHAR;
-        break;
-      case "d":
-        minorType = MinorType.FLOAT8;
-        break;
-      case "b":
-        minorType = MinorType.BIT;
-        break;
-      default:
-        throw new IllegalArgumentException(
-            "Unsupported field type " + type + " for mock column " + col);
-      }
-      DataMode mode;
-      Map<String, Object> props = null;
-      if (m.group(4) == null) {
-        mode = DataMode.REQUIRED;
-       } else {
-        mode = DataMode.OPTIONAL;
-        String rateStr = m.group(5);
-        if (! Strings.isEmpty(rateStr)) {
-          int nullRate = Math.min(100,
-              Math.max(0, Integer.parseInt(rateStr)));
-          props = new HashMap<>();
-          props.put(MockColumn.NULL_RATE_PROPERTY, nullRate);
-        }
-      }
-      MajorType.Builder b = MajorType.newBuilder();
-      b.setMode(mode);
-      b.setMinorType(minorType);
-      if (width != 0) {
-        b.setPrecision(width);
-      }
-      MockTableDef.MockColumn mockCol = new MockColumn(
-          col, b.build(), null, 1, props);
+      ColumnMetadata mockCol = buildCol(col);
       mockCols.add(mockCol);
     }
     MockScanEntry entry = readEntries.get(0);
-    MockColumn types[] = new MockColumn[mockCols.size()];
+    ColumnMetadata types[] = new ColumnMetadata[mockCols.size()];
     mockCols.toArray(types);
     MockScanEntry newEntry = new MockScanEntry(entry.records, true, 0, 1, types);
     List<MockScanEntry> newEntries = new ArrayList<>();
     newEntries.add(newEntry);
     return new MockGroupScan(newEntries);
+  }
+
+  private static final Pattern pattern = Pattern.compile("(\\w+)_([isdb])(\\d*)(n(\\d*))?");
+
+  private ColumnMetadata buildCol(String col) {
+    Matcher m = pattern.matcher(col);
+    if (!m.matches()) {
+      throw new IllegalArgumentException(
+          "Badly formatted mock column name: " + col);
+    }
+    // Can't use just the name bit because then Drill creates an INT
+    // column of the full name.
+    //String name = m.group(1);
+    String type = m.group(2);
+    String length = m.group(3);
+    int width = 0;
+    if (!length.isEmpty()) {
+      width = Integer.parseInt(length);
+    }
+    MinorType minorType;
+    switch (type) {
+    case "i":
+      minorType = MinorType.INT;
+      break;
+    case "s":
+      minorType = MinorType.VARCHAR;
+      if (width == 0) {
+        width = 10;
+      }
+      break;
+    case "d":
+      minorType = MinorType.FLOAT8;
+      break;
+    case "b":
+      minorType = MinorType.BIT;
+      break;
+    default:
+      throw new IllegalArgumentException(
+          "Unsupported field type " + type + " for mock column " + col);
+    }
+    DataMode mode;
+    int nullRate = -1;
+    if (m.group(4) == null) {
+      mode = DataMode.REQUIRED;
+     } else {
+      mode = DataMode.OPTIONAL;
+      String rateStr = m.group(5);
+      if (! Strings.isEmpty(rateStr)) {
+        nullRate = Math.min(100,
+            Math.max(0, Integer.parseInt(rateStr)));
+       }
+    }
+    PrimitiveColumnMetadata.Builder builder = PrimitiveColumnMetadata.builder(col,  minorType,  mode);
+    if (width != 0) {
+       builder.precision(width);
+    }
+    ColumnMetadata mockCol = builder.build();
+    if (nullRate != -1) {
+      mockCol.setIntProperty(MockTableDef.NULL_RATE_PROP, nullRate);
+    }
+    return mockCol;
   }
 
   @Override

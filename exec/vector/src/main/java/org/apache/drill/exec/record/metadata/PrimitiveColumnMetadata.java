@@ -79,17 +79,17 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
       }
     }
 
-    Builder precision(int precision) {
+    public Builder precision(int precision) {
       this.precision = precision;
       return this;
     }
 
-    Builder scale(int scale) {
+    public Builder scale(int scale) {
       this.scale = scale;
       return this;
     }
 
-    ColumnMetadata build() {
+    public ColumnMetadata build() {
       return new PrimitiveColumnMetadata(name, type, mode, precision, scale);
     }
   }
