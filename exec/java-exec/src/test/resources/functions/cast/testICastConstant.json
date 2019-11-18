@@ -10,10 +10,9 @@
         {
             @id:1,
             pop:"mock-sub-scan",
-            url: "http://apache.org",
             entries:[
                 {records: 1, types: [
-                  {name: "intColumn", type: "INT", mode: "REQUIRED"}
+                  {name: "intColumn", type: { type: "INT", mode: "REQUIRED"}}
                ]}
             ]
         },

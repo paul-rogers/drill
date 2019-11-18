@@ -10,11 +10,10 @@
         {
             @id:1,
             pop:"mock-sub-scan",
-            url: "http://apache.org",
             entries:[
         {records: 1, types: [
-          {name: "varcharcol", type: "VARCHAR", mode: "REQUIRED"},
-          {name: "nullvarcharcol", type: "VARCHAR", mode: "OPTIONAL"}
+          {name: "varcharcol", type: { type: "VARCHAR", mode: "REQUIRED"}},
+          {name: "nullvarcharcol", type: { type: "VARCHAR", mode: "OPTIONAL"}}
         ]}
             ]
         },

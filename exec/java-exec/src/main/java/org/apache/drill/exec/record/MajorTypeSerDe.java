@@ -39,6 +39,38 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 public class MajorTypeSerDe {
 
+  /**
+   * Converts a major type to a logical-plan compatible format that
+   * can appear in an EXPLAIN PLAN output. Call this from any group
+   * or sub scan that contains a major type object.
+   * <p>
+   * Note: this version does not handle subtypes: we assume the
+   * type is a simple scalar type.
+   *
+   * @param type the major type to serialize
+   * @return a logical-play compatible string representation
+   */
+  public static String toString(MajorType type) {
+    if (type == null) {
+      return "null";
+    }
+    StringBuilder buf = new StringBuilder()
+        .append(type.getClass().getSimpleName())
+        .append(" [type=")
+        .append(type.getMinorType().name())
+        .append(", mode=")
+        .append(type.getMode().name());
+    if (type.hasPrecision()) {
+      buf.append(", precision=")
+         .append(type.getPrecision());
+    }
+    if (type.hasScale()) {
+      buf.append(", scale=")
+         .append(type.getScale());
+    }
+    return buf.append("]").toString();
+  }
+
   @SuppressWarnings("serial")
   public static class De extends StdDeserializer<MajorType> {
 
@@ -77,7 +109,11 @@ public class MajorTypeSerDe {
     public Integer scale;
 
     @JsonCreator
-    public MajorTypeHolder(@JsonProperty("type") MinorType minorType, @JsonProperty("mode") DataMode mode, @JsonProperty("width") Integer width, @JsonProperty("precision") Integer precision, @JsonProperty("scale") Integer scale) {
+    public MajorTypeHolder(@JsonProperty("type") MinorType minorType,
+                           @JsonProperty("mode") DataMode mode,
+                           @JsonProperty("width") Integer width,
+                           @JsonProperty("precision") Integer precision,
+                           @JsonProperty("scale") Integer scale) {
       super();
       this.minorType = minorType;
       this.mode = mode;

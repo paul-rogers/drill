@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.drill.common.types.BooleanType;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -25,6 +28,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.joda.time.Instant;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
@@ -32,6 +36,11 @@ import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Primitive (non-map) column. Describes non-nullable, nullable and array types
@@ -50,18 +59,88 @@ import org.joda.time.format.ISODateTimeFormat;
 
 public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
+  private static final Logger logger = LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
+
+  public static class Builder {
+
+    private final String name;
+    private final MinorType type;
+    private final DataMode mode;
+    private int precision = UNDEFINED;
+    private int scale = UNDEFINED;
+
+    public Builder(String name, MinorType type, DataMode mode) {
+      this.name = name;
+      this.type = type;
+      this.mode = mode;
+      if (type == MinorType.VARDECIMAL) {
+        precision = ColumnMetadata.MAX_DECIMAL_PRECISION;
+        scale = 0;
+      }
+    }
+
+    Builder precision(int precision) {
+      this.precision = precision;
+      return this;
+    }
+
+    Builder scale(int scale) {
+      this.scale = scale;
+      return this;
+    }
+
+    ColumnMetadata build() {
+      return new PrimitiveColumnMetadata(name, type, mode, precision, scale);
+    }
+  }
+
+  protected final int precision;
+  protected final int scale;
+
+  @JsonCreator
+  public static PrimitiveColumnMetadata createColumnMetadata(@JsonProperty("name") String name,
+                                                            @JsonProperty("type") String type,
+                                                            @JsonProperty("mode") DataMode mode,
+                                                            @JsonProperty("format") String format,
+                                                            @JsonProperty("default") String defaultValue,
+                                                            @JsonProperty("properties") Map<String, String> properties) throws IOException {
+    PrimitiveColumnMetadata columnMetadata = (PrimitiveColumnMetadata)
+        SchemaExprParser.parseColumn(name, type, mode);
+    columnMetadata.setProperties(properties);
+    if (format != null) {
+      columnMetadata.setProperty(FORMAT_PROP, format);
+    }
+    if (defaultValue != null) {
+      columnMetadata.setProperty(DEFAULT_VALUE_PROP, defaultValue);
+    }
+    return columnMetadata;
+  }
 
   public PrimitiveColumnMetadata(MaterializedField schema) {
-    super(schema);
+    this(schema.getName(), schema.getType());
   }
 
   public PrimitiveColumnMetadata(String name, MajorType type) {
     super(name, type);
+    precision = type.hasPrecision() ? type.getPrecision() : UNDEFINED;
+    scale = type.hasScale() ? type.getScale() : UNDEFINED;
   }
 
   public PrimitiveColumnMetadata(String name, MinorType type, DataMode mode) {
     super(name, type, mode);
+    precision = UNDEFINED;
+    scale = UNDEFINED;
+  }
+
+  public PrimitiveColumnMetadata(String name, MinorType type, DataMode mode,
+      int precision, int scale) {
+    super(name, type, mode);
+    this.precision = precision;
+    this.scale = scale;
+  }
+
+  public static Builder builder(String name, MinorType type, DataMode mode) {
+    return new Builder(name, type, mode);
   }
 
   private int estimateWidth(MajorType majorType) {
@@ -88,6 +167,8 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
   public PrimitiveColumnMetadata(PrimitiveColumnMetadata from) {
     super(from);
+    this.precision = from.precision;
+    this.scale = from.scale;
   }
 
   @Override
@@ -301,5 +382,46 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
       default:
        return value.toString();
     }
+  }
+
+  @Override
+  @JsonProperty("format")
+  public String format() {
+    return property(FORMAT_PROP);
+  }
+
+  @Override
+  @JsonProperty("default")
+  public String defaultValue() {
+    return property(DEFAULT_VALUE_PROP);
+  }
+
+  /**
+   * Specialized version of properties that exclude the format and
+   * default value; this is the serialized form of the properties.
+   * @return
+   */
+  @JsonProperty("properties")
+  public Map<String, String> getProperties() {
+    if (! hasProperties()) {
+      return null;
+    }
+    Map<String, String> props = new HashMap<>();
+    props.putAll(properties());
+    props.remove(FORMAT_PROP);
+    props.remove(DEFAULT_VALUE_PROP);
+    return props.isEmpty() ? null : props;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!super.equals(o)) {
+      return false;
+    }
+    if (!(o instanceof PrimitiveColumnMetadata)) {
+      return false;
+    }
+    PrimitiveColumnMetadata other = (PrimitiveColumnMetadata) o;
+    return precision == other.precision && scale == other.scale;
   }
 }

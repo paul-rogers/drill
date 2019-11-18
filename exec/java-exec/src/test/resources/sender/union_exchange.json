@@ -10,15 +10,14 @@
         {
             @id:1,
             pop:"mock-scan",
-            url: "http://apache.org",
             entries:[
               {records: 100, types: [
-                {name: "blue", type: "INT", mode: "REQUIRED"},
-                {name: "red", type: "BIGINT", mode: "REQUIRED"}
+                {name: "blue", type: { type: "INT", mode: "REQUIRED"}},
+                {name: "red", type: { type: "BIGINT", mode: "REQUIRED"}}
               ]},
               {records: 200, types: [
-                {name: "blue", type: "INT", mode: "REQUIRED"},
-                {name: "red", type: "BIGINT", mode: "REQUIRED"}
+                {name: "blue", type: { type: "INT", mode: "REQUIRED"}},
+                {name: "red", type: { type: "BIGINT", mode: "REQUIRED"}}
               ]}
             ]
         },

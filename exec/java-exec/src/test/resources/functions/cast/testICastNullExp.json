@@ -10,10 +10,9 @@
         {
             @id:1,
             pop:"mock-sub-scan",
-            url: "http://apache.org",
             entries:[
                 {records: 1, types: [
-                  {name: "float8Column", type: "FLOAT8", mode: "OPTIONAL"}
+                  {name: "float8Column", type: { type: "FLOAT8", mode: "OPTIONAL"}}
                ]}
             ]
         },

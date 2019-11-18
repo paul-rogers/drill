@@ -20,11 +20,10 @@ package org.apache.drill.exec.store.mock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
+import org.apache.drill.exec.record.MajorTypeSerDe;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -32,7 +31,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.base.Objects;
 
 /**
  * Structure of a mock table definition file. Yes, using Jackson deserialization to parse
@@ -81,7 +79,7 @@ public class MockTableDef {
 
     @Override
     public String toString() {
-      return "MockScanEntry [records=" + records + ", columns="
+      return "MockScanEntry [records=" + getRecords() + ", columns="
           + Arrays.toString(types) + "]";
     }
   }
@@ -150,15 +148,39 @@ public class MockTableDef {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(getClass())
-          .add("name", name)
-          .add("type", type)
-          .add("repeate", repeat)
-          .toString();
+      StringBuilder buf = new StringBuilder()
+          .append(getClass().getSimpleName())
+          .append(" [name=")
+          .append(name)
+          .append(", type=")
+          .append(MajorTypeSerDe.toString(type));
+      if (getRepeatCount() > 1) {
+        buf.append(", repeat=")
+           .append(getRepeatCount());
+      }
+      if (generator != null) {
+        buf.append(", generator=")
+           .append(generator);
+      }
+      if (properties != null && !properties.isEmpty()) {
+        buf.append(", properties={");
+        boolean first = true;
+        for (Entry<String, Object> entry : properties.entrySet()) {
+          if (! first) {
+            buf.append(", ");
+          }
+          first = false;
+          buf.append(entry.getKey())
+             .append("=")
+             .append(entry.getValue().toString());
+        }
+        buf.append("}");
+      }
+      return buf.append("]").toString();
     }
   }
 
-  private String descrip;
+  private final String descrip;
   List<MockTableDef.MockScanEntry> entries;
 
   public MockTableDef(@JsonProperty("descrip") final String descrip,

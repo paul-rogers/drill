@@ -30,11 +30,8 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.joda.time.format.DateTimeFormatter;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Abstract definition of column metadata. Allows applications to create
@@ -48,13 +45,6 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * since maps (and the row itself) will, by definition, differ between
  * the two views.
  */
-@JsonAutoDetect(
-  fieldVisibility = JsonAutoDetect.Visibility.NONE,
-  getterVisibility = JsonAutoDetect.Visibility.NONE,
-  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
-  setterVisibility = JsonAutoDetect.Visibility.NONE)
-@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
 public abstract class AbstractColumnMetadata extends AbstractPropertied implements ColumnMetadata {
 
   // Capture the key schema information. We cannot use the MaterializedField
@@ -64,18 +54,6 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
   protected final String name;
   protected final MinorType type;
   protected final DataMode mode;
-  protected final int precision;
-  protected final int scale;
-
-  @JsonCreator
-  public static AbstractColumnMetadata createColumnMetadata(@JsonProperty("name") String name,
-                                                            @JsonProperty("type") String type,
-                                                            @JsonProperty("mode") DataMode mode,
-                                                            @JsonProperty("properties") Map<String, String> properties) throws IOException {
-    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(name, type, mode);
-    columnMetadata.setProperties(properties);
-    return (AbstractColumnMetadata) columnMetadata;
-  }
 
   public AbstractColumnMetadata(MaterializedField schema) {
     this(schema.getName(), schema.getType());
@@ -85,16 +63,12 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
     this.name = name;
     type = majorType.getMinorType();
     mode = majorType.getMode();
-    precision = majorType.hasPrecision() ? majorType.getPrecision() : -1;
-    scale = majorType.hasScale() ? majorType.getScale() : -1;
   }
 
   public AbstractColumnMetadata(String name, MinorType type, DataMode mode) {
     this.name = name;
     this.type = type;
     this.mode = mode;
-    precision = -1;
-    scale = -1;
   }
 
   public AbstractColumnMetadata(AbstractColumnMetadata from) {
@@ -102,8 +76,6 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
     name = from.name;
     type = from.type;
     mode = from.mode;
-    precision = from.precision;
-    scale = from.scale;
     setProperties(from.properties());
   }
 
@@ -189,7 +161,7 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
    * @return precision for current column
    */
   @Override
-  public int precision() { return -1; }
+  public int precision() { return UNDEFINED; }
 
   /**
    * Returns scale for current column. For the case when scale is not set
@@ -198,7 +170,7 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
    * @return scale for current column
    */
   @Override
-  public int scale() { return -1; }
+  public int scale() { return UNDEFINED; }
 
   @Override
   public void setExpectedElementCount(int childCount) {
@@ -343,5 +315,19 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
    */
   private String escapeSpecialSymbols(String value) {
     return value.replaceAll("(\\\\)|(`)", "\\\\$0");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!super.equals(o)) {
+      return false;
+    }
+    if (!( o instanceof AbstractColumnMetadata)) {
+      return false;
+    }
+    AbstractColumnMetadata other = (AbstractColumnMetadata) o;
+    return name.equalsIgnoreCase(other.name) &&
+           type == other.type &&
+           mode == other.mode;
   }
 }

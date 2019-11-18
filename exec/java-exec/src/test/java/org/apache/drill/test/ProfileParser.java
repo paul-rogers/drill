@@ -37,7 +37,6 @@ import javax.json.JsonReader;
 import javax.json.JsonValue;
 
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
@@ -521,7 +520,8 @@ public class ProfileParser {
     //
     // 00-01      Project(Year=[$0], Month=[$1], Devices=[$2], Tier=[$3], LOB=[$4], Gateway=[$5], Day=[$6], Hour=[$7], Week=[$8], Week_end_date=[$9], Usage_Cnt=[$10]) :
     // rowType = RecordType(VARCHAR(10) Year, VARCHAR(65536) Month, VARCHAR(100) Devices, VARCHAR(100) Tier, VARCHAR(100) LOB, CHAR(10) Gateway, BIGINT Day, BIGINT Hour, INTEGER Week, VARCHAR(100) Week_end_date, BIGINT Usage_Cnt): rowcount = 100.0, cumulative cost = {7.42124275972414E9 rows, 7.663067405383167E10 cpu, 0.0 io, 2.24645048816E10 network, 2.692766612982188E8 memory}, id = 129301
-
+    //
+    // 03-03                        Scan(table=[[mock, employee_2400K]], groupscan=[MockGroupScanPOP [readEntries=[MockScanEntry [records=2400000, columns=[MockColumn{name=empid_s17, type=minor_type: VARCHAR
     public OperatorSummary(String plan) {
       Pattern p = Pattern.compile("^(\\d+)-(\\d+)(\\s+)(\\w+)(?:\\((.*)\\))?\\s*:\\s*(.*)$");
       Matcher m = p.matcher(plan);

@@ -20,12 +20,19 @@ package org.apache.drill.exec.record.metadata;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.drill.shaded.guava.com.google.common.base.Objects;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Base class for an object with properties. Defers property map creation
  * until needed, since most instances may not need properties.
  */
 public class AbstractPropertied implements Propertied {
 
+  @JsonInclude(value=Include.NON_EMPTY, content=Include.NON_NULL)
   private Map<String, String> properties;
 
   protected AbstractPropertied() { }
@@ -46,6 +53,7 @@ public class AbstractPropertied implements Propertied {
   }
 
   @Override
+  @JsonProperty("properties")
   public Map<String, String> properties() {
     if (properties == null) {
       properties = new LinkedHashMap<>();
@@ -115,5 +123,17 @@ public class AbstractPropertied implements Propertied {
   @Override
   public void removeProperty(String key) {
     setProperty(key, null);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o == null || !( o instanceof AbstractPropertied)) {
+      return false;
+    }
+    AbstractPropertied other = (AbstractPropertied) o;
+    if (hasProperties() && other.hasProperties()) {
+      return Objects.equal(properties, other.properties);
+    }
+    return !hasProperties() && !other.hasProperties();
   }
 }

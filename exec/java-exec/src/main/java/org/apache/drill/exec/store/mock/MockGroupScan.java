@@ -263,7 +263,8 @@ public class MockGroupScan extends AbstractGroupScan {
 
   @Override
   public String toString() {
-    return "MockGroupScanPOP [readEntries=" + readEntries + "]";
+    return getClass().getSimpleName() +
+        " [readEntries=" + readEntries + "]";
   }
 
   @Override

@@ -10,12 +10,11 @@
     {
       @id:1,
       pop:"mock-sub-scan",
-      url: "http://source1.apache.org",
       entries:[
         {records: 100, types: [
-          {name: "blue", type: "INT", mode: "REQUIRED"},
-          {name: "red", type: "INT", mode: "REQUIRED"},
-          {name: "green", type: "INT", mode: "REQUIRED"}
+          {name: "blue", type: {type: "INT", mode: "REQUIRED"}},
+          {name: "red", type: {type: "INT", mode: "REQUIRED"}},
+          {name: "green", type: {type: "INT", mode: "REQUIRED"}}
         ]}
       ]
     },
@@ -37,12 +36,11 @@
     {
       @id:4,
       pop:"mock-sub-scan",
-      url: "http://source2.apache.org",
       entries:[
         {records: 2, types: [
-          {name: "blue1", type: "INT", mode: "REQUIRED"},
-          {name: "red1", type: "INT", mode: "REQUIRED"},
-          {name: "green1", type: "INT", mode: "REQUIRED"}
+          {name: "blue1", type: {type: "INT", mode: "REQUIRED"}},
+          {name: "red1", type: {type: "INT", mode: "REQUIRED"}},
+          {name: "green1", type: {type: "INT", mode: "REQUIRED"}}
         ]}
         ]
     },

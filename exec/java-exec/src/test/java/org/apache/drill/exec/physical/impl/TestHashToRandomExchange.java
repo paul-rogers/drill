@@ -28,15 +28,13 @@ import org.apache.drill.exec.pop.PopUnitTestBase;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category(OperatorTest.class)
 public class TestHashToRandomExchange extends PopUnitTestBase {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestHashToRandomExchange.class);
 
   @Test
   public void twoBitTwoExchangeTwoEntryRun() throws Exception {
@@ -62,5 +60,4 @@ public class TestHashToRandomExchange extends PopUnitTestBase {
       assertEquals(200, count);
     }
   }
-
 }

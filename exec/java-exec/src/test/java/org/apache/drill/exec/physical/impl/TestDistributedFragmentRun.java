@@ -29,15 +29,13 @@ import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category({SlowTest.class})
 public class TestDistributedFragmentRun extends PopUnitTestBase{
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestDistributedFragmentRun.class);
 
   @Test
   public void oneBitOneExchangeOneEntryRun() throws Exception{
@@ -55,10 +53,7 @@ public class TestDistributedFragmentRun extends PopUnitTestBase{
       }
       assertEquals(100, count);
     }
-
-
   }
-
 
   @Test
   public void oneBitOneExchangeTwoEntryRun() throws Exception{
@@ -76,29 +71,25 @@ public class TestDistributedFragmentRun extends PopUnitTestBase{
       }
       assertEquals(200, count);
     }
-
-
   }
 
-    @Test
-    public void oneBitOneExchangeTwoEntryRunLogical() throws Exception{
-        RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
+  @Test
+  public void oneBitOneExchangeTwoEntryRunLogical() throws Exception{
+    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
-        try (Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
-             DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
-          bit1.run();
-          client.connect();
-          List<QueryDataBatch> results = client.runQuery(QueryType.LOGICAL, Files.asCharSource(DrillFileUtils.getResourceAsFile("/scan_screen_logical.json"), Charsets.UTF_8).read());
-          int count = 0;
-          for (QueryDataBatch b : results) {
-            count += b.getHeader().getRowCount();
-            b.release();
-          }
-          assertEquals(100, count);
-        }
-
-
+    try (Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
+         DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator())) {
+      bit1.run();
+      client.connect();
+      List<QueryDataBatch> results = client.runQuery(QueryType.LOGICAL, Files.asCharSource(DrillFileUtils.getResourceAsFile("/scan_screen_logical.json"), Charsets.UTF_8).read());
+      int count = 0;
+      for (QueryDataBatch b : results) {
+        count += b.getHeader().getRowCount();
+        b.release();
+      }
+      assertEquals(100, count);
     }
+  }
 
   @Test
     public void twoBitOneExchangeTwoEntryRun() throws Exception{
@@ -118,7 +109,5 @@ public class TestDistributedFragmentRun extends PopUnitTestBase{
       }
       assertEquals(200, count);
     }
-
-
   }
 }
