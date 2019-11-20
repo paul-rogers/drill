@@ -65,8 +65,16 @@ public class MockSubScan extends AbstractBase implements SubScan {
    */
 
   @JsonCreator
-  public MockSubScan(@JsonProperty("extended") Boolean extended,
-                     @JsonProperty("entries") List<MockScanEntry> readEntries) {
+  public MockSubScan(
+      // The URL property appears in many original tests that provide
+      // logical plans in JSON format, but was never used.
+      @Deprecated @JsonProperty("url") String url,
+      @JsonProperty("extended") Boolean extended,
+      @JsonProperty("entries") List<MockScanEntry> readEntries) {
+    this(extended, readEntries);
+  }
+
+  public MockSubScan(Boolean extended, List<MockScanEntry> readEntries) {
     this.readEntries = readEntries;
     this.extended = extended == null ? false : extended;
   }

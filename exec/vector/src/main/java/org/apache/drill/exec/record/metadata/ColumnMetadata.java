@@ -17,12 +17,19 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import java.io.IOException;
+import java.util.Map;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.joda.time.format.DateTimeFormatter;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Metadata description of a column including names, types and structure
@@ -319,4 +326,24 @@ public interface ColumnMetadata extends Propertied {
   String columnString();
 
   String planString();
+
+  @JsonCreator
+  public static ColumnMetadata createColumnMetadata(
+        @JsonProperty("name") String name,
+        @JsonProperty("type") String type,
+        @JsonProperty("mode") DataMode mode,
+        @JsonProperty("format") String format,
+        @JsonProperty("default") String defaultValue,
+        @JsonProperty("properties") Map<String, String> properties)
+        throws IOException {
+    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(name, type, mode);
+    columnMetadata.setProperties(properties);
+    if (format != null) {
+      columnMetadata.setProperty(FORMAT_PROP, format);
+    }
+    if (defaultValue != null) {
+      columnMetadata.setProperty(DEFAULT_VALUE_PROP, defaultValue);
+    }
+    return columnMetadata;
+  }
 }

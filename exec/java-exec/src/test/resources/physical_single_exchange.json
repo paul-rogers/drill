@@ -10,24 +10,25 @@
         {
             "@id": 1,
             "pop": "mock-scan",
+            "url": "http://apache.org",
             "entries": [
                 {
                     "records": 100,
                     "types": [
                         {
                             "name": "blue",
-                            "type": {"type": "INT",
-                            "mode": "REQUIRED"}
+                            "type": "INT",
+                            "mode": "REQUIRED"
                         },
                         {
                             "name": "red",
-                            "type": {"type": "BIGINT",
-                            "mode": "REQUIRED"}
+                            "type": "BIGINT",
+                            "mode": "REQUIRED"
                         },
                         {
                             "name": "green",
-                            "type": {"type": "INT",
-                            "mode": "REQUIRED"}
+                            "type": "INT",
+                            "mode": "REQUIRED"
                         }
                     ]
                 }

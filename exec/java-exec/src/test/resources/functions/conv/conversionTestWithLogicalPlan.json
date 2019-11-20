@@ -22,24 +22,24 @@
       "records" : 10,
       "types" : [ {
         "name" : "tinyint_val",
-        "type" : { "type" : "TINYINT",
-        "mode" : "REQUIRED"}
+        "type" : "TINYINT",
+        "mode" : "REQUIRED"
       }, {
         "name" : "smallint_val",
-        "type" : { "type" : "SMALLINT",
-        "mode" : "REQUIRED"}
+        "type" : "SMALLINT",
+        "mode" : "REQUIRED"
       }, {
         "name" : "int_val",
-        "type" : { "type" : "INT",
-        "mode" : "REQUIRED"}
+        "type" : "INT",
+        "mode" : "REQUIRED"
       }, {
         "name" : "bigint_val",
-        "type" : { "type" : "BIGINT",
-        "mode" : "REQUIRED"}
+        "type" : "BIGINT",
+        "mode" : "REQUIRED"
       }, {
         "name" : "uint8_val",
-        "type" : { "type" : "UINT8",
-        "mode" : "REQUIRED"}
+        "type" : "UINT8",
+        "mode" : "REQUIRED"
       } ]
     } ]
   }, {

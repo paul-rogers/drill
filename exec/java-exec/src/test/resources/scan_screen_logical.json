@@ -22,8 +22,8 @@
       "records" : 100,
       "types" : [ {
         "name" : "superhero_name",
-        "type": {"type" : "VARCHAR",
-        "mode" : "REQUIRED"}
+        "type" : "VARCHAR",
+        "mode" : "REQUIRED"
       } ]
     } ]
   }, {

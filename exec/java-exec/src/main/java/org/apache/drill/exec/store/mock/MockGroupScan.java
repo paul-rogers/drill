@@ -74,9 +74,6 @@ public class MockGroupScan extends AbstractGroupScan {
 
   @JsonCreator
   public MockGroupScan(
-      // The URL property appears in many original tests that provide
-      // logical plans in JSON format, but was never used.
-      @Deprecated @JsonProperty("url") String url,
       @JsonProperty("entries") List<MockScanEntry> readEntries) {
     super((String) null);
     this.readEntries = readEntries;
@@ -127,10 +124,6 @@ public class MockGroupScan extends AbstractGroupScan {
                                rowCount,
                                DrillCostBase.BASE_CPU_COST * dataSize,
                                DrillCostBase.BYTE_DISK_READ_COST * dataSize);
-  }
-
-  public MockGroupScan(List<MockScanEntry> readEntries) {
-    this(null, readEntries);
   }
 
   @Override

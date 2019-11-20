@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.record.metadata;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,11 +26,9 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.joda.time.format.DateTimeFormatter;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -49,12 +46,12 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * the two views.
  */
 @JsonAutoDetect(
-    fieldVisibility = JsonAutoDetect.Visibility.NONE,
-    getterVisibility = JsonAutoDetect.Visibility.NONE,
-    isGetterVisibility = JsonAutoDetect.Visibility.NONE,
-    setterVisibility = JsonAutoDetect.Visibility.NONE)
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-  @JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
+  fieldVisibility = JsonAutoDetect.Visibility.NONE,
+  getterVisibility = JsonAutoDetect.Visibility.NONE,
+  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+  setterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
 public abstract class AbstractColumnMetadata extends AbstractPropertied
       implements ColumnMetadata {
 
@@ -65,26 +62,6 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
   protected final String name;
   protected final MinorType type;
   protected final DataMode mode;
-
-  @JsonCreator
-  public static AbstractColumnMetadata createColumnMetadata(
-        @JsonProperty("name") String name,
-        @JsonProperty("type") String type,
-        @JsonProperty("mode") DataMode mode,
-        @JsonProperty("format") String format,
-        @JsonProperty("default") String defaultValue,
-        @JsonProperty("properties") Map<String, String> properties)
-        throws IOException {
-    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(name, type, mode);
-    columnMetadata.setProperties(properties);
-    if (format != null) {
-      columnMetadata.setProperty(FORMAT_PROP, format);
-    }
-    if (defaultValue != null) {
-      columnMetadata.setProperty(DEFAULT_VALUE_PROP, defaultValue);
-    }
-    return (AbstractColumnMetadata) columnMetadata;
-  }
 
   public AbstractColumnMetadata(MaterializedField schema) {
     this(schema.getName(), schema.getType());

@@ -39,7 +39,7 @@ public class FieldBuilder {
       .setMinorType(type)
       .setMode(DataMode.REQUIRED);
   }
-  
+
   public FieldBuilder setMode(DataMode mode) {
     typeBuilder.setMode(mode);
     return this;
