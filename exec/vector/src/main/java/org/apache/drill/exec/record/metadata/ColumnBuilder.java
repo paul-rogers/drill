@@ -20,58 +20,59 @@ package org.apache.drill.exec.record.metadata;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.MaterializedField;
 
-/**
- * Build a column schema (AKA "materialized field") based on name and a
- * variety of schema options. Every column needs a name and (minor) type,
- * some may need a mode other than required, may need a width, may
- * need scale and precision, and so on.
- */
 public class ColumnBuilder {
 
   private final String name;
-  private final MajorType.Builder typeBuilder;
+  private final MinorType type;
+  private final DataMode mode;
+  private int precision = PrimitiveColumnMetadata.UNDEFINED;
+  private int scale = PrimitiveColumnMetadata.UNDEFINED;
 
-  public ColumnBuilder(String name, MinorType type) {
+  public ColumnBuilder(String name, MinorType type, DataMode mode) {
     this.name = name;
-    this.typeBuilder = MajorType.newBuilder()
-      .setMinorType(type)
-      .setMode(DataMode.REQUIRED);
-  }
-
-  public ColumnBuilder setMode(DataMode mode) {
-    typeBuilder.setMode(mode);
-    return this;
-  }
-
-  public ColumnBuilder setWidth(int width) {
-    return setPrecision(width);
-  }
-
-  public ColumnBuilder setPrecision(int precision) {
-
-    // Set the precision only if non-zero. Some (naive) code in Drill
-    // checks if precision is set as a way to determine if the precision
-    // is non-zero. The correct pattern is to check if the precision is
-    // non-zero. This unnecessary check exists simply to avoid breaking
-    // that incorrect code.
-
-    if (precision != 0) {
-      typeBuilder.setPrecision(precision);
+    this.type = type;
+    this.mode = mode;
+    if (type == MinorType.VARDECIMAL) {
+      precision = ColumnMetadata.MAX_DECIMAL_PRECISION;
+      scale = 0;
     }
+  }
+
+  public ColumnBuilder precision(int precision) {
+    this.precision = precision;
     return this;
   }
 
-  public ColumnBuilder setPrecisionAndScale(int precision, int scale) {
-    if (precision != 0) {
-      typeBuilder.setPrecision(precision);
-      typeBuilder.setScale(scale);
+  public ColumnBuilder scale(int scale) {
+    this.scale = scale;
+    return this;
+  }
+
+  public ColumnMetadata build() {
+    return new PrimitiveColumnMetadata(name, type, mode, precision, scale);
+  }
+
+  public static ColumnMetadata required(String name, MinorType type) {
+   return builder(name, type, DataMode.REQUIRED).build();
+  }
+
+  public static ColumnMetadata nullable(String name, MinorType type) {
+   return builder(name, type, DataMode.OPTIONAL).build();
+  }
+
+  public static ColumnBuilder builder(String name, MinorType type, DataMode mode) {
+    return new ColumnBuilder(name, type, mode);
+  }
+
+  public static ColumnMetadata build(String name, MajorType type) {
+    ColumnBuilder builder = builder(name, type.getMinorType(), type.getMode());
+    if (type.hasPrecision() && type.getPrecision() > 0) {
+      builder.precision(type.getPrecision());
+      if (type.hasScale()) {
+        builder.scale(type.getScale());
+      }
     }
-    return this;
-  }
-
-  public MaterializedField build() {
-    return MaterializedField.create(name, typeBuilder.build());
+    return builder.build();
   }
 }

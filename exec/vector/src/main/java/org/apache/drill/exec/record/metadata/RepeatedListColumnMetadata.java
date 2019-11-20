@@ -20,7 +20,6 @@ package org.apache.drill.exec.record.metadata;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class RepeatedListColumnMetadata extends AbstractColumnMetadata {
@@ -101,8 +100,8 @@ public class RepeatedListColumnMetadata extends AbstractColumnMetadata {
   }
 
   @Override
-  public String typeString() {
-    return "ARRAY<" + childSchema.typeString() + ">";
+  public String fullTypeString() {
+    return "ARRAY<" + childSchema.fullTypeString() + ">";
   }
 
 }

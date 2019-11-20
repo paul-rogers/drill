@@ -264,10 +264,50 @@ public class Types {
     case DECIMAL38SPARSE:
     case DECIMAL38DENSE:
     case VARDECIMAL:
-      // Disabled for now. See DRILL-6378
       if (type.getPrecision() > 0) {
         typeName += String.format("(%d, %d)",
             type.getPrecision(), type.getScale());
+      }
+      break;
+    default:
+    }
+    return typeName;
+  }
+
+  /**
+   * Return the type name using the SQL type even for arrays. Fill in
+   * width for char fields.
+   *
+   * @param type type description
+   * @return formatted type: <tt>DECIMAL(4,2)</tt>, <tt>VARCHAR(3)</tt>,
+   * <tt>INTEGER</tt>, etc.
+   */
+
+  public static String getTraditionalSqlTypeName(MajorType type) {
+    String typeName = getBaseSqlTypeName(type);
+    switch (type.getMinorType()) {
+    case INT:
+      typeName = "INT"; // Rather than INTEGER
+      break;
+    case DECIMAL9:
+    case DECIMAL18:
+    case DECIMAL28SPARSE:
+    case DECIMAL28DENSE:
+    case DECIMAL38SPARSE:
+    case DECIMAL38DENSE:
+    case VARDECIMAL:
+      if (type.getPrecision() > 0) {
+        typeName += String.format("(%d, %d)",
+            type.getPrecision(), type.getScale());
+      }
+      break;
+    case VARCHAR:
+    case VAR16CHAR:
+    case VARBINARY:
+      typeName = type.getMinorType().name(); // RATHER THAN CHARACTER VARYING
+      if (type.getPrecision() > 0) {
+        typeName += String.format("(%d)",
+            type.getPrecision());
       }
     default:
     }

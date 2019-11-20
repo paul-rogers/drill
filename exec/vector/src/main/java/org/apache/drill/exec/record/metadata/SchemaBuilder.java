@@ -77,7 +77,7 @@ public class SchemaBuilder implements SchemaContainer {
 
   /**
    * Create a column schema using the "basic three" properties of name, type and
-   * cardinality (AKA "data mode.") Use the {@link ColumnBuilder} for to set
+   * cardinality (AKA "data mode.") Use the {@link FieldBuilder} for to set
    * other schema attributes. Name is relative to the enclosing map or tuple;
    * it is not the fully qualified path name.
    */

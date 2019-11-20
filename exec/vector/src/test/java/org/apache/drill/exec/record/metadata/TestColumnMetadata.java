@@ -32,6 +32,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class TestColumnMetadata {
@@ -39,14 +40,14 @@ public class TestColumnMetadata {
   @Test
   public void testConstructors() throws IOException {
     {
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "INT", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "INT", DataMode.REQUIRED, null, null, null);
       assertEquals("foo", col.name());
       assertEquals(MinorType.INT, col.type());
       assertEquals(DataMode.REQUIRED, col.mode());
       assertEquals(ColumnMetadata.UNDEFINED, col.precision());
       assertEquals(ColumnMetadata.UNDEFINED, col.scale());
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals("foo", col2.name());
       assertEquals(MinorType.INT, col2.type());
       assertEquals(DataMode.REQUIRED, col2.mode());
@@ -56,14 +57,14 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, null, null, null);
       assertEquals("foo", col.name());
       assertEquals(MinorType.VARDECIMAL, col.type());
       assertEquals(DataMode.REQUIRED, col.mode());
       assertEquals(ColumnMetadata.MAX_DECIMAL_PRECISION, col.precision());
       assertEquals(0, col.scale());
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals("foo", col2.name());
       assertEquals(MinorType.VARDECIMAL, col2.type());
       assertEquals(DataMode.REQUIRED, col2.mode());
@@ -73,27 +74,27 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, null, null);
       assertEquals(10, col.precision());
       assertEquals(4, col.scale());
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals(col, col2);
     }
     {
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, "##,###", null, null);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, "##,###", null, null);
       assertEquals("##,###", col.format());
       assertEquals("##,###", col.property(ColumnMetadata.FORMAT_PROP));
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals(col, col2);
     }
     {
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, "10", null);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, "10", null);
       assertEquals("10", col.defaultValue());
       assertEquals("10", col.property(ColumnMetadata.DEFAULT_VALUE_PROP));
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals(col, col2);
     }
     {
@@ -101,12 +102,12 @@ public class TestColumnMetadata {
       props.put(ColumnMetadata.FORMAT_PROP, "foo");
       props.put(ColumnMetadata.FORMAT_PROP, "foo");
       props.put("foo", "bar");
-      PrimitiveColumnMetadata col = PrimitiveColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, "##,###", "10", props);
+      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, "##,###", "10", props);
       assertEquals("##,###", col.format());
       assertEquals("10", col.defaultValue());
       assertEquals("bar", col.property("foo"));
 
-      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata(col);
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals(col, col2);
     }
     try {
@@ -120,23 +121,23 @@ public class TestColumnMetadata {
   @SuppressWarnings("unlikely-arg-type")
   @Test
   public void testEquals() throws IOException {
-    ColumnMetadata col1 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED).build();
+    ColumnMetadata col1 = ColumnBuilder.required("foo", MinorType.VARDECIMAL);
     assertFalse(col1.equals(null));
     assertFalse(col1.equals("foo"));
 
     // Type differs
 
-    ColumnMetadata col2 = PrimitiveColumnMetadata.builder("foo", MinorType.BIGINT, DataMode.REQUIRED).build();
+    ColumnMetadata col2 = ColumnBuilder.required("foo", MinorType.BIGINT);
     assertNotEquals(col1, col2);
 
     // Mode differs
 
-    ColumnMetadata col3 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.OPTIONAL).build();
+    ColumnMetadata col3 = ColumnBuilder.nullable("foo", MinorType.VARDECIMAL);
     assertNotEquals(col1, col3);
 
     // Precision & scale
 
-    ColumnMetadata col4 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+    ColumnMetadata col4 = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
         .precision(10)
         .scale(4)
         .build();
@@ -144,7 +145,7 @@ public class TestColumnMetadata {
 
     // Precision differs
 
-    ColumnMetadata col5 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+    ColumnMetadata col5 = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
         .precision(11)
         .scale(4)
         .build();
@@ -152,7 +153,7 @@ public class TestColumnMetadata {
 
     // Scale differs
 
-    ColumnMetadata col6 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+    ColumnMetadata col6 = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
         .precision(10)
         .scale(5)
         .build();
@@ -160,7 +161,7 @@ public class TestColumnMetadata {
 
     // Properties differ
 
-    ColumnMetadata col7 = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED).build();
+    ColumnMetadata col7 = ColumnBuilder.required("foo", MinorType.VARDECIMAL);
     col7.setProperty(ColumnMetadata.FORMAT_PROP, "foo");
     assertNotEquals(col1, col7);
   }
@@ -169,41 +170,41 @@ public class TestColumnMetadata {
   public void testSerialization() throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+    ObjectReader reader = mapper.readerFor(AbstractColumnMetadata.class);
 
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED).build();
+      ColumnMetadata col = ColumnBuilder.required("foo", MinorType.VARDECIMAL);
       String ser = mapper.writeValueAsString(col);
-      assertTrue(ser.contains("\"kind\" : \"primitive\""));
 
-      ColumnMetadata deser = mapper.readerFor(PrimitiveColumnMetadata.class).readValue(ser);
+      ColumnMetadata deser = reader.readValue(ser);
       assertEquals(col, deser);
     }
 
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
           .precision(10)
           .scale(4)
           .build();
       String ser = mapper.writeValueAsString(col);
 
-      ColumnMetadata deser = mapper.readerFor(PrimitiveColumnMetadata.class).readValue(ser);
+      ColumnMetadata deser = reader.readValue(ser);
       assertEquals(col, deser);
     }
 
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
           .precision(10)
           .scale(4)
           .build();
       col.setProperty("foo", "bar");
       String ser = mapper.writeValueAsString(col);
 
-      ColumnMetadata deser = mapper.readerFor(PrimitiveColumnMetadata.class).readValue(ser);
+      ColumnMetadata deser = reader.readValue(ser);
       assertEquals(col, deser);
     }
 
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
           .precision(10)
           .scale(4)
           .build();
@@ -215,7 +216,7 @@ public class TestColumnMetadata {
       assertTrue(ser.contains("\"default\" : \"10\""));
       assertTrue(ser.contains("\"properties\" : {\n    \"foo\" : \"bar\"\n  }"));
 
-      ColumnMetadata deser = mapper.readerFor(PrimitiveColumnMetadata.class).readValue(ser);
+      ColumnMetadata deser = reader.readValue(ser);
       assertEquals(col, deser);
     }
   }
@@ -223,30 +224,35 @@ public class TestColumnMetadata {
   @Test
   public void testToStrings() {
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.INT, DataMode.REQUIRED).build();
+      ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
       assertEquals("(`foo` INT NOT NULL)", col.planString());
+      assertEquals("INT", col.sqlTypeString());
     }
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.OPTIONAL).build();
+      ColumnMetadata col = ColumnBuilder.nullable("foo", MinorType.VARDECIMAL);
       assertEquals("(`foo` VARDECIMAL(38,0))", col.planString());
+      assertEquals("DECIMAL(38, 0)", col.sqlTypeString());
     }
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARDECIMAL, DataMode.REPEATED)
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REPEATED)
           .precision(10)
           .scale(4)
           .build();
       assertEquals("(`foo` ARRAY<VARDECIMAL(10,4)>)", col.planString());
+      assertEquals("DECIMAL(10, 4)", col.sqlTypeString());
     }
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.VARCHAR, DataMode.OPTIONAL)
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARCHAR, DataMode.OPTIONAL)
           .precision(10)
           .build();
       assertEquals("(`foo` VARCHAR(10))", col.planString());
+      assertEquals("VARCHAR(10)", col.sqlTypeString());
     }
     {
-      ColumnMetadata col = PrimitiveColumnMetadata.builder("foo", MinorType.INT, DataMode.REQUIRED).build();
+      ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
       col.setProperty(ColumnMetadata.FORMAT_PROP, "bar");
       assertEquals("(`foo` INT NOT NULL, properties={drill.format=bar})", col.planString());
+      assertEquals("INT", col.sqlTypeString());
     }
   }
 }

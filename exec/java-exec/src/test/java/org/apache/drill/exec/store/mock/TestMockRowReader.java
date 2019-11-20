@@ -38,8 +38,8 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -72,8 +72,8 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testBasics() {
     int rowCount = 10;
     ColumnMetadata cols[] = new ColumnMetadata[] {
-        PrimitiveColumnMetadata.builder("a", MinorType.INT, DataMode.REQUIRED).build(),
-        PrimitiveColumnMetadata.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
+        ColumnBuilder.required("a", MinorType.INT),
+        ColumnBuilder.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
@@ -122,8 +122,8 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testOptional() {
     int rowCount = 10;
     ColumnMetadata cols[] = new ColumnMetadata[] {
-        PrimitiveColumnMetadata.builder("a", MinorType.INT, DataMode.OPTIONAL).build(),
-        PrimitiveColumnMetadata.builder("b", MinorType.VARCHAR, DataMode.OPTIONAL).precision(10).build()
+        ColumnBuilder.nullable("a", MinorType.INT),
+        ColumnBuilder.builder("b", MinorType.VARCHAR, DataMode.OPTIONAL).precision(10).build()
     };
     cols[1].setIntProperty(MockTableDef.NULL_RATE_PROP, 50);
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
@@ -169,8 +169,8 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testColumnRepeat() {
     int rowCount = 10;
     ColumnMetadata cols[] = new ColumnMetadata[] {
-        PrimitiveColumnMetadata.builder("a", MinorType.INT, DataMode.REQUIRED).build(),
-        PrimitiveColumnMetadata.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
+        ColumnBuilder.required("a", MinorType.INT),
+        ColumnBuilder.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
     };
     cols[0].setIntProperty(MockTableDef.REPEAT_PROP, 3);
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
@@ -220,8 +220,8 @@ public class TestMockRowReader extends SubOperatorTest {
     int rowCount = 20;
     int batchSize = 10;
     ColumnMetadata cols[] = new ColumnMetadata[] {
-        PrimitiveColumnMetadata.builder("a", MinorType.INT, DataMode.REQUIRED).build(),
-        PrimitiveColumnMetadata.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
+        ColumnBuilder.required("a", MinorType.INT),
+        ColumnBuilder.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, batchSize, null, cols);
     MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));
@@ -264,8 +264,8 @@ public class TestMockRowReader extends SubOperatorTest {
   public void testOverflow() {
     int rowCount = ValueVector.MAX_ROW_COUNT;
     ColumnMetadata cols[] = new ColumnMetadata[] {
-        PrimitiveColumnMetadata.builder("a", MinorType.INT, DataMode.REQUIRED).build(),
-        PrimitiveColumnMetadata.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
+        ColumnBuilder.required("a", MinorType.INT),
+        ColumnBuilder.builder("b", MinorType.VARCHAR, DataMode.REQUIRED).precision(10).build()
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScan config = new MockSubScan(true, Collections.singletonList(entry));

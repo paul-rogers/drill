@@ -155,8 +155,8 @@ public class TypeConverter {
     if (defn.conversionClass == null) {
       throw UserException.validationError()
         .message("Runtime type conversion not available")
-        .addContext("Input type", inputSchema.typeString())
-        .addContext("Output type", outputCol.typeString())
+        .addContext("Input type", inputSchema.sqlTypeString())
+        .addContext("Output type", outputCol.sqlTypeString())
         .addContext(errorContext)
         .build(logger);
     }

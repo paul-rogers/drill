@@ -54,7 +54,7 @@ public class TupleBuilder implements SchemaContainer {
   }
 
   public void add(String name, MinorType type, int width) {
-    MaterializedField field = new ColumnBuilder(name, type)
+    MaterializedField field = new FieldBuilder(name, type)
         .setMode(DataMode.REQUIRED)
         .setWidth(width)
         .build();
@@ -66,7 +66,7 @@ public class TupleBuilder implements SchemaContainer {
   }
 
   public void addNullable(String name, MinorType type, int width) {
-    MaterializedField field = new ColumnBuilder(name, type)
+    MaterializedField field = new FieldBuilder(name, type)
         .setMode(DataMode.OPTIONAL)
         .setWidth(width)
         .build();
@@ -78,7 +78,7 @@ public class TupleBuilder implements SchemaContainer {
   }
 
   public void addDecimal(String name, MinorType type, DataMode mode, int precision, int scale) {
-    MaterializedField field = new ColumnBuilder(name, type)
+    MaterializedField field = new FieldBuilder(name, type)
         .setMode(mode)
         .setPrecisionAndScale(precision, scale)
         .build();

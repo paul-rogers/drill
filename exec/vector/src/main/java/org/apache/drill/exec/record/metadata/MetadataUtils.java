@@ -198,7 +198,7 @@ public class MetadataUtils {
           "%s(%d, %d) scale exceeds precision",
           type.toString(), precision, scale));
     }
-    MaterializedField field = new ColumnBuilder(name, type)
+    MaterializedField field = new FieldBuilder(name, type)
         .setMode(mode)
         .setPrecisionAndScale(precision, scale)
         .build();

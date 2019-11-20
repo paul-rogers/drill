@@ -24,14 +24,6 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.joda.time.format.DateTimeFormatter;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-
 /**
  * Metadata description of a column including names, types and structure
  * information.
@@ -48,23 +40,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  * Properties are serialized with format and default as separate
  * fields, all other properties in the property list.
  */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
-              include = JsonTypeInfo.As.PROPERTY,
-              property = "kind")
-@JsonSubTypes({
-    @Type(value = PrimitiveColumnMetadata.class, name = "primitive"),
-    @Type(value = VariantColumnMetadata.class, name = "variant"),
-    @Type(value = RepeatedListColumnMetadata.class, name = "repeatedList"),
-    @Type(value = MapColumnMetadata.class, name = "map"),
-    @Type(value = DictColumnMetadata.class, name = "dict")
-    })
-@JsonAutoDetect(
-    fieldVisibility = JsonAutoDetect.Visibility.NONE,
-    getterVisibility = JsonAutoDetect.Visibility.NONE,
-    isGetterVisibility = JsonAutoDetect.Visibility.NONE,
-    setterVisibility = JsonAutoDetect.Visibility.NONE)
-@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
 public interface ColumnMetadata extends Propertied {
 
   /**
@@ -199,12 +174,9 @@ public interface ColumnMetadata extends Propertied {
   ColumnMetadata childSchema();
   MaterializedField schema();
   MaterializedField emptySchema();
-  @JsonProperty("name")
   String name();
-  @JsonProperty("type")
   MinorType type();
   MajorType majorType();
-  @JsonProperty("mode")
   DataMode mode();
   int dimensions();
   boolean isNullable();
@@ -335,7 +307,8 @@ public interface ColumnMetadata extends Propertied {
    *
    * @return type metadata string representation
    */
-  String typeString();
+  String sqlTypeString();
+  String fullTypeString();
 
   /**
    * Converts column metadata into string representation

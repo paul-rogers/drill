@@ -40,7 +40,7 @@ import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.BatchSchemaBuilder;
-import org.apache.drill.exec.record.metadata.ColumnBuilder;
+import org.apache.drill.exec.record.metadata.FieldBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
@@ -232,7 +232,7 @@ public class TestFileScanFramework extends SubOperatorTest {
         RowSetLoader rowSet = tableLoader.writer();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         rowSet.addColumn(a);
-        MaterializedField b = new ColumnBuilder("b", MinorType.VARCHAR)
+        MaterializedField b = new FieldBuilder("b", MinorType.VARCHAR)
             .setMode(DataMode.OPTIONAL)
             .setWidth(10)
             .build();

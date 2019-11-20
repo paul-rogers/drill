@@ -36,7 +36,7 @@ public class MockStorageEngineConfig extends StoragePluginConfigBase {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (o == null || !(o instanceof MockStorageEngineConfig)) {
       return false;
     }
 

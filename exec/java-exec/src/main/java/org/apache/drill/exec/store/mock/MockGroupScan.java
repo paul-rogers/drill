@@ -36,8 +36,8 @@ import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -74,6 +74,9 @@ public class MockGroupScan extends AbstractGroupScan {
 
   @JsonCreator
   public MockGroupScan(
+      // The URL property appears in many original tests that provide
+      // logical plans in JSON format, but was never used.
+      @Deprecated @JsonProperty("url") String url,
       @JsonProperty("entries") List<MockScanEntry> readEntries) {
     super((String) null);
     this.readEntries = readEntries;
@@ -124,6 +127,10 @@ public class MockGroupScan extends AbstractGroupScan {
                                rowCount,
                                DrillCostBase.BASE_CPU_COST * dataSize,
                                DrillCostBase.BYTE_DISK_READ_COST * dataSize);
+  }
+
+  public MockGroupScan(List<MockScanEntry> readEntries) {
+    this(null, readEntries);
   }
 
   @Override
@@ -251,7 +258,7 @@ public class MockGroupScan extends AbstractGroupScan {
             Math.max(0, Integer.parseInt(rateStr)));
        }
     }
-    PrimitiveColumnMetadata.Builder builder = PrimitiveColumnMetadata.builder(col,  minorType,  mode);
+    ColumnBuilder builder = ColumnBuilder.builder(col,  minorType,  mode);
     if (width != 0) {
        builder.precision(width);
     }

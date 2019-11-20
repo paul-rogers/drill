@@ -45,6 +45,8 @@ import org.apache.drill.exec.proto.BitControl.QueryContextInformation;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.metadata.ColumnBuilder;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.mock.MockScanBatchCreator;
@@ -163,10 +165,10 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
     // Create a mock scan batch as input for evaluation.
     assertEquals(colNames.length, colTypes.length);
 
-    final MockTableDef.MockColumn[] columns = new MockTableDef.MockColumn[colNames.length];
+    final ColumnMetadata[] columns = new ColumnMetadata[colNames.length];
 
     for (int i = 0; i < colNames.length; i++ ) {
-      columns[i] = new MockTableDef.MockColumn(colNames[i], colTypes[i], null, null, null);
+      columns[i] = ColumnBuilder.build(colNames[i], colTypes[i]);
     }
 
     final MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(10, false, 0, 1, columns);

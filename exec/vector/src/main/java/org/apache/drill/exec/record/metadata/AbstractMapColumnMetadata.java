@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import java.util.stream.Collectors;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
-
-import java.util.stream.Collectors;
 
 /**
  * Describes a base column type for map, dict, repeated map and repeated dict. All are tuples that have a tuple
@@ -116,7 +116,7 @@ public abstract class AbstractMapColumnMetadata extends AbstractColumnMetadata {
   }
 
   @Override
-  public String typeString() {
+  public String fullTypeString() {
     StringBuilder builder = new StringBuilder();
     if (isArray()) {
       builder.append("ARRAY<");

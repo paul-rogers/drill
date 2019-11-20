@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.record.metadata;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +27,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.joda.time.Instant;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
@@ -39,7 +37,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -61,60 +58,8 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
   private static final Logger logger = LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
 
-  public static class Builder {
-
-    private final String name;
-    private final MinorType type;
-    private final DataMode mode;
-    private int precision = UNDEFINED;
-    private int scale = UNDEFINED;
-
-    public Builder(String name, MinorType type, DataMode mode) {
-      this.name = name;
-      this.type = type;
-      this.mode = mode;
-      if (type == MinorType.VARDECIMAL) {
-        precision = ColumnMetadata.MAX_DECIMAL_PRECISION;
-        scale = 0;
-      }
-    }
-
-    public Builder precision(int precision) {
-      this.precision = precision;
-      return this;
-    }
-
-    public Builder scale(int scale) {
-      this.scale = scale;
-      return this;
-    }
-
-    public ColumnMetadata build() {
-      return new PrimitiveColumnMetadata(name, type, mode, precision, scale);
-    }
-  }
-
   protected final int precision;
   protected final int scale;
-
-  @JsonCreator
-  public static PrimitiveColumnMetadata createColumnMetadata(@JsonProperty("name") String name,
-                                                            @JsonProperty("type") String type,
-                                                            @JsonProperty("mode") DataMode mode,
-                                                            @JsonProperty("format") String format,
-                                                            @JsonProperty("default") String defaultValue,
-                                                            @JsonProperty("properties") Map<String, String> properties) throws IOException {
-    PrimitiveColumnMetadata columnMetadata = (PrimitiveColumnMetadata)
-        SchemaExprParser.parseColumn(name, type, mode);
-    columnMetadata.setProperties(properties);
-    if (format != null) {
-      columnMetadata.setProperty(FORMAT_PROP, format);
-    }
-    if (defaultValue != null) {
-      columnMetadata.setProperty(DEFAULT_VALUE_PROP, defaultValue);
-    }
-    return columnMetadata;
-  }
 
   public PrimitiveColumnMetadata(MaterializedField schema) {
     this(schema.getName(), schema.getType());
@@ -137,10 +82,6 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
     super(name, type, mode);
     this.precision = precision;
     this.scale = scale;
-  }
-
-  public static Builder builder(String name, MinorType type, DataMode mode) {
-    return new Builder(name, type, mode);
   }
 
   private int estimateWidth(MajorType majorType) {
@@ -266,51 +207,6 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
 
   @Override
   public MaterializedField emptySchema() { return schema(); }
-
-  @Override
-  public String typeString() {
-    StringBuilder builder = new StringBuilder();
-    if (isArray()) {
-      builder.append("ARRAY<");
-    }
-
-    switch (type) {
-      case VARDECIMAL:
-        builder.append("DECIMAL");
-        break;
-      case FLOAT4:
-        builder.append("FLOAT");
-        break;
-      case FLOAT8:
-        builder.append("DOUBLE");
-        break;
-      case BIT:
-        builder.append("BOOLEAN");
-        break;
-      case INTERVALYEAR:
-        builder.append("INTERVAL YEAR");
-        break;
-      case INTERVALDAY:
-        builder.append("INTERVAL DAY");
-        break;
-      default:
-        // other minor types names correspond to SQL-like equivalents
-        builder.append(type.name());
-    }
-
-    if (precision() >= 0) {
-      builder.append("(").append(precision());
-      if (scale() >= 0) {
-        builder.append(", ").append(scale());
-      }
-      builder.append(")");
-    }
-
-    if (isArray()) {
-      builder.append(">");
-    }
-    return builder.toString();
-  }
 
   /**
    * Converts value in string literal form into Object instance based on {@link MinorType} value.

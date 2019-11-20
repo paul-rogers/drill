@@ -169,7 +169,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // A different precision is a different type.
 
-    MaterializedField field2 = new ColumnBuilder("c", MinorType.VARCHAR)
+    MaterializedField field2 = new FieldBuilder("c", MinorType.VARCHAR)
         .setMode(DataMode.REQUIRED)
         .setPrecision(10)
         .build();
