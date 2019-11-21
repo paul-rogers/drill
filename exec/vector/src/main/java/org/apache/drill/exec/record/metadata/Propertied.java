@@ -52,7 +52,6 @@ public interface Propertied {
   void setIntProperty(String key, int value);
   void removeProperty(String key);
 
-
   /**
    * Drill-wide properties are of the form:<br><tt>
    * drill.<prop name></tt><br>

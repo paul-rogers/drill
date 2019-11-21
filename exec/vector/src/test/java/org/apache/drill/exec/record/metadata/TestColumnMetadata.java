@@ -31,16 +31,12 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 public class TestColumnMetadata {
 
   @Test
   public void testConstructors() throws IOException {
     {
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "INT", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "INT", DataMode.REQUIRED, null, null, null);
       assertEquals("foo", col.name());
       assertEquals(MinorType.INT, col.type());
       assertEquals(DataMode.REQUIRED, col.mode());
@@ -57,7 +53,7 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "DECIMAL", DataMode.REQUIRED, null, null, null);
       assertEquals("foo", col.name());
       assertEquals(MinorType.VARDECIMAL, col.type());
       assertEquals(DataMode.REQUIRED, col.mode());
@@ -74,7 +70,7 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, null, null);
       assertEquals(10, col.precision());
       assertEquals(4, col.scale());
 
@@ -82,7 +78,7 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, "##,###", null, null);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "DECIMAL(10,4)", DataMode.REQUIRED, "##,###", null, null);
       assertEquals("##,###", col.format());
       assertEquals("##,###", col.property(ColumnMetadata.FORMAT_PROP));
 
@@ -90,7 +86,7 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     {
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, "10", null);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "DECIMAL(10,4)", DataMode.REQUIRED, null, "10", null);
       assertEquals("10", col.defaultValue());
       assertEquals("10", col.property(ColumnMetadata.DEFAULT_VALUE_PROP));
 
@@ -102,7 +98,7 @@ public class TestColumnMetadata {
       props.put(ColumnMetadata.FORMAT_PROP, "foo");
       props.put(ColumnMetadata.FORMAT_PROP, "foo");
       props.put("foo", "bar");
-      ColumnMetadata col = AbstractColumnMetadata.createColumnMetadata("foo", "DECIMAL", DataMode.REQUIRED, "##,###", "10", props);
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "DECIMAL", DataMode.REQUIRED, "##,###", "10", props);
       assertEquals("##,###", col.format());
       assertEquals("10", col.defaultValue());
       assertEquals("bar", col.property("foo"));
@@ -111,7 +107,7 @@ public class TestColumnMetadata {
       assertEquals(col, col2);
     }
     try {
-      PrimitiveColumnMetadata.createColumnMetadata("foo", "BOGUS", DataMode.REQUIRED, null, null, null);
+      ColumnMetadata.createInstance("foo", "BOGUS", DataMode.REQUIRED, null, null, null);
       fail();
     } catch (Exception e) {
       // Expected
@@ -168,15 +164,12 @@ public class TestColumnMetadata {
 
   @Test
   public void testSerialization() throws IOException {
-    ObjectMapper mapper = new ObjectMapper();
-    mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-    ObjectReader reader = mapper.readerFor(AbstractColumnMetadata.class);
 
     {
       ColumnMetadata col = ColumnBuilder.required("foo", MinorType.VARDECIMAL);
-      String ser = mapper.writeValueAsString(col);
+      String ser = col.jsonString();
 
-      ColumnMetadata deser = reader.readValue(ser);
+      ColumnMetadata deser = ColumnMetadata.of(ser);
       assertEquals(col, deser);
     }
 
@@ -185,21 +178,9 @@ public class TestColumnMetadata {
           .precision(10)
           .scale(4)
           .build();
-      String ser = mapper.writeValueAsString(col);
+      String ser = col.jsonString();
 
-      ColumnMetadata deser = reader.readValue(ser);
-      assertEquals(col, deser);
-    }
-
-    {
-      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
-          .precision(10)
-          .scale(4)
-          .build();
-      col.setProperty("foo", "bar");
-      String ser = mapper.writeValueAsString(col);
-
-      ColumnMetadata deser = reader.readValue(ser);
+      ColumnMetadata deser = ColumnMetadata.of(ser);
       assertEquals(col, deser);
     }
 
@@ -209,50 +190,125 @@ public class TestColumnMetadata {
           .scale(4)
           .build();
       col.setProperty("foo", "bar");
+      String ser = col.jsonString();
+
+      ColumnMetadata deser = ColumnMetadata.of(ser);
+      assertEquals(col, deser);
+    }
+
+    {
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REQUIRED)
+          .precision(10)
+          .scale(4)
+          .build();
       col.setProperty(ColumnMetadata.FORMAT_PROP, "##,##");
       col.setProperty(ColumnMetadata.DEFAULT_VALUE_PROP, "10");
-      String ser = mapper.writeValueAsString(col);
-      assertTrue(ser.contains("\"format\" : \"##,##\""));
-      assertTrue(ser.contains("\"default\" : \"10\""));
-      assertTrue(ser.contains("\"properties\" : {\n    \"foo\" : \"bar\"\n  }"));
+      String ser = col.jsonString();
+      assertTrue(ser.contains("\"format\":\"##,##\""));
+      assertTrue(ser.contains("\"default\":\"10\""));
+      assertFalse(ser.contains("\"properties\":{"));
 
-      ColumnMetadata deser = reader.readValue(ser);
+      ColumnMetadata deser = ColumnMetadata.of(ser);
+      assertEquals(col, deser);
+
+      col.setProperty("foo", "bar");
+      ser = col.jsonString();
+      assertTrue(ser.contains("\"properties\":{\"foo\":\"bar\"}"));
+      deser = ColumnMetadata.of(ser);
       assertEquals(col, deser);
     }
+
+    // TODO: Test complex types which will deserialize as a type
+    // other than PrimitiveColumnMetadata
   }
 
   @Test
   public void testToStrings() {
     {
       ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
-      assertEquals("(`foo` INT NOT NULL)", col.planString());
-      assertEquals("INT", col.sqlTypeString());
+      // JSON type value
+      assertEquals("INT", col.typeString());
+      assertEquals("`foo` INT NOT NULL", col.columnString());
+    }
+    {
+      ColumnMetadata col = ColumnBuilder.required("foo", MinorType.FLOAT4);
+      assertEquals("FLOAT", col.typeString());
+      assertEquals("`foo` FLOAT NOT NULL", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.nullable("foo", MinorType.VARDECIMAL);
-      assertEquals("(`foo` VARDECIMAL(38,0))", col.planString());
-      assertEquals("DECIMAL(38, 0)", col.sqlTypeString());
+      assertEquals("DECIMAL(38, 0)", col.typeString());
+      assertEquals("`foo` DECIMAL(38, 0)", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARDECIMAL, DataMode.REPEATED)
           .precision(10)
           .scale(4)
           .build();
-      assertEquals("(`foo` ARRAY<VARDECIMAL(10,4)>)", col.planString());
-      assertEquals("DECIMAL(10, 4)", col.sqlTypeString());
+      assertEquals("ARRAY<DECIMAL(10, 4)>", col.typeString());
+      assertEquals("`foo` ARRAY<DECIMAL(10, 4)>", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.VARCHAR, DataMode.OPTIONAL)
           .precision(10)
           .build();
-      assertEquals("(`foo` VARCHAR(10))", col.planString());
-      assertEquals("VARCHAR(10)", col.sqlTypeString());
+      assertEquals("VARCHAR(10)", col.typeString());
+      assertEquals("`foo` VARCHAR(10)", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
       col.setProperty(ColumnMetadata.FORMAT_PROP, "bar");
-      assertEquals("(`foo` INT NOT NULL, properties={drill.format=bar})", col.planString());
-      assertEquals("INT", col.sqlTypeString());
+      assertEquals("`foo` INT NOT NULL FORMAT 'bar'", col.columnString());
     }
+    {
+      ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
+      col.setProperty("foo", "bar");
+      assertEquals("`foo` INT NOT NULL PROPERTIES { 'foo' = 'bar' }", col.columnString());
+    }
+    {
+      TupleMetadata schema = new SchemaBuilder()
+          .addMap("foo")
+            .add("a", MinorType.VARCHAR)
+            .addNullable("b", MinorType.INT)
+            .resumeSchema()
+          .build();
+      ColumnMetadata col = schema.metadata(0);
+      assertEquals("STRUCT<`a` VARCHAR NOT NULL, `b` INT>", col.typeString());
+      assertEquals("`foo` STRUCT<`a` VARCHAR NOT NULL, `b` INT>", col.columnString());
+      assertEquals("Tuple [`foo` STRUCT<`a` VARCHAR NOT NULL, `b` INT>]", schema.toString());
+    }
+  }
+
+  @Test
+  public void testTupleEquals() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("aCol", MinorType.VARCHAR)
+        .addNullable("bCol", MinorType.INT)
+        .build();
+    assertNotEquals(schema, null);
+    assertNotEquals(schema, "foo");
+    assertEquals(schema, schema);
+
+    TupleMetadata schema2 = new SchemaBuilder()
+        .add("aCol", MinorType.VARCHAR)
+        .build();
+    assertNotEquals(schema, schema2);
+
+    TupleMetadata schema3 = new SchemaBuilder()
+        .add("aCol", MinorType.VARCHAR)
+        .addNullable("bCol", MinorType.INT)
+        .build();
+    assertEquals(schema, schema3);
+  }
+
+  @Test
+  public void testTupleSerialization() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("aCol", MinorType.VARCHAR)
+        .addNullable("bCol", MinorType.INT)
+        .build();
+    String ser = schema.jsonString();
+    TupleMetadata deser = TupleMetadata.of(ser);
+    assertEquals(schema, deser);
   }
 }

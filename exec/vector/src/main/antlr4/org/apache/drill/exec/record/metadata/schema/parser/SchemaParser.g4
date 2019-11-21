@@ -49,8 +49,11 @@ column_id
 simple_type
 : (INT | INTEGER) # int
 | BIGINT # bigint
-| FLOAT # float
-| DOUBLE # double
+| (FLOAT | FLOAT4) # float
+| (DOUBLE | FLOAT8) # double
+| SMALLINT # smallint
+| TINYINT # tinyint
+| UINT8 # uint8
 | (DEC | DECIMAL | NUMERIC) (LEFT_PAREN NUMBER (COMMA NUMBER)? RIGHT_PAREN)? # decimal
 | BOOLEAN # boolean
 | (CHAR | VARCHAR | CHARACTER VARYING?) (LEFT_PAREN NUMBER RIGHT_PAREN)? # varchar

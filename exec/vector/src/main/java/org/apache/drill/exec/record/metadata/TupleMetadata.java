@@ -20,13 +20,14 @@ package org.apache.drill.exec.record.metadata;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.drill.exec.record.MaterializedField;
+
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import org.apache.drill.exec.record.MaterializedField;
 
 /**
  * Metadata description of the schema of a row or a map.

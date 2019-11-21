@@ -17,6 +17,11 @@
  */
 package org.apache.drill.exec.record.metadata.schema.parser;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
@@ -28,11 +33,6 @@ import org.apache.drill.exec.record.metadata.RepeatedListBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Visits schema and stores metadata about its columns into {@link TupleMetadata} class.
@@ -169,6 +169,16 @@ public class SchemaVisitor extends SchemaParserBaseVisitor<TupleMetadata> {
     }
 
     @Override
+    public ColumnMetadata visitTinyint(SchemaParser.TinyintContext ctx) {
+      return constructColumn(Types.withMode(TypeProtos.MinorType.TINYINT, mode));
+    }
+
+    @Override
+    public ColumnMetadata visitSmallint(SchemaParser.SmallintContext ctx) {
+      return constructColumn(Types.withMode(TypeProtos.MinorType.SMALLINT, mode));
+    }
+
+    @Override
     public ColumnMetadata visitInt(SchemaParser.IntContext ctx) {
       return constructColumn(Types.withMode(TypeProtos.MinorType.INT, mode));
     }
@@ -176,6 +186,11 @@ public class SchemaVisitor extends SchemaParserBaseVisitor<TupleMetadata> {
     @Override
     public ColumnMetadata visitBigint(SchemaParser.BigintContext ctx) {
       return constructColumn(Types.withMode(TypeProtos.MinorType.BIGINT, mode));
+    }
+
+    @Override
+    public ColumnMetadata visitUint8(SchemaParser.Uint8Context ctx) {
+      return constructColumn(Types.withMode(TypeProtos.MinorType.UINT8, mode));
     }
 
     @Override

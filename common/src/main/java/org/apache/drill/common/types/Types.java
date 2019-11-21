@@ -228,6 +228,7 @@ public class Types {
 
       case MAP:             return "STRUCT"; // Drill map represents struct
       case DICT:            return "MAP";
+      case LIST:            return "LIST";
       case LATE:            return "ANY";
       case NULL:            return "NULL";
       case UNION:           return "UNION";
@@ -235,10 +236,10 @@ public class Types {
 
       // Internal types not actually used at level of SQL types(?):
 
-      case UINT1:          return "TINYINT";
-      case UINT2:          return "SMALLINT";
-      case UINT4:          return "INTEGER";
-      case UINT8:          return "BIGINT";
+      case UINT1:           return "TINYINT";
+      case UINT2:           return "SMALLINT";
+      case UINT4:           return "INTEGER";
+      case UINT8:           return "BIGINT";
 
       default:
         throw new AssertionError(

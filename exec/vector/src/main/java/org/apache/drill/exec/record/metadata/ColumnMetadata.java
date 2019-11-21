@@ -28,8 +28,15 @@ import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.joda.time.format.DateTimeFormatter;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 
 /**
  * Metadata description of a column including names, types and structure
@@ -47,6 +54,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Properties are serialized with format and default as separate
  * fields, all other properties in the property list.
  */
+@JsonAutoDetect(
+  fieldVisibility = JsonAutoDetect.Visibility.NONE,
+  getterVisibility = JsonAutoDetect.Visibility.NONE,
+  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+  setterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
 public interface ColumnMetadata extends Propertied {
 
   /**
@@ -91,6 +105,9 @@ public interface ColumnMetadata extends Propertied {
    * will prevent that column from appearing in a wildcard expansion.
    */
   String EXCLUDE_FROM_WILDCARD = DRILL_PROP_PREFIX + "special";
+
+  ObjectWriter WRITER = new ObjectMapper().writerFor(ColumnMetadata.class);
+  ObjectReader READER = new ObjectMapper().readerFor(ColumnMetadata.class);
 
   /**
    * Rough characterization of Drill types into metadata categories.
@@ -181,9 +198,11 @@ public interface ColumnMetadata extends Propertied {
   ColumnMetadata childSchema();
   MaterializedField schema();
   MaterializedField emptySchema();
+  @JsonProperty("name")
   String name();
   MinorType type();
   MajorType majorType();
+  @JsonProperty("mode")
   DataMode mode();
   int dimensions();
   boolean isNullable();
@@ -201,6 +220,7 @@ public interface ColumnMetadata extends Propertied {
    * @return true if the column is of type LIST of UNIONs
    */
 
+  @JsonIgnore
   boolean isMultiList();
 
   /**
@@ -252,6 +272,7 @@ public interface ColumnMetadata extends Propertied {
 
   void setFormat(String value);
 
+  @JsonProperty("format")
   String format();
 
   /**
@@ -276,6 +297,7 @@ public interface ColumnMetadata extends Propertied {
    * @return the default value in String literal representation, or null if no
    * default value has been set
    */
+  @JsonProperty("default")
   String defaultValue();
 
   /**
@@ -290,6 +312,15 @@ public interface ColumnMetadata extends Propertied {
 
   String valueToString(Object value);
   Object valueFromString(String value);
+
+  /**
+   * Extended properties, without the format and default value;
+   * primarily for serialization.
+   * @return the extended properties, or null if no properties
+   */
+
+  @JsonProperty("properties")
+  Map<String, String> extendedProperties();
 
   /**
    * Create an empty version of this column. If the column is a scalar,
@@ -314,8 +345,8 @@ public interface ColumnMetadata extends Propertied {
    *
    * @return type metadata string representation
    */
-  String sqlTypeString();
-  String fullTypeString();
+  @JsonProperty("type")
+  String typeString();
 
   /**
    * Converts column metadata into string representation
@@ -325,10 +356,21 @@ public interface ColumnMetadata extends Propertied {
    */
   String columnString();
 
+  /**
+   * Converts the column metadata into a format for display in a
+   * logical or physical plan. Repeated elements appear as
+   * <tt>ARRAY&lt;type></tt>
+   */
+
   String planString();
 
+  /**
+   * Converts a generic serialized column description to a specific column
+   * metadata subclass based on the type. Types are encoded in SQL-style
+   * such as <tt>DECIMAL(10,4)</tt>.
+   */
   @JsonCreator
-  public static ColumnMetadata createColumnMetadata(
+  public static ColumnMetadata createInstance(
         @JsonProperty("name") String name,
         @JsonProperty("type") String type,
         @JsonProperty("mode") DataMode mode,
@@ -345,5 +387,33 @@ public interface ColumnMetadata extends Propertied {
       columnMetadata.setProperty(DEFAULT_VALUE_PROP, defaultValue);
     }
     return columnMetadata;
+  }
+
+  /**
+   * Converts current {@link ColumnMetadata} implementation into JSON string representation.
+   *
+   * @return tuple metadata in JSON string representation
+   * @throws IllegalStateException if unable to convert current instance into JSON string
+   */
+  String jsonString();
+
+  /**
+   * Converts given JSON string into {@link ColumnMetadata} instance.
+   * {@link ColumnMetadata} implementation is determined by the data type.
+   *
+   * @param jsonString tuple metadata in JSON string representation
+   * @return {@link ColumnMetadata} instance, null if given JSON string is null or empty
+   * @throws IllegalArgumentException if unable to deserialize given JSON string
+   */
+  static ColumnMetadata of(String jsonString) {
+    if (jsonString == null || jsonString.trim().isEmpty()) {
+      return null;
+    }
+    try {
+      return READER.readValue(jsonString);
+    } catch (IOException e) {
+      throw new IllegalArgumentException(
+          "Unable to deserialize given JSON string into column metadata: " + jsonString, e);
+    }
   }
 }

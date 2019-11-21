@@ -65,7 +65,7 @@ public class TestSchemaWithTableFunction extends ClusterTest {
       .go();
 
     String plan = queryBuilder().sql(query, table).explainText();
-    assertTrue(plan.contains("schema=[TupleSchema [PrimitiveColumnMetadata [`Year` (INT:OPTIONAL)]]]"));
+    assertTrue(plan.contains("schema=[`Year` INT]"));
   }
 
   @Test
@@ -153,7 +153,7 @@ public class TestSchemaWithTableFunction extends ClusterTest {
         .go();
 
       String plan = queryBuilder().sql(query, table).explainText();
-      assertTrue(plan.contains("schema=[TupleSchema [PrimitiveColumnMetadata [`id` (INT:OPTIONAL)]]]"));
+      assertTrue(plan.contains("schema=[`id` INT]"));
     } finally {
       client.resetSession(ExecConstants.OUTPUT_FORMAT_OPTION);
       run("drop table if exists %s", table);

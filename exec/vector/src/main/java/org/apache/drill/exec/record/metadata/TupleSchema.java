@@ -17,18 +17,19 @@
  */
 package org.apache.drill.exec.record.metadata;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import org.apache.drill.exec.record.MaterializedField;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.apache.drill.exec.record.MaterializedField;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Defines the schema of a tuple: either the top-level row or a nested
@@ -54,7 +55,7 @@ public class TupleSchema extends AbstractPropertied implements TupleMetadata {
   public TupleSchema() { }
 
   @JsonCreator
-  public TupleSchema(@JsonProperty("columns") List<AbstractColumnMetadata> columns,
+  public TupleSchema(@JsonProperty("columns") List<ColumnMetadata> columns,
                      @JsonProperty("properties") Map<String, String> properties) {
     if (columns != null) {
       columns.forEach(this::addColumn);
@@ -66,6 +67,7 @@ public class TupleSchema extends AbstractPropertied implements TupleMetadata {
     this.parentMap = parentMap;
   }
 
+  @Override
   public TupleMetadata copy() {
     TupleMetadata tuple = new TupleSchema();
     for (ColumnMetadata md : this) {
@@ -206,28 +208,44 @@ public class TupleSchema extends AbstractPropertied implements TupleMetadata {
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder()
-        .append("[")
-        .append(getClass().getSimpleName())
-        .append(" ");
+        .append("[");
 
     builder.append(nameSpace.entries().stream()
-      .map(ColumnMetadata::toString)
+      .map(ColumnMetadata::columnString)
       .collect(Collectors.joining(", ")));
 
     if (hasProperties()) {
       if (!nameSpace.entries().isEmpty()) {
-        builder.append(", ");
+        builder.append(" ");
       }
-      builder.append("properties: ").append(properties());
+      builder.append("PROPERTIES ").append(properties());
     }
-
-    builder.append("]");
-    return builder.toString();
+    return builder.append("]").toString();
   }
 
   @JsonProperty("properties")
   @Override
   public Map<String, String> properties() {
     return super.properties();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || !( o instanceof TupleSchema)) {
+      return false;
+    }
+    TupleSchema other = (TupleSchema) o;
+    if (size() != other.size()) {
+      return false;
+    }
+    for (int i = 0; i < size(); i++) {
+      if (! metadata(i).equals(other.metadata(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 }

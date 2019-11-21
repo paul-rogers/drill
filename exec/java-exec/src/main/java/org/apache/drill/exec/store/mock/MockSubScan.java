@@ -31,6 +31,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
@@ -41,6 +42,9 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
  */
 
 @JsonTypeName("mock-sub-scan")
+// The URL property appears in many original tests that provide
+// logical plans in JSON format, but was never used.
+@JsonIgnoreProperties({ "url" })
 public class MockSubScan extends AbstractBase implements SubScan {
 
   protected final List<MockScanEntry> readEntries;
@@ -66,15 +70,8 @@ public class MockSubScan extends AbstractBase implements SubScan {
 
   @JsonCreator
   public MockSubScan(
-      // The URL property appears in many original tests that provide
-      // logical plans in JSON format, but was never used.
-      @Deprecated @JsonProperty("url") String url,
       @JsonProperty("extended") Boolean extended,
       @JsonProperty("entries") List<MockScanEntry> readEntries) {
-    this(extended, readEntries);
-  }
-
-  public MockSubScan(Boolean extended, List<MockScanEntry> readEntries) {
     this.readEntries = readEntries;
     this.extended = extended == null ? false : extended;
   }

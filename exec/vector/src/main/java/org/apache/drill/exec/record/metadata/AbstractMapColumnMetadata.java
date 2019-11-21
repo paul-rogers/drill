@@ -116,7 +116,7 @@ public abstract class AbstractMapColumnMetadata extends AbstractColumnMetadata {
   }
 
   @Override
-  public String fullTypeString() {
+  public String typeString() {
     StringBuilder builder = new StringBuilder();
     if (isArray()) {
       builder.append("ARRAY<");

@@ -28,10 +28,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
 import org.joda.time.format.DateTimeFormatter;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 /**
  * Abstract definition of column metadata. Allows applications to create
@@ -45,13 +42,6 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * since maps (and the row itself) will, by definition, differ between
  * the two views.
  */
-@JsonAutoDetect(
-  fieldVisibility = JsonAutoDetect.Visibility.NONE,
-  getterVisibility = JsonAutoDetect.Visibility.NONE,
-  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
-  setterVisibility = JsonAutoDetect.Visibility.NONE)
-@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
 public abstract class AbstractColumnMetadata extends AbstractPropertied
       implements ColumnMetadata {
 
@@ -90,7 +80,6 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
   @Override
   public void bind(TupleMetadata parentTuple) { }
 
-  @JsonProperty("name")
   @Override
   public String name() { return name; }
 
@@ -105,26 +94,19 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
         .build();
   }
 
-  @JsonProperty("type")
   @Override
-  public String sqlTypeString() {
-    return Types.getTraditionalSqlTypeName(majorType());
+  public String typeString() {
+    StringBuilder buf = new StringBuilder();
+    if (isArray()) {
+      buf.append("ARRAY<");
+    }
+    buf.append(Types.getTraditionalSqlTypeName(majorType()));
+    if (isArray()) {
+      buf.append(">");
+    }
+    return buf.toString();
   }
 
-  @Override
-  public String fullTypeString() {
-    StringBuilder builder = new StringBuilder();
-    if (isArray()) {
-      builder.append("ARRAY<");
-    }
-    builder.append(sqlTypeString());
-    if (isArray()) {
-      builder.append(">");
-    }
-    return builder.toString();
-  }
-
-  @JsonProperty("mode")
   @Override
   public DataMode mode() { return mode; }
 
@@ -261,10 +243,16 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
     throw new UnsupportedOperationException("Value conversion not supported for non-scalar columns");
   }
 
-  @JsonProperty("properties")
   @Override
-  public Map<String, String> properties() {
-    return super.properties();
+  public Map<String, String> extendedProperties() {
+    Map<String, String> props = properties();
+    if (props != null  && ! props.isEmpty()) {
+      props = new HashMap<>(props);
+      props.remove(FORMAT_PROP);
+      props.remove(DEFAULT_VALUE_PROP);
+      props = (props.isEmpty()) ? null : props;
+    }
+    return props;
   }
 
   @Override
@@ -296,7 +284,7 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
     StringBuilder builder = new StringBuilder();
     builder.append("`").append(escapeSpecialSymbols(name())).append("`");
     builder.append(" ");
-    builder.append(fullTypeString());
+    builder.append(typeString());
 
     // Drill does not have nullability notion for complex types
     if (!isNullable() && !isArray() && !isMap()) {
@@ -312,10 +300,8 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
         builder.append(" DEFAULT '").append(defaultValue()).append("'");
       }
 
-      Map<String, String> copy = new HashMap<>(properties());
-      copy.remove(FORMAT_PROP);
-      copy.remove(DEFAULT_VALUE_PROP);
-      if (! copy.isEmpty()) {
+      Map<String, String> copy = extendedProperties();
+      if (copy != null) {
         builder.append(" PROPERTIES { ");
         builder.append(copy.entrySet()
           .stream()
@@ -338,51 +324,19 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
     return value.replaceAll("(\\\\)|(`)", "\\\\$0");
   }
 
-  public String typeDef() {
-    StringBuilder buf = new StringBuilder();
-    if (mode() == DataMode.REPEATED) {
-      buf.append("ARRAY<");
-    }
-    buf.append(type.name());
-    if (precision() != UNDEFINED) {
-      buf.append("(").append(precision());
-      if (scale() != UNDEFINED) {
-        buf.append(",").append(scale());
-      }
-      buf.append(")");
-    }
-    switch (mode()) {
-    case REQUIRED:
-      buf.append(" NOT NULL");
-      break;
-    case REPEATED:
-      buf.append(">");
-    default:
-      break;
-    }
-    return buf.toString();
+  @Override
+  public String planString() {
+    return "(" + columnString() + ")";
   }
 
   @Override
-  public String planString() {
-    StringBuilder buf = new StringBuilder()
-        .append("(`")
-        .append(name())
-        .append("` ")
-        .append(typeDef());
-    if (variantSchema() != null) {
-      buf.append(", variant=")
-         .append(variantSchema().toString());
+  public String jsonString() {
+    try {
+      return WRITER.writeValueAsString(this);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException(
+          "Unable to convert tuple metadata into JSON string: " + toString(), e);
     }
-    if (mapSchema() != null) {
-      buf.append(", schema=")
-         .append(mapSchema().toString());
-    }
-    if (hasProperties()) {
-      buf.append(", properties=")
-        .append(properties());
-    }
-    return buf.append(")").toString();
   }
 
   @Override

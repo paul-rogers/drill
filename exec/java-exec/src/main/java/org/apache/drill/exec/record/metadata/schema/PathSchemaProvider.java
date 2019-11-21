@@ -17,23 +17,24 @@
  */
 package org.apache.drill.exec.record.metadata.schema;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import static com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
 
-import static com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT;
+import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.util.DefaultIndenter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 
 /**
  * Is used to provide schema using given schema file name and path.
@@ -126,6 +127,4 @@ public class PathSchemaProvider implements SchemaProvider {
   protected SchemaContainer createTableSchema(String schema, Map<String, String> properties) throws IOException {
     return new SchemaContainer(null, schema, properties);
   }
-
 }
-
