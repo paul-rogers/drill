@@ -45,7 +45,7 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScan> {
   public CloseableRecordBatch getBatch(ExecutorFragmentContext context, MockSubScan config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
-    final List<MockScanEntry> entries = config.getReadEntries();
+    List<MockScanEntry> entries = config.getReadEntries();
     MockScanEntry first = entries.get(0);
     if (first.isExtended()) {
       // Extended mode: use the revised, size-aware scan operator
@@ -64,8 +64,8 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScan> {
     // Create batch readers up front. Handy when we know there are
     // only one or two; else use an iterator and create them on the fly.
 
-    final List<ManagedReader<SchemaNegotiator>> readers = new LinkedList<>();
-    for (final MockTableDef.MockScanEntry e : entries) {
+    List<ManagedReader<SchemaNegotiator>> readers = new LinkedList<>();
+    for (MockTableDef.MockScanEntry e : entries) {
       readers.add(new ExtendedMockBatchReader(e));
     }
 
@@ -95,8 +95,8 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScan> {
   private CloseableRecordBatch legacyMockScan(FragmentContext context,
       MockSubScan config,
       List<MockScanEntry> entries) throws ExecutionSetupException {
-    final List<RecordReader> readers = new LinkedList<>();
-    for (final MockTableDef.MockScanEntry e : entries) {
+    List<RecordReader> readers = new LinkedList<>();
+    for (MockTableDef.MockScanEntry e : entries) {
       readers.add(new MockRecordReader(context, e));
     }
     return new ScanBatch(config, context, readers);

@@ -22,6 +22,8 @@ lexer grammar SchemaLexer;
 
 // data types
 // https://drill.apache.org/docs/supported-data-types/
+// Includes internal Drill names used in older logical-plan
+// based tests that use this code for deserialization.
 INT: 'INT';
 INTEGER: 'INTEGER';
 BIGINT: 'BIGINT';
@@ -40,6 +42,7 @@ DECIMAL: 'DECIMAL';
 NUMERIC: 'NUMERIC';
 
 BOOLEAN: 'BOOLEAN';
+BIT: 'BIT'; // Internal Drill name
 
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';

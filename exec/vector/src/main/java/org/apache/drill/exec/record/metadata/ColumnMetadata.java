@@ -346,6 +346,7 @@ public interface ColumnMetadata extends Propertied {
    * @return type metadata string representation
    */
   @JsonProperty("type")
+  String sqlType();
   String typeString();
 
   /**
@@ -378,7 +379,8 @@ public interface ColumnMetadata extends Propertied {
         @JsonProperty("default") String defaultValue,
         @JsonProperty("properties") Map<String, String> properties)
         throws IOException {
-    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(name, type, mode);
+    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(
+        AbstractColumnMetadata.metadataString(name, type, mode));
     columnMetadata.setProperties(properties);
     if (format != null) {
       columnMetadata.setProperty(FORMAT_PROP, format);

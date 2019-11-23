@@ -173,12 +173,12 @@ public class Types {
     if (type.getMode() == DataMode.REPEATED || type.getMinorType() == MinorType.LIST) {
       return "ARRAY";
     }
-    return getBaseSqlTypeName(type);
+    return getBaseSqlTypeName(type.getMinorType());
   }
 
-  public static String getBaseSqlTypeName(final MajorType type) {
+  public static String getBaseSqlTypeName(MinorType type) {
 
-    switch (type.getMinorType()) {
+    switch (type) {
 
       // Standard SQL atomic data types:
 
@@ -243,7 +243,7 @@ public class Types {
 
       default:
         throw new AssertionError(
-            "Unexpected/unhandled MinorType value " + type.getMinorType() );
+            "Unexpected/unhandled MinorType value " + type );
     }
   }
 
@@ -285,7 +285,7 @@ public class Types {
    */
 
   public static String getTraditionalSqlTypeName(MajorType type) {
-    String typeName = getBaseSqlTypeName(type);
+    String typeName = getBaseSqlTypeName(type.getMinorType());
     switch (type.getMinorType()) {
     case INT:
       typeName = "INT"; // Rather than INTEGER

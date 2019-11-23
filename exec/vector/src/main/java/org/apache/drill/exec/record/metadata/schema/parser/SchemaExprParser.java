@@ -17,17 +17,16 @@
  */
 package org.apache.drill.exec.record.metadata.schema.parser;
 
+import java.io.IOException;
+
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CodePointCharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
-import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-
-import java.io.IOException;
 
 public class SchemaExprParser {
 
@@ -46,22 +45,6 @@ public class SchemaExprParser {
     } catch (SchemaParsingException e) {
       throw new IOException(String.format("Unable to parse schema [%s]: %s", schema, e.getMessage()), e);
     }
-  }
-
-  /**
-   * Parses given column name, type and mode into {@link ColumnMetadata} instance.
-   *
-   * @param name column name
-   * @param type column type
-   * @param mode column mode
-   * @return column metadata
-   * @throws IOException when unable to parse the column
-   */
-  public static ColumnMetadata parseColumn(String name, String type, TypeProtos.DataMode mode) throws IOException {
-    return parseColumn(String.format("`%s` %s %s",
-      name.replaceAll("(\\\\)|(`)", "\\\\$0"),
-      type,
-      TypeProtos.DataMode.REQUIRED == mode ? "not null" : ""));
   }
 
   /**

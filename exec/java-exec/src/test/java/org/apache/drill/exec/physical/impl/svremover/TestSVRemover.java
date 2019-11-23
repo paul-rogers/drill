@@ -23,6 +23,7 @@ import org.apache.drill.test.BaseTestQuery;
 import org.junit.Test;
 
 public class TestSVRemover extends BaseTestQuery {
+
   @Test
   public void testSelectionVectorRemoval() throws Exception {
     int numOutputRecords = testPhysical(getFile("remover/test1.json"));

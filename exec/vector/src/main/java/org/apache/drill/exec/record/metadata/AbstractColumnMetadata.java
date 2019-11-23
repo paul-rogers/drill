@@ -100,9 +100,40 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied
     if (isArray()) {
       buf.append("ARRAY<");
     }
-    buf.append(Types.getTraditionalSqlTypeName(majorType()));
+    buf.append(sqlType());
     if (isArray()) {
       buf.append(">");
+    }
+    return buf.toString();
+  }
+
+  @Override
+  public String sqlType() {
+    return Types.getTraditionalSqlTypeName(majorType());
+  }
+
+  public String metadataString() {
+    return metadataString(name, Types.getBaseSqlTypeName(type), mode);
+  }
+
+  public static String metadataString(String name, String type, DataMode mode) {
+    StringBuilder buf = new StringBuilder()
+        .append("`")
+        .append(name.replaceAll("(\\\\)|(`)", "\\\\$0"))
+        .append("` ");
+    if (mode == DataMode.REPEATED) {
+      buf.append("ARRAY<");
+    }
+    buf.append(type.toString());
+    switch (mode) {
+    case REPEATED:
+      buf.append(">");
+      break;
+    case REQUIRED:
+      buf.append(" not null");
+      break;
+    default:
+      break;
     }
     return buf.toString();
   }

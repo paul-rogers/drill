@@ -35,15 +35,13 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.vector.ValueVector;
-import org.junit.Test;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 @Category({OperatorTest.class, SlowTest.class})
 public class TestMergingReceiver extends PopUnitTestBase {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestMergingReceiver.class);
 
   @Test
   public void twoBitTwoExchange() throws Exception {

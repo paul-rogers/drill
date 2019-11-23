@@ -106,6 +106,19 @@ public class TestColumnMetadata {
       PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
       assertEquals(col, col2);
     }
+    {
+      ColumnMetadata col = ColumnMetadata.createInstance("foo", "INT", DataMode.REPEATED, null, null, null);
+      assertEquals("foo", col.name());
+      assertEquals(MinorType.INT, col.type());
+      assertEquals(DataMode.REPEATED, col.mode());
+
+      PrimitiveColumnMetadata col2 = new PrimitiveColumnMetadata((PrimitiveColumnMetadata) col);
+      assertEquals("foo", col2.name());
+      assertEquals(MinorType.INT, col2.type());
+      assertEquals(DataMode.REPEATED, col2.mode());
+
+      assertEquals(col, col2);
+    }
     try {
       ColumnMetadata.createInstance("foo", "BOGUS", DataMode.REQUIRED, null, null, null);
       fail();
@@ -218,6 +231,15 @@ public class TestColumnMetadata {
       assertEquals(col, deser);
     }
 
+    {
+      ColumnMetadata col = ColumnBuilder.builder("foo", MinorType.INT, DataMode.REPEATED)
+          .build();
+      String ser = col.jsonString();
+
+      ColumnMetadata deser = ColumnMetadata.of(ser);
+      assertEquals(col, deser);
+    }
+
     // TODO: Test complex types which will deserialize as a type
     // other than PrimitiveColumnMetadata
   }
@@ -228,16 +250,19 @@ public class TestColumnMetadata {
       ColumnMetadata col = ColumnBuilder.required("foo", MinorType.INT);
       // JSON type value
       assertEquals("INT", col.typeString());
+      assertEquals("INT", col.sqlType());
       assertEquals("`foo` INT NOT NULL", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.required("foo", MinorType.FLOAT4);
       assertEquals("FLOAT", col.typeString());
+      assertEquals("FLOAT", col.sqlType());
       assertEquals("`foo` FLOAT NOT NULL", col.columnString());
     }
     {
       ColumnMetadata col = ColumnBuilder.nullable("foo", MinorType.VARDECIMAL);
       assertEquals("DECIMAL(38, 0)", col.typeString());
+      assertEquals("DECIMAL(38, 0)", col.sqlType());
       assertEquals("`foo` DECIMAL(38, 0)", col.columnString());
     }
     {
@@ -246,6 +271,7 @@ public class TestColumnMetadata {
           .scale(4)
           .build();
       assertEquals("ARRAY<DECIMAL(10, 4)>", col.typeString());
+      assertEquals("DECIMAL(10, 4)", col.sqlType());
       assertEquals("`foo` ARRAY<DECIMAL(10, 4)>", col.columnString());
     }
     {
@@ -253,6 +279,7 @@ public class TestColumnMetadata {
           .precision(10)
           .build();
       assertEquals("VARCHAR(10)", col.typeString());
+      assertEquals("VARCHAR(10)", col.sqlType());
       assertEquals("`foo` VARCHAR(10)", col.columnString());
     }
     {
@@ -274,8 +301,9 @@ public class TestColumnMetadata {
           .build();
       ColumnMetadata col = schema.metadata(0);
       assertEquals("STRUCT<`a` VARCHAR NOT NULL, `b` INT>", col.typeString());
+      assertEquals("STRUCT<`a` VARCHAR NOT NULL, `b` INT>", col.sqlType());
       assertEquals("`foo` STRUCT<`a` VARCHAR NOT NULL, `b` INT>", col.columnString());
-      assertEquals("Tuple [`foo` STRUCT<`a` VARCHAR NOT NULL, `b` INT>]", schema.toString());
+      assertEquals("[`foo` STRUCT<`a` VARCHAR NOT NULL, `b` INT>]", schema.toString());
     }
   }
 

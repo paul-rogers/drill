@@ -17,13 +17,11 @@
  */
 package org.apache.drill.exec.record.metadata.schema;
 
-import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -35,11 +33,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
 
 public class TestSchemaProvider {
 
@@ -221,7 +221,7 @@ public class TestSchemaProvider {
       + "      },\n"
       + "      {\n"
       + "        \"name\" : \"a\",\n"
-      + "        \"type\" : \"ARRAY<VARCHAR(10)>\",\n"
+      + "        \"type\" : \"VARCHAR(10)\",\n"
       + "        \"mode\" : \"REPEATED\",\n"
       + "        \"properties\" : {\n"
       + "          \"ck1\" : \"cv1\",\n"

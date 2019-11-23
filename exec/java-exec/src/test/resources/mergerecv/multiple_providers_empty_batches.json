@@ -14,26 +14,26 @@
 
       entries:[
         {records: 100000, types: [
-          {name: "blue", type: "BIGINT", mode: "REQUIRED", repeat: 2},
+          {name: "blue", type: "BIGINT", mode: "REQUIRED", properties:{repeat: "2"}},
           {name: "red", type: "INT", mode: "REQUIRED"},
           {name: "green", type: "INT", mode: "REQUIRED",
             properties: { a: 10, b: "foo" }}
         ]},
         {records: 100000, types: [
-          {name: "blue", type: "BIGINT", mode: "REQUIRED", repeat: 2},
+          {name: "blue", type: "BIGINT", mode: "REQUIRED", properties:{repeat: "2"}},
           {name: "red", type: "INT", mode: "REQUIRED"},
           {name: "green", type: "INT", mode: "REQUIRED",
             properties: { a: 10, b: "foo" }}
         ]},
         {records: 0},
         {records: 0, types: [
-          {name: "blue", type: "BIGINT", mode: "REQUIRED", repeat: 2},
+          {name: "blue", type: "BIGINT", mode: "REQUIRED", properties:{repeat: "2"}},
           {name: "red", type: "INT", mode: "REQUIRED"},
           {name: "green", type: "INT", mode: "REQUIRED",
             properties: { a: 10, b: "foo" }}
         ]},
         {records: 100000, types: [
-          {name: "blue", type: "BIGINT", mode: "REQUIRED", repeat: 2},
+          {name: "blue", type: "BIGINT", mode: "REQUIRED", properties:{repeat: "2"}},
           {name: "red", type: "INT", mode: "REQUIRED"},
           {name: "green", type: "INT", mode: "REQUIRED",
             properties: { a: 10, b: "foo" }}

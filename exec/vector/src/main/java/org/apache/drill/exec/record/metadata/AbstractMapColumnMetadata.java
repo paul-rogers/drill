@@ -134,6 +134,11 @@ public abstract class AbstractMapColumnMetadata extends AbstractColumnMetadata {
     return builder.toString();
   }
 
+  @Override
+  public String sqlType() {
+    return typeString();
+  }
+
   /**
    * Returns string representation of type like {@code "STRUCT"} or {@code "MAP"}
    * @return column type

@@ -17,6 +17,15 @@
  */
 package org.apache.drill.exec.sql;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.drill.categories.MetastoreTest;
 import org.apache.drill.categories.SqlTest;
 import org.apache.drill.categories.UnlikelyTest;
@@ -48,15 +57,6 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.rules.TemporaryFolder;
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Category({SqlTest.class, MetastoreTest.class, UnlikelyTest.class})
 public class TestInfoSchemaWithMetastore extends ClusterTest {
@@ -158,6 +158,7 @@ public class TestInfoSchemaWithMetastore extends ClusterTest {
       .go();
   }
 
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   @Test
   public void testColumns() throws Exception {
     BaseTableMetadata tableNoSchema = BaseTableMetadata.builder()
@@ -278,6 +279,8 @@ public class TestInfoSchemaWithMetastore extends ClusterTest {
       InfoSchemaConstants.COLS_COL_EST_NUM_NON_NULLS,
       InfoSchemaConstants.COLS_COL_IS_NESTED);
 
+    client.queryBuilder().sql("select %s from information_schema.`columns` where table_name " +
+        "in ('%s', '%s')", String.join(", ", columns), tableNoSchema.getTableInfo().name(), tableName).print();
     client.testBuilder()
       .sqlQuery("select %s from information_schema.`columns` where table_name " +
         "in ('%s', '%s')", String.join(", ", columns), tableNoSchema.getTableInfo().name(), tableName)

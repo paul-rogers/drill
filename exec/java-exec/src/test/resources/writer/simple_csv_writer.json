@@ -33,7 +33,7 @@
         "mode" : "REQUIRED"
       }, {
         "name" : "green",
-        "type" : "DECIMAL18",
+        "type" : "DECIMAL",
         "mode" : "REQUIRED"
       }, {
         "name" : "red",
