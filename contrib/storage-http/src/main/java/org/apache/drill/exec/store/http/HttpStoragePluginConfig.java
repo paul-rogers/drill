@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
-import com.google.common.base.MoreObjects;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,9 +30,9 @@ import java.util.Arrays;
 
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfigBase {
-  static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
+  private static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
 
-  static final String NAME = "http";
+  public static final String NAME = "http";
 
   public String connection;
 
@@ -53,7 +53,8 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       return false;
     }
     HttpStoragePluginConfig t = (HttpStoragePluginConfig) that;
-    return this.connection.equals(t.connection) && this.resultKey.equals(t.resultKey);
+    return this.connection.equals(t.connection) &&
+      this.resultKey.equals(t.resultKey);
   }
 
   @Override

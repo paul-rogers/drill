@@ -37,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 
 @Ignore("requires remote http server")
 public class TestHttpPlugin extends ClusterTest {
-  static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
+  private static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
 
   @BeforeClass
   public static void setup() throws Exception {
