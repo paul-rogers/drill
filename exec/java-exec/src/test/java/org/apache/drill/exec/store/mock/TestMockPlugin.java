@@ -34,6 +34,7 @@ import org.apache.drill.test.QueryRowSetIterator;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -138,6 +139,37 @@ public class TestMockPlugin extends ClusterTest {
     }
   }
 
+  @Test
+  public void testNullableVarChar() throws RpcException {
+    String sql = "SELECT name_s17n FROM `mock`.`employee_100`";
+    RowSet result = client.queryBuilder().sql(sql).rowSet();
+    TupleMetadata schema = result.schema();
+    assertEquals(1, schema.size());
+    ColumnMetadata col = schema.metadata(0);
+    assertEquals("name_s17n", col.name());
+    assertEquals(MinorType.VARCHAR, col.type());
+    assertEquals(DataMode.OPTIONAL, col.mode());
+    assertEquals(100, result.rowCount());
+
+    RowSetReader reader = result.reader();
+    while (reader.next()) {
+      assertEquals(17, reader.scalar(0).getString().length());
+    }
+    result.clear();
+  }
+
+  @Test
+  @Ignore("unstable, enable when needed")
+  public void testNullableRate() throws RpcException {
+    String sql = "SELECT COUNT(*) FROM `mock`.`employee_100` WHERE name_s17n10 IS NULL";
+    RowSet result = client.queryBuilder().sql(sql).rowSet();
+
+    RowSetReader reader = result.reader();
+    assertTrue(reader.next());
+    long nullCount = reader.scalar(0).getLong();
+    assertTrue(5 <= nullCount && nullCount <= 15);
+    result.clear();
+  }
 
   @Test
   public void testExtendedSqlMultiBatch() throws Exception {

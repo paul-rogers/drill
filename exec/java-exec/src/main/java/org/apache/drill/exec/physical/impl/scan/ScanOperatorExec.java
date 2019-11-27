@@ -23,7 +23,7 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
-import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SerialOutgoingContainerAccessor;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,7 +161,7 @@ public class ScanOperatorExec implements OperatorExec {
 
   private final ScanOperatorEvents factory;
   private final boolean allowEmptyResult;
-  protected final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
+  protected final SerialOutgoingContainerAccessor containerAccessor = new SerialOutgoingContainerAccessor();
   private State state = State.START;
   protected OperatorContext context;
   private int readerCount;

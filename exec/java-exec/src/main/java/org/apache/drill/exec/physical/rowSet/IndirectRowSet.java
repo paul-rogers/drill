@@ -50,8 +50,13 @@ public class IndirectRowSet extends AbstractSingleRowSet {
     private final SelectionVector2 sv2;
 
     public IndirectRowIndex(SelectionVector2 sv2) {
-      super(sv2.getCount());
       this.sv2 = sv2;
+      resetRowCount();
+    }
+
+    @Override
+    public void resetRowCount() {
+      setRowCount(sv2.getCount());
     }
 
     @Override

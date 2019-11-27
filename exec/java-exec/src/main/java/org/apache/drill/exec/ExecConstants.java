@@ -116,6 +116,12 @@ public final class ExecConstants {
 
   public static final BooleanValidator EXTERNAL_SORT_DISABLE_MANAGED_OPTION = new BooleanValidator("exec.sort.disable_managed", null);
 
+  // Selection vector remover runtime options
+
+  public static final String SVR_ENABLE_V2_KEY = "exec.svr.enable_v2";
+  public static final BooleanValidator SVR_ENABLE_V2_OPTION = new BooleanValidator(SVR_ENABLE_V2_KEY,
+      new OptionDescription("Enables the new selection vector remover based on the row set framework."));
+
   // Hash Join Options
   public static final String HASHJOIN_HASHTABLE_CALC_TYPE_KEY = "exec.hashjoin.hash_table_calc_type";
   public static final EnumeratedStringValidator HASHJOIN_HASHTABLE_CALC_TYPE = new EnumeratedStringValidator(HASHJOIN_HASHTABLE_CALC_TYPE_KEY,

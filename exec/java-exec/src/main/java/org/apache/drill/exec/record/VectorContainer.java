@@ -27,6 +27,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
@@ -154,18 +155,36 @@ public class VectorContainer implements VectorAccessible {
    * @return
    */
   @SuppressWarnings("unchecked")
-  public <T extends ValueVector> T addOrGet(final MaterializedField field, final SchemaChangeCallBack callBack) {
-    final TypedFieldId id = getValueVectorId(SchemaPath.getSimplePath(field.getName()));
-    final ValueVector vector;
+  public <T extends ValueVector> T addOrGet(MaterializedField field, SchemaChangeCallBack callBack) {
+    TypedFieldId id = getValueVectorId(SchemaPath.getSimplePath(field.getName()));
+    ValueVector vector;
     if (id != null) {
       vector = getValueAccessorById(id.getFieldIds()).getValueVector();
       if (id.getFieldIds().length == 1 && !vector.getField().getType().equals(field.getType())) {
-        final ValueVector newVector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
+        ValueVector newVector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
         replace(vector, newVector);
         return (T) newVector;
       }
     } else {
       vector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
+      add(vector);
+    }
+    return (T) vector;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T extends ValueVector> T addFromCacheOrGet(MaterializedField field, ResultVectorCache cache) {
+    TypedFieldId id = getValueVectorId(SchemaPath.getSimplePath(field.getName()));
+    ValueVector vector;
+    if (id != null) {
+      vector = getValueAccessorById(id.getFieldIds()).getValueVector();
+      if (id.getFieldIds().length == 1 && !vector.getField().getType().equals(field.getType())) {
+        ValueVector newVector = cache.addOrGet(field);
+        replace(vector, newVector);
+        vector = newVector;
+      }
+    } else {
+      vector = cache.addOrGet(field);
       add(vector);
     }
     return (T) vector;
@@ -205,13 +224,13 @@ public class VectorContainer implements VectorAccessible {
   public static VectorContainer getTransferClone(VectorAccessible incoming, VectorWrapper<?>[] ignoreWrappers, OperatorContext oContext) {
     Iterable<VectorWrapper<?>> wrappers = incoming;
     if (ignoreWrappers != null) {
-      final List<VectorWrapper<?>> ignored = Lists.newArrayList(ignoreWrappers);
-      final Set<VectorWrapper<?>> resultant = Sets.newLinkedHashSet(incoming);
+      List<VectorWrapper<?>> ignored = Lists.newArrayList(ignoreWrappers);
+      Set<VectorWrapper<?>> resultant = Sets.newLinkedHashSet(incoming);
       resultant.removeAll(ignored);
       wrappers = resultant;
     }
 
-    final VectorContainer vc = new VectorContainer(oContext);
+    VectorContainer vc = new VectorContainer(oContext);
     for (VectorWrapper<?> w : wrappers) {
       vc.cloneAndTransfer(w);
     }
@@ -513,15 +532,15 @@ public class VectorContainer implements VectorAccessible {
    * @return The string representation of a record.
    */
   public String prettyPrintRecord(int index) {
-    final StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder();
     String separator = "";
     sb.append("[");
 
     for (VectorWrapper<?> vectorWrapper: wrappers) {
       sb.append(separator);
       separator = ", ";
-      final String columnName = vectorWrapper.getField().getName();
-      final Object value = vectorWrapper.getValueVector().getAccessor().getObject(index);
+      String columnName = vectorWrapper.getField().getName();
+      Object value = vectorWrapper.getValueVector().getAccessor().getObject(index);
 
       // "columnName" = 11
       sb.append("\"").append(columnName).append("\" = ").append(value);

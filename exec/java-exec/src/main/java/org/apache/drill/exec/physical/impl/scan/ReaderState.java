@@ -316,7 +316,7 @@ class ReaderState {
       // Bind the output container to the output of the scan operator.
       // This returns an empty batch with the schema filled in.
 
-      scanOp.containerAccessor.setSchema(reader.output());
+      scanOp.containerAccessor.registerBatch(reader.output());
       return true;
     }
 
@@ -448,7 +448,7 @@ class ReaderState {
 
         if (scanOp.containerAccessor.schemaVersion() == 0 &&
             reader.schemaVersion() > 0) {
-          scanOp.containerAccessor.setSchema(output);
+          scanOp.containerAccessor.registerBatch(output);
         }
         return false;
       }
@@ -463,7 +463,7 @@ class ReaderState {
     // a reader that starts with a schema, but later changes it, has
     // morphed from an early- to late-schema reader.)
 
-    scanOp.containerAccessor.addBatch(output);
+    scanOp.containerAccessor.registerBatch(output);
     return true;
   }
 

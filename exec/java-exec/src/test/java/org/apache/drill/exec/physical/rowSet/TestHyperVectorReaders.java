@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
@@ -52,20 +53,14 @@ import org.junit.experimental.categories.Category;
 @Category(RowSetTests.class)
 public class TestHyperVectorReaders extends SubOperatorTest {
 
-  /**
-   * Test the simplest case: a top-level required vector. Has no contained vectors.
-   * This test focuses on the SV4 indirection mechanism itself.
-   */
+  private static final TupleMetadata REQUIRED_INT_SCHEMA = new SchemaBuilder()
+      .add("a", MinorType.INT)
+      .buildSchema();
 
-  @Test
-  public void testRequired() {
-    TupleMetadata schema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .buildSchema();
-
+  public static HyperRowSet buildRequiredIntHyperBatch(BufferAllocator allocator) {
     SingleRowSet rowSet1;
     {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
+      ExtendableRowSet rowSet = DirectRowSet.fromSchema(allocator, REQUIRED_INT_SCHEMA);
       RowSetWriter writer = rowSet.writer();
       for (int i = 0; i < 10; i++) {
         writer.scalar(0).setInt(i * 10);
@@ -76,7 +71,7 @@ public class TestHyperVectorReaders extends SubOperatorTest {
 
     SingleRowSet rowSet2;
     {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
+      ExtendableRowSet rowSet = DirectRowSet.fromSchema(allocator, REQUIRED_INT_SCHEMA);
       RowSetWriter writer = rowSet.writer();
       for (int i = 10; i < 20; i++) {
         writer.scalar(0).setInt(i * 10);
@@ -88,8 +83,9 @@ public class TestHyperVectorReaders extends SubOperatorTest {
     // Build the hyper batch
     // [0, 10, 20, ... 190]
 
-    HyperRowSet hyperSet = HyperRowSetImpl.fromRowSets(fixture.allocator(), rowSet1, rowSet2);
+    HyperRowSet hyperSet = HyperRowSetImpl.fromRowSets(allocator, rowSet1, rowSet2);
     assertEquals(20, hyperSet.rowCount());
+    assertEquals(20, hyperSet.container().getRecordCount());
 
     // Populate the indirection vector:
     // (1, 9), (0, 9), (1, 8), (0, 8), ... (0, 0)
@@ -100,6 +96,31 @@ public class TestHyperVectorReaders extends SubOperatorTest {
       int offset = 9 - i / 2;
       sv4.set(i, batch, offset);
     }
+
+    return hyperSet;
+  }
+
+  public static RowSet expectedRequiredIntBatch(BufferAllocator allocator) {
+    RowSetBuilder rsBuilder = new RowSetBuilder(allocator, REQUIRED_INT_SCHEMA);
+    for (int i = 0; i < 20; i++) {
+      int batch = i % 2;
+      int offset = 9 - i / 2;
+      int expected = batch * 100 + offset * 10;
+      rsBuilder.addRow(expected);
+    }
+    return rsBuilder.build();
+  }
+
+  /**
+   * Test the simplest case: a top-level required vector. Has no contained vectors.
+   * This test focuses on the SV4 indirection mechanism itself.
+   */
+
+  @Test
+  public void testRequired() {
+
+    HyperRowSet hyperSet = buildRequiredIntHyperBatch(fixture.allocator());
+    SelectionVector4 sv4 = hyperSet.getSv4();
 
     // Sanity check.
 
@@ -126,15 +147,8 @@ public class TestHyperVectorReaders extends SubOperatorTest {
 
     // Validate using an expected result set.
 
-    RowSetBuilder rsBuilder = fixture.rowSetBuilder(schema);
-    for (int i = 0; i < 20; i++) {
-      int batch = i % 2;
-      int offset = 9 - i / 2;
-      int expected = batch * 100 + offset * 10;
-      rsBuilder.addRow(expected);
-    }
-
-    RowSetUtilities.verify(rsBuilder.build(), hyperSet);
+    RowSet expected = expectedRequiredIntBatch(fixture.allocator());
+    RowSetUtilities.verify(expected, hyperSet);
   }
 
   @Test

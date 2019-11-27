@@ -271,6 +271,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       new OptionDefinition(ExecConstants.CREATE_PREPARE_STATEMENT_TIMEOUT_MILLIS_VALIDATOR),
       new OptionDefinition(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED_VALIDATOR,  new OptionMetaData(OptionValue.AccessibleScopes.SYSTEM, true, false)),
       new OptionDefinition(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION),
+      new OptionDefinition(ExecConstants.SVR_ENABLE_V2_OPTION),
       new OptionDefinition(ExecConstants.ENABLE_QUERY_PROFILE_VALIDATOR),
       new OptionDefinition(ExecConstants.SKIP_SESSION_QUERY_PROFILE_VALIDATOR),
       new OptionDefinition(ExecConstants.QUERY_PROFILE_DEBUG_VALIDATOR),

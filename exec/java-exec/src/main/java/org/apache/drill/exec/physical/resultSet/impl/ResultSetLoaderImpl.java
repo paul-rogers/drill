@@ -458,6 +458,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     case FULL_BATCH:
       return rootWriter.rowCount() > 0;
     case LOOK_AHEAD:
+    case OVERFLOW:
       return true;
     default:
       return false;

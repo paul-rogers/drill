@@ -22,24 +22,30 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.Arrays;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
-import org.apache.drill.exec.physical.impl.protocol.IndirectContainerAccessor;
-import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.IndirectOutgoingAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SerialOutgoingContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SingleOutgoingContainerAccessor;
 import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.RowSet;
+import org.apache.drill.exec.physical.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
+import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.physical.rowSet.RowSets;
+import org.apache.drill.exec.physical.rowSet.TestHyperVectorReaders;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.selection.SelectionVector2Builder;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.SubOperatorTest;
@@ -58,7 +64,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   private static class BaseDataGen {
     protected final TupleMetadata schema;
     protected final ResultSetLoader rsLoader;
-    protected final VectorContainerAccessor batch = new VectorContainerAccessor();
+    protected final SerialOutgoingContainerAccessor batch = new SerialOutgoingContainerAccessor();
 
     public BaseDataGen(TupleMetadata schema) {
       this.schema = schema;
@@ -67,12 +73,6 @@ public class TestResultSetCopier extends SubOperatorTest {
           .setVectorCache(new ResultVectorCacheImpl(fixture.allocator()))
           .build();
       rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    }
-
-    public TupleMetadata schema() { return schema; }
-
-    public BatchAccessor batchAccessor() {
-      return batch;
     }
   }
 
@@ -87,7 +87,7 @@ public class TestResultSetCopier extends SubOperatorTest {
       for (int i = start; i <= end; i++) {
         rsLoader.writer().addRow(i, "Row " + i);
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
   }
 
@@ -125,7 +125,7 @@ public class TestResultSetCopier extends SubOperatorTest {
       for (int i = start; i <= end; i++) {
         rsLoader.writer().addRow(i, "Row " + i, i * 10);
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
 
     public TupleMetadata schema2() {
@@ -177,7 +177,7 @@ public class TestResultSetCopier extends SubOperatorTest {
         }
         writer.save();
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
   }
 
@@ -203,7 +203,7 @@ public class TestResultSetCopier extends SubOperatorTest {
         }
         writer.save();
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
   }
 
@@ -235,7 +235,7 @@ public class TestResultSetCopier extends SubOperatorTest {
         }
         writer.save();
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
   }
 
@@ -244,7 +244,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
 
     // Nothing should work yet
 
@@ -296,7 +296,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     // in the verify step below.)
 
     RowSet result = fixture.wrap(copier.harvest());
-    new RowSetComparison(fixture.wrap(dataGen.batchAccessor().container()))
+    new RowSetComparison(fixture.wrap(dataGen.batch.container()))
       .verifyAndClear(result);
 
     // Copier will release the input batch
@@ -309,7 +309,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
 
     // Close OK before things got started
 
@@ -325,7 +325,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
 
     // Start batch, no data yet.
 
@@ -345,7 +345,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
 
     // Start batch, with data.
 
@@ -376,7 +376,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   public void testMerge() {
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
     copier.startOutputBatch();
 
     for (int i = 0; i < 5; i++) {
@@ -391,7 +391,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     }
     RowSet result = fixture.wrap(copier.harvest());
     dataGen.makeBatch(1, 15);
-    RowSet expected = RowSets.wrap(dataGen.batchAccessor());
+    RowSet expected = RowSets.wrap(dataGen.batch);
     RowSetUtilities.verify(expected, result);
 
     copier.close();
@@ -407,7 +407,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     OptionBuilder options = new OptionBuilder()
         .setRowCountLimit(12);
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor(), options);
+        fixture.allocator(), dataGen.batch, options);
 
     // Equivalent of an entire operator run
 
@@ -417,15 +417,15 @@ public class TestResultSetCopier extends SubOperatorTest {
       // Equivalent of operator next() method
 
       copier.startOutputBatch();
-      while (! copier.isOutputFull()) {
+      while (!copier.isOutputFull()) {
         copier.releaseInputBatch();
-        if (! dataGen.next()) {
+        if (!dataGen.next()) {
           break;
         }
         copier.startInputBatch();
         copier.copyAllRows();
       }
-      if (! copier.hasOutputRows()) {
+      if (!copier.hasOutputRows()) {
         break;
       }
 
@@ -434,7 +434,7 @@ public class TestResultSetCopier extends SubOperatorTest {
       RowSet result = fixture.wrap(copier.harvest());
        int nextRow = dataGen.nextRow();
       validatorGen.makeBatch(start, nextRow - 1);
-      RowSet expected = RowSets.wrap(validatorGen.batchAccessor());
+      RowSet expected = RowSets.wrap(validatorGen.batch);
       RowSetUtilities.verify(expected, result);
       start = nextRow;
     }
@@ -456,7 +456,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   public void testCopyRecord() {
     DataGen dataGen = new DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
     copier.startOutputBatch();
 
     dataGen.makeBatch(1, 3);
@@ -473,7 +473,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.copyRow(2);
     copier.releaseInputBatch();
 
-    RowSet expected = new RowSetBuilder(fixture.allocator(), dataGen.schema())
+    RowSet expected = new RowSetBuilder(fixture.allocator(), dataGen.schema)
         .addRow(3, "Row 3")
         .addRow(1, "Row 1")
         .addRow(2, "Row 2")
@@ -492,7 +492,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     SchemaChangeGen dataGen = new SchemaChangeGen();
     SchemaChangeGen verifierGen = new SchemaChangeGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
 
     // Copy first batch with first schema
 
@@ -522,7 +522,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
     RowSet result = fixture.wrap(copier.harvest());
     verifierGen.makeBatch(1, 2 * dataGen.batchSize - 1);
-    RowSet expected = RowSets.wrap(verifierGen.batchAccessor());
+    RowSet expected = RowSets.wrap(verifierGen.batch);
     RowSetUtilities.verify(expected, result);
 
     // Start a new batch, implicitly complete pending copy
@@ -541,11 +541,40 @@ public class TestResultSetCopier extends SubOperatorTest {
     result = fixture.wrap(copier.harvest());
     verifierGen.evolveSchema();
     verifierGen.makeBatch2(2 * dataGen.batchSize + 1, 4 * dataGen.batchSize - 1);
-    expected = RowSets.wrap(verifierGen.batchAccessor());
+    expected = RowSets.wrap(verifierGen.batch);
     RowSetUtilities.verify(expected, result);
     assertFalse(copier.isCopyPending());
 
     copier.close();
+  }
+
+  private static class Sv2DataGen {
+    protected final ResultSetLoader rsLoader;
+    protected final IndirectOutgoingAccessor batch;
+
+    public Sv2DataGen() {
+      ResultSetOptions options = new OptionBuilder()
+          .setSchema(TEST_SCHEMA)
+          .setVectorCache(new ResultVectorCacheImpl(fixture.allocator()))
+          .build();
+      rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+      batch = new IndirectOutgoingAccessor(rsLoader.outputContainer());
+    }
+
+    public void makeBatch(int start, int end) {
+      rsLoader.startBatch();
+      for (int i = start; i <= end; i++) {
+        rsLoader.writer().addRow(i, "Row " + i);
+      }
+      VectorContainer container = rsLoader.harvest();
+      SelectionVector2Builder sv2Builder =
+          new SelectionVector2Builder(fixture.allocator(), container.getRecordCount());
+      for (int i = 0; i < 5; i++) {
+        sv2Builder.setNext(10 - 2 * i - 1);
+      }
+      container.buildSchema(SelectionVectorMode.TWO_BYTE);
+      batch.registerBatch(sv2Builder.harvest(container));
+    }
   }
 
   // TODO: Test with two consecutive schema changes in
@@ -553,10 +582,9 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testSV2() {
-    DataGen dataGen = new DataGen();
-    IndirectContainerAccessor filtered = new IndirectContainerAccessor();
+    Sv2DataGen dataGen = new Sv2DataGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), filtered);
+        fixture.allocator(), dataGen.batch);
 
     copier.startOutputBatch();
     dataGen.makeBatch(1, 10);
@@ -564,16 +592,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     // Pick out every other record, in descending
     // order.
 
-    VectorContainer container = dataGen.batchAccessor().container();
-    SelectionVector2Builder sv2Builder =
-        new SelectionVector2Builder(fixture.allocator(), container.getRecordCount());
-    for (int i = 0; i < 5; i++) {
-      sv2Builder.setNext(10 - 2 * i - 1);
-    }
-    container.buildSchema(SelectionVectorMode.TWO_BYTE);
-    filtered.addBatch(container);
-    filtered.setSelectionVector(sv2Builder.harvest(container));
-    assertEquals(5, filtered.rowCount());
+    assertEquals(5, dataGen.batch.rowCount());
 
     copier.startInputBatch();
     copier.copyAllRows();
@@ -594,14 +613,32 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testSV4() {
-    // TODO
+    HyperRowSet hyperSet = TestHyperVectorReaders.buildRequiredIntHyperBatch(fixture.allocator());
+    VectorContainer container = hyperSet.container();
+    IndirectOutgoingAccessor filtered = new IndirectOutgoingAccessor(container);
+    ResultSetCopier copier = new ResultSetCopierImpl(
+        fixture.allocator(), filtered);
+
+    copier.startOutputBatch();
+    filtered.registerBatch(hyperSet.getSv4());
+
+    assertEquals(hyperSet.rowCount(), filtered.rowCount());
+
+    copier.startInputBatch();
+    copier.copyAllRows();
+
+    RowSet expected = TestHyperVectorReaders.expectedRequiredIntBatch(fixture.allocator());
+    RowSetUtilities.verify(expected, hyperSet);
+
+    copier.releaseInputBatch();
+    copier.close();
   }
 
   @Test
   public void testNullable() {
     NullableGen dataGen = new NullableGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
     copier.startOutputBatch();
 
     dataGen.makeBatch(1, 10);
@@ -609,7 +646,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.copyAllRows();
 
     RowSet result = fixture.wrap(copier.harvest());
-    RowSet expected = RowSets.wrap(dataGen.batchAccessor());
+    RowSet expected = RowSets.wrap(dataGen.batch);
     RowSetUtilities.verify(expected, result);
 
     copier.close();
@@ -619,7 +656,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   public void testArrays() {
     ArrayGen dataGen = new ArrayGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
     copier.startOutputBatch();
 
     dataGen.makeBatch(1, 5);
@@ -627,7 +664,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.copyAllRows();
 
     RowSet result = fixture.wrap(copier.harvest());
-    RowSet expected = RowSets.wrap(dataGen.batchAccessor());
+    RowSet expected = RowSets.wrap(dataGen.batch);
     RowSetUtilities.verify(expected, result);
 
     copier.close();
@@ -637,7 +674,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   public void testMaps() {
     MapGen dataGen = new MapGen();
     ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen.batchAccessor());
+        fixture.allocator(), dataGen.batch);
     copier.startOutputBatch();
 
     dataGen.makeBatch(1, 5);
@@ -645,7 +682,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.copyAllRows();
 
     RowSet result = fixture.wrap(copier.harvest());
-    RowSet expected = RowSets.wrap(dataGen.batchAccessor());
+    RowSet expected = RowSets.wrap(dataGen.batch);
     RowSetUtilities.verify(expected, result);
 
     copier.close();
@@ -656,8 +693,86 @@ public class TestResultSetCopier extends SubOperatorTest {
     // TODO
   }
 
+  private static class BigVarcharDataGen {
+    protected final TupleMetadata schema;
+    protected final ResultSetLoader rsLoader;
+    protected final SingleOutgoingContainerAccessor batch;
+
+    // Odd sized data value to cause overflow at vector end
+    byte[] value = new byte[473];
+    int rowCount;
+
+    public BigVarcharDataGen() {
+      this.schema = TEST_SCHEMA;
+     ResultSetOptions options = new OptionBuilder()
+          .setSchema(schema)
+          .setVectorCache(new ResultVectorCacheImpl(fixture.allocator()))
+          // 16MB / .5K = 32K, these batches are half that size
+          .setRowCountLimit(16 * 1024)
+          .build();
+      rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+      batch = new SingleOutgoingContainerAccessor(rsLoader.outputContainer());
+      Arrays.fill(value, (byte) 'X');
+    }
+
+    // Get a set of non-overflowed batches that will, however,
+    // cause the copier to overflow due to no row limit, and
+    // odd row sizes.
+
+    public boolean next() {
+      if (rsLoader.batchCount() >= 10) {
+        return false;
+      }
+      rsLoader.startBatch();
+      RowSetLoader writer = rsLoader.writer();
+      while (!writer.isFull()) {
+        writer.addRow(++rowCount, value);
+      }
+      rsLoader.harvest();
+      batch.registerBatch();
+      return true;
+    }
+  }
+
   @Test
   public void testOverflow() {
-    // TODO
+    BigVarcharDataGen dataGen = new BigVarcharDataGen();
+    OptionBuilder options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT);
+    ResultSetCopier copier = new ResultSetCopierImpl(
+        fixture.allocator(), dataGen.batch, options);
+
+    int outputRowCount = 0;
+    for (;;) {
+
+      // Equivalent of operator next() method
+
+      copier.startOutputBatch();
+      while (!copier.isOutputFull()) {
+        copier.releaseInputBatch();
+        if (!dataGen.next()) {
+          break;
+        }
+        copier.startInputBatch();
+        copier.copyAllRows();
+      }
+      if (!copier.hasOutputRows()) {
+        break;
+      }
+
+      // Equivalent of sending downstream
+
+      RowSet result = fixture.wrap(copier.harvest());
+      RowSetReader reader = result.reader();
+      while (reader.next()) {
+        assertEquals(++outputRowCount, reader.scalar(0).getInt());
+        assertEquals(dataGen.value.length, reader.scalar(1).getString().length());
+      }
+      result.clear();
+    }
+    assertEquals(dataGen.rowCount, outputRowCount);
+
+    copier.close();
+    dataGen.rsLoader.close();
   }
 }

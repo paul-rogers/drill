@@ -23,6 +23,7 @@ import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.ResultSetReader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
+import org.apache.drill.exec.physical.resultSet.VectorTransfer;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
@@ -43,16 +44,46 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     CLOSED
   }
 
-  private class CopyAll {
+  private interface Copier {
+    void copy();
+    boolean hasMore();
+  }
 
-     public void copy() {
+  private class CopyAll implements Copier {
+
+     @Override
+    public void copy() {
       while (!rowWriter.isFull() && rowReader.next()) {
         copyColumns();
       }
     }
 
+    @Override
     public boolean hasMore() {
       return rowReader.hasNext();
+    }
+  }
+
+  private class TransferAll implements Copier {
+
+    private boolean isPending = true;
+
+    public TransferAll() {
+      if (directTransfer == null) {
+        directTransfer = new VectorTransfer(resultSetReader.inputBatch().container(),
+            resultSetWriter.outputContainer(), resultSetWriter.vectorCache());
+      }
+    }
+    @Override
+    public void copy() {
+      if (!hasOutputRows()) {
+        directTransfer.copyRecords();
+        isPending = false;
+      }
+    }
+    @Override
+    public boolean hasMore() {
+      return isPending;
     }
   }
 
@@ -81,9 +112,11 @@ public class ResultSetCopierImpl implements ResultSetCopier {
 
   // Copy state
 
+  private boolean allowDirectTransfer;
   private State state;
   private CopyPair[] projection;
-  private CopyAll activeCopy;
+  private Copier activeCopy;
+  private VectorTransfer directTransfer;
 
   public ResultSetCopierImpl(BufferAllocator allocator, BatchAccessor inputBatch) {
     this(allocator, inputBatch, new OptionBuilder());
@@ -96,6 +129,10 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     writerOptions = outputOptions;
     writerOptions.setVectorCache(new ResultVectorCacheImpl(allocator));
     state = State.START;
+  }
+
+  public void allowDirectTransfer(boolean flag) {
+    allowDirectTransfer = flag;
   }
 
   @Override
@@ -270,13 +307,67 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   @Override
   public void copyAllRows() {
     verifyWritable();
-    activeCopy = new CopyAll();
+    if (canDoDirectTransfer()) {
+      activeCopy = new TransferAll();
+    } else {
+      activeCopy = new CopyAll();
+    }
     copyBlock();
+  }
+
+  private boolean canDoDirectTransfer() {
+
+    // Can't do direct transfer if disabled (because, say,
+    // the input is the sort operator that reorders rows.
+
+    if (!allowDirectTransfer) {
+      return false;
+    }
+    int sv2Count;
+    BatchAccessor inputBatch = resultSetReader.inputBatch();
+    switch (inputBatch.schema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+
+      // Can't do direct transfers for SV4: output batches
+      // span multiple input batches.
+
+      return false;
+    case NONE:
+
+      // Should not occur, but maybe we are trying to compact
+      // input batches. Pretend we have a full SV2.
+
+      sv2Count = inputBatch.rowCount();
+      break;
+    case TWO_BYTE:
+
+      // Normal SV2 case
+
+      sv2Count = inputBatch.rowCount();
+      break;
+    default:
+      throw new IllegalStateException();
+    }
+
+    // Can't do direct transfer if SV2 count is less than
+    // the total record count: it means there are holes.
+
+    if (sv2Count != inputBatch.container().getRecordCount()) {
+      return false;
+    }
+
+    // Do a direct transfer only if the resulting batch
+    // will be at least half full. Don't worry about the
+    // current output batch: it may contain only one row, but
+    // the inefficiency of a small batch is compensated by
+    // avoiding a row-by-row copy.
+
+    return sv2Count > writerOptions.rowCountLimit / 2;
   }
 
   private void copyBlock() {
     activeCopy.copy();
-    if (! activeCopy.hasMore()) {
+    if (!activeCopy.hasMore()) {
       activeCopy = null;
     }
   }

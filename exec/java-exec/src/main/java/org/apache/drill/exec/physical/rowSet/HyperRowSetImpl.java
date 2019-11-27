@@ -95,6 +95,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       for (VectorContainer container : batches) {
         hyperContainer.addBatch(container);
       }
+      hyperContainer.setRecordCount(totalRowCount);
 
       // TODO: This has a bug. If the hyperset has two batches with unions,
       // and the first union contains only VARCHAR, while the second contains

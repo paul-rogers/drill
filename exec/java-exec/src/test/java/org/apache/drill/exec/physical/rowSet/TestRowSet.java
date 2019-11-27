@@ -50,6 +50,8 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Test row sets. Since row sets are a thin wrapper around vectors,
@@ -73,7 +75,7 @@ import org.junit.experimental.categories.Category;
 
 @Category(RowSetTests.class)
 public class TestRowSet extends SubOperatorTest {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestRowSet.class);
+  private static final Logger logger = LoggerFactory.getLogger(TestRowSet.class);
 
   /**
    * Test the simplest constructs: a row with top-level scalar

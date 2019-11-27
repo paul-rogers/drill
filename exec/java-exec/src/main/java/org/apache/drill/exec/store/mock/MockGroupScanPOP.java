@@ -18,8 +18,10 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,6 +45,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 
 /**
  * Describes a "group" scan of a (logical) mock table. The mock table has a
@@ -55,8 +58,6 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 @JsonTypeName("mock-scan")
 public class MockGroupScanPOP extends AbstractGroupScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
-      .getLogger(MockGroupScanPOP.class);
 
   /**
    * URL for the scan. Unused. Appears to be a vestige of an earlier design that
@@ -195,7 +196,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       throw new IllegalArgumentException("No columns for mock scan");
     }
     List<MockColumn> mockCols = new ArrayList<>();
-    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)");
+    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)(n(\\d*))?");
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (SchemaPath.DYNAMIC_STAR.equals(col)) {
@@ -232,8 +233,22 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         throw new IllegalArgumentException(
             "Unsupported field type " + type + " for mock column " + col);
       }
+      DataMode mode;
+      Map<String, Object> props = null;
+      if (m.group(4) == null) {
+        mode = DataMode.REQUIRED;
+       } else {
+        mode = DataMode.OPTIONAL;
+        String rateStr = m.group(5);
+        if (!Strings.isNullOrEmpty(rateStr)) {
+          int nullRate = Math.min(100,
+              Math.max(0, Integer.parseInt(rateStr)));
+          props = new HashMap<>();
+          props.put(MockColumn.NULL_RATE_PROPERTY, nullRate);
+        }
+      }
       MockTableDef.MockColumn mockCol = new MockColumn(
-          col, minorType, DataMode.REQUIRED, width, 0, 0, null, 1, null);
+          col, minorType, mode, width, 0, 0, null, 1, props);
       mockCols.add(mockCol);
     }
     MockScanEntry entry = readEntries.get(0);

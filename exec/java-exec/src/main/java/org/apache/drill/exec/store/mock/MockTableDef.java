@@ -92,6 +92,8 @@ public class MockTableDef {
   @JsonInclude(Include.NON_NULL)
   public static class MockColumn {
 
+    public static final String NULL_RATE_PROPERTY = "nulls";
+
     /**
      * Column type given as a Drill minor type (that is, a type without the
      * extra information such as cardinality, width, etc.

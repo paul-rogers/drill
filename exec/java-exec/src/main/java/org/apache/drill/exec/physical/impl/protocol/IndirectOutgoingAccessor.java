@@ -17,72 +17,57 @@
  */
 package org.apache.drill.exec.physical.impl.protocol;
 
-import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
- * Extension of the container accessor that holds an optional selection
- * vector, presenting the batch row count as the selection vector
- * count.
+ * Vector accessor for an outgoing batch that optionally includes
+ * a selection (indirection) vector.
  */
-
-public class IndirectContainerAccessor extends VectorContainerAccessor {
+public class IndirectOutgoingAccessor extends SingleOutgoingContainerAccessor {
 
   private SelectionVector2 sv2;
   private SelectionVector4 sv4;
 
-  /**
-   * Add a record batch, performing schema checks and picking out a
-   * selection vector, if provided.
-   *
-   * @param batch batch of records in record batch format
-   */
-
-  public void addBatch(RecordBatch batch) {
-    addBatch(batch.getContainer());
-    switch (container.getSchema().getSelectionVectorMode()) {
-    case TWO_BYTE:
-       setSelectionVector(batch.getSelectionVector2());
-       break;
-    case FOUR_BYTE:
-       setSelectionVector(batch.getSelectionVector4());
-       break;
-     default:
-       break;
-    }
+  public IndirectOutgoingAccessor(VectorContainer container) {
+    super(container);
   }
 
-  public void setSelectionVector(SelectionVector2 sv2) {
-    Preconditions.checkState(sv4 == null);
+  @Override
+  public void registerBatch() {
+    Preconditions.checkArgument(container.getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE);
+    super.registerBatch();
+    this.sv2 = null;
+    this.sv4 = null;
+  }
+
+  public void registerBatch(SelectionVector2 sv2) {
+    Preconditions.checkArgument(container.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE);
+    super.registerBatch();
     this.sv2 = sv2;
+    this.sv4 = null;
   }
 
-  public void setSelectionVector(SelectionVector4 sv4) {
-    Preconditions.checkState(sv2 == null);
+  public void registerBatch(SelectionVector4 sv4) {
+    Preconditions.checkArgument(container.getSchema().getSelectionVectorMode() == SelectionVectorMode.FOUR_BYTE);
+    super.registerBatch();
+    this.sv2 = null;
     this.sv4 = sv4;
   }
 
   @Override
   public SelectionVector2 selectionVector2() {
+    Preconditions.checkNotNull(sv2);
     return sv2;
   }
 
   @Override
   public SelectionVector4 selectionVector4() {
+    Preconditions.checkNotNull(sv4);
     return sv4;
-  }
-
-  @Override
-  public int rowCount() {
-    if (sv2 != null) {
-      return sv2.getCount();
-    } else if (sv4 != null) {
-      return sv4.getCount();
-    } else {
-      return super.rowCount();
-    }
   }
 
   @Override

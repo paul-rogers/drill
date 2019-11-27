@@ -26,7 +26,7 @@ import static org.junit.Assert.fail;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
-import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SerialOutgoingContainerAccessor;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.ResultSetReader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
@@ -47,7 +47,7 @@ public class TestResultSetReader extends SubOperatorTest {
     private enum State { SCHEMA1, SCHEMA2 };
 
     private final ResultSetLoader rsLoader;
-    private final VectorContainerAccessor batch = new VectorContainerAccessor();
+    private final SerialOutgoingContainerAccessor batch = new SerialOutgoingContainerAccessor();
     private State state;
 
     public BatchGenerator() {
@@ -73,7 +73,7 @@ public class TestResultSetReader extends SubOperatorTest {
         writer.scalar("name").setString("Row" + i);
         writer.save();
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
 
     public void batch2(int start, int end) {
@@ -91,7 +91,7 @@ public class TestResultSetReader extends SubOperatorTest {
         writer.scalar("amount").setInt(i * 10);
         writer.save();
       }
-      batch.addBatch(rsLoader.harvest());
+      batch.registerBatch(rsLoader.harvest());
     }
 
     public BatchAccessor batchAccessor() {

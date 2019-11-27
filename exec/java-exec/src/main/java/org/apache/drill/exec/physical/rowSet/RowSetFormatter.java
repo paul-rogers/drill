@@ -120,7 +120,7 @@ public class RowSetFormatter {
     switch (selectionMode) {
       case FOUR_BYTE:
         writer.write(" (");
-        writer.write(reader.hyperVectorIndex());
+        writer.write(Integer.toString(reader.hyperVectorIndex()));
         writer.write(", ");
         writer.write(Integer.toString(reader.offset()));
         writer.write(")");

@@ -36,6 +36,7 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
  */
 
 public interface BatchAccessor {
+  boolean isValid();
   BatchSchema schema();
   int schemaVersion();
   int rowCount();

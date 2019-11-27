@@ -83,8 +83,13 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     private final SelectionVector4 sv4;
 
     public HyperRowIndex(SelectionVector4 sv4) {
-      super(sv4.getCount());
       this.sv4 = sv4;
+      resetRowCount();
+    }
+
+    @Override
+    public void resetRowCount() {
+      setRowCount(sv4.getCount());
     }
 
     @Override

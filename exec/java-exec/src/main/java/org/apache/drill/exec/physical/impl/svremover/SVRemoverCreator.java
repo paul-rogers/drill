@@ -19,19 +19,29 @@ package org.apache.drill.exec.physical.impl.svremover;
 
 import java.util.List;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
 import org.apache.drill.exec.physical.config.SelectionVectorRemover;
 import org.apache.drill.exec.physical.impl.BatchCreator;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
-
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class SVRemoverCreator implements BatchCreator<SelectionVectorRemover> {
   @Override
-  public RemovingRecordBatch getBatch(ExecutorFragmentContext context, SelectionVectorRemover config, List<RecordBatch> children)
-      throws ExecutionSetupException {
+  public CloseableRecordBatch getBatch(ExecutorFragmentContext context,
+      SelectionVectorRemover config, List<RecordBatch> children) {
     Preconditions.checkArgument(children.size() == 1);
-    return new RemovingRecordBatch(config, context, children.iterator().next());
+    RecordBatch upstream = children.iterator().next();
+    OptionManager optionManager = context.getOptions();
+    boolean enableV2 = optionManager.getBoolean(ExecConstants.SVR_ENABLE_V2_KEY);
+    if (enableV2) {
+      RemovingOperator svrOp = new RemovingOperator(context.getAllocator(), upstream);
+      return new OperatorRecordBatch(context, config, svrOp, false);
+    } else {
+      return new RemovingRecordBatch(config, context, upstream);
+    }
   }
 }

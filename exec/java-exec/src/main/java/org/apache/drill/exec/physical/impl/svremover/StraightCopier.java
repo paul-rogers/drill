@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.svremover;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorAccessible;
@@ -25,46 +24,47 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class StraightCopier implements Copier {
-    private List<TransferPair> pairs = Lists.newArrayList();
-    private RecordBatch incoming;
-    private VectorContainer outputContainer;
-    private SchemaChangeCallBack callBack;
+  private final List<TransferPair> pairs = new ArrayList<>();
+  private final RecordBatch incoming;
+  private final VectorContainer outputContainer;
+  private final SchemaChangeCallBack callBack;
 
-    public StraightCopier(RecordBatch incomingBatch, VectorContainer outputContainer, SchemaChangeCallBack callBack) {
-      this.incoming = incomingBatch;
-      this.outputContainer = outputContainer;
-      this.callBack = callBack;
+  public StraightCopier(RecordBatch incomingBatch, VectorContainer outputContainer, SchemaChangeCallBack callBack) {
+    this.incoming = incomingBatch;
+    this.outputContainer = outputContainer;
+    this.callBack = callBack;
+  }
+
+  @Override
+  public void setup(VectorAccessible incoming, VectorContainer outgoing) {
+    for (VectorWrapper<?> vv : incoming) {
+      TransferPair tp = vv.getValueVector().makeTransferPair(outputContainer.addOrGet(vv.getField(), callBack));
+      pairs.add(tp);
+    }
+  }
+
+  @Override
+  public int copyRecords(int index, int recordCount) {
+    assert index == 0 && recordCount == incoming.getRecordCount() : "Straight copier cannot split batch";
+    for (TransferPair tp : pairs) {
+      tp.transfer();
     }
 
-    @Override
-    public void setup(VectorAccessible incoming, VectorContainer outgoing) {
-      for(VectorWrapper<?> vv : incoming){
-        TransferPair tp = vv.getValueVector().makeTransferPair(outputContainer.addOrGet(vv.getField(), callBack));
-        pairs.add(tp);
-      }
-    }
+    outputContainer.setRecordCount(incoming.getRecordCount());
+    return recordCount;
+  }
 
-    @Override
-    public int copyRecords(int index, int recordCount) {
-      assert index == 0 && recordCount == incoming.getRecordCount() : "Straight copier cannot split batch";
-      for(TransferPair tp : pairs){
-        tp.transfer();
-      }
+  @Override
+  public int appendRecord(int index) {
+    throw new UnsupportedOperationException();
+  }
 
-      outputContainer.setRecordCount(incoming.getRecordCount());
-      return recordCount;
-    }
-
-    @Override
-    public int appendRecord(int index) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int appendRecords(int index, int recordCount) {
-      throw new UnsupportedOperationException();
-    }
+  @Override
+  public int appendRecords(int index, int recordCount) {
+    throw new UnsupportedOperationException();
+  }
 }

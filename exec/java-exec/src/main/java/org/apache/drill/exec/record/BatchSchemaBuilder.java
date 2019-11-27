@@ -23,8 +23,7 @@ public class BatchSchemaBuilder {
   private BatchSchema.SelectionVectorMode svMode = BatchSchema.SelectionVectorMode.NONE;
   private SchemaBuilder schemaBuilder;
 
-  public BatchSchemaBuilder() {
-  }
+  public BatchSchemaBuilder() { }
 
   /**
    * Create a new schema starting with the base schema. Allows appending

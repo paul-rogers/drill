@@ -15,35 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.resultSet.model.single;
+package org.apache.drill.exec.physical.impl.protocol;
 
-import org.apache.drill.exec.physical.resultSet.model.ReaderIndex;
 import org.apache.drill.exec.record.VectorContainer;
 
 /**
- * Reader index that points directly to each row in the row set.
- * This index starts with pointing to the -1st row, so that the
- * reader can require a <tt>next()</tt> for every row, including
- * the first. (This is the JDBC <tt>RecordSet</tt> convention.)
+ * Vector container wrapper for operators that produce all batches
+ * via a single container.
+ * Supports containers without a selection vector.
  */
 
-public class DirectRowIndex extends ReaderIndex {
+public class SingleOutgoingContainerAccessor extends AbstractContainerAccessor {
 
-  private final VectorContainer container;
+  protected final VectorContainer container;
+  private int schemaVersion;
 
-  public DirectRowIndex(VectorContainer container) {
+  public SingleOutgoingContainerAccessor(VectorContainer container) {
     this.container = container;
-    resetRowCount();
+  }
+
+  public void registerBatch() {
+    if (container.isSchemaChanged()) {
+      schemaVersion++;
+    }
+    batchCount++;
   }
 
   @Override
-  public void resetRowCount() {
-    setRowCount(container.getRecordCount());
+  public VectorContainer container() {
+    return container;
   }
 
   @Override
-  public int offset() { return position; }
+  public int schemaVersion() { return schemaVersion; }
 
   @Override
-  public int hyperVectorIndex() { return 0; }
+  public void release() {
+    container.zeroVectors();
+  }
 }
