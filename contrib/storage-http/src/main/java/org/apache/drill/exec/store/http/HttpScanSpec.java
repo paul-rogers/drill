@@ -30,6 +30,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 public class HttpScanSpec {
   private String uri;
   private Map<String, Object> args = new HashMap<String, Object>();
+  private String pluginName = HttpStoragePluginConfig.NAME;
 
   @JsonCreator
   public HttpScanSpec(@JsonProperty("uri") String uri) {
@@ -41,6 +42,7 @@ public class HttpScanSpec {
     this.args.put(key, val);
   }
 
+  @JsonIgnore
   public String getURI() {
     return uri;
   }
@@ -70,6 +72,10 @@ public class HttpScanSpec {
     }
   }
 
+  @JsonIgnore
+  public String getTableNme() {
+    return pluginName;
+  }
   @Override
   public String toString() {
     return "HttpScanSpec [uri='" + uri + "', args=" + args + "]";

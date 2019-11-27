@@ -30,10 +30,12 @@ import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class HttpSchemaFactory extends AbstractSchemaFactory {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpSchemaFactory.class);
+  private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
   private final HttpStoragePlugin plugin;
   private final String schemaName;
@@ -54,11 +56,10 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   }
 
   class HttpSchema extends AbstractSchema {
-    //private Set<String> tableNames = Sets.newHashSet();
 
     private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
 
-    HttpSchema(String name) {
+    public HttpSchema(String name) {
       super(Collections.emptyList(), name);
     }
 
@@ -72,6 +73,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
         return null; // TODO
       }
       return null; // Unknown table*/
+      DynamicDrillTable table = activeTables.get(tableName);
 
       logger.debug("HttpSchema.getTable {}", tableName);
       HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan

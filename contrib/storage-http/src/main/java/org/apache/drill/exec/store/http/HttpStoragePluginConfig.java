@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.slf4j.Logger;
@@ -39,7 +40,8 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public String resultKey;
 
   @JsonCreator
-  public HttpStoragePluginConfig(@JsonProperty("connection") String connection, @JsonProperty("resultKey") String resultKey) {
+  public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
+                                 @JsonProperty("resultKey") String resultKey) {
     logger.debug("initialize HttpStoragePluginConfig {}", connection);
     this.connection = connection;
     this.resultKey = resultKey;
@@ -70,10 +72,12 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       .toString();
   }
 
+  @JsonIgnore
   public String getConnection() {
     return connection;
   }
 
+  @JsonIgnore
   public String getResultKey() {
     return resultKey;
   }

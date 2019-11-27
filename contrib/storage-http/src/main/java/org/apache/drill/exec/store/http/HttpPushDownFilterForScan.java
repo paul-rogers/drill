@@ -61,7 +61,7 @@ public class HttpPushDownFilterForScan extends StoragePluginOptimizerRule {
     }
 
     HttpGroupScan newGroupsScan = null;
-    newGroupsScan = new HttpGroupScan(groupScan.getUserName(), groupScan.getStorageConfig(), newScanSpec);
+    newGroupsScan = new HttpGroupScan(groupScan.getStorageConfig(), newScanSpec, groupScan.getColumns());
     newGroupsScan.setFilterPushedDown(true);
     logger.debug("assign new group scan with spec {}", newScanSpec);
     final ScanPrel newScanPrel = ScanPrel.create(scan, filter.getTraitSet(),

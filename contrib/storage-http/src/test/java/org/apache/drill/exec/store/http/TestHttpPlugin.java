@@ -65,6 +65,13 @@ public class TestHttpPlugin extends ClusterTest {
     new RowSetComparison(expected).verifyAndClearAll(results);
   }
 
+
+  @Test
+  public void test() throws Exception {
+    String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    queryBuilder().sql(sql).run();
+  }
+
   /**
    * This test evaluates the HTTP plugin with the results from an API that returns the sunrise/sunset times for a given lat/long and date.
    * API documentation is available here: https://sunrise-sunset.org/api

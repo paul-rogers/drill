@@ -20,53 +20,54 @@ package org.apache.drill.exec.store.http;
 import java.util.Iterator;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.base.AbstractBase;
+import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
-import org.apache.drill.exec.physical.base.SubScan;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
-import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HttpSubScan extends AbstractBase implements SubScan {
-  static final Logger logger = LoggerFactory.getLogger(HttpSubScan.class);
+public class HttpSubScan extends AbstractSubScan {
+  private static final Logger logger = LoggerFactory.getLogger(HttpSubScan.class);
 
-  private HttpScanSpec scanSpec;
-  private HttpStoragePluginConfig config;
+  private final HttpScanSpec tableSpec;
+  private final HttpStoragePluginConfig pluginConfig;
   private final List<SchemaPath> columns;
 
-  public HttpSubScan(@JsonProperty("HttpPluginConfig") HttpStoragePluginConfig config,
-                     @JsonProperty("tabletScanSpecList") HttpScanSpec spec,
-                     @JsonProperty("columns") List<SchemaPath> columns) {
-    scanSpec = spec;
-    this.config = config;
+  public HttpSubScan(
+    @JsonProperty("config") HttpStoragePluginConfig config,
+    @JsonProperty("tableSpec") HttpScanSpec tableSpec,
+    @JsonProperty("columns") List<SchemaPath> columns) {
+    super("user-if-needed");
+    this.pluginConfig = config;
+    this.tableSpec = tableSpec;
     this.columns = columns;
   }
 
-  HttpScanSpec getScanSpec() {
-    return scanSpec;
+  public HttpScanSpec getTableSpec() {
+    return tableSpec;
   }
 
-  String getURL() {
-    return scanSpec.getURL();
+  public String getURL() {
+    return tableSpec.getURL();
   }
 
-  String getFullURL() {
-    return config.getConnection() + getURL();
+  public String getFullURL() {
+    return pluginConfig.getConnection() + getURL();
   }
 
   public List<SchemaPath> getColumns() {
     return columns;
   }
 
-
-  HttpStoragePluginConfig getStorageConfig() {
-    return config;
+  public HttpStoragePluginConfig getStorageConfig() {
+    return pluginConfig;
   }
 
   @Override
@@ -78,12 +79,13 @@ public class HttpSubScan extends AbstractBase implements SubScan {
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
     throws ExecutionSetupException {
-    return new HttpSubScan(config, scanSpec, columns);
+    return new HttpSubScan(pluginConfig, tableSpec, columns);
   }
 
   @Override
+  @JsonIgnore
   public int getOperatorType() {
-    return UserBitShared.CoreOperatorType.HTTP_SUB_SCAN_VALUE;
+    return CoreOperatorType.HTTP_SUB_SCAN_VALUE;
   }
 
   @Override

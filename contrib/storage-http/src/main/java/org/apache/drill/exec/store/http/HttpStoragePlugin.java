@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.http;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.JSONOptions;
+import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
@@ -41,8 +42,8 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
 
   public HttpStoragePlugin(HttpStoragePluginConfig configuration, DrillbitContext context, String name) throws IOException {
     super(context, name);
-    this.engineConfig = configuration;
-    this.schemaFactory = new HttpSchemaFactory(this, name);
+    engineConfig = configuration;
+    schemaFactory = new HttpSchemaFactory(this, name);
     this.context = context;
   }
 
@@ -67,8 +68,8 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public HttpGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
     HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
-    return new HttpGroupScan(this, scanSpec, null);
+    return new HttpGroupScan(engineConfig, scanSpec, null);
   }
 }
