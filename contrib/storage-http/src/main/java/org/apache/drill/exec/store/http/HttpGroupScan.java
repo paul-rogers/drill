@@ -81,7 +81,6 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
-    // selection columns from here
     logger.debug("HttpGroupScan clone {}", columns);
     return new HttpGroupScan(this);
   }
@@ -104,8 +103,12 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public ScanStats getScanStats() {
-    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,1, 1, 1);
+    int estRowCount = 1;
+    int estDataSize = estRowCount * 200;
+    int estCpuCost = 1;
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,estRowCount, estCpuCost, estDataSize);
   }
+
 
   public boolean isFilterPushedDown() {
     return filterPushedDown;
@@ -125,14 +128,10 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public String toString() {
-    return "Example scan of " + httpScanSpec.getTableNme() + "." + httpScanSpec.getURI();
+    return "[" + this.getClass().getSimpleName() +
+      "httpScanSpec=" + httpScanSpec.toString() +
+      "columns=" + columns.toString() +
+      "httpStoragePluginConfig=" + httpStoragePluginConfig.toString() +
+      "]";
   }
-
-  /*
-  @Override
-  public String toString() {
-    return "HttpGroupScan [HttpScanSpec="
-      + httpScanSpec + ", columns="
-      + columns + "]";
-  }*/
 }

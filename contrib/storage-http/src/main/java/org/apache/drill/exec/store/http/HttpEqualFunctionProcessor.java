@@ -106,7 +106,14 @@ public class HttpEqualFunctionProcessor extends AbstractExprVisitor<Boolean, Log
       this.path = path;
       return true;
     }
-
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return "[" + this.getClass().getSimpleName() +
+      "schemaPath=" + path.toString() +
+      "value=" + value.toString() +
+      "]";
   }
 }

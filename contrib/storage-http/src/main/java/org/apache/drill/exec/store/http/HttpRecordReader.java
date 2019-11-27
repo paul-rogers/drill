@@ -37,9 +37,11 @@ import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpRecordReader extends AbstractRecordReader {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpRecordReader.class);
+  static final Logger logger = LoggerFactory.getLogger(HttpRecordReader.class);
 
   private VectorContainerWriter writer;
   private JsonReader jsonReader;
@@ -99,7 +101,7 @@ public class HttpRecordReader extends AbstractRecordReader {
   }
 
   private void parseResult(String content) {
-    String key = subScan.getStorageConfig().getResultKey();
+    String key = subScan.getConfig().getResultKey();
     this.root = key.length() == 0 ? JsonConverter.parse(content) : JsonConverter.parse(content, key);
     if (root != null) {
       logger.debug("response object count {}", root.size());

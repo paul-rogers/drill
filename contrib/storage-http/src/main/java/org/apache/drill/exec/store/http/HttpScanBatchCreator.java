@@ -28,14 +28,16 @@ import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HttpScanBatchCreator.class);
+  private static final Logger logger = LoggerFactory.getLogger(HttpScanBatchCreator.class);
 
   @Override
   public ScanBatch getBatch(ExecutorFragmentContext context, HttpSubScan subScan, List<RecordBatch> children) throws ExecutionSetupException {
     logger.debug("getBatch called");
-    HttpStoragePluginConfig config = subScan.getStorageConfig();
+    HttpStoragePluginConfig config = subScan.getConfig();
     List<RecordReader> readers = Lists.newArrayList();
     List<SchemaPath> columns = null;
     try {
@@ -47,5 +49,10 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
       throw new ExecutionSetupException(e);
     }
     return new ScanBatch(subScan, context, readers);
+  }
+
+  @Override
+  public String toString() {
+    return "[" + this.getClass().getSimpleName() + "]";
   }
 }

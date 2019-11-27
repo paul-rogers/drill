@@ -26,6 +26,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.QueryBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -69,7 +70,15 @@ public class TestHttpPlugin extends ClusterTest {
   @Test
   public void test() throws Exception {
     String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
-    queryBuilder().sql(sql).run();
+    QueryBuilder x = queryBuilder().sql(sql);
+    x.run();
+  }
+
+  @Test
+  public void test2() throws Exception {
+    String sql = "SELECT sunrise, sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    QueryBuilder x = queryBuilder().sql(sql);
+    x.run();
   }
 
   /**

@@ -65,19 +65,15 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
 
     @Override
     public Table getTable(String tableName) { // table name can be any of string
-      /*DynamicDrillTable table = activeTables.get(tableName);
+      DynamicDrillTable table = activeTables.get(tableName);
       if (table != null) {
         return table;
       }
-      if (MY_TABLE.contentEquals(tableName)) {
-        return null; // TODO
-      }
-      return null; // Unknown table*/
-      DynamicDrillTable table = activeTables.get(tableName);
+
 
       logger.debug("HttpSchema.getTable {}", tableName);
       HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan
-      return new DynamicDrillTable(plugin, schemaName, null, spec);
+      return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(name)));
     }
 
     private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {

@@ -119,4 +119,9 @@ public class HttpFilterBuilder extends
     String queryKey = fieldName.substring(1);
     return new HttpScanSpec(groupScan.getScanSpec().getURI(), queryKey, fieldValue);
   }
+
+  @Override
+  public String toString() {
+    return "[" + this.getClass().getSimpleName() + "httpGroupScan=" + groupScan.toString() + "LogicalExpression=" + le.toString() + "]";
+  }
 }

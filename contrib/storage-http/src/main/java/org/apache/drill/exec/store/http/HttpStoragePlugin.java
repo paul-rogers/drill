@@ -59,7 +59,7 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
 
   @Override
   public DrillbitContext getContext() {
-    return this.context;
+    return context;
   }
 
   @Override
@@ -72,4 +72,23 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
     HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
     return new HttpGroupScan(engineConfig, scanSpec, null);
   }
+/*
+  public CloseableRecordBatch createScan(ExecutorFragmentContext context,
+                                         HttpSubScan scanDef) throws ExecutionSetupException {
+    try {
+      final ManagedScanFramework.ScanFrameworkBuilder builder = frameworkBuilder(context.getOptions(), scanDef);
+      return builder.buildScanOperator(context, scanDef);
+    } catch (final UserException e) {
+      // Rethrow user exceptions directly
+      throw e;
+    } catch (final Throwable e) {
+      // Wrap all others
+      throw new ExecutionSetupException(e);
+    }
+  }
+
+  private ManagedScanFramework.ScanFrameworkBuilder frameworkBuilder(OptionManager options,
+                                                                     HttpSubScan scanDef) {
+    return null; // TODO
+  }*/
 }
