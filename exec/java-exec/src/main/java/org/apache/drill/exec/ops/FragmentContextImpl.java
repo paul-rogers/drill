@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.ops;
 
+import io.netty.buffer.DrillBuf;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -77,8 +78,6 @@ import org.apache.drill.shaded.guava.com.google.common.base.Function;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.buffer.DrillBuf;
 
 /**
  * This is the core Context which implements all the Context interfaces:

@@ -42,8 +42,7 @@ public class CustomLowerFunction implements DrillSimpleFunc {
   @Inject
   DrillBuf buffer;
 
-  public void setup() {
-  }
+  public void setup() { }
 
   public void eval() {
 
@@ -61,4 +60,3 @@ public class CustomLowerFunction implements DrillSimpleFunc {
 
   }
 }
-

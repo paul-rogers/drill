@@ -22,6 +22,8 @@ import org.apache.maven.cli.logging.Slf4jLogger;
 import org.codehaus.plexus.DefaultPlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.logging.BaseLoggerManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -30,7 +32,7 @@ import static org.junit.Assert.assertEquals;
 
 public class JarBuilder {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JarBuilder.class);
+  private static final Logger logger = LoggerFactory.getLogger(JarBuilder.class);
   private static final String MAVEN_MULTI_MODULE_PROJECT_DIRECTORY = "maven.multiModuleProjectDirectory";
 
   private final MavenCli cli;
@@ -80,7 +82,7 @@ public class JarBuilder {
       if (includeResources != null) {
         params.add("-Dinclude.resources=" + includeResources);
       }
-      int result = cli.doMain(params.toArray(new String[params.size()]), projectDirectory, System.out, System.err);
+      int result = cli.doMain(params.toArray(new String[params.size()]), projectDirectory, null, null);
       assertEquals("Build should be successful.", 0, result);
       return jarName + ".jar";
     } finally {
@@ -91,6 +93,4 @@ public class JarBuilder {
       }
     }
   }
-
 }
-
