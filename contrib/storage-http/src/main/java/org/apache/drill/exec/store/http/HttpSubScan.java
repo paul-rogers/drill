@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.http;
 
 
+import java.util.Iterator;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -28,7 +29,9 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,11 +75,11 @@ public class HttpSubScan extends AbstractSubScan {
     return config;
   }
 
- /* @Override
+ @Override
   public <T, X, E extends Throwable> T accept(
-    PhysicalVisitor<T, X, E> physicalVisitor, X value) throws E {
+   PhysicalVisitor<T, X, E> physicalVisitor, X value) throws E {
     return physicalVisitor.visitSubScan(this, value);
-  }*/
+  }
 
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
@@ -90,10 +93,10 @@ public class HttpSubScan extends AbstractSubScan {
     return CoreOperatorType.HTTP_SUB_SCAN_VALUE;
   }
 
-  //@Override
-  /*public Iterator<PhysicalOperator> iterator() {
+  @Override
+  public Iterator<PhysicalOperator> iterator() {
     return ImmutableSet.<PhysicalOperator>of().iterator();
-  }*/
+  }
 
   @Override
   public String toString() {
