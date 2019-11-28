@@ -72,10 +72,11 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("d", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     doProjectionTest(rsLoader);
   }
@@ -84,9 +85,10 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
   public void testProjectionDynamic() {
     List<SchemaPath> selection = RowSetTestUtils.projectList("c", "b", "e");
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
     rootWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     rootWriter.addColumn(SchemaBuilder.columnSchema("b", MinorType.INT, DataMode.REQUIRED));
@@ -157,10 +159,11 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("a3", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify the projected columns
@@ -215,10 +218,11 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify the projected columns
@@ -292,10 +296,11 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify the projected columns
@@ -352,10 +357,11 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Write a couple of rows.
@@ -409,11 +415,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("small", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     byte big[] = new byte[600];
@@ -472,11 +479,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -490,11 +498,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -508,11 +517,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -526,11 +536,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -544,11 +555,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
         .addArray("col", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -564,11 +576,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);
@@ -585,11 +598,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
         .build();
     try {
-      new ResultSetLoaderImpl(fixture.allocator(), options);
+      new ResultSetLoaderImpl(options);
       fail();
     } catch (UserException e) {
       assertTrue(e.getErrorType() == ErrorType.VALIDATION);

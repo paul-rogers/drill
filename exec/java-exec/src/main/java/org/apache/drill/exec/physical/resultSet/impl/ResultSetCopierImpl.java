@@ -41,6 +41,8 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     BATCH_ACTIVE,
     NEW_SCHEMA,
     SCHEMA_PENDING,
+    DIRECT_COPY_PENDING,
+    DIRECT_COPY_DONE,
     CLOSED
   }
 
@@ -64,6 +66,13 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     }
   }
 
+  /**
+   * Use transfer pairs to do a direct copy of input to output vectors.
+   * Requires a flush of any input data from the result set loader.
+   * Requires a flush afterwards because, at present, the result set
+   * loader can't append to an existing batch.
+   */
+
   private class TransferAll implements Copier {
 
     private boolean isPending = true;
@@ -74,13 +83,18 @@ public class ResultSetCopierImpl implements ResultSetCopier {
             resultSetWriter.outputContainer(), resultSetWriter.vectorCache());
       }
     }
+
     @Override
     public void copy() {
-      if (!hasOutputRows()) {
+      if (hasOutputRows()) {
+        state = State.DIRECT_COPY_PENDING;
+      } else {
         directTransfer.copyRecords();
         isPending = false;
+        state = State.DIRECT_COPY_DONE;
       }
     }
+
     @Override
     public boolean hasMore() {
       return isPending;
@@ -105,7 +119,7 @@ public class ResultSetCopierImpl implements ResultSetCopier {
 
   // Output state
 
-  private final BufferAllocator allocator;
+  private final VectorContainer outputContainer;
   private final OptionBuilder writerOptions;
   private ResultSetLoader resultSetWriter;
   private RowSetLoader rowWriter;
@@ -118,15 +132,20 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   private Copier activeCopy;
   private VectorTransfer directTransfer;
 
+  // Stats, primarily for testing
+
+  int bulkCopyCount;
+
   public ResultSetCopierImpl(BufferAllocator allocator, BatchAccessor inputBatch) {
     this(allocator, inputBatch, new OptionBuilder());
   }
 
   public ResultSetCopierImpl(BufferAllocator allocator, BatchAccessor inputBatch,
       OptionBuilder outputOptions) {
-    this.allocator = allocator;
+    outputContainer = new VectorContainer(allocator);
     resultSetReader = new ResultSetReaderImpl(inputBatch);
     writerOptions = outputOptions;
+    writerOptions.setOutputContainer(outputContainer);
     writerOptions.setVectorCache(new ResultVectorCacheImpl(allocator));
     state = State.START;
   }
@@ -145,7 +164,8 @@ public class ResultSetCopierImpl implements ResultSetCopier {
       state = State.NO_SCHEMA;
       return;
     }
-    Preconditions.checkState(state == State.BETWEEN_BATCHES || state == State.SCHEMA_PENDING);
+    Preconditions.checkState(state == State.BETWEEN_BATCHES ||
+                             state == State.SCHEMA_PENDING || state == State.DIRECT_COPY_PENDING);
     if (state == State.SCHEMA_PENDING) {
 
       // We have a pending new schema. Create new writers to match.
@@ -201,7 +221,8 @@ public class ResultSetCopierImpl implements ResultSetCopier {
 
       // Discard the unused empty batch
 
-      harvest().zeroVectors();
+      harvestOutput();
+      outputContainer().zeroVectors();
     }
     createProjection();
     resultSetWriter.startBatch();
@@ -232,7 +253,7 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     }
     TupleMetadata schema = MetadataUtils.fromFields(resultSetReader.inputBatch().schema());
     writerOptions.setSchema(schema);
-    resultSetWriter = new ResultSetLoaderImpl(allocator, writerOptions.build());
+    resultSetWriter = new ResultSetLoaderImpl(writerOptions.build());
     rowWriter = resultSetWriter.writer();
     currentSchemaVersion = resultSetReader.inputBatch().schemaVersion();
 
@@ -251,6 +272,9 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     case BATCH_ACTIVE:
     case NEW_SCHEMA:
       return resultSetWriter.hasRows();
+    case DIRECT_COPY_PENDING:
+    case DIRECT_COPY_DONE:
+      return true;
     default:
       return false;
     }
@@ -262,6 +286,8 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     case BATCH_ACTIVE:
       return rowWriter.isFull();
     case NEW_SCHEMA:
+    case DIRECT_COPY_PENDING:
+    case DIRECT_COPY_DONE:
       return true;
     default:
       return false;
@@ -308,6 +334,7 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   public void copyAllRows() {
     verifyWritable();
     if (canDoDirectTransfer()) {
+      bulkCopyCount++;
       activeCopy = new TransferAll();
     } else {
       activeCopy = new CopyAll();
@@ -378,13 +405,32 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   }
 
   @Override
-  public VectorContainer harvest() {
-    Preconditions.checkState(state == State.BATCH_ACTIVE || state == State.NEW_SCHEMA);
-    VectorContainer output = resultSetWriter.harvest();
-    state = (state == State.BATCH_ACTIVE)
-        ? State.BETWEEN_BATCHES : State.SCHEMA_PENDING;
-    return output;
+  public void harvestOutput() {
+    switch (state) {
+    case BATCH_ACTIVE:
+    case DIRECT_COPY_PENDING:
+      state = State.BETWEEN_BATCHES;
+      resultSetWriter.harvestOutput();
+      break;
+    case NEW_SCHEMA:
+      state = State.SCHEMA_PENDING;
+      resultSetWriter.harvestOutput();
+      break;
+    case DIRECT_COPY_DONE:
+      state = State.BETWEEN_BATCHES;
+      // No harvest: container was populated by direct copy
+      break;
+    default:
+      throw new IllegalStateException("Wrong state for harvest");
+    }
   }
+
+  @Override
+  public VectorContainer outputContainer() {
+    return resultSetWriter.outputContainer();
+  }
+
+  public int bulkCopyCount() { return bulkCopyCount; }
 
   @Override
   public void close() {

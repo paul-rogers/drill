@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.physical.resultSet.impl.TupleState.RowState;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +48,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   public static class ResultSetOptions {
     protected final int vectorSizeLimit;
     protected final int rowCountLimit;
+    protected final BufferAllocator allocator;
+    protected final VectorContainer outputContainer;
     protected final ResultVectorCache vectorCache;
     protected final ProjectionSet projectionSet;
     protected final TupleMetadata schema;
@@ -59,19 +60,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
      */
     protected final CustomErrorContext errorContext;
 
-    public ResultSetOptions() {
-      vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
-      rowCountLimit = DEFAULT_ROW_COUNT;
-      projectionSet = ProjectionSetFactory.projectAll();
-      vectorCache = null;
-      schema = null;
-      maxBatchSize = -1;
-      errorContext = null;
-    }
-
     public ResultSetOptions(OptionBuilder builder) {
       vectorSizeLimit = builder.vectorSizeLimit;
       rowCountLimit = builder.rowCountLimit;
+      outputContainer = builder.outputContainer;
       vectorCache = builder.vectorCache;
       schema = builder.schema;
       maxBatchSize = builder.maxBatchSize;
@@ -79,6 +71,15 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       projectionSet = builder.projectionSet == null ?
           ProjectionSetFactory.projectAll() :
           builder.projectionSet;
+      if (builder.allocator != null) {
+        allocator = builder.allocator;
+      } else if (outputContainer != null) {
+        allocator = outputContainer.getAllocator();
+      } else if (vectorCache != null) {
+        allocator = vectorCache.allocator();
+      } else {
+        throw new IllegalArgumentException("No buffer allocator provided");
+      }
     }
 
     public void dump(HierarchicalFormatter format) {
@@ -277,8 +278,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   protected final ProjectionSet projectionSet;
 
-  public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
-    this.allocator = allocator;
+  public ResultSetLoaderImpl(ResultSetOptions options) {
+    this.allocator = options.allocator;
     this.options = options;
     targetRowCount = options.rowCountLimit;
     writerIndex = new WriterIndexImpl(this);
@@ -299,7 +300,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
     // Build the row set model depending on whether a schema is provided.
 
-    rootState = new RowState(this, vectorCache);
+    rootState = new RowState(this, vectorCache, options.outputContainer);
     rootWriter = rootState.rootWriter();
 
     // If no schema, columns will be added incrementally as they
@@ -332,7 +333,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
-    this(allocator, new ResultSetOptions());
+    this(new OptionBuilder().setAllocator(allocator).build());
   }
 
   @Override
@@ -714,7 +715,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   }
 
   @Override
-  public VectorContainer harvest() {
+  public void harvestOutput() {
     int rowCount;
     switch (state) {
     case ACTIVE:
@@ -731,14 +732,18 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     }
 
     rootState.updateOutput(harvestSchemaVersion);
-    VectorContainer container = rootState.outputContainer();
-    container.setRecordCount(rowCount);
+    rootState.outputContainer().setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
 
     harvestBatchCount++;
     previousRowCount += rowCount;
-    return container;
+  }
+
+  @Override
+  public VectorContainer harvest() {
+    harvestOutput();
+    return outputContainer();
   }
 
   private int harvestNormalBatch() {

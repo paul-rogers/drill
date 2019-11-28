@@ -60,8 +60,9 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
     ResultSetOptions options = new OptionBuilder()
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     assertTrue(rsLoader.isProjectionEmpty());
 
@@ -117,9 +118,10 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(ProjectionSetFactory.build(selection))
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     assertTrue(rsLoader.isProjectionEmpty());
     rsLoader.close();
@@ -141,8 +143,9 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
     ResultSetOptions options = new OptionBuilder()
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     assertFalse(rsLoader.isProjectionEmpty());
 
@@ -176,8 +179,9 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
     ResultSetOptions options = new OptionBuilder()
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     assertTrue(rsLoader.isProjectionEmpty());
 
@@ -217,8 +221,9 @@ public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
     ResultSetOptions options = new OptionBuilder()
         .setProjection(ProjectionSetFactory.build(selection))
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     assertTrue(rsLoader.isProjectionEmpty());
 

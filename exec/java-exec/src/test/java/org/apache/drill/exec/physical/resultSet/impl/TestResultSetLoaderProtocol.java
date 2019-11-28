@@ -192,7 +192,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
       // Expected
     }
     try {
-      rsLoader.harvest();
+      rsLoader.harvestOutput();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -282,7 +282,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
       // Expected
     }
     try {
-      rsLoader.harvest();
+      rsLoader.harvestOutput();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -475,9 +475,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .add("c", MinorType.VARCHAR)
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -529,10 +530,11 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Can't use the shortcut to populate rows when doing overwrites.
@@ -586,10 +588,11 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();

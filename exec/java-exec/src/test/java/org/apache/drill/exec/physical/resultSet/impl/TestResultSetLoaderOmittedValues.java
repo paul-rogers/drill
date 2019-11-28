@@ -63,8 +63,9 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -137,7 +138,6 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     // Harvest the row and verify.
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
-//    actual.print();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -185,8 +185,9 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Fill the batch. Column d has some values. Column c is worst case: no values.
@@ -250,7 +251,6 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     result = fixture.wrap(rsLoader.harvest());
     assertEquals(rowNumber, rsLoader.totalRowCount());
     assertEquals(rowNumber - startRowNumber + 1, result.rowCount());
-//    result.print();
     reader = result.reader();
     rowIndex = 0;
     while (reader.next()) {
@@ -290,8 +290,9 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -311,7 +312,6 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     }
 
     RowSet result = fixture.wrap(rsLoader.harvest());
-//    result.print();
     SingleRowSet expected = fixture.rowSetBuilder(result.batchSchema())
         .addRow( 1, null)
         .addRow( 3, "b-3")
@@ -321,7 +321,6 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .addRow(11, "b-11")
         .addRow(13, null)
         .build();
-//    expected.print();
     RowSetUtilities.verify(expected, result);
 
     rsLoader.close();
@@ -341,8 +340,9 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -393,8 +393,9 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();

@@ -238,8 +238,8 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
   private static class BatchReader {
 
-    private TestSetup setup;
-    private RowSetReader rootReader;
+    private final TestSetup setup;
+    private final RowSetReader rootReader;
     ScalarReader n1Reader;
     ArrayReader a2Reader;
     ScalarReader n2Reader;
@@ -379,10 +379,11 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     TestSetup setup = new TestSetup();

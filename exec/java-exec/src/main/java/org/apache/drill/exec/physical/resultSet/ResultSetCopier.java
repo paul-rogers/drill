@@ -174,12 +174,31 @@ public interface ResultSetCopier {
   boolean isCopyPending();
 
   /**
+   * Finalize the output batch. Call {@link #outputContainer()}
+   * to get the container with the data. Data is valid until the
+   * next call to {@link #startOutputBatch()}. The caller is
+   * responsible for freeing the output vectors.
+   * <p>
+   * Note: call {@link VectorContainer#zeroVectors()} to release the
+   * output; do not call {@link VectorContainer#clear()} as that
+   * will destroy the vectors and cause problems on the next
+   * batch.
+   */
+
+  void harvestOutput();
+
+  /**
    * Obtain the output batch. Returned as a vector container
-   * since the output will not have a selection vector.
+   * since the output will not have a selection vector. The output
+   * container is fixed: the same container is always returned,
+   * and it is available at any time. Only the vectors change
+   * (as the schema evolves), and the data within the vectors
+   * change (as each output batch is built.)
    *
    * @return a vector container holding the output batch
    */
-  VectorContainer harvest();
+
+  VectorContainer outputContainer();
 
   /**
    * Release resources, including any pending input batch

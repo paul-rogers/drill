@@ -170,9 +170,10 @@ public class TestResultSetSchemaChange extends SubOperatorTest {
   @Test
   public void testSchemaChangeWithOverflow() {
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
     rootWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
 

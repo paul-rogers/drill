@@ -56,7 +56,12 @@ public abstract class AbstractContainerAccessor implements BatchAccessor {
 
   @Override
   public int rowCount() {
-    Preconditions.checkState(isValid());
+    // If no container, or no container row count, just assume
+    // that there are zero rows; the caller does not care about
+    // the details.
+    if (!isValid()) {
+      return 0;
+    }
     switch(schema().getSelectionVectorMode()) {
     case TWO_BYTE:
       return selectionVector2().getCount();

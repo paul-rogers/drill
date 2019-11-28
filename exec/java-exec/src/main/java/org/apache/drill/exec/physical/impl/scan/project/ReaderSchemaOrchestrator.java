@@ -86,10 +86,12 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     projBuilder.typeConverter(scanOrchestrator.options.typeConverter);
     options.setProjection(projBuilder.build());
     options.setSchema(readerSchema);
+    options.setAllocator(scanOrchestrator.allocator);
 
     // Create the table loader
 
-    tableLoader = new ResultSetLoaderImpl(scanOrchestrator.allocator, options.build());
+    tableLoader = new ResultSetLoaderImpl(options.build());
+    tableContainer = tableLoader.outputContainer();
     return tableLoader;
   }
 
@@ -116,7 +118,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
     // Get the batch results in a container.
 
-    tableContainer = tableLoader.harvest();
+    tableLoader.harvestOutput();
 
     // If the schema changed, set up the final projection based on
     // the new (or first) schema.

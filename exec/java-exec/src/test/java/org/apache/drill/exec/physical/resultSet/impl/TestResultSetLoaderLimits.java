@@ -75,7 +75,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     assertEquals(ResultSetLoaderImpl.DEFAULT_ROW_COUNT, count);
     assertEquals(count, rootWriter.rowCount());
 
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
 
     // Do it again, a different way.
 
@@ -90,7 +90,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     assertEquals(ResultSetLoaderImpl.DEFAULT_ROW_COUNT, count);
     assertEquals(count, rootWriter.rowCount());
 
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
 
     rsLoader.close();
   }
@@ -108,6 +108,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // is truncated to the limit.
 
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .build();
     assertEquals(ValueVector.MAX_ROW_COUNT, options.rowCountLimit);
@@ -116,12 +117,14 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // not any previous value...
 
     options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .setRowCountLimit(TEST_ROW_LIMIT)
         .build();
     assertEquals(TEST_ROW_LIMIT, options.rowCountLimit);
 
     options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(TEST_ROW_LIMIT)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .build();
@@ -130,6 +133,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // Can't set the limit lower than 1
 
     options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(0)
         .build();
     assertEquals(1, options.rowCountLimit);
@@ -137,9 +141,11 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // Do load with a (valid) limit lower than the default.
 
     options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(TEST_ROW_LIMIT)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     assertEquals(TEST_ROW_LIMIT, rsLoader.targetRowCount());
 
     RowSetLoader rootWriter = rsLoader.writer();
@@ -160,7 +166,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
       // Expected
     }
 
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
     rsLoader.startBatch();
     assertEquals(0, rootWriter.rowCount());
 
@@ -191,8 +197,9 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
 
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(TEST_ROW_LIMIT)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     assertEquals(TEST_ROW_LIMIT, rsLoader.targetRowCount());
 
     RowSetLoader rootWriter = rsLoader.writer();
@@ -202,7 +209,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     int count = fillToLimit(rootWriter);
     assertEquals(TEST_ROW_LIMIT, count);
     assertEquals(count, rootWriter.rowCount());
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
 
     // Reset the batch size larger and fill a second batch
 
@@ -212,7 +219,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     count = fillToLimit(rootWriter);
     assertEquals(newLimit, count);
     assertEquals(count, rootWriter.rowCount());
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
 
     // Put the limit back to a lower number.
 
@@ -222,7 +229,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     count = fillToLimit(rootWriter);
     assertEquals(newLimit, count);
     assertEquals(count, rootWriter.rowCount());
-    rsLoader.harvest().clear();
+    rsLoader.harvest().zeroVectors();
 
     rsLoader.close();
   }

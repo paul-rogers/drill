@@ -277,7 +277,8 @@ public class FileMetadataManager implements MetadataManager, ReaderProjectionRes
     if (loader == null) {
       return;
     }
-    outputContainer = loader.load(rowCount);
+    loader.load(rowCount);
+    outputContainer = loader.container();
   }
 
   @Override

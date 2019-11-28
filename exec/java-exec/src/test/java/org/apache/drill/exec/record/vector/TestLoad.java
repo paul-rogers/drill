@@ -117,16 +117,18 @@ public class TestLoad extends ExecTest {
 
       ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
           .setSchema(schema)
+          .setAllocator(allocator)
           .build();
 
-      ResultSetLoader resultSetLoader = new ResultSetLoaderImpl(allocator, options);
+      ResultSetLoader resultSetLoader = new ResultSetLoaderImpl(options);
 
       resultSetLoader.startBatch();
       RowSetLoader rowWriter = resultSetLoader.writer();
 
       rowWriter.addRow(new Object[]{null});
 
-      VectorContainer harvest = resultSetLoader.harvest();
+      resultSetLoader.harvestOutput();
+      VectorContainer harvest = resultSetLoader.outputContainer();
 
       // Create vectors
       List<ValueVector> vectors = StreamSupport.stream(harvest.spliterator(), false)

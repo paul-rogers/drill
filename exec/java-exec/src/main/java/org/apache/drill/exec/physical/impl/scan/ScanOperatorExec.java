@@ -278,7 +278,7 @@ public class ScanOperatorExec implements OperatorExec {
 
       // Is the reader usable?
 
-      if (! readerState.open()) {
+      if (!readerState.open()) {
         closeReader();
       }
     }

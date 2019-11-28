@@ -19,6 +19,8 @@ package org.apache.drill.exec.physical.impl.protocol;
 
 import org.apache.drill.exec.record.VectorContainer;
 
+import jersey.repackaged.com.google.common.base.Preconditions;
+
 /**
  * Vector container wrapper for operators that produce all batches
  * via a single container.
@@ -32,6 +34,15 @@ public class SingleOutgoingContainerAccessor extends AbstractContainerAccessor {
 
   public SingleOutgoingContainerAccessor(VectorContainer container) {
     this.container = container;
+  }
+
+  public void registerBatch(int newVersion) {
+    Preconditions.checkArgument(newVersion >= schemaVersion);
+    if (newVersion > schemaVersion) {
+      container.schemaChanged();
+    }
+    schemaVersion = newVersion;
+    batchCount++;
   }
 
   public void registerBatch() {

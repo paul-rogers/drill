@@ -33,6 +33,19 @@ public class SerialOutgoingContainerAccessor extends AbstractContainerAccessor {
   private final SchemaTracker schemaTracker = new SchemaTracker();
 
   /**
+   * Define a schema that does not necessarily contain any data.
+   * Call this to declare a schema even when there are no results to
+   * report.
+   */
+
+  public void setSchema(VectorContainer container) {
+    this.container = container;
+    if (container != null) {
+      schemaTracker.trackSchema(container);
+    }
+  }
+
+  /**
    * Define an output batch. Called each time a new batch is sent
    * downstream. Checks if the schema of this batch is the same as
    * that of any previous batch, and updates the schema version if
@@ -45,10 +58,7 @@ public class SerialOutgoingContainerAccessor extends AbstractContainerAccessor {
    */
 
   public void registerBatch(VectorContainer container) {
-    this.container = container;
-    if (container != null) {
-      schemaTracker.trackSchema(container);
-    }
+    setSchema(container);
     batchCount++;
   }
 
@@ -64,7 +74,6 @@ public class SerialOutgoingContainerAccessor extends AbstractContainerAccessor {
   public void release() {
     if (container != null) {
       container.zeroVectors();
-      container = null;
     }
   }
 }

@@ -67,8 +67,9 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -134,13 +135,14 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .add("s", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .setBatchSizeLimit(
             8 * 1024 * 1024 + // Data
             2 * ValueVector.MAX_ROW_COUNT * 4) // Offsets, doubled because of +1
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -208,10 +210,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .add("s", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -251,10 +254,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("s", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Create a single array as the column value in the first row. When
@@ -289,10 +293,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("s", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Fill batch with rows of with a single array, three values each. Tack on
@@ -403,10 +408,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("d", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Fill batch with rows of with a single array, three values each. Tack on
@@ -630,10 +636,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("c", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     byte[] value = new byte[512];
@@ -689,10 +696,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addNullable("c", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
@@ -753,10 +761,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .add("s", MinorType.VARCHAR)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();

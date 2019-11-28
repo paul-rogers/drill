@@ -39,7 +39,7 @@ public abstract class StaticColumnLoader {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
           .setVectorCache(vectorCache)
           .build();
-    loader = new ResultSetLoaderImpl(vectorCache.allocator(), options);
+    loader = new ResultSetLoaderImpl(options);
     this.vectorCache = vectorCache;
   }
 
@@ -50,7 +50,8 @@ public abstract class StaticColumnLoader {
    * row count in the batch returned by the reader
    */
 
-  public abstract VectorContainer load(int rowCount);
+  public abstract void load(int rowCount);
+  public VectorContainer container() { return loader.outputContainer(); }
 
   public void close() {
     loader.close();

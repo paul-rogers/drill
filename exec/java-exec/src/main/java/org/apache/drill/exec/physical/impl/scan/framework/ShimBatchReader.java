@@ -129,7 +129,7 @@ public class ShimBatchReader implements RowBatchReader, NegotiatorListener {
     // lookahead row in the result set loader.
 
     if (! eof) {
-      eof = ! reader.next();
+      eof = !reader.next();
     }
 
     // Add implicit columns, if any.
@@ -143,7 +143,7 @@ public class ShimBatchReader implements RowBatchReader, NegotiatorListener {
     // and the result set loader has drained its rows from either
     // this batch or lookahead rows.
 
-    return ! eof || tableLoader.hasRows();
+    return !eof || tableLoader.hasRows();
   }
 
   @Override

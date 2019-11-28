@@ -388,10 +388,10 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
 
     ScanFixture scanFixture = simpleFixture(reader1, reader2);
     ScanOperatorExec scan = scanFixture.scanOp;
+    assertTrue(scan.buildSchema());
 
     // EOF
 
-    assertTrue(scan.buildSchema());
     assertTrue(scan.next());
     VectorContainer container = scan.batchAccessor().container();
     assertEquals(0, container.getRecordCount());

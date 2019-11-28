@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
@@ -73,7 +72,7 @@ public class ConstantColumnLoader extends StaticColumnLoader {
   }
 
   @Override
-  public VectorContainer load(int rowCount) {
+  public void load(int rowCount) {
     loader.startBatch();
     RowSetLoader writer = loader.writer();
     for (int i = 0; i < rowCount; i++) {
@@ -81,7 +80,7 @@ public class ConstantColumnLoader extends StaticColumnLoader {
       loadRow(writer);
       writer.save();
     }
-    return loader.harvest();
+    loader.harvestOutput();
   }
 
   /**

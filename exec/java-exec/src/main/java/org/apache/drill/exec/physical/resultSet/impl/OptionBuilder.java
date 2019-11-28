@@ -18,9 +18,12 @@
 package org.apache.drill.exec.physical.resultSet.impl;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
 import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -32,25 +35,19 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public class OptionBuilder {
-  protected int vectorSizeLimit;
-  protected int rowCountLimit;
+  protected int vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
+  protected int rowCountLimit = ResultSetLoaderImpl.DEFAULT_ROW_COUNT;
+  protected BufferAllocator allocator;
+  protected VectorContainer outputContainer;
   protected ResultVectorCache vectorCache;
-  protected ProjectionSet projectionSet;
+  protected ProjectionSet projectionSet = ProjectionSetFactory.projectAll();
   protected TupleMetadata schema;
-  protected long maxBatchSize;
+  protected long maxBatchSize = -1;
 
   /**
    * Error message context
    */
   protected CustomErrorContext errorContext;
-
-  public OptionBuilder() {
-    // Start with the default option values.
-    ResultSetOptions options = new ResultSetOptions();
-    vectorSizeLimit = options.vectorSizeLimit;
-    rowCountLimit = options.rowCountLimit;
-    maxBatchSize = options.maxBatchSize;
-  }
 
   /**
    * Specify the maximum number of rows per batch. Defaults to
@@ -73,6 +70,10 @@ public class OptionBuilder {
     return this;
   }
 
+  public OptionBuilder setAllocator(BufferAllocator allocator) {
+    this.allocator = allocator;
+    return this;
+  }
   /**
    * Downstream operators require "vector persistence": the same vector
    * must represent the same column in every batch. For the scan operator,
@@ -109,6 +110,11 @@ public class OptionBuilder {
 
   public OptionBuilder setProjection(ProjectionSet projSet) {
     this.projectionSet = projSet;
+    return this;
+  }
+
+  public OptionBuilder setOutputContainer(VectorContainer container) {
+    this.outputContainer = container;
     return this;
   }
 

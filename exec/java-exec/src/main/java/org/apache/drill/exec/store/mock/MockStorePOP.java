@@ -51,7 +51,6 @@ public class MockStorePOP extends AbstractStore {
 
   @Override
   public void applyAssignments(List<DrillbitEndpoint> endpoints) {
-
   }
 
   @Override

@@ -81,7 +81,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
   @Test
   public void testUnionBasics() {
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addUnion("u")
           .addType(MinorType.VARCHAR)
@@ -92,17 +92,18 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
+    RowSetLoader writer = rsLoader.writer();
 
     // Sanity check of writer structure
 
-    final ObjectWriter wo = writer.column(1);
+    ObjectWriter wo = writer.column(1);
     assertEquals(ObjectType.VARIANT, wo.type());
-    final VariantWriter vw = wo.variant();
+    VariantWriter vw = wo.variant();
 
     assertTrue(vw.hasType(MinorType.VARCHAR));
     assertNotNull(vw.memberWriter(MinorType.VARCHAR));
@@ -123,7 +124,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Verify the values.
     // (Relies on the row set level union tests having passed.)
 
-    final SingleRowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
       .addRow(1, "first")
       .addRow(2, mapValue(20, "fred"))
       .addRow(3, null)
@@ -136,8 +137,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
   @Test
   public void testUnionAddTypes() {
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
 
     rsLoader.startBatch();
 
@@ -147,7 +148,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     writer.addColumn(SchemaBuilder.columnSchema("id", MinorType.INT, DataMode.REQUIRED));
     writer.scalar("id").setInt(1);
     writer.addColumn(SchemaBuilder.columnSchema("u", MinorType.UNION, DataMode.OPTIONAL));
-    final VariantWriter variant = writer.column("u").variant();
+    VariantWriter variant = writer.column("u").variant();
     variant.member(MinorType.VARCHAR).scalar().setString("first");
     writer.save();
 
@@ -155,7 +156,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     writer.start();
     writer.scalar("id").setInt(2);
-    final TupleWriter innerMap = variant.member(MinorType.MAP).tuple();
+    TupleWriter innerMap = variant.member(MinorType.MAP).tuple();
     innerMap.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.OPTIONAL));
     innerMap.scalar("a").setInt(20);
     innerMap.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.OPTIONAL));
@@ -173,7 +174,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Verify the values.
     // (Relies on the row set level union tests having passed.)
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addUnion("u")
           .addType(MinorType.VARCHAR)
@@ -184,7 +185,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    final SingleRowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
       .addRow(1, "first")
       .addRow(2, mapValue(20, "fred"))
       .addRow(3, null)
@@ -192,13 +193,13 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
       .addRow(5, "last")
       .build();
 
-    final RowSet result = fixture.wrap(rsLoader.harvest());
+    RowSet result = fixture.wrap(rsLoader.harvest());
     RowSetUtilities.verify(expected, result);
   }
 
   @Test
   public void testUnionOverflow() {
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addUnion("u")
           .addType(MinorType.INT)
@@ -206,12 +207,13 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
           .resumeSchema()
         .buildSchema();
 
-    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
+    RowSetLoader writer = rsLoader.writer();
 
     // Fill the batch with enough data to cause overflow.
     // Fill even rows with a Varchar, odd rows with an int.
@@ -220,10 +222,10 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // 16 MB / 32 K = 512 bytes
     // Make a bit bigger to overflow early.
 
-    final int strLength = 600;
-    final byte[] value = new byte[strLength - 6];
+    int strLength = 600;
+    byte[] value = new byte[strLength - 6];
     Arrays.fill(value, (byte) 'X');
-    final String strValue = new String(value, Charsets.UTF_8);
+    String strValue = new String(value, Charsets.UTF_8);
     int count = 0;
 
     rsLoader.startBatch();
@@ -239,7 +241,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Number of rows should be driven by vector size.
     // Our row count should include the overflow row
 
-    final int expectedCount = ValueVector.MAX_BUFFER_SIZE / strLength * 2;
+    int expectedCount = ValueVector.MAX_BUFFER_SIZE / strLength * 2;
     assertEquals(expectedCount + 1, count);
 
     // Loader's row count should include only "visible" rows
@@ -287,7 +289,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     result = fixture.wrap(rsLoader.harvest());
     assertEquals(1001, result.rowCount());
 
-    final int startCount = readCount;
+    int startCount = readCount;
     reader = result.reader();
     while (reader.next()) {
       assertEquals(readCount, reader.scalar(0).getInt());
@@ -316,7 +318,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Schema with a list declared with one type, not expandable
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
@@ -325,18 +327,19 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     schema.metadata("list").variantSchema().becomeSimple();
 
-    final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
+    RowSetLoader writer = rsLoader.writer();
 
     // Sanity check: should be an array of Varchar because we said the
     // types within the list is not expandable.
 
-    final ArrayWriter arrWriter = writer.array("list");
+    ArrayWriter arrWriter = writer.array("list");
     assertEquals(ObjectType.SCALAR, arrWriter.entryType());
-    final ScalarWriter strWriter = arrWriter.scalar();
+    ScalarWriter strWriter = arrWriter.scalar();
     assertEquals(ValueType.STRING, strWriter.valueType());
 
     // Can write a batch as if this was a repeated Varchar, except
@@ -350,7 +353,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Verify
 
-    final SingleRowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, strArray("fred", "barney"))
         .addRow(2, null)
         .addRow(3, strArray("wilma", "betty", "pebbles"))
@@ -367,8 +370,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
   @Test
   public void testSimpleListDynamic() {
 
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
 
     // Can write a batch as if this was a repeated Varchar, except
     // that any value can also be null.
@@ -377,7 +380,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     writer.addColumn(MaterializedField.create("id", Types.required(MinorType.INT)));
 
-    final ColumnMetadata colSchema = MetadataUtils.newVariant("list", DataMode.REPEATED);
+    ColumnMetadata colSchema = MetadataUtils.newVariant("list", DataMode.REPEATED);
     colSchema.variantSchema().addType(MinorType.VARCHAR);
     colSchema.variantSchema().becomeSimple();
     writer.addColumn(colSchema);
@@ -385,9 +388,9 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Sanity check: should be an array of Varchar because we said the
     // types within the list is not expandable.
 
-    final ArrayWriter arrWriter = writer.array("list");
+    ArrayWriter arrWriter = writer.array("list");
     assertEquals(ObjectType.SCALAR, arrWriter.entryType());
-    final ScalarWriter strWriter = arrWriter.scalar();
+    ScalarWriter strWriter = arrWriter.scalar();
     assertEquals(ValueType.STRING, strWriter.valueType());
 
     writer
@@ -397,13 +400,13 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Verify
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
           .resumeSchema()
         .buildSchema();
-    final SingleRowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, strArray("fred", "barney"))
         .addRow(2, null)
         .addRow(3, strArray("wilma", "betty", "pebbles"))
@@ -422,7 +425,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Schema with a list declared with one type, not expandable
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
           .resumeSchema()
@@ -431,7 +434,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     try {
       schema.metadata("list").variantSchema().becomeSimple();
       fail();
-    } catch (final IllegalStateException e) {
+    } catch (IllegalStateException e) {
       // expected
     }
   }
@@ -446,7 +449,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Schema with a list declared with one type, not expandable
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
@@ -457,7 +460,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     try {
       schema.metadata("list").variantSchema().becomeSimple();
       fail();
-    } catch (final IllegalStateException e) {
+    } catch (IllegalStateException e) {
       // expected
     }
   }
@@ -489,8 +492,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
   @Test
   public void testVariantListDynamic() {
 
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
 
     // Can write a batch as if this was a repeated Varchar, except
     // that any value can also be null.
@@ -503,9 +506,9 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Sanity check: should be an array of variants because we said the
     // types within the list are expandable (which is the default.)
 
-    final ArrayWriter arrWriter = writer.array("list");
+    ArrayWriter arrWriter = writer.array("list");
     assertEquals(ObjectType.VARIANT, arrWriter.entryType());
-    final VariantWriter variant = arrWriter.variant();
+    VariantWriter variant = arrWriter.variant();
 
     // We need to verify that the internal state is what we expect, so
     // the next assertion peeks inside the private bits of the union
@@ -549,17 +552,16 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Verify
 
-    final RowSet result = fixture.wrap(rsLoader.harvest());
-//    result.print();
+    RowSet result = fixture.wrap(rsLoader.harvest());
 
-    final TupleMetadata schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("id", MinorType.INT)
         .addList("list")
           .addType(MinorType.VARCHAR)
           .addType(MinorType.INT)
           .resumeSchema()
         .buildSchema();
-    final SingleRowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addRow(1, null)
         .addRow(2, variantArray())
         .addRow(3, variantArray(null, null))
@@ -588,8 +590,8 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // JSON equivalent: {a: [[1, 2], [3, 4]]}
 
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    final RowSetLoader writer = rsLoader.writer();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
 
     // Can write a batch as if this was a repeated Varchar, except
     // that any value can also be null.
@@ -597,32 +599,32 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     rsLoader.startBatch();
 
     writer.addColumn(MaterializedField.create("a", Types.optional(MinorType.LIST)));
-    final ArrayWriter outerArray = writer.array("a");
-    final VariantWriter outerVariant = outerArray.variant();
+    ArrayWriter outerArray = writer.array("a");
+    VariantWriter outerVariant = outerArray.variant();
     outerVariant.addMember(MinorType.LIST);
-    final ArrayWriter innerArray = outerVariant.array();
-    final VariantWriter innerVariant = innerArray.variant();
+    ArrayWriter innerArray = outerVariant.array();
+    VariantWriter innerVariant = innerArray.variant();
     innerVariant.addMember(MinorType.INT);
 
     writer.addSingleCol(listValue(listValue(1, 2), listValue(3, 4)));
-    final RowSet results = fixture.wrap(rsLoader.harvest());
+    RowSet results = fixture.wrap(rsLoader.harvest());
 
     // Verify metadata
 
-    final ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
-    final MajorType outerType = outer.getField().getType();
+    ListVector outer = (ListVector) results.container().getValueVector(0).getValueVector();
+    MajorType outerType = outer.getField().getType();
     assertEquals(1, outerType.getSubTypeCount());
     assertEquals(MinorType.LIST, outerType.getSubType(0));
     assertEquals(1, outer.getField().getChildren().size());
 
-    final ListVector inner = (ListVector) outer.getDataVector();
+    ListVector inner = (ListVector) outer.getDataVector();
     assertSame(inner.getField(), outer.getField().getChildren().iterator().next());
-    final MajorType innerType = inner.getField().getType();
+    MajorType innerType = inner.getField().getType();
     assertEquals(1, innerType.getSubTypeCount());
     assertEquals(MinorType.INT, innerType.getSubType(0));
     assertEquals(1, inner.getField().getChildren().size());
 
-    final ValueVector data = inner.getDataVector();
+    ValueVector data = inner.getDataVector();
     assertSame(data.getField(), inner.getField().getChildren().iterator().next());
     assertEquals(MinorType.INT, data.getField().getType().getMinorType());
     assertEquals(DataMode.OPTIONAL, data.getField().getType().getMode());
@@ -631,14 +633,14 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     // Note use of TupleMetadata: BatchSchema can't hold the
     // structure of a list.
 
-    final TupleMetadata expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .addList("a")
           .addList()
             .addType(MinorType.INT)
             .resumeUnion()
           .resumeSchema()
         .buildSchema();
-    final RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
         .addSingleCol(listValue(listValue(1, 2), listValue(3, 4)))
         .build();
     RowSetUtilities.verify(expected, results);

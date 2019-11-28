@@ -35,6 +35,8 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Test of the scan operator framework. Here the focus is on the
@@ -48,7 +50,7 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
  */
 
 public class BaseScanOperatorExecTest extends SubOperatorTest {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseScanOperatorExecTest.class);
+  protected static final Logger logger = LoggerFactory.getLogger(BaseScanOperatorExecTest.class);
 
   /**
    * Base class for the "mock" readers used in this test. The mock readers

@@ -298,9 +298,10 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schemaBuilder.buildSchema())
+        .setAllocator(container.getAllocator())
         .build();
 
-    return new ResultSetLoaderImpl(container.getAllocator(), options);
+    return new ResultSetLoaderImpl(options);
   }
 
   @SuppressWarnings("unchecked")
@@ -407,9 +408,10 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schemaBuilder.buildSchema())
+        .setAllocator(container.getAllocator())
         .build();
 
-    return new ResultSetLoaderImpl(container.getAllocator(), options);
+    return new ResultSetLoaderImpl(options);
   }
 
   private void setupSchemaFromContainer(VectorContainer populatedContainer) {
@@ -421,6 +423,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
   }
 
+  @Override
   protected boolean setupNewSchema() {
     setupSchemaFromContainer(incoming.getContainer());
     return true;

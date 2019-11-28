@@ -26,7 +26,7 @@ import static org.junit.Assert.fail;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
-import org.apache.drill.exec.physical.impl.protocol.SerialOutgoingContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SingleOutgoingContainerAccessor;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.ResultSetReader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
@@ -47,7 +47,7 @@ public class TestResultSetReader extends SubOperatorTest {
     private enum State { SCHEMA1, SCHEMA2 };
 
     private final ResultSetLoader rsLoader;
-    private final SerialOutgoingContainerAccessor batch = new SerialOutgoingContainerAccessor();
+    private final SingleOutgoingContainerAccessor batch;
     private State state;
 
     public BatchGenerator() {
@@ -59,7 +59,8 @@ public class TestResultSetReader extends SubOperatorTest {
           .setSchema(schema1)
           .setVectorCache(new ResultVectorCacheImpl(fixture.allocator()))
           .build();
-      rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+      rsLoader = new ResultSetLoaderImpl(options);
+      batch = new SingleOutgoingContainerAccessor(rsLoader.outputContainer());
       state = State.SCHEMA1;
     }
 
@@ -73,7 +74,8 @@ public class TestResultSetReader extends SubOperatorTest {
         writer.scalar("name").setString("Row" + i);
         writer.save();
       }
-      batch.registerBatch(rsLoader.harvest());
+      rsLoader.harvestOutput();
+      batch.registerBatch();
     }
 
     public void batch2(int start, int end) {
@@ -91,7 +93,8 @@ public class TestResultSetReader extends SubOperatorTest {
         writer.scalar("amount").setInt(i * 10);
         writer.save();
       }
-      batch.registerBatch(rsLoader.harvest());
+      rsLoader.harvestOutput();
+      batch.registerBatch();
     }
 
     public BatchAccessor batchAccessor() {

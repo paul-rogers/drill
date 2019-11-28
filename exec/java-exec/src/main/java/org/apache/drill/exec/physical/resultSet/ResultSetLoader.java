@@ -22,6 +22,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 /**
  * Builds a result set (series of zero or more row sets) based on a defined
@@ -206,7 +207,7 @@ public interface ResultSetLoader {
    * Returns the output container which holds (or will hold) batches
    * from this loader. For use when the container is needed prior
    * to "harvesting" a batch. The data is not valid until
-   * {@link #harvest()} is called, and is no longer valid once
+   * {@link #build()} is called, and is no longer valid once
    * {@link #startBatch()} is called.
    *
    * @return container used to publish results from this loader
@@ -230,10 +231,21 @@ public interface ResultSetLoader {
    * additions. In particular, the schema order is <b>not</b> defined by
    * the projection list. (Another mechanism is required to reorder columns
    * for the actual projection.)
-   *
-   * @return the row batch to send downstream
+   * <p>
+   * After this call, the output data resides in the output container.
+   * It is the responsibility of the caller to free the vectors prior
+   * to the next call to {@link #startBatch()}.
    */
 
+  void harvestOutput();
+
+  /**
+   * Combination of harvisting the output and returning the output container.
+   * Primarily for testing.
+   *
+   * @return the output container
+   */
+  @VisibleForTesting
   VectorContainer harvest();
 
   /**

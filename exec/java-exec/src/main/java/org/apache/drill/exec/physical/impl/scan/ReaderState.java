@@ -226,7 +226,7 @@ class ReaderState {
       // Handle this by immediately moving to EOF. The scanner will quietly
       // pass over this reader and move onto the next, if any.
 
-      if (! reader.open()) {
+      if (!reader.open()) {
         state = State.EOF;
         return false;
       }
@@ -316,13 +316,13 @@ class ReaderState {
       // Bind the output container to the output of the scan operator.
       // This returns an empty batch with the schema filled in.
 
-      scanOp.containerAccessor.registerBatch(reader.output());
+      scanOp.containerAccessor.setSchema(reader.output());
       return true;
     }
 
     // Late schema. Read a batch.
 
-    if (! next()) {
+    if (!next()) {
       return false;
     }
     VectorContainer container = reader.output();
@@ -431,7 +431,7 @@ class ReaderState {
     }
 
     VectorContainer output = reader.output();
-    if (! more) {
+    if (!more) {
       state = State.EOF;
 
       // The reader can indicate EOF (they can't return any more rows)

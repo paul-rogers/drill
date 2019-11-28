@@ -5,7 +5,7 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.IncomingBatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
-import org.apache.drill.exec.physical.impl.protocol.SerialOutgoingContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.SingleOutgoingContainerAccessor;
 import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetCopierImpl;
@@ -19,18 +19,18 @@ public class RemovingOperator implements OperatorExec {
 
   private final RecordBatch upstream;
   private final IncomingBatchAccessor input;
-  private final SerialOutgoingContainerAccessor output;
+  private final SingleOutgoingContainerAccessor output;
   private final ResultSetCopier copier;
   private boolean upstreamDone;
 
   public RemovingOperator(BufferAllocator allocator, RecordBatch upstream) {
     this.upstream = upstream;
     input = new IncomingBatchAccessor(upstream);
-    output = new SerialOutgoingContainerAccessor();
     OptionBuilder outputOptions = new OptionBuilder()
         .setBatchSizeLimit(TARGET_BATCH_SIZE_BYTES)
         .setRowCountLimit(TARGET_BATCH_SIZE_ROWS);
     copier = new ResultSetCopierImpl(allocator, input, outputOptions);
+    output = new SingleOutgoingContainerAccessor(copier.outputContainer());
   }
 
   @Override
@@ -57,7 +57,8 @@ public class RemovingOperator implements OperatorExec {
       return false;
     }
 
-    output.registerBatch(copier.harvest());
+    copier.harvestOutput();
+    output.registerBatch();
     return true;
   }
 

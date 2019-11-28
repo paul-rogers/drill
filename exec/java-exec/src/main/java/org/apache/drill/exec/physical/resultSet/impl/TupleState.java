@@ -193,7 +193,6 @@ public abstract class TupleState extends ContainerState
     @Override
     public int allocate(int cardinality) {
       // The mapVector is a pseudo-vector; nothing to allocate.
-
       return offsets.allocate(cardinality);
     }
 
@@ -258,11 +257,15 @@ public abstract class TupleState extends ContainerState
 
     private final VectorContainer outputContainer;
 
-    public RowState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache) {
+    public RowState(ResultSetLoaderImpl rsLoader,
+        ResultVectorCache vectorCache, VectorContainer outputContainer) {
       super(rsLoader, vectorCache, rsLoader.projectionSet);
       writer = new RowSetLoaderImpl(rsLoader, schema);
       writer.bindListener(this);
-      outputContainer = new VectorContainer(rsLoader.allocator());
+      this.outputContainer = outputContainer == null
+          ? new VectorContainer(rsLoader.allocator())
+          : outputContainer;
+      this.outputContainer.clear();
       outputSchema = new TupleSchema();
     }
 
@@ -292,7 +295,7 @@ public abstract class TupleState extends ContainerState
     @Override
     public int addOutputColumn(ValueVector vector, ColumnMetadata colSchema) {
       outputContainer.add(vector);
-      final int index = outputSchema.addColumn(colSchema);
+      int index = outputSchema.addColumn(colSchema);
       assert outputContainer.getNumberOfColumns() == outputSchema.size();
       return index;
     }
@@ -326,11 +329,11 @@ public abstract class TupleState extends ContainerState
 
     @Override
     public int addOutputColumn(ValueVector vector, ColumnMetadata colSchema) {
-      final AbstractMapVector mapVector = parentColumn.vector();
+      AbstractMapVector mapVector = parentColumn.vector();
       if (isVersioned()) {
         mapVector.putChild(colSchema.name(), vector);
       }
-      final int index = outputSchema.addColumn(colSchema);
+      int index = outputSchema.addColumn(colSchema);
       assert mapVector.size() == outputSchema.size();
       assert mapVector.getField().getChildren().size() == outputSchema.size();
       return index;
@@ -350,7 +353,7 @@ public abstract class TupleState extends ContainerState
       // columns must be nullable, so back-filling of nulls is possible.
 
       if (! isVersioned()) {
-        final AbstractMapVector mapVector = parentColumn.vector();
+        AbstractMapVector mapVector = parentColumn.vector();
         mapVector.putChild(colState.schema().name(), colState.vector());
       }
     }
@@ -498,7 +501,7 @@ public abstract class TupleState extends ContainerState
   }
 
   public boolean hasProjections() {
-    for (final ColumnState colState : columns) {
+    for (ColumnState colState : columns) {
       if (colState.isProjected()) {
         return true;
       }
@@ -516,7 +519,7 @@ public abstract class TupleState extends ContainerState
     // Scan all columns
 
     for (int i = 0; i < columns.size(); i++) {
-      final ColumnState colState = columns.get(i);
+      ColumnState colState = columns.get(i);
 
       // Ignore unprojected columns
 
@@ -524,9 +527,9 @@ public abstract class TupleState extends ContainerState
         continue;
       }
 
-      // If this is a new column added since the lastoutput, then we may have
+      // If this is a new column added since the last output, then we may have
       // to add the column to this output. For the row itself, and for maps
-      // outside of unions, If the column wasadded after the output schema
+      // outside of unions, If the column was added after the output schema
       // version cutoff, skip that column for now. But, if this tuple is
       // within a union, then we always add all columns because union
       // semantics are too muddy to play the deferred column game. Further,
@@ -545,7 +548,7 @@ public abstract class TupleState extends ContainerState
       // output schema.
 
       if (colState.schema().isMap()) {
-        final MapState childMap = ((MapColumnState) colState).mapState();
+        MapState childMap = ((MapColumnState) colState).mapState();
         childMap.updateOutput(curSchemaVersion);
       }
     }

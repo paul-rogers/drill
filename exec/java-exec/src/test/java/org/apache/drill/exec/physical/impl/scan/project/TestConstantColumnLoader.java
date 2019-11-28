@@ -117,8 +117,9 @@ public class TestConstantColumnLoader extends SubOperatorTest {
         .addRow("a-value", "b-value")
         .build();
 
+    staticLoader.load(2);
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(staticLoader.load(2)));
+        .verifyAndClearAll(fixture.wrap(staticLoader.container()));
     staticLoader.close();
   }
 
@@ -155,8 +156,9 @@ public class TestConstantColumnLoader extends SubOperatorTest {
         .addRow("csv", "y")
         .build();
 
+    staticLoader.load(2);
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(staticLoader.load(2)));
+        .verifyAndClearAll(fixture.wrap(staticLoader.container()));
     staticLoader.close();
   }
 }

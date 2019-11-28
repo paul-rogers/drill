@@ -75,8 +75,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify structure and schema
@@ -191,8 +192,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Write a couple of rows with arrays within arrays.
@@ -246,8 +248,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .buildSchema();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
     rsLoader.startBatch();
 
@@ -332,8 +335,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Can't use the shortcut to populate rows when doing overwrites.
@@ -406,8 +410,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     int mapSkip = 5;
@@ -479,8 +484,9 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setAllocator(fixture.allocator())
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     ArrayWriter maWriter = rootWriter.array("m");

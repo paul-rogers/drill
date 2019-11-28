@@ -152,9 +152,19 @@ public class TestMockPlugin extends ClusterTest {
     assertEquals(100, result.rowCount());
 
     RowSetReader reader = result.reader();
+    int nullCount = 0;
+    int dataCount = 0;
     while (reader.next()) {
-      assertEquals(17, reader.scalar(0).getString().length());
+      if (reader.scalar(0).isNull()) {
+        nullCount++;
+      } else {
+        assertEquals(17, reader.scalar(0).getString().length());
+        dataCount++;
+      }
     }
+    // Weak check, since exact counts are stochastic.
+    assertTrue(nullCount > 0);
+    assertTrue(dataCount > 0);
     result.clear();
   }
 

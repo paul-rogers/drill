@@ -403,6 +403,8 @@ public class VectorContainer implements VectorAccessible {
   public void removeAll() {
     wrappers.clear();
     schema = null;
+    schemaChanged = false;
+    recordCount = 0;
   }
 
   public void setRecordCount(int recordCount) {

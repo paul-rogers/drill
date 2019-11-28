@@ -76,11 +76,12 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
             .build())
         .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setProjection(projSet)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     rsLoader.startBatch();
 
     // Write data as both a string as an integer
@@ -129,11 +130,12 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
         .outputSchema(outputSchema)
         .build();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(inputSchema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setProjection(projSet)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     rsLoader.startBatch();
 
     // Write data as both a string as an integer
@@ -186,7 +188,7 @@ public class TestResultSetLoaderTypeConversion extends SubOperatorTest {
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setProjection(projSet)
         .build();
-    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     rsLoader.startBatch();
 
     // Write data as both a string as an integer

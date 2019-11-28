@@ -171,8 +171,7 @@ public class NullColumnBuilder implements VectorSource {
 
   public void load(int rowCount) {
     if (nullColumnLoader != null) {
-      final VectorContainer output = nullColumnLoader.load(rowCount);
-      assert output == outputContainer;
+      nullColumnLoader.load(rowCount);
     }
   }
 

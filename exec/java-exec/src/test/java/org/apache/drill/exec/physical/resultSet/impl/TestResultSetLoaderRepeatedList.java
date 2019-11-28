@@ -78,9 +78,10 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .buildSchema();
 
     final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     do2DTest(schema, rsLoader);
     rsLoader.close();
@@ -149,8 +150,9 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .buildSchema();
 
     final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     final RowSetLoader writer = rsLoader.writer();
 
     // Add columns dynamically
@@ -183,7 +185,7 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
 
     final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     final RowSetLoader writer = rsLoader.writer();
 
     // Add columns dynamically
@@ -292,10 +294,11 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .buildSchema();
 
     final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
     final RowSetLoader writer = rsLoader.writer();
 
     // Fill the batch with enough data to cause overflow.
@@ -437,9 +440,10 @@ public class TestResultSetLoaderRepeatedList extends SubOperatorTest {
         .buildSchema();
 
     final ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setAllocator(fixture.allocator())
         .setSchema(schema)
         .build();
-    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    final ResultSetLoader rsLoader = new ResultSetLoaderImpl(options);
 
     rsLoader.startBatch();
     final RowSetLoader writer = rsLoader.writer();

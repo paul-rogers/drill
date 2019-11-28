@@ -17,17 +17,18 @@
  */
 package org.apache.drill.exec.record.selection;
 
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.VectorContainer;
 
 public class SelectionVector2Builder {
 
+  private final VectorContainer container;
   private final SelectionVector2 sv2;
   private int index;
 
-  public SelectionVector2Builder(BufferAllocator allocator, int maxSize) {
-    sv2 = new SelectionVector2(allocator);
-    sv2.allocateNew(maxSize);
+  public SelectionVector2Builder(VectorContainer container) {
+    this.container = container;
+    sv2 = new SelectionVector2(container.getAllocator());
+    sv2.allocateNew(container.getRecordCount());
   }
 
   public void setNext(int value) {
@@ -39,9 +40,9 @@ public class SelectionVector2Builder {
     index = Math.max(index, posn + 1);
   }
 
-  public SelectionVector2 harvest(VectorContainer batch) {
+  public SelectionVector2 build() {
     sv2.setRecordCount(index);
-    sv2.setBatchActualRecordCount(batch.getRecordCount());
+    sv2.setBatchActualRecordCount(container.getRecordCount());
     return sv2;
   }
 }

@@ -167,9 +167,9 @@ public class NullColumnLoader extends StaticColumnLoader {
   }
 
   @Override
-  public VectorContainer load(int rowCount) {
+  public void load(int rowCount) {
     loader.startBatch();
     loader.skipRows(rowCount);
-    return loader.harvest();
+    loader.harvestOutput();
   }
 }
