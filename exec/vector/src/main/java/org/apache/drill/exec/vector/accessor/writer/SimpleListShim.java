@@ -204,6 +204,11 @@ public class SimpleListShim implements UnionShim {
   }
 
   @Override
+  public void finalizeTransfer(int valueCount) {
+    events().finalizeTransfer(valueCount);
+  }
+
+  @Override
   public void dump(HierarchicalFormatter format) {
     format.startObject(this).attribute("colWriter");
     colWriter.dump(format);

@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor.writer.dummy;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
@@ -100,4 +101,7 @@ public class DummyArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void copy(ColumnReader from) { }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {}
 }

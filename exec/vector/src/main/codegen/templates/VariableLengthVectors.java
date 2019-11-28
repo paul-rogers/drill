@@ -223,7 +223,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
     target.data = data.slice(startPoint, sliceLength).transferOwnership(target.allocator).buffer;
     target.getMutator().setValueCount(length);
-}
+  }
 
   protected void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from) {
     UInt4Vector.Accessor fromOffsetVectorAccessor = from.offsetVector.getAccessor();

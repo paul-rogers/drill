@@ -137,6 +137,11 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public void reset() { elementIndex = 0; }
 
     @Override
+    public void set(int position) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public int vectorIndex() { return elementIndex + offsetsWriter.nextOffset(); }
 
     @Override
@@ -249,6 +254,13 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public void endWrite() {
       offsetsWriter.endWrite();
       elementObjWriter.events().endWrite();
+    }
+
+    @Override
+    public void finalizeTransfer(int valueCount) {
+      offsetsWriter.finalizeTransfer(valueCount);
+      elementIndex.reset();
+      elementObjWriter.events().finalizeTransfer(valueCount);
     }
 
     @Override

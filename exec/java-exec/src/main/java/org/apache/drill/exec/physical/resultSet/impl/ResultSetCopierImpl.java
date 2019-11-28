@@ -23,7 +23,6 @@ import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.ResultSetReader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
-import org.apache.drill.exec.physical.resultSet.VectorTransfer;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
@@ -42,7 +41,6 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     NEW_SCHEMA,
     SCHEMA_PENDING,
     DIRECT_COPY_PENDING,
-    DIRECT_COPY_DONE,
     CLOSED
   }
 
@@ -69,35 +67,25 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   /**
    * Use transfer pairs to do a direct copy of input to output vectors.
    * Requires a flush of any input data from the result set loader.
-   * Requires a flush afterwards because, at present, the result set
-   * loader can't append to an existing batch.
    */
 
   private class TransferAll implements Copier {
 
-    private boolean isPending = true;
-
-    public TransferAll() {
-      if (directTransfer == null) {
-        directTransfer = new VectorTransfer(resultSetReader.inputBatch().container(),
-            resultSetWriter.outputContainer(), resultSetWriter.vectorCache());
-      }
-    }
+    private boolean pending = true;
 
     @Override
     public void copy() {
       if (hasOutputRows()) {
         state = State.DIRECT_COPY_PENDING;
       } else {
-        directTransfer.copyRecords();
-        isPending = false;
-        state = State.DIRECT_COPY_DONE;
+        resultSetWriter.transferFrom(resultSetReader.inputBatch().container());
+        pending = false;
       }
     }
 
     @Override
     public boolean hasMore() {
-      return isPending;
+      return pending;
     }
   }
 
@@ -130,7 +118,6 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   private State state;
   private CopyPair[] projection;
   private Copier activeCopy;
-  private VectorTransfer directTransfer;
 
   // Stats, primarily for testing
 
@@ -273,7 +260,6 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     case NEW_SCHEMA:
       return resultSetWriter.hasRows();
     case DIRECT_COPY_PENDING:
-    case DIRECT_COPY_DONE:
       return true;
     default:
       return false;
@@ -287,7 +273,6 @@ public class ResultSetCopierImpl implements ResultSetCopier {
       return rowWriter.isFull();
     case NEW_SCHEMA:
     case DIRECT_COPY_PENDING:
-    case DIRECT_COPY_DONE:
       return true;
     default:
       return false;
@@ -415,10 +400,6 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     case NEW_SCHEMA:
       state = State.SCHEMA_PENDING;
       resultSetWriter.harvestOutput();
-      break;
-    case DIRECT_COPY_DONE:
-      state = State.BETWEEN_BATCHES;
-      // No harvest: container was populated by direct copy
       break;
     default:
       throw new IllegalStateException("Wrong state for harvest");

@@ -48,6 +48,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
       this.baseIndex = baseIndex;
     }
 
+    @Override public void set(int position) { }
     @Override public int rowStartIndex() { return baseIndex.rowStartIndex(); }
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
@@ -153,6 +154,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
     @Override
     public void copy(ColumnReader from) { }
+
+    @Override
+    public void finalizeTransfer(int valueCount) {}
   }
 
   protected static class DummyArrayMapWriter extends MapWriter {
@@ -167,6 +171,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
     @Override
     public void copy(ColumnReader from) { }
+
+    @Override
+    public void finalizeTransfer(int valueCount) {}
   }
 
   protected final ColumnMetadata mapColumnSchema;

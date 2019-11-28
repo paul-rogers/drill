@@ -54,6 +54,9 @@ public class TestDummyWriter extends SubOperatorTest {
 
     @Override
     public ColumnMetadata schema() { return null; }
+
+    @Override
+    public void finalizeTransfer(int valueCount) { }
   }
 
   /**

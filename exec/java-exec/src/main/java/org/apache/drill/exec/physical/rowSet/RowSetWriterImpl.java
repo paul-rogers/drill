@@ -50,8 +50,13 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
     public enum State { OK, VECTOR_OVERFLOW, END_OF_BATCH }
 
-    private int rowIndex = 0;
+    private int rowIndex;
     private State state = State.OK;
+
+    @Override
+    public void set(int position) {
+      rowIndex = position;
+    }
 
     @Override
     public final int vectorIndex() { return rowIndex; }

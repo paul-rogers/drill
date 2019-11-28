@@ -833,11 +833,173 @@ public class TestResultSetCopier extends SubOperatorTest {
     }
   }
 
+  final int bigInputSize = 100;
+  final int outputSize = 60;
+  final int minBulkCopySize = outputSize / 2 + 1;
+
+  /**
+   * Test an initial bulk copy batch larger than the
+   * target row size. Immediately fills the output batch.
+   */
+
+  @Test
+  public void testLargeBulkCopyOnFirst() {
+
+    SparseFilterDataGen dataGen = new SparseFilterDataGen();
+    OptionBuilder options = new OptionBuilder()
+        .setRowCountLimit(outputSize);
+    ResultSetCopierImpl copier = new ResultSetCopierImpl(
+        fixture.allocator(), dataGen.batch, options);
+    copier.allowDirectTransfer(true);
+
+    // Start: do a bulk copy: no SV and batch size > target/2
+
+    copier.startOutputBatch();
+    dataGen.next(bigInputSize, true);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertTrue(copier.isOutputFull());
+    copier.harvestOutput();
+    assertEquals(1, copier.bulkCopyCount());
+    VectorContainer container = copier.outputContainer();
+    assertEquals(bigInputSize, container.getRecordCount());
+    container.zeroVectors();
+
+    // Filtered batch. Regular copy.
+
+    copier.startOutputBatch();
+    copier.releaseInputBatch();
+    dataGen.next(bigInputSize, false);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertFalse(copier.isOutputFull());
+    assertEquals(1, copier.bulkCopyCount());
+
+    copier.harvestOutput();
+    container = copier.outputContainer();
+    assertEquals(bigInputSize / 2, container.getRecordCount());
+    container.zeroVectors();
+
+    copier.close();
+  }
+
+  /**
+   * Test that a bulk copy leaves the result set loader in
+   * a sane state to append more data in the second batch.
+   */
+
+  @Test
+  public void testBulkCopyAndAppend() {
+
+    SparseFilterDataGen dataGen = new SparseFilterDataGen();
+    OptionBuilder options = new OptionBuilder()
+        .setRowCountLimit(outputSize);
+    ResultSetCopierImpl copier = new ResultSetCopierImpl(
+        fixture.allocator(), dataGen.batch, options);
+    copier.allowDirectTransfer(true);
+
+    // Large enough for bulk copy, smaller than full batch
+
+    copier.startOutputBatch();
+    dataGen.next(minBulkCopySize, true);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertFalse(copier.isOutputFull());
+    assertEquals(1, copier.bulkCopyCount());
+
+    // We can now append a small batch on top of the bulk
+    // copy. Use a filtered batch.
+
+    copier.releaseInputBatch();
+    dataGen.next(minBulkCopySize, false);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertFalse(copier.isOutputFull());
+
+    // Single batch, with second appended.
+
+    copier.harvestOutput();
+    VectorContainer container = copier.outputContainer();
+    assertEquals(minBulkCopySize * 3 / 2, container.getRecordCount());
+
+    // Sanity check of data.
+
+    RowSet result = fixture.wrap(container);
+    result.print();
+    RowSetReader reader = result.reader();
+    for (int i = 0; i < minBulkCopySize; i++) {
+      reader.next();
+      assertEquals(i, reader.scalar(0).getInt());
+      assertEquals("Row " + i, reader.scalar(1).getString());
+    }
+    for (int i = minBulkCopySize; i < 2 * minBulkCopySize; i += 2) {
+      reader.next();
+      assertEquals(i, reader.scalar(0).getInt());
+      assertEquals("Row " + i, reader.scalar(1).getString());
+    }
+    result.clear();
+
+    copier.close();
+  }
+
+  /**
+   * Test multiple bulk copies in a row.
+   */
+  @Test
+  public void testMultipleBulkCopy() {
+
+    SparseFilterDataGen dataGen = new SparseFilterDataGen();
+    OptionBuilder options = new OptionBuilder()
+        .setRowCountLimit(outputSize);
+    ResultSetCopierImpl copier = new ResultSetCopierImpl(
+        fixture.allocator(), dataGen.batch, options);
+    copier.allowDirectTransfer(true);
+
+    // Large enough for bulk copy, smaller than full batch
+
+    copier.startOutputBatch();
+    dataGen.next(minBulkCopySize, true);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertFalse(copier.isOutputFull());
+    assertEquals(1, copier.bulkCopyCount());
+
+    // Another. Forces flush of the above.
+
+    copier.releaseInputBatch();
+    dataGen.next(minBulkCopySize, true);
+    copier.startInputBatch();
+    copier.copyAllRows();
+    assertTrue(copier.isOutputFull());
+    assertEquals(2, copier.bulkCopyCount());
+    copier.harvestOutput();
+    VectorContainer container = copier.outputContainer();
+    assertEquals(minBulkCopySize, container.getRecordCount());
+    container.zeroVectors();
+    assertTrue(copier.isCopyPending());
+
+    // Another batch, flushes the above.
+
+    copier.startOutputBatch();
+    copier.releaseInputBatch();
+    assertFalse(copier.isOutputFull());
+    assertEquals(2, copier.bulkCopyCount());
+    copier.harvestOutput();
+    container = copier.outputContainer();
+    assertEquals(minBulkCopySize, container.getRecordCount());
+    container.zeroVectors();
+    assertFalse(copier.isCopyPending());
+
+    copier.close();
+  }
+
+  // Switch to/from SV2
+  // Switch SV2 size
+  // Non-bulk flushed by bulk
+  // Small batch consolidation
+
   @Test
   public void testBulkCopy() {
-    final int bigInputSize = 100;
-    final int outputSize = 60;
-    final int minBulkCopySize = outputSize / 2 + 1;
 
     SparseFilterDataGen dataGen = new SparseFilterDataGen();
     OptionBuilder options = new OptionBuilder()
@@ -870,6 +1032,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     assertEquals(1, copier.bulkCopyCount());
 
     // Another filtered batch, gives output, leaves input
+    // still to be copied
 
     copier.releaseInputBatch();
     dataGen.next(bigInputSize, false);
@@ -877,8 +1040,8 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.copyAllRows();
     assertTrue(copier.isOutputFull());
     copier.harvestOutput();
-    result = fixture.wrap(copier.outputContainer());
     assertEquals(1, copier.bulkCopyCount());
+    result = fixture.wrap(copier.outputContainer());
     assertEquals(outputSize, result.rowCount());
     result.clear();
 
@@ -891,20 +1054,18 @@ public class TestResultSetCopier extends SubOperatorTest {
     copier.startInputBatch();
     copier.copyAllRows();
     assertTrue(copier.isOutputFull());
+    assertEquals(2, copier.bulkCopyCount());
     copier.harvestOutput();
     result = fixture.wrap(copier.outputContainer());
-    assertEquals(2, copier.bulkCopyCount());
     assertEquals(bigInputSize - outputSize, result.rowCount());
     result.clear();
     assertTrue(copier.isCopyPending());
 
+    // Next output batch: does the actual bulk copy.
+
     copier.startOutputBatch();
-    assertTrue(copier.isOutputFull());
-    copier.harvestOutput();
-    result = fixture.wrap(copier.outputContainer());
-    assertEquals(2, copier.bulkCopyCount());
-    assertEquals(minBulkCopySize, result.rowCount());
-    result.clear();
+    assertFalse(copier.isOutputFull());
+    assertTrue(copier.hasOutputRows());
     assertFalse(copier.isCopyPending());
 
     // Unfiltered, min-size batch, bulk copy

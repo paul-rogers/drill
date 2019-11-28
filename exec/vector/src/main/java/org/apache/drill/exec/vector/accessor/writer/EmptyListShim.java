@@ -73,6 +73,9 @@ public class EmptyListShim implements UnionShim {
   public void postRollover() { }
 
   @Override
+  public void finalizeTransfer(int valueCount) {}
+
+  @Override
   public void setNull() {
     // OK to set a non-existent type to null
   }

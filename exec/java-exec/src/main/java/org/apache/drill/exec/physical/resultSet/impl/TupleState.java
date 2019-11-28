@@ -26,7 +26,9 @@ import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
 import org.apache.drill.exec.physical.resultSet.impl.ColumnState.BaseContainerColumnState;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -38,6 +40,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Represents the loader state for a tuple: a row or a map. This is "state" in
@@ -257,6 +260,9 @@ public abstract class TupleState extends ContainerState
 
     private final VectorContainer outputContainer;
 
+    private TransferPair transferPairs[];
+    private int transferPairVersion = -1;
+
     public RowState(ResultSetLoaderImpl rsLoader,
         ResultVectorCache vectorCache, VectorContainer outputContainer) {
       super(rsLoader, vectorCache, rsLoader.projectionSet);
@@ -285,6 +291,50 @@ public abstract class TupleState extends ContainerState
 
     @Override
     protected boolean isVersioned() { return true; }
+
+    public void transferFrom(VectorContainer source, int curSchemaVersion) {
+      Preconditions.checkArgument(source.getNumberOfColumns() == schema.size());
+      // If the schema has an SV2, we assume that the caller has verified
+      // that the SV2 is a no-op: includes all rows in ascending order.
+      Preconditions.checkArgument(
+          source.getSchema().getSelectionVectorMode() != SelectionVectorMode.FOUR_BYTE);
+      // This check verifies that the row count is set
+      int rowCount = source.getRecordCount();
+      if (rowCount == 0) {
+        return;
+      }
+      updateTransferPairs(source, curSchemaVersion);
+      for (TransferPair tp : transferPairs) {
+        tp.transfer();
+      }
+      writer.finalizeTransfer(rowCount);
+    }
+
+    private void updateTransferPairs(VectorContainer source, int curSchemaVersion) {
+      if (transferPairs != null && transferPairVersion == curSchemaVersion) {
+        return;
+      }
+      transferPairs = new TransferPair[schema.size()];
+      for (VectorWrapper<?> vw : source) {
+        ValueVector v = vw.getValueVector();
+        int colIndex = schema.index(v.getField().getName());
+        if (colIndex == -1) {
+          throw new IllegalStateException(
+              String.format("Field %s does not exist in the result set loader schema",
+                  v.getField().getName()));
+        }
+        ValueVector vector = columns.get(colIndex).vector();
+        if (vector == null) {
+          // Could do this in theory, just need a way to discard the incoming
+          // buffer. Do later if needed.
+          throw new IllegalStateException(
+              String.format("Cannot transfer to an unprojected column: %s",
+                  v.getField().getName()));
+        }
+        transferPairs[colIndex] = v.makeTransferPair(vector);
+      }
+      transferPairVersion = curSchemaVersion;
+    }
 
     @Override
     protected void updateOutput(int curSchemaVersion) {

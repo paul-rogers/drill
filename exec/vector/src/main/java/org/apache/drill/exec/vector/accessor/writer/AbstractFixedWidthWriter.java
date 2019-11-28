@@ -329,6 +329,12 @@ public abstract class AbstractFixedWidthWriter extends BaseScalarWriter {
   }
 
   @Override
+  public void finalizeTransfer(int valueCount) {
+    super.finalizeTransfer(valueCount);
+    lastWriteIndex = valueCount - 1;
+  }
+
+  @Override
   public void dump(HierarchicalFormatter format) {
     format.extend();
     super.dump(format);

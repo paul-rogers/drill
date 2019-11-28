@@ -39,10 +39,15 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 class WriterIndexImpl implements ColumnWriterIndex {
 
   private final ResultSetLoader rsLoader;
-  private int rowIndex = 0;
+  private int rowIndex;
 
   public WriterIndexImpl(ResultSetLoader rsLoader) {
     this.rsLoader = rsLoader;
+  }
+
+  @Override
+  public void set(int position) {
+    rowIndex = position;
   }
 
   @Override

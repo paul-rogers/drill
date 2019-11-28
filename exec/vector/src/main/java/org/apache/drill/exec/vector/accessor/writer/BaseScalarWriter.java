@@ -20,6 +20,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VarDecimalVector;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Instant;
@@ -291,6 +293,11 @@ public abstract class BaseScalarWriter extends AbstractScalarWriterImpl {
   @Override
   public void setTimestamp(Instant value) {
     throw conversionError("Instant");
+  }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {
+    setBuffer();
   }
 
   @Override

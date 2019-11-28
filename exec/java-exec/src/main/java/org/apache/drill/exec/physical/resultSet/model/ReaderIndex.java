@@ -31,7 +31,7 @@ public abstract class ReaderIndex implements ColumnReaderIndex {
   protected int position = -1;
   protected int rowCount = -1;
 
-  public void setRowCount(int rowCount) {
+  protected void setRowCount(int rowCount) {
     this.rowCount = rowCount;
     position = -1;
   }
@@ -60,6 +60,4 @@ public abstract class ReaderIndex implements ColumnReaderIndex {
   public boolean hasNext() {
     return position + 1 < rowCount;
   }
-
-  public abstract void resetRowCount();
 }

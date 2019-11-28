@@ -448,6 +448,8 @@ public class VectorContainer implements VectorAccessible {
 
   public void zeroVectors() {
     VectorAccessibleUtilities.clear(this);
+    recordCount = -1;
+    initialized = false;
   }
 
   public int getNumberOfColumns() {

@@ -194,5 +194,7 @@ public interface WriterEvents extends WriterPosition {
 
   void postRollover();
 
+  void finalizeTransfer(int valueCount);
+
   abstract void dump(HierarchicalFormatter format);
 }

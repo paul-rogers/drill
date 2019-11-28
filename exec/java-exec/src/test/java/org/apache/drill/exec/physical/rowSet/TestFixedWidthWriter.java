@@ -50,6 +50,11 @@ public class TestFixedWidthWriter extends SubOperatorTest {
     public int index;
 
     @Override
+    public void set(int position) {
+      index = position;
+    }
+
+    @Override
     public int vectorIndex() { return index; }
 
     @Override

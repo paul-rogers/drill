@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.BitVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VarDecimalVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ValueType;
@@ -80,6 +81,12 @@ public class BitColumnWriter extends AbstractFixedWidthWriter {
       fillEmpties(writeIndex);
     }
     lastWriteIndex = writeIndex;
+  }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {
+    super.finalizeTransfer(valueCount);
+    lastWriteIndex = valueCount - 1;
   }
 
   @Override

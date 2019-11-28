@@ -26,6 +26,8 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.WriterEvents;
 import org.apache.drill.exec.vector.accessor.writer.WriterEvents.ColumnWriterListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Represents the write-time state for a column including the writer and the (optional)
@@ -41,7 +43,7 @@ import org.apache.drill.exec.vector.accessor.writer.WriterEvents.ColumnWriterLis
  */
 public abstract class ColumnState {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
+  private static final Logger logger = LoggerFactory.getLogger(ColumnState.class);
 
   /**
    * Primitive (non-map) column state. Handles all three cardinalities.

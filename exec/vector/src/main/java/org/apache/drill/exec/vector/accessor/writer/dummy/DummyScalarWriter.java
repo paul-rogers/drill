@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.BaseDataValueVector;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ValueType;
@@ -125,4 +126,7 @@ public class DummyScalarWriter extends AbstractScalarWriterImpl {
 
   @Override
   public void copy(ColumnReader from) { }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {}
 }

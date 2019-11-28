@@ -15,32 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.record.selection;
+package org.apache.drill.exec.physical.rowSet;
 
-import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.physical.resultSet.model.ReaderIndex;
+import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 
-public class SelectionVector2Builder {
+/**
+ * Read-only row index into the hyper row set with batch and index
+ * values mapping via an SV4.
+ */
 
-  private final SelectionVector2 sv2;
-  private int index;
+public class HyperRowIndex extends ReaderIndex {
 
-  public SelectionVector2Builder(VectorContainer container) {
-    sv2 = new SelectionVector2(container.getAllocator());
-    sv2.allocateNew(container.getRecordCount());
-    sv2.setBatchActualRecordCount(container.getRecordCount());
+  private SelectionVector4 sv4;
+
+  public void bind(SelectionVector4 sv4) {
+    this.sv4 = sv4;
+    setRowCount(sv4.getCount());
   }
 
-  public void setNext(int value) {
-    sv2.setIndex(index++, value);
+  @Override
+  public int offset() {
+    return AccessorUtilities.sv4Index(sv4.get(position));
   }
 
-  public void set(int posn, int value) {
-    sv2.setIndex(posn, value);
-    index = Math.max(index, posn + 1);
-  }
-
-  public SelectionVector2 build() {
-    sv2.setRecordCount(index);
-    return sv2;
+  @Override
+  public int hyperVectorIndex( ) {
+    return AccessorUtilities.sv4Batch(sv4.get(position));
   }
 }

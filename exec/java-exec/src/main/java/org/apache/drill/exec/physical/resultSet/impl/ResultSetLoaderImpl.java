@@ -32,6 +32,8 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jersey.repackaged.com.google.common.base.Preconditions;
+
 /**
  * Implementation of the result set loader. Caches vectors
  * for a row or map.
@@ -449,6 +451,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     harvestSchemaVersion = activeSchemaVersion;
     pendingRowCount = 0;
     state = State.ACTIVE;
+  }
+
+  @Override
+  public void transferFrom(VectorContainer from) {
+    Preconditions.checkState(state == State.ACTIVE && rootWriter.rowCount() == 0);
+    rootState.transferFrom(from, harvestSchemaVersion);
   }
 
   @Override

@@ -44,6 +44,9 @@ public class NullableScalarWriter extends AbstractScalarWriterImpl {
     }
 
     @Override
+    public void set(int position) { }
+
+    @Override
     public int rowStartIndex() {
       return parentIndex.rowStartIndex();
     }
@@ -294,6 +297,12 @@ public class NullableScalarWriter extends AbstractScalarWriterImpl {
     baseWriter.endWrite();
     ((NullableVector.Mutator) nullableVector.getMutator())
         .setSetCount(writerIndex.vectorIndex());
+  }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {
+    isSetWriter.finalizeTransfer(valueCount);
+    baseWriter.finalizeTransfer(valueCount);
   }
 
   @Override

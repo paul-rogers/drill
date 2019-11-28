@@ -82,4 +82,6 @@ public interface ColumnWriterIndex {
    */
 
   ColumnWriterIndex outerIndex();
+
+  void set(int position);
 }

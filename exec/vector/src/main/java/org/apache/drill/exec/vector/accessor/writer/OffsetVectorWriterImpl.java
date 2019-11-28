@@ -241,6 +241,14 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   }
 
   @Override
+  public void finalizeTransfer(int valueCount) {
+    super.finalizeTransfer(valueCount);
+    nextOffset = vector.getAccessor().getValueCount();
+    assert nextOffset == valueCount + 1;
+    rowStartOffset = nextOffset;
+  }
+
+  @Override
   protected final void fillEmpties(int fillCount) {
     for (int i = 0; i < fillCount; i++) {
       fillOffset(nextOffset);

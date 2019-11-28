@@ -280,6 +280,15 @@ public class UnionVectorShim implements UnionShim {
     }
   }
 
+  @Override
+  public void finalizeTransfer(int valueCount) {
+    typeWriter.finalizeTransfer(valueCount);
+    for (int i = 0; i < variants.length; i++) {
+      if (variants[i] != null) {
+        variants[i].events().finalizeTransfer(valueCount);
+      }
+    }
+  }
 
   /**
    * Return the writer for the types vector. To be used only by the row set

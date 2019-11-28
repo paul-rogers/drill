@@ -124,6 +124,19 @@ public interface ResultSetLoader {
   void startBatch();
 
   /**
+   * Specialized form of copy which initializes the output
+   * batch with the vectors from the given container. The input and
+   * output schemas must match. Effectively does a "TransferPair",
+   * leaving the output vectors writable.
+   * <p>
+   * Requires that no overflow data be pending. Must be called
+   * immediately after {@link #startBatch()} before any rows are
+   * written to the batch.
+   */
+
+  void transferFrom(VectorContainer from);
+
+  /**
    * Writer for the top-level tuple (the entire row). Valid only when
    * the mutator is actively writing a batch (after <tt>startBatch()</tt>
    * but before </tt>harvest()</tt>.)
@@ -240,7 +253,7 @@ public interface ResultSetLoader {
   void harvestOutput();
 
   /**
-   * Combination of harvisting the output and returning the output container.
+   * Combination of harvesting the output and returning the output container.
    * Primarily for testing.
    *
    * @return the output container

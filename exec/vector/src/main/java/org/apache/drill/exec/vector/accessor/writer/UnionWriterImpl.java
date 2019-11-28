@@ -324,6 +324,13 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   }
 
   @Override
+  public void finalizeTransfer(int valueCount) {
+    assert state == State.IDLE;
+    shim.finalizeTransfer(valueCount);
+    state = State.IN_WRITE;
+  }
+
+  @Override
   public int lastWriteIndex() { return shim.lastWriteIndex(); }
 
   @Override

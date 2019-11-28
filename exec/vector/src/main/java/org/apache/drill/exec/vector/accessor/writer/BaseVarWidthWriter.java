@@ -195,6 +195,12 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
   }
 
   @Override
+  public void finalizeTransfer(int valueCount) {
+    offsetsWriter.finalizeTransfer(valueCount);
+    super.finalizeTransfer(valueCount);
+  }
+
+  @Override
   public void dump(HierarchicalFormatter format) {
     format.extend();
     super.dump(format);

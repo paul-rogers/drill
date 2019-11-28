@@ -255,8 +255,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void startWrite() {
     assert state == State.IDLE;
     state = State.IN_WRITE;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().startWrite();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().startWrite();
     }
   }
 
@@ -267,16 +267,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     assert state == State.IN_WRITE;
     state = State.IN_ROW;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().startRow();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().startRow();
     }
   }
 
   @Override
   public void endArrayValue() {
     assert state == State.IN_ROW;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().endArrayValue();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().endArrayValue();
     }
   }
 
@@ -292,16 +292,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     // the current row.
 
     assert state == State.IN_ROW;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().restartRow();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().restartRow();
     }
   }
 
   @Override
   public void saveRow() {
     assert state == State.IN_ROW;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().saveRow();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().saveRow();
     }
     state = State.IN_WRITE;
   }
@@ -312,8 +312,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     // Rollover can only happen while a row is in progress.
 
     assert state == State.IN_ROW;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).events().preRollover();
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().preRollover();
     }
   }
 
@@ -346,6 +346,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     // the other. That must be handled outside this class.
     for (int i = 0; i < writers.size(); i++) {
       writers.get(i).writer().copy(source.column(i).reader());
+    }
+  }
+
+  @Override
+  public void finalizeTransfer(int valueCount) {
+    assert state == State.IN_WRITE;
+    vectorIndex.set(valueCount);
+    childIndex.set(valueCount);
+    for (AbstractObjectWriter writer : writers) {
+      writer.events().finalizeTransfer(valueCount);
     }
   }
 
