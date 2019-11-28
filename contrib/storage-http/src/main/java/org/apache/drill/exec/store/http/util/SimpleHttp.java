@@ -17,13 +17,16 @@
  */
 package org.apache.drill.exec.store.http.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 
 public class SimpleHttp {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SimpleHttp.class);
+  private static final Logger logger = LoggerFactory.getLogger(SimpleHttp.class);
 
   public String get(String urlStr) {
 

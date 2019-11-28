@@ -29,12 +29,13 @@ import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HttpSchemaFactory extends AbstractSchemaFactory {
+public class HttpSchemaFactory implements SchemaFactory {
   private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
   private final HttpStoragePlugin plugin;
@@ -43,7 +44,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   public static final String MY_TABLE = "result_table";
 
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
-    super(plugin.getName());
+    super();
     this.plugin = plugin;
     this.schemaName = schemaName;
   }
@@ -55,7 +56,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     parent.add(schema.getName(), schema);
   }
 
-  class HttpSchema extends AbstractSchema {
+  public class HttpSchema extends AbstractSchema {
 
     private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
 
@@ -70,10 +71,9 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
         return table;
       }
 
-
       logger.debug("HttpSchema.getTable {}", tableName);
       HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan
-      return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(name)));
+      return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), spec));
     }
 
     private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {
@@ -85,12 +85,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     public String getTypeName() {
       return HttpStoragePluginConfig.NAME;
     }
-
-    /*@Override
-    public Set<String> getTableNames() {
-      return Set<String>.newHashSet(MY_TABLE);
-      //return tableNames;
-    }*/
 
     @Override
     public Set<String> getTableNames() {
