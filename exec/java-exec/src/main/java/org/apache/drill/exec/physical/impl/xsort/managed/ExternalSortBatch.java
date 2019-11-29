@@ -151,7 +151,6 @@ import org.slf4j.LoggerFactory;
  * for another time.
  * <h4>Logging</h4>
  * Logging in this operator serves two purposes:
- * <li>
  * <ul>
  * <li>Normal diagnostic information.</li>
  * <li>Capturing the essence of the operator functionality for analysis in unit
@@ -601,14 +600,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   /**
-   * Method to reset sort state after every EMIT outcome is seen to process next batch of incoming records which
-   * belongs to different record boundary.
+   * Reset sort state after every EMIT outcome is seen to process next batch of
+   * incoming records which belongs to different record boundary.
    */
   private void resetSortState() {
     sortState = (lastKnownOutcome == EMIT) ? SortState.LOAD : SortState.DONE;
-    // This means if it has received NONE/EMIT outcome and flag to retain is false which will be the case in presence of
-    // StreamingAggBatch only since it will explicitly call releaseBacthes on ExternalSort when its done consuming
-    // all the data buffer.
+    // This means if it has received NONE/EMIT outcome and flag to retain is
+    // false which will be the case in presence of StreamingAggBatch only since
+    // it will explicitly call releaseBacthes on ExternalSort when its done
+    // consuming all the data buffer.
 
     // Close the iterator here to release any remaining resources such
     // as spill files. This is important when a query has a join: the
