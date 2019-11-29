@@ -72,10 +72,6 @@ public class HttpScanSpec {
     }
   }
 
-  @JsonIgnore
-  public String getTableNme() {
-    return pluginName;
-  }
   @Override
   public String toString() {
     return "HttpScanSpec [uri='" + uri + "', args=" + args + "]";

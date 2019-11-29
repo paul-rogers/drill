@@ -106,7 +106,7 @@ public class TestHttpPlugin extends ClusterTest {
    *        "status":"OK"
    *     }
    *
-   * @throws Exception
+   * @throws Exception Throws exception if something goes awry
    */
   @Test
   public void simpleStarQuery() throws Exception{

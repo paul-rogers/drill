@@ -29,34 +29,31 @@ import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class HttpSchemaFactory implements SchemaFactory {
+public class HttpSchemaFactory extends AbstractSchemaFactory {
   private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
   private final HttpStoragePlugin plugin;
-  private final String schemaName;
 
   public static final String MY_TABLE = "result_table";
 
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
-    super();
+    super(schemaName);
     this.plugin = plugin;
-    this.schemaName = schemaName;
   }
 
   @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
-    logger.debug("registerSchema {}", schemaName);
-    HttpSchema schema = new HttpSchema(schemaName);
+    logger.debug("registerSchema {}", getName());
+    HttpSchema schema = new HttpSchema(getName());
     parent.add(schema.getName(), schema);
   }
 
-  public class HttpSchema extends AbstractSchema {
+  class HttpSchema extends AbstractSchema {
 
     private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
 
@@ -72,7 +69,7 @@ public class HttpSchemaFactory implements SchemaFactory {
       }
 
       logger.debug("HttpSchema.getTable {}", tableName);
-      HttpScanSpec spec = new HttpScanSpec(tableName); // will be pass to getPhysicalScan
+      HttpScanSpec spec = new HttpScanSpec(tableName);
       return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), spec));
     }
 
