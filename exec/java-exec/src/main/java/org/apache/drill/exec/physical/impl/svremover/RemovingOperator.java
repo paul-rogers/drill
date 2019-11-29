@@ -11,6 +11,7 @@ import org.apache.drill.exec.physical.resultSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetCopierImpl;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
+import org.apache.drill.exec.record.VectorContainer;
 
 public class RemovingOperator implements OperatorExec {
 
@@ -26,11 +27,13 @@ public class RemovingOperator implements OperatorExec {
   public RemovingOperator(BufferAllocator allocator, RecordBatch upstream) {
     this.upstream = upstream;
     input = new IncomingBatchAccessor(upstream);
+    VectorContainer container = new VectorContainer(allocator);
     OptionBuilder outputOptions = new OptionBuilder()
+        .setOutputContainer(container)
         .setBatchSizeLimit(TARGET_BATCH_SIZE_BYTES)
         .setRowCountLimit(TARGET_BATCH_SIZE_ROWS);
     copier = new ResultSetCopierImpl(allocator, input, outputOptions);
-    output = new SingleOutgoingContainerAccessor(copier.outputContainer());
+    output = new SingleOutgoingContainerAccessor(container);
   }
 
   @Override
@@ -50,7 +53,7 @@ public class RemovingOperator implements OperatorExec {
       if (! nextUpstream()) {
         break;
       }
-      copier.startInputBatch();
+      copier.registerInputBatch();
       copier.copyAllRows();
     }
     if (! copier.hasOutputRows()) {

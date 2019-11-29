@@ -145,18 +145,18 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   private final UInt4Vector vector;
 
   /**
-   * Offset of the first value for the current row. Used during
-   * overflow or if the row is restarted.
+   * Offset into the data vector of the first value for the current row. Used
+   * during overflow or if the row is restarted.
    */
 
   private int rowStartOffset;
 
   /**
-   * Cached value of the end offset for the current value. Used
-   * primarily for variable-width columns to allow the column to be
-   * rewritten multiple times within the same row. The start offset
-   * value is updated with the end offset only when the value is
-   * committed in {@link @endValue()}.
+   * Cached value of the end offset into the data vector for start of the
+   * current value. Used primarily for variable-width columns to allow the
+   * column to be rewritten multiple times within the same row. The start offset
+   * value is updated with the end offset only when the value is committed in
+   * {@link @endValue()}.
    */
 
   protected int nextOffset;
@@ -243,8 +243,8 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   @Override
   public void finalizeTransfer(int valueCount) {
     super.finalizeTransfer(valueCount);
-    nextOffset = vector.getAccessor().getValueCount();
-    assert nextOffset == valueCount + 1;
+    assert vector.getAccessor().getValueCount() == valueCount + 1;
+    nextOffset = vector.getAccessor().get(valueCount);
     rowStartOffset = nextOffset;
   }
 

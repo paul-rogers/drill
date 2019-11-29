@@ -64,8 +64,10 @@ public class IncomingBatchAccessor extends AbstractContainerAccessor {
       selectionVector2().clear();
       break;
     case FOUR_BYTE:
-      selectionVector4().clear();
-      break;
+      // With an SV4, do not clear the incoming data; it will
+      // span multiple batches.
+      //selectionVector4().clear();
+      return;
     default:
       break;
     }

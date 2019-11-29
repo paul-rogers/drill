@@ -358,7 +358,8 @@ class ReaderState {
       // Use batch previously read.
       assert lookahead != null;
       lookahead.exchange(scanOp.containerAccessor.container());
-      assert lookahead.getRecordCount() == 0;
+      assert !lookahead.hasRecordCount() || lookahead.getRecordCount() == 0;
+      lookahead.zeroVectors();
       lookahead = null;
       if (state == State.LOOK_AHEAD_WITH_EOF) {
         state = State.EOF;
@@ -448,7 +449,7 @@ class ReaderState {
 
         if (scanOp.containerAccessor.schemaVersion() == 0 &&
             reader.schemaVersion() > 0) {
-          scanOp.containerAccessor.registerBatch(output);
+          scanOp.containerAccessor.setSchema(output);
         }
         return false;
       }

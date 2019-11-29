@@ -352,6 +352,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void finalizeTransfer(int valueCount) {
     assert state == State.IN_WRITE;
+    // Position as if we just wrote the nth row (0-based)
     vectorIndex.set(valueCount);
     childIndex.set(valueCount);
     for (AbstractObjectWriter writer : writers) {

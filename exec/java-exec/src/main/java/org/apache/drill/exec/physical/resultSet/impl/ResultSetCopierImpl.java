@@ -89,6 +89,11 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     }
   }
 
+  /**
+   * Pair of reader and writer. Cannot use a generic Pair
+   * class because Java does not allow creation of arrays of
+   * parameterized types. Yet, we want an array for performance.
+   */
   private static class CopyPair {
     protected final ColumnWriter writer;
     protected final ColumnReader reader;
@@ -170,7 +175,7 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   }
 
   @Override
-  public void startInputBatch() {
+  public void registerInputBatch() {
     Preconditions.checkState(state == State.NO_SCHEMA || state == State.NEW_SCHEMA ||
                              state == State.BATCH_ACTIVE,
         "Can only start input while in an output batch");
@@ -318,6 +323,10 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   @Override
   public void copyAllRows() {
     verifyWritable();
+    // Nothing to do if input batch is empty
+    if (resultSetReader.inputBatch().rowCount() == 0) {
+      return;
+    }
     if (canDoDirectTransfer()) {
       bulkCopyCount++;
       activeCopy = new TransferAll();
@@ -373,8 +382,12 @@ public class ResultSetCopierImpl implements ResultSetCopier {
     // current output batch: it may contain only one row, but
     // the inefficiency of a small batch is compensated by
     // avoiding a row-by-row copy.
+    //
+    // Or, if the output batch is empty, might as well do a
+    // direct transfer regardless of size.
 
-    return sv2Count > writerOptions.rowCountLimit / 2;
+    return sv2Count > writerOptions.rowCountLimit / 2 ||
+           !resultSetWriter.hasRows();
   }
 
   private void copyBlock() {

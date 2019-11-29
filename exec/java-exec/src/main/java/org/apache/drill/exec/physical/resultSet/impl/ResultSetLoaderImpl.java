@@ -520,7 +520,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     case ACTIVE:
       rootWriter.endArrayValue();
       rootWriter.saveRow();
-      if (! writerIndex.next()) {
+      if (!writerIndex.next()) {
         state = State.FULL_BATCH;
       }
 
@@ -564,7 +564,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   protected boolean isFull() {
     switch (state) {
     case ACTIVE:
-      return ! writerIndex.valid();
+      return !writerIndex.valid();
     case OVERFLOW:
     case FULL_BATCH:
       return true;
@@ -631,7 +631,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   @Override
   public boolean isProjectionEmpty() {
-    return ! rootState.hasProjections();
+    return !rootState.hasProjections();
   }
 
   @Override

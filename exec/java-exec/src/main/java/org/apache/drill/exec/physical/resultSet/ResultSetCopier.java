@@ -104,7 +104,7 @@ public interface ResultSetCopier {
    * Start the next input batch. The input batch must be held
    * by the VectorAccessor passed into the constructor.
    */
-  void startInputBatch();
+  void registerInputBatch();
 
   /**
    * If copying rows one by one, copy the next row from the

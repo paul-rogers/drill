@@ -20,13 +20,10 @@ package org.apache.drill.exec.physical.resultSet.impl;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.resultSet.ResultSetReader;
 import org.apache.drill.exec.physical.resultSet.model.ReaderBuilder;
-import org.apache.drill.exec.physical.resultSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.resultSet.model.single.DirectRowIndex;
-import org.apache.drill.exec.physical.resultSet.model.single.SimpleReaderBuilder;
 import org.apache.drill.exec.physical.rowSet.HyperRowIndex;
-import org.apache.drill.exec.physical.rowSet.IndirectRowIndex;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.physical.rowSet.RowSetReaderImpl;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -60,7 +57,18 @@ public class ResultSetReaderImpl implements ResultSetReader {
         priorSchemaVersion != batch.schemaVersion();
     state = State.BATCH;
 
-    // If new schema, discard the old reader (if any, and create
+    // The sort emits an empty, non-SV4 batch, followed by an
+    // SV4 batch. The readers are not compatible.
+
+    if (!newSchema) {
+      if (batch.schema().getSelectionVectorMode() == SelectionVectorMode.FOUR_BYTE) {
+        newSchema = !(rowSetReader.index() instanceof HyperRowIndex);
+      } else {
+        newSchema = rowSetReader.index() instanceof HyperRowIndex;
+      }
+    }
+
+    // If new schema, discard the old reader (if any) and create
     // a new one that matches the new schema. If not a new schema,
     // then the old reader is reused: it points to vectors which
     // Drill requires be the same vectors as the previous batch,
@@ -71,40 +79,8 @@ public class ResultSetReaderImpl implements ResultSetReader {
       priorSchemaVersion = batch.schemaVersion();
     } else {
       rowSetReader.newBatch();
-      rebind();
+      ReaderBuilder.rebind(rowSetReader, batch);
     }
-  }
-
-  /**
-   * A somewhat awkward method to reset the current reader index.
-   * The index differs in form for each kind of SV. If the reader
-   * has the correct index, reset it in a way unique to each kind
-   * of SV. Else (for the non-hyper case), replace the index with
-   * the right kind.
-   */
-
-  private void rebind() {
-    ReaderIndex currentIndex = rowSetReader.index();
-    switch (batch.schema().getSelectionVectorMode()) {
-    case FOUR_BYTE:
-      ((HyperRowIndex) currentIndex).bind(batch.selectionVector4());
-      return;
-    case NONE:
-      if (currentIndex instanceof DirectRowIndex) {
-        ((DirectRowIndex) currentIndex).resetRowCount();
-        return;
-      }
-      break;
-    case TWO_BYTE:
-      if (currentIndex instanceof IndirectRowIndex) {
-        ((IndirectRowIndex) currentIndex).bind(batch.selectionVector2());
-        return;
-      }
-      break;
-    default:
-      throw new IllegalStateException();
-    }
-    rowSetReader.bindIndex(SimpleReaderBuilder.readerIndex(batch));
   }
 
   @Override

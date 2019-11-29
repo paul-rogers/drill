@@ -528,6 +528,10 @@ public class VectorContainer implements VectorAccessible {
     boolean temp2 = schemaChanged;
     schemaChanged = other.schemaChanged;
     other.schemaChanged = temp2;
+    initialized = true;
+    temp2 = initialized;
+    initialized = other.initialized;
+    other.initialized = temp2;
   }
 
   /**
