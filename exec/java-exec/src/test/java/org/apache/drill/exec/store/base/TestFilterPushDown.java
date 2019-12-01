@@ -31,6 +31,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.net.URL;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
 import org.apache.drill.test.ClusterFixtureBuilder;
@@ -253,20 +254,19 @@ public class TestFilterPushDown extends ClusterTest {
     verifyPlan(BASE_WHERE + "a = 10", "typeConversion.json");
   }
 
-  // Test conversion
-
   @Test
-  @Ignore
+  //@Ignore
   public void testAdHoc() throws Exception
   {
+    try {
+      client.alterSession(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 2);
 
-    // BETWEEEN. Calcite rewrites a BETWEEN x AND y into
-    // a >= x AND a <= y.
-    // Since the dummy plug-in only handles <=, the => is left in the query.
-
-    String sql = "SELECT a, b FROM dummy.myTable WHERE a IN('bar', 'foo')";
-    //verifyPlan(sql, "between.json");
-    client.queryBuilder().sql(sql).print();
+      String sql = "SELECT a, b FROM dummy.myTable WHERE a IN('bar', 'foo')";
+      //verifyPlan(sql, "between.json");
+      client.queryBuilder().sql(sql).print();
+    } finally {
+      client.resetSession(ExecConstants.MAX_WIDTH_PER_NODE_KEY);
+    }
   }
 
   // above, but with project

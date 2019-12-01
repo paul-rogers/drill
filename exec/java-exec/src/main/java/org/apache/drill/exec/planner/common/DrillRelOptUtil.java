@@ -139,10 +139,12 @@ public abstract class DrillRelOptUtil {
     assert fieldNames.size() == fields.size();
     final List<RexNode> refs =
         new AbstractList<RexNode>() {
+          @Override
           public int size() {
             return fields.size();
           }
 
+          @Override
           public RexNode get(int index) {
             return RexInputRef.of(index, fields);
           }
@@ -218,6 +220,7 @@ public abstract class DrillRelOptUtil {
     try {
       RexVisitor<Void> visitor =
           new RexVisitorImpl<Void>(true) {
+            @Override
             public Void visitCall(RexCall call) {
               if (operators.contains(call.getOperator().getName().toLowerCase())) {
                 throw new Util.FoundOne(call); /* throw exception to interrupt tree walk (this is similar to
@@ -226,6 +229,7 @@ public abstract class DrillRelOptUtil {
               return super.visitCall(call);
             }
 
+            @Override
             public Void visitInputRef(RexInputRef inputRef) {
               if (projExprs.size() == 0 ) {
                 return super.visitInputRef(inputRef);
@@ -261,6 +265,7 @@ public abstract class DrillRelOptUtil {
           if (((long) l.getValue2()) == 0) {
             return true;
           }
+        default:
       }
     }
     return false;
@@ -293,6 +298,7 @@ public abstract class DrillRelOptUtil {
     try {
       RexVisitor<Void> visitor =
           new RexVisitorImpl<Void>(true) {
+            @Override
             public Void visitCall(RexCall call) {
               if ("convert_fromjson".equals(call.getOperator().getName().toLowerCase())) {
                 throw new Util.FoundOne(call); /* throw exception to interrupt tree walk (this is similar to
@@ -324,11 +330,13 @@ public abstract class DrillRelOptUtil {
       inputRefList = new ArrayList<>();
     }
 
+    @Override
     public Void visitInputRef(RexInputRef ref) {
       inputRefList.add(ref);
       return null;
     }
 
+    @Override
     public Void visitCall(RexCall call) {
       for (RexNode operand : call.operands) {
         operand.accept(this);
@@ -681,6 +689,7 @@ public abstract class DrillRelOptUtil {
     try {
       RexVisitor<Void> visitor =
           new RexVisitorImpl<Void>(true) {
+            @Override
             public Void visitCall(RexCall call) {
               if (call.getKind() == SqlKind.AND || call.getKind() == SqlKind.OR) {
                 super.visitCall(call);
@@ -735,6 +744,7 @@ public abstract class DrillRelOptUtil {
     List<RexInputRef> rexRefs = new ArrayList<>();
     RexVisitor<Void> visitor =
             new RexVisitorImpl<Void>(true) {
+              @Override
               public Void visitInputRef(RexInputRef inputRef) {
                 rexRefs.add(inputRef);
                 return super.visitInputRef(inputRef);

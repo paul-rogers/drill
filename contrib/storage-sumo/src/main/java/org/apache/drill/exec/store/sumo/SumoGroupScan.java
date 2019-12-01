@@ -121,6 +121,11 @@ public class SumoGroupScan extends BaseGroupScan {
   }
 
   @Override
+  public int getMaxParallelizationWidth() {
+
+  }
+
+  @Override
   public SubScan getSpecificScan(int minorFragmentId) {
     String missingCol = sumoQuery.missingColumn();
     if (missingCol != null) {

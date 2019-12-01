@@ -18,7 +18,10 @@
 package org.apache.drill.exec.store.base.filter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.store.base.PlanStringBuilder;
@@ -51,23 +54,30 @@ public class DisjunctionFilterSpec {
     }
   }
 
-  public List<List<RelOp>> distributeOverCnf(List<List<RelOp>> cnfTerms) {
+  public List<List<RelOp>> distributeOverCnf(List<RelOp> cnfTerms) {
 
     // Distribute the (single) OR clause over the AND clauses
     // (a AND b AND (x OR y)) --> ((a AND b AND x), (a AND b AND y))
 
     List<List<RelOp>> dnfTerms = new ArrayList<>();
     for (int i = 0; i < values.length; i++) {
-      RelOp orTerm = new RelOp(RelOp.Op.EQ, column,
-          new ConstantHolder(type, values[i]));
-      for (List<RelOp> andTerm : cnfTerms) {
-        List<RelOp> newTerm = new ArrayList<>();
-        newTerm.addAll(andTerm);
-        newTerm.add(orTerm);
-        dnfTerms.add(newTerm);
-      }
+      dnfTerms.add(distributeTerm(cnfTerms, i));
     }
     return dnfTerms;
+  }
+
+  public RelOp toRelOp(int orIndex) {
+    return new RelOp(RelOp.Op.EQ, column,
+        new ConstantHolder(type, values[orIndex]));
+  }
+
+  public List<RelOp> distributeTerm(List<RelOp> andFilters, int orIndex) {
+    List<RelOp> filters = new ArrayList<>();
+    if (andFilters != null) {
+      filters.addAll(andFilters);
+    }
+    filters.add(toRelOp(orIndex));
+    return filters;
   }
 
   @Override
@@ -75,7 +85,16 @@ public class DisjunctionFilterSpec {
     PlanStringBuilder builder = new PlanStringBuilder(this);
     builder.field("column", column);
     builder.field("type", type);
-    builder.field("values", values);
+    List<String> strValues = Arrays.stream(values).map(v -> v.toString()).collect(Collectors.toList());
+    builder.unquotedField("values",
+        "[" + String.join(", ", strValues) + "]");
     return builder.toString();
+  }
+
+  public static List<RelOp> distribute(List<RelOp> andFilters,
+      DisjunctionFilterSpec orFilters, int orIndex) {
+    Preconditions.checkArgument(orIndex == 0 || (orFilters != null && orIndex < orFilters.values.length));
+    return orFilters == null ? andFilters :
+      orFilters.distributeTerm(andFilters, orIndex);
   }
 }

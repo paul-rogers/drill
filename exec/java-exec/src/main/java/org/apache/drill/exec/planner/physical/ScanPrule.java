@@ -25,7 +25,7 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 
-public class ScanPrule extends Prule{
+public class ScanPrule extends Prule {
   public static final RelOptRule INSTANCE = new ScanPrule();
 
   public ScanPrule() {
@@ -34,7 +34,7 @@ public class ScanPrule extends Prule{
 
   @Override
   public void onMatch(RelOptRuleCall call) {
-    final DrillScanRel scan = (DrillScanRel) call.rel(0);
+    DrillScanRel scan = (DrillScanRel) call.rel(0);
 
     GroupScan groupScan = scan.getGroupScan();
 

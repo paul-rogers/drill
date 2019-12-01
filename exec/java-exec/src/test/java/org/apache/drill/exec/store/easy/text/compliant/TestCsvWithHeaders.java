@@ -412,7 +412,7 @@ public class TestCsvWithHeaders extends BaseCsvTest {
   }
 
   /**
-   * Test partition expansion .
+   * Test partition expansion.
    * <p>
    * This test is tricky because it will return two data batches
    * (preceded by an empty schema batch.) File read order is random

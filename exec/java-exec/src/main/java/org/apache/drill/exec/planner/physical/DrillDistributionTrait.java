@@ -33,9 +33,9 @@ public class DrillDistributionTrait implements RelTrait {
 
   public static DrillDistributionTrait DEFAULT = ANY;
 
-  private DistributionType type;
+  private final DistributionType type;
   private final ImmutableList<DistributionField> fields;
-  private PartitionFunction partitionFunction = null;
+  private PartitionFunction partitionFunction;
 
   public DrillDistributionTrait(DistributionType type) {
     assert (type == DistributionType.SINGLETON || type == DistributionType.RANDOM_DISTRIBUTED || type == DistributionType.ANY
@@ -97,6 +97,7 @@ public class DrillDistributionTrait implements RelTrait {
     return this.equals(trait);
   }
 
+  @Override
   public RelTraitDef<DrillDistributionTrait> getTraitDef() {
     return DrillDistributionTraitDef.INSTANCE;
   }
@@ -145,7 +146,6 @@ public class DrillDistributionTrait implements RelTrait {
     return fields == null ? this.type.toString() : this.type.toString() + "(" + fields + ")";
   }
 
-
   public static class DistributionField {
     /**
      * 0-based index of field being DISTRIBUTED.
@@ -179,5 +179,4 @@ public class DrillDistributionTrait implements RelTrait {
       return String.format("[$%s]", this.fieldId);
     }
   }
-
 }

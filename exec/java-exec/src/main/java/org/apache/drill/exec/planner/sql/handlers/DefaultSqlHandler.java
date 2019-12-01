@@ -182,12 +182,12 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     return plan;
   }
 
-
   /**
-   * Rewrite the parse tree. Used before validating the parse tree. Useful if a particular statement needs to converted
-   * into another statement.
+   * Rewrite the parse tree. Used before validating the parse tree. Useful if a
+   * particular statement needs to converted into another statement.
    *
-   * @param node sql parse tree to be rewritten
+   * @param node
+   *          sql parse tree to be rewritten
    * @return Rewritten sql parse tree
    */
   protected SqlNode rewrite(SqlNode node) throws RelConversionException, ForemanSetupException {
@@ -246,6 +246,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
         final RelNode intermediateNode3;
         if (context.getPlannerSettings().isHepPartitionPruningEnabled()) {
 
+          ExplainHandler.printPlan(pruned);
           final RelNode intermediateNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL, pruned, logicalTraits);
 
           // HEP Join Push Transitive Predicates
@@ -253,6 +254,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
               transform(PlannerType.HEP, PlannerPhase.TRANSITIVE_CLOSURE, intermediateNode);
 
           // hep is enabled and hep pruning is enabled.
+          ExplainHandler.printPlan(transitiveClosureNode);
           intermediateNode2 = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.PARTITION_PRUNING, transitiveClosureNode);
 
         } else {
@@ -322,7 +324,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
   }
 
   /**
-   * A shuttle designed to finalize all RelNodes.
+   * Finalize all RelNodes.
    */
   private static class PrelFinalizer extends RelShuttleImpl {
 
@@ -448,7 +450,8 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
    * @throws RelConversionException
    * @throws SqlUnsupportedException
    */
-  protected Prel convertToPrel(RelNode drel, RelDataType validatedRowType) throws RelConversionException, SqlUnsupportedException {
+  protected Prel convertToPrel(RelNode drel, RelDataType validatedRowType)
+      throws RelConversionException, SqlUnsupportedException {
     Preconditions.checkArgument(drel.getConvention() == DrillRel.DRILL_LOGICAL);
 
     final RelTraitSet traits = drel.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
@@ -492,6 +495,8 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
         }
       }
     }
+    // Handy way to visualize the plan while debugging
+    ExplainHandler.printPlan(phyRelNode, context);
 
     /* The order of the following transformations is important */
 
@@ -553,7 +558,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
 
     /*
      * 3.)
-     * Since our operators work via names rather than indices, we have to make to reorder any
+     * Since our operators work via names rather than indices, we have to reorder any
      * output before we return data to the user as we may have accidentally shuffled things.
      * This adds a trivial project to reorder columns prior to output.
      */
@@ -580,16 +585,14 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     }
     */
 
-
     /* 6.)
      * if the client does not support complex types (Map, Repeated)
-     * insert a project which which would convert
+     * insert a project which would convert
      */
     if (!context.getSession().isSupportComplexTypes()) {
       logger.debug("Client does not support complex types, add ComplexToJson operator.");
       phyRelNode = ComplexToJsonPrelVisitor.addComplexToJsonPrel(phyRelNode);
     }
-
 
     /* 7.)
      * Insert LocalExchange (mux and/or demux) nodes
@@ -619,6 +622,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      */
     phyRelNode = RelUniqifier.uniqifyGraph(phyRelNode);
 
+    ExplainHandler.printPlan(phyRelNode, context);
     return phyRelNode;
   }
 

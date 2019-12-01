@@ -23,8 +23,6 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.drill.exec.planner.cost.NodeResource;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
 import org.apache.drill.exec.physical.base.AbstractPhysicalVisitor;
 import org.apache.drill.exec.physical.base.Exchange;
@@ -32,25 +30,25 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.Store;
 import org.apache.drill.exec.physical.base.SubScan;
+import org.apache.drill.exec.planner.cost.NodeResource;
 import org.apache.drill.exec.planner.fragment.Fragment.ExchangeFragmentPair;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 /**
- * A wrapping class that allows us to add additional information to each fragment node for planning purposes.
+ * Adds additional information to each fragment node for planning purposes.
  */
 public class Wrapper {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Wrapper.class);
 
   private final Fragment node;
   private final int majorFragmentId;
   private int width = -1;
   private final Stats stats;
   private boolean endpointsAssigned;
-  private long initialAllocation = 0;
-  private long maxAllocation = 0;
+  private long initialAllocation;
+  private long maxAllocation;
   // Resources (i.e memory and cpu) are stored per drillbit in this map.
   // A Drillbit can have n number of minor fragments then the NodeResource
   // contains cumulative resources required for all the minor fragments
@@ -68,7 +66,6 @@ public class Wrapper {
     this.majorFragmentId = majorFragmentId;
     this.node = node;
     this.stats = new Stats();
-    nodeResourceMap = null;
   }
 
   public Stats getStats() {
@@ -132,7 +129,6 @@ public class Wrapper {
 
     @Override
     public Void visitSubScan(SubScan subScan, List<DrillbitEndpoint> value) throws PhysicalOperatorSetupException {
-      // TODO - implement this
       return visitOp(subScan, value);
     }
 
@@ -146,7 +142,6 @@ public class Wrapper {
     public Void visitOp(PhysicalOperator op, List<DrillbitEndpoint> value) throws PhysicalOperatorSetupException {
       return visitChildren(op, value);
     }
-
   }
 
   public void assignEndpoints(List<DrillbitEndpoint> assignedEndpoints) throws
@@ -204,8 +199,8 @@ public class Wrapper {
   }
 
   /**
-   * Get the list of fragements this particular fragment depends on.
-   * @return The list of fragements this particular fragment depends on.
+   * Get the list of fragments this particular fragment depends on.
+   * @return The list of fragments this particular fragment depends on.
    */
   public List<Wrapper> getFragmentDependencies() {
     return ImmutableList.copyOf(fragmentDependencies);

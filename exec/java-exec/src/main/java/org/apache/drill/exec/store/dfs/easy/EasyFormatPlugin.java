@@ -68,6 +68,8 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Base class for various file readers.
@@ -81,7 +83,7 @@ import org.apache.hadoop.fs.Path;
 
 public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements FormatPlugin {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyFormatPlugin.class);
+  private static final Logger logger = LoggerFactory.getLogger(EasyFormatPlugin.class);
 
   /**
    * Defines the static, programmer-defined options for this plugin. These
@@ -119,7 +121,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   }
 
   /**
-   * Builds the readers for the V3 text scan operator.
+   * Builds the readers row-set based scan operator.
    */
   private static class EasyReaderFactory extends FileReaderFactory {
 
@@ -128,7 +130,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     private final FragmentContext context;
 
     public EasyReaderFactory(EasyFormatPlugin<? extends FormatPluginConfig> plugin,
-        final EasySubScan scan, FragmentContext context) {
+        EasySubScan scan, FragmentContext context) {
       this.plugin = plugin;
       this.scan = scan;
       this.context = context;
@@ -227,7 +229,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * boundaries. If not, the simple format engine will only split on file
    * boundaries.
    *
-   * @return <code>true</code> if splittable.
+   * @return <code>true</code> if splitable.
    */
   public boolean isBlockSplittable() { return easyConfig.blockSplittable; }
 
@@ -258,8 +260,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     throw new ExecutionSetupException("Must implement getRecordReader() if using the legacy scanner.");
   }
 
-  protected CloseableRecordBatch getReaderBatch(final FragmentContext context,
-      final EasySubScan scan) throws ExecutionSetupException {
+  protected CloseableRecordBatch getReaderBatch(FragmentContext context,
+      EasySubScan scan) throws ExecutionSetupException {
     if (useEnhancedScan(context.getOptions())) {
       return buildScan(context, scan);
     } else {
@@ -291,7 +293,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   private CloseableRecordBatch buildScanBatch(FragmentContext context,
       EasySubScan scan) throws ExecutionSetupException {
-    final ColumnExplorer columnExplorer =
+    ColumnExplorer columnExplorer =
         new ColumnExplorer(context.getOptions(), scan.getColumns());
 
     if (! columnExplorer.isStarQuery()) {
@@ -301,25 +303,25 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       scan.setOperatorId(scan.getOperatorId());
     }
 
-    final OperatorContext oContext = context.newOperatorContext(scan);
-    final DrillFileSystem dfs;
+    OperatorContext oContext = context.newOperatorContext(scan);
+    DrillFileSystem dfs;
     try {
       dfs = oContext.newFileSystem(easyConfig().fsConf);
-    } catch (final IOException e) {
+    } catch (IOException e) {
       throw new ExecutionSetupException(String.format("Failed to create FileSystem: %s", e.getMessage()), e);
     }
 
-    final List<RecordReader> readers = new LinkedList<>();
-    final List<Map<String, String>> implicitColumns = Lists.newArrayList();
+    List<RecordReader> readers = new LinkedList<>();
+    List<Map<String, String>> implicitColumns = Lists.newArrayList();
     Map<String, String> mapWithMaxColumns = Maps.newLinkedHashMap();
-    final boolean supportsFileImplicitColumns = scan.getSelectionRoot() != null;
-    for (final FileWork work : scan.getWorkUnits()) {
-      final RecordReader recordReader = getRecordReader(
+    boolean supportsFileImplicitColumns = scan.getSelectionRoot() != null;
+    for (FileWork work : scan.getWorkUnits()) {
+      RecordReader recordReader = getRecordReader(
           context, dfs, work, scan.getColumns(), scan.getUserName());
       readers.add(recordReader);
-      final List<String> partitionValues = ColumnExplorer.listPartitionValues(
+      List<String> partitionValues = ColumnExplorer.listPartitionValues(
           work.getPath(), scan.getSelectionRoot(), false);
-      final Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(
+      Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(
           work.getPath(), partitionValues, supportsFileImplicitColumns);
       implicitColumns.add(implicitValues);
       if (implicitValues.size() > mapWithMaxColumns.size()) {
@@ -328,8 +330,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     }
 
     // all readers should have the same number of implicit columns, add missing ones with value null
-    final Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
-    for (final Map<String, String> map : implicitColumns) {
+    Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
+    for (Map<String, String> map : implicitColumns) {
       map.putAll(Maps.difference(map, diff).entriesOnlyOnRight());
     }
 
@@ -337,16 +339,17 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   }
 
   /**
-   * Revised scanner based on the revised {@link org.apache.drill.exec.physical.resultSet.ResultSetLoader}
-   * and {@link org.apache.drill.exec.physical.impl.scan.RowBatchReader} classes.
-   * Handles most projection tasks automatically. Able to limit
-   * vector and batch sizes. Use this for new format plugins.
+   * Revised scanner based on the revised
+   * {@link org.apache.drill.exec.physical.resultSet.ResultSetLoader} and
+   * {@link org.apache.drill.exec.physical.impl.scan.RowBatchReader} classes.
+   * Handles most projection tasks automatically. Able to limit vector and batch
+   * sizes. Use this for new format plugins.
    */
 
-  private CloseableRecordBatch buildScan(FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
-
+  private CloseableRecordBatch buildScan(FragmentContext context, EasySubScan scan)
+      throws ExecutionSetupException {
     try {
-      final FileScanBuilder builder = frameworkBuilder(context.getOptions(), scan);
+      FileScanBuilder builder = frameworkBuilder(context.getOptions(), scan);
 
       // Add batch reader, if none specified
 
@@ -354,10 +357,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         builder.setReaderFactory(new EasyReaderFactory(this, scan, context));
       }
       return builder.buildScanOperator(context, scan);
-    } catch (final UserException e) {
+    } catch (UserException e) {
       // Rethrow user exceptions directly
       throw e;
-    } catch (final Throwable e) {
+    } catch (Throwable e) {
       // Wrap all others
       throw new ExecutionSetupException(e);
     }
@@ -384,7 +387,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     // Pass along the output schema, if any
 
     builder.typeConverterBuilder().providedSchema(scan.getSchema());
-    final Path selectionRoot = scan.getSelectionRoot();
+    Path selectionRoot = scan.getSelectionRoot();
     if (selectionRoot != null) {
       builder.metadataOptions().setSelectionRoot(selectionRoot);
       builder.metadataOptions().setPartitionDepth(scan.getPartitionDepth());
@@ -435,8 +438,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     throw new UnsupportedOperationException("unimplemented");
   }
 
-  public StatisticsRecordWriter getStatisticsRecordWriter(FragmentContext context, EasyWriter writer) throws IOException
-  {
+  public StatisticsRecordWriter getStatisticsRecordWriter(FragmentContext context,
+      EasyWriter writer) throws IOException {
     return null;
   }
 
@@ -453,13 +456,13 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     }
   }
 
-  protected ScanStats getScanStats(final PlannerSettings settings, final EasyGroupScan scan) {
+  protected ScanStats getScanStats(PlannerSettings settings, EasyGroupScan scan) {
     long data = 0;
-    for (final CompleteFileWork work : scan.getWorkIterable()) {
+    for (CompleteFileWork work : scan.getWorkIterable()) {
       data += work.getTotalBytes();
     }
 
-    final long estRowCount = data / 1024;
+    long estRowCount = data / 1024;
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, estRowCount, 1, data);
   }
 

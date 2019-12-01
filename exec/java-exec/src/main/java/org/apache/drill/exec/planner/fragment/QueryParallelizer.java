@@ -28,7 +28,7 @@ import org.apache.drill.exec.work.QueryWorkUnit;
 import java.util.Collection;
 
 /**
- * This class parallelizes the query plan. Once the optimizer finishes its job by producing a
+ * Parallelizes the query plan. Once the optimizer finishes its job by producing a
  * optimized plan, it is the job of this parallelizer to generate a parallel plan out of the
  * optimized physical plan. It does so by using the optimizers estimates for row count etc.
  * There are two kinds of parallelizers as explained below. Currently the difference in

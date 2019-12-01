@@ -77,7 +77,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   private ListMultimap<Integer, CompleteFileWork> mappings;
   private List<CompleteFileWork> chunks;
   private List<EndpointAffinity> endpointAffinities;
-  private Path selectionRoot;
+  private final Path selectionRoot;
   private TableMetadata tableMetadata;
 
   @JsonCreator
@@ -180,6 +180,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     endpointAffinities = AffinityCreator.getAffinityMap(chunks);
   }
 
+  @Override
   public Path getSelectionRoot() {
     return selectionRoot;
   }
@@ -252,13 +253,13 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     for (EndpointAffinity e : affinities) {
       endpoints.add(e.getEndpoint());
     }
-    this.applyAssignments(endpoints);
+    applyAssignments(endpoints);
   }
 
   @Override
   public EasySubScan getSpecificScan(int minorFragmentId) {
     if (mappings == null) {
-      createMappings(this.endpointAffinities);
+      createMappings(endpointAffinities);
     }
     assert minorFragmentId < mappings.size() : String.format(
         "Mappings length [%d] should be longer than minor fragment id [%d] but it isn't.", mappings.size(),
@@ -271,7 +272,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
 
     EasySubScan subScan = new EasySubScan(getUserName(), convert(filesForMinor), formatPlugin,
         columns, selectionRoot, partitionDepth, getSchema());
-    subScan.setOperatorId(this.getOperatorId());
+    subScan.setOperatorId(getOperatorId());
     return subScan;
   }
 

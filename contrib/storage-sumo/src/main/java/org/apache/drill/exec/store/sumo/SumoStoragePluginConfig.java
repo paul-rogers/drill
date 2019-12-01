@@ -19,6 +19,7 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
   private final String defaultStartOffset;
   private final String defaultEndOffset;
   public final boolean useReceiptTime;
+  public final int shardSizeSecs;
 
   public SumoStoragePluginConfig(
       @JsonProperty("apiEndpoint") String apiEndpoint,
@@ -27,7 +28,8 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
       @JsonProperty("timeZone") String timeZone,
       @JsonProperty("defaultStartOffsetSec") String defaultStartOffset,
       @JsonProperty("defaultEndOffsetSec") String defaultEndOffset,
-      @JsonProperty("useReceiptTime") boolean useReceiptTime ) {
+      @JsonProperty("useReceiptTime") boolean useReceiptTime,
+      @JsonProperty("shardSizeSecs") int shardSizeSecs ) {
     this.apiEndpoint = apiEndpoint;
     this.accessId = accessId;
     this.accessKey = accessKey;
@@ -35,6 +37,7 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
     this.defaultStartOffset = defaultStartOffset;
     this.defaultEndOffset = defaultEndOffset;
     this.useReceiptTime = useReceiptTime;
+    this.shardSizeSecs = shardSizeSecs;
   }
 
   public String getApiEndpoint() { return apiEndpoint; }
@@ -45,6 +48,7 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
   public boolean useReceiptTime() { return useReceiptTime; }
   public String getDefaultStartOffset() { return defaultStartOffset; }
   public String getDefaultEndOffset() { return defaultEndOffset; }
+  public int getShardSizeSecs() { return shardSizeSecs; }
 
   @Override
   public boolean equals(Object o) {
@@ -61,13 +65,14 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
            Objects.equal(timeZone, other.timeZone) &&
            Objects.equal(defaultStartOffset, other.defaultStartOffset) &&
            Objects.equal(defaultEndOffset, other.defaultEndOffset) &&
-           useReceiptTime == other.useReceiptTime;
+           useReceiptTime == other.useReceiptTime &&
+           shardSizeSecs == other.shardSizeSecs;
   }
 
   @Override
   public int hashCode() {
     return Objects.hashCode(apiEndpoint, accessId, accessKey, timeZone,
-        useReceiptTime, defaultStartOffset, defaultEndOffset);
+        useReceiptTime, defaultStartOffset, defaultEndOffset, shardSizeSecs);
   }
 
   @Override
@@ -80,6 +85,7 @@ public class SumoStoragePluginConfig extends StoragePluginConfigBase {
         .field("useReceiptTime", useReceiptTime)
         .field("defaultStartOffset", defaultStartOffset)
         .field("defaultEndOffset", defaultEndOffset)
+        .field("shardSizeSecs", shardSizeSecs)
         .toString();
   }
 }

@@ -41,6 +41,7 @@ public class HashPrelUtil {
   public static final String HASH_EXPR_NAME = "E_X_P_R_H_A_S_H_F_I_E_L_D";
 
   public static final int DIST_SEED = 1301011; // distribution seed
+
   /**
    * Interface for creating different forms of hash expression types.
    * @param <T>
@@ -176,7 +177,6 @@ public class HashPrelUtil {
     return createHashExpression(ImmutableList.of(field), seed, HASH_HELPER_LOGICALEXPRESSION, hashAsDouble);
   }
 
-
   /**
    * Create a distribution hash expression.
    *
@@ -195,7 +195,7 @@ public class HashPrelUtil {
     }
 
     final List<LogicalExpression> expressions = new ArrayList<LogicalExpression>(childFields.size());
-    for(int i =0; i < fields.size(); i++){
+    for (int i =0; i < fields.size(); i++) {
       expressions.add(new FieldReference(childFields.get(fields.get(i).getFieldId()), ExpressionPosition.UNKNOWN));
     }
 

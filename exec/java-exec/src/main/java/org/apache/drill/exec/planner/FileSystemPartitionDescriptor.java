@@ -267,11 +267,7 @@ public class FileSystemPartitionDescriptor extends AbstractPartitionDescriptor {
   @Override
   public boolean supportsMetadataCachePruning() {
     final Object selection = this.table.getSelection();
-    if (selection instanceof FormatSelection
-        && ((FormatSelection)selection).getSelection().getCacheFileRoot() != null) {
-      return true;
-    }
-    return false;
+    return selection instanceof FormatSelection
+        && ((FormatSelection)selection).getSelection().getCacheFileRoot() != null;
   }
-
 }

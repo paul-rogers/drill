@@ -58,6 +58,4 @@ public class DFSFilePartitionLocation extends SimplePartitionLocation {
   public String[] getDirs() {
     return dirs;
   }
-
 }
-

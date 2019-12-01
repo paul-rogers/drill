@@ -37,11 +37,19 @@ public class TestSumoPlugin extends ClusterTest {
 
     SumoStoragePluginConfig config =
         new SumoStoragePluginConfig(CREDS.get(0), CREDS.get(1), CREDS.get(2),
-            "America/Los_Angeles", "-6m", "30s", false);
+            "America/Los_Angeles", "-6m", "30s", false, 0);
     config.setEnabled(true);
     pluginRegistry.createOrUpdate(SumoStoragePluginConfig.NAME, config, true);
   }
 
+  /**
+   * For security, credentials must be in a separate file in your home folder.
+   * Format: three lines:<code><pre>
+   * &lt;endpoint>
+   * &lt;access id>
+   * &lt;access key>
+   * </pre></code>
+   */
   private static List<String> loadSumoCreds(){
     File file = new File(System.getProperty("user.home"), "sumo-creds.txt");
     assertTrue(file.exists());
@@ -61,7 +69,7 @@ public class TestSumoPlugin extends ClusterTest {
   @Test
   public void test() throws Exception {
     long start = System.currentTimeMillis();
-    String sql = "SELECT * FROM sumo.logs LIMIT 10";
+    String sql = "SELECT * FROM sumo.logQuery1 LIMIT 10";
     RowSet result = queryBuilder().sql(sql).rowSet();
     System.out.println(String.format("Total ms.: %d", System.currentTimeMillis() - start));
     result.print();

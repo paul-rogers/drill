@@ -257,7 +257,8 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
         selection.selectionRoot,
         // Some paths provide a null option manager. In that case, default to a
         // min width of 1; just like the base class.
-        options == null ? 1 : (int) options.getLong(ExecConstants.MIN_READER_WIDTH_KEY), metadataProviderManager);
+        options == null ? 1 : (int) options.getLong(ExecConstants.MIN_READER_WIDTH_KEY),
+        metadataProviderManager);
   }
 
   @Override

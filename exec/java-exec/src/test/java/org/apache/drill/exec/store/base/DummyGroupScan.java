@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.base;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
@@ -31,9 +32,11 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.common.base.Preconditions;
 
 @JsonTypeName("dummy-scan")
 @JsonPropertyOrder({"userName", "scanSpec", "columns",
@@ -165,21 +168,44 @@ public class DummyGroupScan extends BaseGroupScan {
       estRowCount /= 2;
     }
 
-    // Make up an average row width.
+    // Assume no disk I/O. So we have to explain costs by reducing
+    // CPU.
 
-    int estDataSize = estRowCount * 200;
+    double cpuRatio = 1.0;
 
     // If columns provided, then assume this saves data transfer
 
     if (getColumns() != BaseGroupScan.ALL_COLUMNS) {
-      estDataSize = estDataSize * 3 / 4;
+      cpuRatio = 0.75;
     }
-    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, estRowCount, 1, estDataSize);
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, estRowCount, cpuRatio, 0);
+  }
+
+  @Override
+  @JsonIgnore
+  public int getMinParallelizationWidth() {
+    return orFilters == null ? 1 :
+      orFilters.values.length;
+  }
+
+  @Override
+  public int getMaxParallelizationWidth() {
+    return orFilters == null ? 1 :
+      orFilters.values.length;
   }
 
   @Override
   public SubScan getSpecificScan(int minorFragmentId) {
-    return new DummySubScan(this);
+    Preconditions.checkArgument(minorFragmentId < endpointCount);
+    int orCount = orFilters == null ? 1 : orFilters.values.length;
+    int sliceSize = orCount / endpointCount;
+    List<List<RelOp>> filters = new ArrayList<>();
+    int start = minorFragmentId * sliceSize;
+    int end = Math.min(start + sliceSize, orCount);
+    for (int i = start; i < end; i++) {
+      filters.add(DisjunctionFilterSpec.distribute(andFilters, orFilters, i));
+    }
+    return new DummySubScan(this, filters);
   }
 
   @Override
