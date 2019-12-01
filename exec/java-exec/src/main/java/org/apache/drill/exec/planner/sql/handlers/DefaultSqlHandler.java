@@ -246,7 +246,6 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
         final RelNode intermediateNode3;
         if (context.getPlannerSettings().isHepPartitionPruningEnabled()) {
 
-          ExplainHandler.printPlan(pruned);
           final RelNode intermediateNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL, pruned, logicalTraits);
 
           // HEP Join Push Transitive Predicates
@@ -256,6 +255,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
           // hep is enabled and hep pruning is enabled.
           ExplainHandler.printPlan(transitiveClosureNode);
           intermediateNode2 = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.PARTITION_PRUNING, transitiveClosureNode);
+          ExplainHandler.printPlan(intermediateNode2);
 
         } else {
           // Only hep is enabled
@@ -336,7 +336,6 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
         return super.visit(other);
       }
     }
-
   }
 
   /**
@@ -496,7 +495,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       }
     }
     // Handy way to visualize the plan while debugging
-    ExplainHandler.printPlan(phyRelNode, context);
+    //ExplainHandler.printPlan(phyRelNode, context);
 
     /* The order of the following transformations is important */
 
@@ -622,7 +621,6 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      */
     phyRelNode = RelUniqifier.uniqifyGraph(phyRelNode);
 
-    ExplainHandler.printPlan(phyRelNode, context);
     return phyRelNode;
   }
 

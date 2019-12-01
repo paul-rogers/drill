@@ -26,54 +26,56 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Pair;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
 import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
 import org.apache.drill.exec.store.base.filter.FilterPushDownListener;
-import org.apache.drill.exec.store.base.filter.FilterPushDownStrategy;
+import org.apache.drill.exec.store.base.filter.FilterPushDownLogicalStrategy;
+import org.apache.drill.exec.store.base.filter.FilterPushDownPhysicalStrategy;
 import org.apache.drill.exec.store.base.filter.RelOp;
 
 public class DummyFilterPushDownListener implements FilterPushDownListener {
 
-  private final FilterPushDownStyle filterPushDownStyle;
+  private final DummyStoragePluginConfig config;
 
-  public DummyFilterPushDownListener(FilterPushDownStyle filterPushDownStyle) {
-    this.filterPushDownStyle = filterPushDownStyle;
+  public DummyFilterPushDownListener(DummyStoragePluginConfig config) {
+    this.config = config;
   }
 
   public static Set<StoragePluginOptimizerRule> rulesFor(
       OptimizerRulesContext optimizerRulesContext, DummyStoragePluginConfig config) {
-    return FilterPushDownStrategy.rulesFor(optimizerRulesContext,
-        new DummyFilterPushDownListener(config.filterPushDownStyle()));
+    DummyFilterPushDownListener listener = new DummyFilterPushDownListener(config);
+    if (config.filterPushDownStyle() == DummyStoragePluginConfig.FilterPushDownStyle.PHYSICAL) {
+      return FilterPushDownPhysicalStrategy.rulesFor(optimizerRulesContext, listener);
+    } else {
+      return FilterPushDownLogicalStrategy.rulesFor(optimizerRulesContext, listener);
+    }
   }
 
   @Override
   public String prefix() { return "Dummy"; }
 
   @Override
-  public boolean isTargetScan(ScanPrel scan) {
-    return scan.getGroupScan() instanceof DummyGroupScan &&
-        filterPushDownStyle != FilterPushDownStyle.NONE;
+  public boolean isTargetScan(GroupScan groupScan) {
+    return groupScan instanceof DummyGroupScan;
   }
 
   @Override
-  public boolean needsApplication(ScanPrel scan) {
-    DummyGroupScan groupScan = (DummyGroupScan) scan.getGroupScan();
-    return !groupScan.hasFilters();
+  public boolean needsApplication(GroupScan groupScan) {
+    DummyGroupScan dummyScan = (DummyGroupScan) groupScan;
+    return !dummyScan.hasFilters();
   }
 
   @Override
-  public RelOp accept(ScanPrel scan, RelOp relOp) {
+  public RelOp accept(GroupScan groupScan, RelOp relOp) {
 
     // Determine if filter applies to this scan
 
-    DummyGroupScan groupScan = (DummyGroupScan) scan.getGroupScan();
-    return groupScan.acceptFilter(relOp);
+    DummyGroupScan dummyScan = (DummyGroupScan) groupScan;
+    return dummyScan.acceptFilter(relOp);
   }
 
   @Override
-  public Pair<GroupScan, List<RexNode>> transform(ScanPrel scan,
+  public Pair<GroupScan, List<RexNode>> transform(GroupScan groupScan,
       List<Pair<RexNode, RelOp>> andTerms, Pair<RexNode, DisjunctionFilterSpec> orTerm) {
     List<RelOp> andExprs;
     if (andTerms == null || andTerms.isEmpty()) {
@@ -87,11 +89,11 @@ public class DummyFilterPushDownListener implements FilterPushDownListener {
     } else {
       orExprs = orTerm.right;
     }
-    DummyGroupScan groupScan = (DummyGroupScan) scan.getGroupScan();
-    GroupScan newScan = new DummyGroupScan(groupScan, andExprs, orExprs);
+    DummyGroupScan dummyScan = (DummyGroupScan) groupScan;
+    GroupScan newScan = new DummyGroupScan(dummyScan, andExprs, orExprs);
 
     List<RexNode> exprs;
-    if (filterPushDownStyle == FilterPushDownStyle.KEEP) {
+    if (config.keepFilters()) {
       exprs = new ArrayList<>();
       if (andTerms != null) {
         exprs.addAll(andTerms.stream().map(t -> t.left).collect(Collectors.toList()));

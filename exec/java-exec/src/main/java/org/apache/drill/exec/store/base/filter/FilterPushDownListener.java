@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Pair;
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.exec.planner.physical.ScanPrel;
 
 /**
  * Call-back (listener) implementation for a push-down filter.
@@ -64,12 +63,12 @@ public interface FilterPushDownListener {
   /**
    * Broad check to see if the scan is of the correct type for this
    * listener. Generally implemented as: <code><pre>
-   * public boolean isTargetScan(ScanPrel scan) {
-   *   return scan.getGroupScan() instanceof MyGroupScan;
+   * public boolean isTargetScan(GroupScan groupScan) {
+   *   return groupScan instanceof MyGroupScan;
    * }
    * </pre></code>
    */
-  boolean isTargetScan(ScanPrel scan);
+  boolean isTargetScan(GroupScan groupScan);
 
   /**
    * Check if the filter rule should be applied to the target group scan.
@@ -82,7 +81,7 @@ public interface FilterPushDownListener {
    * @return true if filter push-down should be applied
    */
 
-  boolean needsApplication(ScanPrel scan);
+  boolean needsApplication(GroupScan groupScan);
 
   /**
    * Determine if the given relational operator (which is already in the form
@@ -101,7 +100,7 @@ public interface FilterPushDownListener {
    * the Drill plan
    */
 
-  RelOp accept(ScanPrel scan, RelOp relOp);
+  RelOp accept(GroupScan groupScan, RelOp relOp);
 
   /**
    * Transform a normalized DNF term into a new scan. Normalized form is:
@@ -130,6 +129,6 @@ public interface FilterPushDownListener {
    * and the query should remain unchanged.
    */
 
-  Pair<GroupScan, List<RexNode>> transform(ScanPrel scan,
+  Pair<GroupScan, List<RexNode>> transform(GroupScan groupScan,
       List<Pair<RexNode, RelOp>> andTerms, Pair<RexNode, DisjunctionFilterSpec> orTerm);
 }

@@ -19,7 +19,7 @@ import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.base.filter.ConstantHolder;
 import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
 import org.apache.drill.exec.store.base.filter.FilterPushDownListener;
-import org.apache.drill.exec.store.base.filter.FilterPushDownStrategy;
+import org.apache.drill.exec.store.base.filter.FilterPushDownPhysicalStrategy;
 import org.apache.drill.exec.store.base.filter.RelOp;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.joda.time.format.DateTimeFormatter;
@@ -100,7 +100,7 @@ public class SumoFilterPushDownListener implements FilterPushDownListener {
   public static Set<StoragePluginOptimizerRule> rulesFor(
       OptimizerRulesContext optimizerRulesContext,
       SumoStoragePlugin plugin) {
-    return FilterPushDownStrategy.rulesFor(optimizerRulesContext,
+    return FilterPushDownPhysicalStrategy.rulesFor(optimizerRulesContext,
         new SumoFilterPushDownListener(plugin.timestampFormat()));
   }
 

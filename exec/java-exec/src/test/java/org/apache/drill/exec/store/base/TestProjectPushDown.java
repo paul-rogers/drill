@@ -37,11 +37,11 @@ public class TestProjectPushDown extends ClusterTest {
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
     DummyStoragePluginConfig config1 =
-        new DummyStoragePluginConfig(true, FilterPushDownStyle.NONE);
+        new DummyStoragePluginConfig(true, FilterPushDownStyle.NONE, true);
     pluginRegistry.createOrUpdate("pushOn", config1, true);
 
     DummyStoragePluginConfig config2 =
-        new DummyStoragePluginConfig(false, FilterPushDownStyle.NONE);
+        new DummyStoragePluginConfig(false, FilterPushDownStyle.NONE, true);
     pluginRegistry.createOrUpdate("pushOff", config2, true);
   }
 

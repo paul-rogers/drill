@@ -3,8 +3,10 @@ package org.apache.drill.exec.store.base.filter;
 import org.apache.drill.exec.store.base.PlanStringBuilder;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Semanticized form of a Calcite relational operator. Abstracts
@@ -58,11 +60,18 @@ public class RelOp {
     }
   }
 
+  @JsonProperty("op")
   public final RelOp.Op op;
+  @JsonProperty("colName")
   public final String colName;
+  @JsonProperty("value")
   public final ConstantHolder value;
 
-  public RelOp(RelOp.Op op, String colName, ConstantHolder value) {
+  @JsonCreator
+  public RelOp(
+      @JsonProperty("op") RelOp.Op op,
+      @JsonProperty("colName") String colName,
+      @JsonProperty("value") ConstantHolder value) {
     Preconditions.checkArgument(op.argCount() == 1 || value != null);
     this.op = op;
     this.colName = colName;

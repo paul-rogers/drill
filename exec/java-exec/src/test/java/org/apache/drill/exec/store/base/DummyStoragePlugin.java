@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.base;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.calcite.plan.RelOptRule;
 import org.apache.drill.common.exceptions.ChildErrorContext;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -32,12 +31,13 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
-import org.apache.drill.exec.planner.PlannerPhase;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.planner.PlannerPhase;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
+import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
@@ -97,7 +97,7 @@ public class DummyStoragePlugin
   private static StoragePluginOptions buildOptions(DummyStoragePluginConfig config) {
     StoragePluginOptions options = new StoragePluginOptions();
     options.supportsRead = true;
-    options.supportsProjectPushDown = config.supportProjectPushDown;
+    options.supportsProjectPushDown = config.supportProjectPushDown();
     options.nullType = Types.optional(MinorType.VARCHAR);
     options.scanSpecType = new TypeReference<DummyScanSpec>() { };
     options.scanFactory = new DummyScanFactory();
@@ -106,12 +106,26 @@ public class DummyStoragePlugin
 
   @Override
   public Set<? extends StoragePluginOptimizerRule> getOptimizerRules(OptimizerRulesContext optimizerContext, PlannerPhase phase) {
-    System.out.println(phase);
-    if (phase == PlannerPhase.PARTITION_PRUNING) {
-      return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
-    } else {
-      return ImmutableSet.of();
+
+    // Push-down planning can be done at either the logical or physical phases
+    // to test the filter push down strategies for each.
+
+    switch (phase) {
+    case LOGICAL_PRUNE_AND_JOIN: // HEP is disabled
+    case PARTITION_PRUNING:      // HEP partition push-down enabled
+    case LOGICAL_PRUNE:          // HEP partition push-down disabled
+      if (config.filterPushDownStyle() == FilterPushDownStyle.LOGICAL) {
+        return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
+      }
+      break;
+    case PHYSICAL:
+      if (config.filterPushDownStyle() == FilterPushDownStyle.PHYSICAL) {
+        return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
+      }
+      break;
+    default:
     }
+    return ImmutableSet.of();
   }
 
   private static class DummyReaderFactory implements ReaderFactory {

@@ -40,7 +40,7 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-public class TestFilterPushDown extends ClusterTest {
+public class TestFilterPushDownPhysical extends ClusterTest {
 
   private static final String BASE_SQL = "SELECT a, b FROM dummy.myTable";
   private static final String BASE_WHERE = BASE_SQL +  " WHERE ";
@@ -52,8 +52,12 @@ public class TestFilterPushDown extends ClusterTest {
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
     DummyStoragePluginConfig config1 =
-        new DummyStoragePluginConfig(true, FilterPushDownStyle.REMOVE);
+        new DummyStoragePluginConfig(true, FilterPushDownStyle.PHYSICAL, false);
     pluginRegistry.createOrUpdate("dummy", config1, true);
+
+    DummyStoragePluginConfig config2 =
+        new DummyStoragePluginConfig(true, FilterPushDownStyle.LOGICAL, false);
+    pluginRegistry.createOrUpdate("dummy2", config2, true);
   }
 
   //-------------------------------------------------
@@ -261,7 +265,7 @@ public class TestFilterPushDown extends ClusterTest {
     try {
       client.alterSession(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 2);
 
-      String sql = "SELECT a, b FROM dummy.myTable WHERE a IN('bar', 'foo')";
+      String sql = "SELECT a, b FROM dummy2.myTable WHERE a IN('bar', 'foo')";
       //verifyPlan(sql, "between.json");
       client.queryBuilder().sql(sql).print();
     } finally {

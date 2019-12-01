@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.store.base.PlanStringBuilder;
