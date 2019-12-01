@@ -94,8 +94,8 @@ public class HttpRecordReader extends AbstractRecordReader {
   }
 
   private void loadFile() {
-    logger.debug("load local file {}", subScan.getTableSpec().getURI());
-    String file = subScan.getTableSpec().getURI().substring("file://".length() - 1);
+    logger.debug("load local file {}", subScan.getTableSpec().uri());
+    String file = subScan.getTableSpec().uri().substring("file://".length() - 1);
     String content = JsonConverter.stringFromFile(file);
     parseResult(content);
   }

@@ -32,9 +32,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 public class HttpStoragePlugin extends AbstractStoragePlugin {
-  static final Logger logger = LoggerFactory.getLogger(HttpStoragePlugin.class);
+  private static final Logger logger = LoggerFactory.getLogger(HttpStoragePlugin.class);
 
-  private DrillbitContext context;
+  private final DrillbitContext context;
 
   private final HttpStoragePluginConfig engineConfig;
 

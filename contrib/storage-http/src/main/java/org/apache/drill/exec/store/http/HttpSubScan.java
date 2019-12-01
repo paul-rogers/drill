@@ -63,6 +63,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
     return tableSpec.getURL();
   }
 
+  @JsonIgnore
   public String getFullURL() {
     return config.getConnection() + getURL();
   }
@@ -100,7 +101,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @Override
   public String toString() {
-    return "[" + this.getClass().getSimpleName() +
+    return this.getClass().getSimpleName() + "[" +
       "httpScanSpec=" + tableSpec.toString() +
       "columns=" + columns.toString() + "]";
   }

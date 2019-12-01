@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.store.http;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
+import org.apache.drill.shaded.guava.com.google.common.base.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +27,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
-import java.util.Arrays;
 
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfigBase {
@@ -35,9 +34,9 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "http";
 
-  public String connection;
+  public final String connection;
 
-  public String resultKey;
+  public final String resultKey;
 
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
@@ -55,13 +54,12 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       return false;
     }
     HttpStoragePluginConfig t = (HttpStoragePluginConfig) that;
-    return this.connection.equals(t.connection) &&
-      this.resultKey.equals(t.resultKey);
+    return Objects.equal(this, that);
   }
 
   @Override
   public int hashCode() {
-    return Arrays.hashCode(new Object[]{connection, resultKey});
+    return Objects.hashCode(connection, resultKey);
   }
 
   @Override
@@ -72,12 +70,12 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       .toString();
   }
 
-  @JsonIgnore
+  @JsonProperty("connection")
   public String getConnection() {
     return connection;
   }
 
-  @JsonIgnore
+  @JsonProperty("resultKey")
   public String getResultKey() {
     return resultKey;
   }
