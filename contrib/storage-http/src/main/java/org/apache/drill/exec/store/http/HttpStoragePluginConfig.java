@@ -48,13 +48,13 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   @Override
   public boolean equals(Object that) {
-    if (this == that) {
-      return true;
-    } else if (that == null || getClass() != that.getClass()) {
+    if (that == null || getClass() != that.getClass()) {
       return false;
+    } else if (this == that) {
+      return true;
+    } else {
+      return Objects.equal(this, that);
     }
-    HttpStoragePluginConfig t = (HttpStoragePluginConfig) that;
-    return Objects.equal(this, that);
   }
 
   @Override

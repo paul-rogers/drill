@@ -37,6 +37,10 @@ public class HttpScanSpec {
     this.uri = uri;
   }
 
+  public HttpScanSpec(String schemaName, String uri) {
+    this.uri = uri;
+  }
+
   public HttpScanSpec(String uri, String key, Object val) {
     this.uri = uri;
     this.args.put(key, val);

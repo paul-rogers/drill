@@ -55,7 +55,7 @@ public class TestHttpPlugin extends ClusterTest {
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     results.print();
-/*
+
     TupleMetadata expectedSchema = new SchemaBuilder()
       .add("SCHEMA_NAME", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("TYPE", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -65,7 +65,7 @@ public class TestHttpPlugin extends ClusterTest {
       .addRow("http", "http")
       .build();
 
-    new RowSetComparison(expected).verifyAndClearAll(results);*/
+    new RowSetComparison(expected).verifyAndClearAll(results);
   }
 
 
