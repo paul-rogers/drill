@@ -152,6 +152,11 @@ public class TestHttpPlugin extends ClusterTest {
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);
+
+    int resultCount =  results.rowCount();
+    new RowSetComparison(expected).verifyAndClearAll(results);
+
+    assertEquals(1,  resultCount);
   }
 
   @Test
