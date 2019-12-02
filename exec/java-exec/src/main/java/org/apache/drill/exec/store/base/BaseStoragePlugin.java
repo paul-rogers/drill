@@ -57,7 +57,6 @@ public abstract class BaseStoragePlugin<C extends StoragePluginConfig>
     public boolean supportsRead;
     public boolean supportsWrite;
     public boolean supportsProjectPushDown;
-    public int maxParallelizationWidth;
     public MajorType nullType;
     public int readerId = CoreOperatorType.BASE_SUB_SCAN_VALUE;
     public int writerId;
@@ -104,8 +103,10 @@ public abstract class BaseStoragePlugin<C extends StoragePluginConfig>
     // If this fails, be sure to set the proper class in options.scanSpecClass.
     // Do this in the constructor of your storage plugin
     Object scanSpec = selection.getListWith(options.objectMapper, options.scanSpecType);
-    return options.scanFactory.newGroupScanShim(this, userName,
+    BaseGroupScan groupScan = options.scanFactory.newGroupScanShim(this, userName,
         scanSpec, sessionOptions, metadataProviderManager);
+    groupScan.sessionOptions = sessionOptions;
+    return groupScan;
   }
 
   public <T extends BaseSubScan> CloseableRecordBatch createScan(ExecutorFragmentContext context, BaseSubScan subScan)

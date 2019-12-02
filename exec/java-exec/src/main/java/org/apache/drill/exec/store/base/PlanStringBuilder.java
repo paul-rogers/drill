@@ -38,6 +38,14 @@ public class PlanStringBuilder {
     return this;
   }
 
+  public PlanStringBuilder unquotedField(String key, String value) {
+    if (value != null) {
+      startField(key);
+      buf.append(value);
+    }
+    return this;
+  }
+
   public PlanStringBuilder field(String key, Object value) {
     if (value != null) {
       startField(key);

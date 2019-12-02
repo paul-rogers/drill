@@ -23,15 +23,25 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
 /**
  * Description of a constant argument of an expression.
  */
 
+@JsonPropertyOrder({"type", "value"})
 public class ConstantHolder {
+  @JsonProperty("type")
   public final MinorType type;
+  @JsonProperty("value")
   public final Object value;
 
-  public ConstantHolder(MinorType type, Object value) {
+  @JsonCreator
+  public ConstantHolder(
+      @JsonProperty("type") MinorType type,
+      @JsonProperty("value") Object value) {
     this.type = type;
     this.value = value;
   }

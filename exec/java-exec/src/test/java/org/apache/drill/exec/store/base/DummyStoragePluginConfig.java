@@ -21,33 +21,60 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.shaded.guava.com.google.common.base.Objects;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
+/**
+ * Options for the "test mule" storage plugin. The options
+ * control how the plugin behaves for testing. A real plugin
+ * would simply implement project push down, and, if filter push-down
+ * is needed, would implement one of the strategies described
+ * here.
+ */
+
 @JsonTypeName(DummyStoragePluginConfig.NAME)
+@JsonPropertyOrder({"enableProjectPushDown", "enableFilterPushDown",
+  "keepFilters", "enable"})
 public class DummyStoragePluginConfig extends StoragePluginConfig {
 
   public static final String NAME = "dummy";
 
-  public enum FilterPushDownStyle {
-    NONE, KEEP, REMOVE
-  }
+  /**
+   * Whether to enable or disable project push down.
+   */
+  private final boolean enableProjectPushDown;
 
-  public final boolean supportProjectPushDown;
-  public final FilterPushDownStyle filterPushDownStyle;
+  /**
+   * Whether to enable or disable filter push down.
+   */
+  private final boolean enableFilterPushDown;
+
+  /**
+   * When doing filter push-down, whether to keep the filters in
+   * the plan, or remove them (because they are done (simulated)
+   * in the reader.
+   */
+
+  private final boolean keepFilters;
 
   public DummyStoragePluginConfig(
-      boolean supportProjectPushDown,
-      FilterPushDownStyle filterPushDownStyle) {
-    this.supportProjectPushDown = supportProjectPushDown;
-    this.filterPushDownStyle = filterPushDownStyle;
+      @JsonProperty("enableProjectPushDown") boolean enableProjectPushDown,
+      @JsonProperty("enableFilterPushDown") boolean enableFilterPushDown,
+      @JsonProperty("keepFilters") boolean keepFilters) {
+    this.enableProjectPushDown = enableProjectPushDown;
+    this.enableFilterPushDown = enableFilterPushDown;
+    this.keepFilters = keepFilters;
     setEnabled(true);
   }
 
-  @JsonProperty("supportProjectPushDown")
-  public boolean supportProjectPushDown() { return supportProjectPushDown; }
+  @JsonProperty("enableProjectPushDown")
+  public boolean enableProjectPushDown() { return enableProjectPushDown; }
 
-  @JsonProperty("filterPushDownStyle")
-  public FilterPushDownStyle filterPushDownStyle() { return filterPushDownStyle; }
+  @JsonProperty("enableFilterPushDown")
+  public boolean enableFilterPushDown() { return enableFilterPushDown; }
+
+  @JsonProperty("keepFilters")
+  public boolean keepFilters() { return keepFilters; }
 
   @Override
   public boolean equals(Object o) {
@@ -58,20 +85,22 @@ public class DummyStoragePluginConfig extends StoragePluginConfig {
       return false;
     }
     DummyStoragePluginConfig other = (DummyStoragePluginConfig) o;
-    return supportProjectPushDown == other.supportProjectPushDown &&
-           filterPushDownStyle == other.filterPushDownStyle;
+    return enableProjectPushDown == other.enableProjectPushDown &&
+           enableFilterPushDown == other.enableFilterPushDown &&
+           keepFilters == other.keepFilters;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(supportProjectPushDown, filterPushDownStyle);
+    return Objects.hashCode(enableProjectPushDown, enableFilterPushDown, keepFilters);
   }
 
   @Override
   public String toString() {
     return new PlanStringBuilder(this)
-        .field("supportProjectPushDown", supportProjectPushDown)
-        .field("filterPushDownStyle", filterPushDownStyle)
+        .field("enableProjectPushDown", enableProjectPushDown)
+        .field("enableFilterPushDown", enableFilterPushDown)
+        .field("keepFilters", keepFilters)
         .toString();
   }
 }

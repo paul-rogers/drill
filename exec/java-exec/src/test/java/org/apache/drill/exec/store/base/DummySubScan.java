@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
 import org.apache.drill.exec.store.base.filter.RelOp;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -38,6 +37,12 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
  * information. A real scan operator definition would likely translate the
  * group scan information into the form needed by the
  * underlying storage system.
+ * <p>
+ * For testing, we use a list of filters as a proxy for scans
+ * of the underlying system. Each filter is a list of filter
+ * conditions to be applied. (The dummy scan does not actually
+ * do anything with these, other than holding them for use in
+ * verifying plans.)
  */
 
 @JsonTypeName("dummy-sub-scan")
@@ -47,8 +52,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 public class DummySubScan extends BaseSubScan {
 
   private final DummyScanSpec scanSpec;
-  private final List<RelOp> andFilters;
-  private final DisjunctionFilterSpec orFilters;
+  private final List<List<RelOp>> filters;
 
   @JsonCreator
   public DummySubScan(
@@ -56,36 +60,29 @@ public class DummySubScan extends BaseSubScan {
       @JsonProperty("config") StoragePluginConfig config,
       @JsonProperty("scanSpec") DummyScanSpec scanSpec,
       @JsonProperty("columns") List<SchemaPath> columns,
-      @JsonProperty("andFilters") List<RelOp> andFilters,
-      @JsonProperty("orFilters") DisjunctionFilterSpec orFilters,
+      @JsonProperty("filters") List<List<RelOp>> filters,
       @JacksonInject StoragePluginRegistry engineRegistry) {
     super(userName, config, columns, engineRegistry);
     this.scanSpec = scanSpec;
-    this.andFilters = andFilters;
-    this.orFilters = orFilters;
+    this.filters = filters;
  }
 
-  public DummySubScan(DummyGroupScan groupScan) {
+  public DummySubScan(DummyGroupScan groupScan, List<List<RelOp>> filters) {
     super(groupScan);
     this.scanSpec = groupScan.scanSpec();
-    this.andFilters = groupScan.andFilters();
-    this.orFilters = groupScan.orFilters();
+    this.filters = filters;
   }
 
   @JsonProperty("scanSpec")
   public DummyScanSpec scanSpec() { return scanSpec; }
 
-  @JsonProperty("andFilters")
-  public List<RelOp> andFilters() { return andFilters; }
-
-  @JsonProperty("orFilters")
-  public DisjunctionFilterSpec orFilters() { return orFilters; }
+  @JsonProperty("filters")
+  public List<List<RelOp>> filters() { return filters; }
 
   @Override
   public void buildPlanString(PlanStringBuilder builder) {
     super.buildPlanString(builder);
     builder.field("scanSpec", scanSpec);
-    builder.field("andFilters", andFilters);
-    builder.field("orFilters", orFilters);
+    builder.field("filters", filters);
   }
 }

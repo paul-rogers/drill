@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.physical.resultSet.project.TupleProjectionType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.base.filter.RelOp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,12 +40,17 @@ public class DummyBatchReader implements ManagedReader<SchemaNegotiator> {
   @SuppressWarnings("unused")
   private final DummyStoragePluginConfig config;
   private final List<SchemaPath> columns;
+
+  // Filters are not actually used; just carried along for testing
+  @SuppressWarnings("unused")
+  private final List<RelOp> filters;
   private ResultSetLoader rsLoader;
 
   public DummyBatchReader(DummyStoragePluginConfig config,
-      List<SchemaPath> columns) {
+      List<SchemaPath> columns, List<RelOp> filters) {
     this.config = config;
     this.columns = columns;
+    this.filters = filters;
   }
 
   @Override

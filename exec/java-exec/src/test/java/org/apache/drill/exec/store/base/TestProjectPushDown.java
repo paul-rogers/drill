@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
 import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.ClusterTest;
 import org.junit.BeforeClass;
@@ -37,11 +36,11 @@ public class TestProjectPushDown extends ClusterTest {
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
     DummyStoragePluginConfig config1 =
-        new DummyStoragePluginConfig(true, FilterPushDownStyle.NONE);
+        new DummyStoragePluginConfig(true, false, true);
     pluginRegistry.createOrUpdate("pushOn", config1, true);
 
     DummyStoragePluginConfig config2 =
-        new DummyStoragePluginConfig(false, FilterPushDownStyle.NONE);
+        new DummyStoragePluginConfig(false, false, true);
     pluginRegistry.createOrUpdate("pushOff", config2, true);
   }
 

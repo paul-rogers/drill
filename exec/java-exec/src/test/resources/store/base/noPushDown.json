@@ -26,9 +26,10 @@
     },
     "config" : {
       "type" : "dummy",
-      "enabled" : true,
-      "supportProjectPushDown" : true,
-      "filterPushDownStyle" : "REMOVE"
+      "enableProjectPushDown" : true,
+      "enableFilterPushDown" : true,
+      "keepFilters" : false,
+      "enabled" : true
     }
   }, {
     "pop" : "project",

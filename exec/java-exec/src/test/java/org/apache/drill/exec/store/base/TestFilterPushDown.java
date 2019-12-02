@@ -31,14 +31,34 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.net.URL;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
 import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.ClusterTest;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+/**
+ * Tests for the Filter push-down helper classes as part of the
+ * "Base" storage plugin to be used for add-on plugins. Uses a
+ * "test mule" ("Dummy") plug-in which goes through the paces of
+ * planning push down, but then glosses over the details at run time.
+ * The focus here are plans: the tests plan a query then compare the
+ * actual plan against and expected ("golden") plan.
+ * <p>
+ * If comparison fails, the tests print the actual plan to the console.
+ * Use this, when adding new tests, to create the initial "golden" file.
+ * Also, on failures, actual output is written to
+ * <code>/tmp/drill/store/base</code>. You can use your IDE to compare
+ * the actual and golden files to understand changes. If the changes
+ * are expected, use that same IDE to copy changes from the actual
+ * to the golden file.
+ * <p>
+ * The JSON properties of the serialized classes are all controlled
+ * to have a fixed order to ensure that files compare across test
+ * runs.
+ */
 public class TestFilterPushDown extends ClusterTest {
 
   private static final String BASE_SQL = "SELECT a, b FROM dummy.myTable";
@@ -50,9 +70,9 @@ public class TestFilterPushDown extends ClusterTest {
     startCluster(builder);
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
-    DummyStoragePluginConfig config1 =
-        new DummyStoragePluginConfig(true, FilterPushDownStyle.REMOVE);
-    pluginRegistry.createOrUpdate("dummy", config1, true);
+    DummyStoragePluginConfig config =
+        new DummyStoragePluginConfig(true, true, false);
+    pluginRegistry.createOrUpdate("dummy", config, true);
   }
 
   //-------------------------------------------------
@@ -144,7 +164,7 @@ public class TestFilterPushDown extends ClusterTest {
   @Test
   public void testDoubleOr() throws Exception
   {
-    verifyPlan(BASE_WHERE + "(a = 'x' OR a = 'y') AND (a = 'a' OR a = 'b')", "nonEqOr.json");
+    verifyPlan(BASE_WHERE + "(a = 'x' OR a = 'y') AND (a = 'a' OR a = 'b')", "doubleOr.json");
   }
 
   //-------------------------------------------------
@@ -253,20 +273,19 @@ public class TestFilterPushDown extends ClusterTest {
     verifyPlan(BASE_WHERE + "a = 10", "typeConversion.json");
   }
 
-  // Test conversion
-
   @Test
   @Ignore
   public void testAdHoc() throws Exception
   {
+    try {
+      client.alterSession(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 2);
 
-    // BETWEEEN. Calcite rewrites a BETWEEN x AND y into
-    // a >= x AND a <= y.
-    // Since the dummy plug-in only handles <=, the => is left in the query.
-
-    String sql = "SELECT a, b FROM dummy.myTable WHERE a IN('bar', 'foo')";
-    //verifyPlan(sql, "between.json");
-    client.queryBuilder().sql(sql).print();
+      String sql = "SELECT a, b FROM dummy.myTable WHERE a IN('bar', 'foo')";
+      //verifyPlan(sql, "between.json");
+      client.queryBuilder().sql(sql).print();
+    } finally {
+      client.resetSession(ExecConstants.MAX_WIDTH_PER_NODE_KEY);
+    }
   }
 
   // above, but with project

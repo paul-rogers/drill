@@ -32,11 +32,12 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.planner.PlannerPhase;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -56,6 +57,7 @@ public class DummyStoragePlugin
         String userName, DummyScanSpec scanSpec,
         SessionOptionManager sessionOptions,
         MetadataProviderManager metadataProviderManager) {
+      System.out.println("Make group scan");
 
       // Force user name to "dummy" so golden and actual test files are stable
       return new DummyGroupScan(storagePlugin, "dummy", scanSpec);
@@ -72,12 +74,7 @@ public class DummyStoragePlugin
         OptionManager options, DummySubScan subScan) {
       ScanFrameworkBuilder builder = new ScanFrameworkBuilder();
       storagePlugin.initFramework(builder, subScan);
-      ReaderFactory readerFactory;
-      if (subScan.orFilters() != null) {
-        readerFactory = new DummyDnfReaderFactory(storagePlugin.config(), subScan);
-      } else {
-        readerFactory = new DummyReaderFactory(storagePlugin.config(), subScan);
-      }
+      ReaderFactory readerFactory = new DummyReaderFactory(storagePlugin.config(), subScan);
       builder.setReaderFactory(readerFactory);
       builder.setContext(
         new ChildErrorContext(builder.errorContext()) {
@@ -99,8 +96,7 @@ public class DummyStoragePlugin
   private static StoragePluginOptions buildOptions(DummyStoragePluginConfig config) {
     StoragePluginOptions options = new StoragePluginOptions();
     options.supportsRead = true;
-    options.supportsProjectPushDown = config.supportProjectPushDown;
-    options.maxParallelizationWidth = 1;
+    options.supportsProjectPushDown = config.enableProjectPushDown();
     options.nullType = Types.optional(MinorType.VARCHAR);
     options.scanSpecType = new TypeReference<DummyScanSpec>() { };
     options.scanFactory = new DummyScanFactory();
@@ -108,8 +104,17 @@ public class DummyStoragePlugin
   }
 
   @Override
-  public Set<StoragePluginOptimizerRule> getPhysicalOptimizerRules(OptimizerRulesContext optimizerRulesContext) {
-    return DummyFilterPushDownListener.rulesFor(optimizerRulesContext, config);
+  public Set<? extends StoragePluginOptimizerRule> getOptimizerRules(OptimizerRulesContext optimizerContext, PlannerPhase phase) {
+
+    // Push-down planning is done at the logical phase so it can
+    // influence parallelization in the physical phase. Note that many
+    // existing plugins perform filter push-down at the physical
+    // phase.
+
+    if (phase.isFilterPushDownPhase() && config.enableFilterPushDown()) {
+      return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
+    }
+    return ImmutableSet.of();
   }
 
   private static class DummyReaderFactory implements ReaderFactory {
@@ -128,37 +133,10 @@ public class DummyStoragePlugin
 
     @Override
     public ManagedReader<? extends SchemaNegotiator> next() {
-      if (++readerCount > 1) {
+      if (readerCount >= subScan.filters().size()) {
         return null;
       }
-      return new DummyBatchReader(config, subScan.columns());
-    }
-  }
-
-  private static class DummyDnfReaderFactory implements ReaderFactory {
-
-    private final DummyStoragePluginConfig config;
-    private final DummySubScan subScan;
-    private int termIndex;
-
-    public DummyDnfReaderFactory(DummyStoragePluginConfig config, DummySubScan subScan) {
-      this.config = config;
-      this.subScan = subScan;
-    }
-
-    @Override
-    public void bind(ManagedScanFramework framework) { }
-
-    @Override
-    public ManagedReader<? extends SchemaNegotiator> next() {
-      DisjunctionFilterSpec terms = subScan.orFilters();
-      if (termIndex >= terms.values.length) {
-        return null;
-      }
-      // We don't actually use the term; just simulate two partitions
-      @SuppressWarnings("unused")
-      Object partitionValue = terms.values[termIndex++];
-      return new DummyBatchReader(config, subScan.columns());
+      return new DummyBatchReader(config, subScan.columns(), subScan.filters().get(readerCount++));
     }
   }
 }

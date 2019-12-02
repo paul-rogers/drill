@@ -20,23 +20,26 @@
       "tableName" : "myTable"
     },
     "columns" : [ "`a`", "`b`" ],
-    "andFilters" : [ {
-      "op" : "LT",
-      "colName" : "a",
-      "value" : {
-        "type" : "VARCHAR",
-        "value" : "bar"
-      }
-    } ],
+    "filters" : {
+      "andTerms" : [ {
+        "op" : "LT",
+        "colName" : "a",
+        "value" : {
+          "type" : "VARCHAR",
+          "value" : "bar"
+        }
+      } ]
+    },
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 4500.0
     },
     "config" : {
       "type" : "dummy",
-      "enabled" : true,
-      "supportProjectPushDown" : true,
-      "filterPushDownStyle" : "REMOVE"
+      "enableProjectPushDown" : true,
+      "enableFilterPushDown" : true,
+      "keepFilters" : false,
+      "enabled" : true
     }
   }, {
     "pop" : "project",
@@ -54,7 +57,7 @@
     "maxAllocation" : 10000000000,
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 4500.0
     }
   }, {
     "pop" : "screen",
@@ -64,7 +67,7 @@
     "maxAllocation" : 10000000000,
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 4500.0
     }
   } ]
 }

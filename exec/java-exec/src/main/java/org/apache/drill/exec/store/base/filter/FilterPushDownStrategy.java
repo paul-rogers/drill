@@ -35,12 +35,14 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
+import org.apache.drill.exec.planner.logical.DrillFilterRel;
 import org.apache.drill.exec.planner.logical.DrillOptiq;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
+import org.apache.drill.exec.planner.logical.DrillProjectRel;
+import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.FilterPrel;
 import org.apache.drill.exec.planner.physical.PrelUtil;
-import org.apache.drill.exec.planner.physical.ProjectPrel;
 import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
@@ -87,7 +89,7 @@ public class FilterPushDownStrategy {
   private static class ProjectAndFilterRule extends AbstractFilterPushDownRule {
 
     private ProjectAndFilterRule(FilterPushDownStrategy strategy) {
-      super(RelOptHelper.some(FilterPrel.class, RelOptHelper.some(ProjectPrel.class, RelOptHelper.any(ScanPrel.class))),
+      super(RelOptHelper.some(FilterPrel.class, RelOptHelper.some(DrillProjectRel.class, RelOptHelper.any(DrillScanRel.class))),
             strategy.namePrefix() + "PushDownFilter:Filter_On_Project",
             strategy);
     }
@@ -97,15 +99,15 @@ public class FilterPushDownStrategy {
       if (!super.matches(call)) {
         return false;
       }
-      ScanPrel scan = call.rel(2);
+      DrillScanRel scan = call.rel(2);
       return strategy.isTargetScan(scan);
     }
 
     @Override
     public void onMatch(RelOptRuleCall call) {
-      FilterPrel filterRel = call.rel(0);
-      ProjectPrel projectRel = call.rel(1);
-      ScanPrel scanRel = call.rel(2);
+      DrillFilterRel filterRel = call.rel(0);
+      DrillProjectRel projectRel = call.rel(1);
+      DrillScanRel scanRel = call.rel(2);
       strategy.onMatch(call, filterRel, projectRel, scanRel);
     }
   }
@@ -117,7 +119,7 @@ public class FilterPushDownStrategy {
   private static class FilterWithoutProjectRule extends AbstractFilterPushDownRule {
 
     private FilterWithoutProjectRule(FilterPushDownStrategy strategy) {
-      super(RelOptHelper.some(FilterPrel.class, RelOptHelper.any(ScanPrel.class)),
+      super(RelOptHelper.some(DrillFilterRel.class, RelOptHelper.any(DrillScanRel.class)),
             strategy.namePrefix() + "PushDownFilter:Filter_On_Scan",
             strategy);
     }
@@ -127,23 +129,21 @@ public class FilterPushDownStrategy {
       if (!super.matches(call)) {
         return false;
       }
-      ScanPrel scan = call.rel(1);
+      DrillScanRel scan = call.rel(1);
       return strategy.isTargetScan(scan);
     }
 
     @Override
     public void onMatch(RelOptRuleCall call) {
-      FilterPrel filterRel = call.rel(0);
-      ScanPrel scanRel = call.rel(1);
+      DrillFilterRel filterRel = call.rel(0);
+      DrillScanRel scanRel = call.rel(1);
       strategy.onMatch(call, filterRel, null, scanRel);
     }
   }
 
-  protected final OptimizerRulesContext optimizerContext;
   private final FilterPushDownListener listener;
 
-  public FilterPushDownStrategy(OptimizerRulesContext optimizerContext, FilterPushDownListener listener) {
-    this.optimizerContext = optimizerContext;
+  public FilterPushDownStrategy(FilterPushDownListener listener) {
     this.listener = listener;
   }
 
@@ -155,20 +155,20 @@ public class FilterPushDownStrategy {
 
   public static Set<StoragePluginOptimizerRule> rulesFor(
       OptimizerRulesContext optimizerContext, FilterPushDownListener listener) {
-    return new FilterPushDownStrategy(optimizerContext, listener).rules();
+    return new FilterPushDownStrategy(listener).rules();
   }
 
   private String namePrefix() { return listener.prefix(); }
 
-  private boolean isTargetScan(ScanPrel scan) {
-    return listener.isTargetScan(scan);
+  private boolean isTargetScan(DrillScanRel scan) {
+    return listener.isTargetScan(scan.getGroupScan());
   }
 
-  public void onMatch(RelOptRuleCall call, FilterPrel filter, ProjectPrel project, ScanPrel scan) {
+  public void onMatch(RelOptRuleCall call, DrillFilterRel filter, DrillProjectRel project, DrillScanRel scan) {
 
     // Skip if rule has already been applied.
 
-    if (!listener.needsApplication(scan)) {
+    if (!listener.needsApplication(scan.getGroupScan())) {
       return;
     }
 
@@ -188,7 +188,7 @@ public class FilterPushDownStrategy {
     }
 
     Pair<GroupScan, List<RexNode>> translated =
-        listener.transform(scan, filterTerms.left, filterTerms.right);
+        listener.transform(scan.getGroupScan(), filterTerms.left, filterTerms.right);
 
     // Listener rejected the DNF terms
 
@@ -212,8 +212,8 @@ public class FilterPushDownStrategy {
   }
 
   private List<Pair<RexNode, List<RelOp>>> sortPredicates(
-      List<RexNode> nonConvertedPreds, RelOptRuleCall call, FilterPrel filter,
-      ProjectPrel project, ScanPrel scan) {
+      List<RexNode> nonConvertedPreds, RelOptRuleCall call, DrillFilterRel filter,
+      DrillProjectRel project, DrillScanRel scan) {
 
     // Get the filter expression
 
@@ -253,7 +253,7 @@ public class FilterPushDownStrategy {
     return cnfTerms.isEmpty() ? null : cnfTerms;
   }
 
-  public List<RelOp> identifyCandidate(DrillParseContext parseContext, ScanPrel scan, RexNode pred) {
+  public List<RelOp> identifyCandidate(DrillParseContext parseContext, DrillScanRel scan, RexNode pred) {
     if (DrillRelOptUtil.findOperators(pred, Collections.emptyList(), BANNED_OPERATORS) != null) {
       return null;
     }
@@ -271,7 +271,7 @@ public class FilterPushDownStrategy {
 
     List<RelOp> normalized = new ArrayList<>();
     for (RelOp relOp : relOps) {
-      RelOp rewritten = listener.accept(scan, relOp);
+      RelOp rewritten = listener.accept(scan.getGroupScan(), relOp);
 
       // Must discard the entire OR clause if any part is rejected
 
@@ -371,8 +371,8 @@ public class FilterPushDownStrategy {
     return Pair.of(andTerms, disjunction);
   }
 
-  private RelNode rebuildTree(ScanPrel oldScan, GroupScan newGroupScan, FilterPrel filter,
-      ProjectPrel project, List<RexNode> remainingPreds) {
+  private RelNode rebuildTree(DrillScanRel oldScan, GroupScan newGroupScan, DrillFilterRel filter,
+      DrillProjectRel project, List<RexNode> remainingPreds) {
 
     // Rebuild the subtree with transformed nodes.
 
@@ -382,7 +382,8 @@ public class FilterPushDownStrategy {
     if (newGroupScan == null) {
       newNode = oldScan;
     } else {
-      newNode = new ScanPrel(oldScan.getCluster(), oldScan.getTraitSet(), newGroupScan, oldScan.getRowType(), oldScan.getTable());
+      newNode = new DrillScanRel(oldScan.getCluster(), oldScan.getTraitSet(), oldScan.getTable(),
+          newGroupScan, oldScan.getRowType(), oldScan.getColumns());
     }
 
     // Copy project, if exists

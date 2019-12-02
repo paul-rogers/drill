@@ -3,8 +3,11 @@ package org.apache.drill.exec.store.base.filter;
 import org.apache.drill.exec.store.base.PlanStringBuilder;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Semanticized form of a Calcite relational operator. Abstracts
@@ -22,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
  */
 
 @JsonInclude(Include.NON_NULL)
+@JsonPropertyOrder({"op", "colName", "value"})
 public class RelOp {
 
   public enum Op {
@@ -56,13 +60,48 @@ public class RelOp {
         return 2;
       }
     }
+
+    /**
+     * Poor-man's guess at selectivity of each operator.
+     * Should match Calcite's built-in defaults (which are
+     * hard to find.)
+     *
+     * TODO: Double check against Drill defaults.
+     * @return crude estimate of operator selectivity
+     */
+
+    public double selectivity() {
+      switch (this) {
+      case EQ:
+        return 0.15;
+      case GE:
+      case GT:
+      case LE:
+      case LT:
+        return 0.45;
+      case IS_NOT_NULL:
+      case IS_NULL:
+        return 0.5;
+      case NE:
+        return 0.85;
+      default:
+        return 0.5;
+      }
+    }
   }
 
+  @JsonProperty("op")
   public final RelOp.Op op;
+  @JsonProperty("colName")
   public final String colName;
+  @JsonProperty("value")
   public final ConstantHolder value;
 
-  public RelOp(RelOp.Op op, String colName, ConstantHolder value) {
+  @JsonCreator
+  public RelOp(
+      @JsonProperty("op") RelOp.Op op,
+      @JsonProperty("colName") String colName,
+      @JsonProperty("value") ConstantHolder value) {
     Preconditions.checkArgument(op.argCount() == 1 || value != null);
     this.op = op;
     this.colName = colName;
