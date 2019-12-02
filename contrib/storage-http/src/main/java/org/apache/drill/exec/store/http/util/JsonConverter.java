@@ -23,9 +23,12 @@ import java.io.IOException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JsonConverter {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonConverter.class);
+  private static final Logger logger = LoggerFactory.getLogger(JsonConverter.class);
+
   public static JsonNode parse(String content, String key) {
     String []path = key.split("/");
     try {

@@ -31,20 +31,26 @@ public class HttpScanSpec {
   private final String uri;
   private final Map<String, Object> args = new HashMap<String, Object>();
   private final String pluginName = HttpStoragePluginConfig.NAME;
+  private final String tableName;
+  private final String schemaName;
 
-  @JsonCreator
+  /*@JsonCreator
   public HttpScanSpec(@JsonProperty("uri") String uri) {
     this.uri = uri;
-  }
+  }*/
 
-  public HttpScanSpec(String schemaName, String uri) {
+  @JsonCreator
+  public HttpScanSpec(@JsonProperty("schemaName") String schemaName, @JsonProperty("uri") String uri, @JsonProperty("tableName") String tableName) {
     this.uri = uri;
+    this.tableName = tableName;
+    this.schemaName = schemaName;
   }
 
-  public HttpScanSpec(String uri, String key, Object val) {
+  /*public HttpScanSpec(String uri, String key, Object val) {
     this.uri = uri;
     this.args.put(key, val);
-  }
+    this
+  }*/
 
   @JsonProperty("uri")
   public String uri() { return uri; }
@@ -52,6 +58,8 @@ public class HttpScanSpec {
   @JsonProperty("args")
   public Map<String, Object> args() { return args; }
 
+  @JsonProperty("tableName")
+  public String tableName() { return tableName; }
 
   @JsonIgnore
   public String getURL() {

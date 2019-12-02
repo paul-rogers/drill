@@ -65,7 +65,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @JsonIgnore
   public String getFullURL() {
-    return config.getConnection() + getURL();
+    return config.getConnection() + tableSpec.tableName();
   }
 
   public List<SchemaPath> getColumns() {

@@ -41,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class HttpRecordReader extends AbstractRecordReader {
-  static final Logger logger = LoggerFactory.getLogger(HttpRecordReader.class);
+  private static final Logger logger = LoggerFactory.getLogger(HttpRecordReader.class);
 
   private VectorContainerWriter writer;
   private JsonReader jsonReader;
@@ -67,9 +67,7 @@ public class HttpRecordReader extends AbstractRecordReader {
   }
 
   @Override
-  public void setup(OperatorContext context,
-                    OutputMutator output)
-    throws ExecutionSetupException {
+  public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
     this.writer = new VectorContainerWriter(output);
     this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
       .schemaPathColumns(Lists.newArrayList(getColumns()))
@@ -77,6 +75,7 @@ public class HttpRecordReader extends AbstractRecordReader {
       .readNumbersAsDouble(readNumbersAsDouble)
       .enableNanInf(enableNanInf)
       .build();
+
     String q = subScan.getURL();
     if (q.startsWith("file://")) {
       loadFile();
@@ -102,7 +101,7 @@ public class HttpRecordReader extends AbstractRecordReader {
 
   private void parseResult(String content) {
     String key = subScan.getConfig().getResultKey();
-    this.root = key.length() == 0 ? JsonConverter.parse(content) : JsonConverter.parse(content, key);
+    root = key.length() == 0 ? JsonConverter.parse(content) : JsonConverter.parse(content, key);
     if (root != null) {
       logger.debug("response object count {}", root.size());
       jsonIt = root.elements();
@@ -126,10 +125,12 @@ public class HttpRecordReader extends AbstractRecordReader {
         writer.setPosition(docCount);
         jsonReader.write(writer);
         root = jsonIt.next();
-        docCount++;
+        docCount++;  // TODO Make this a class variable
+
       //}
 
       jsonReader.ensureAtLeastOneField(writer);
+      writer.setValueCount(docCount);
     } catch (Exception e) {
 
     }

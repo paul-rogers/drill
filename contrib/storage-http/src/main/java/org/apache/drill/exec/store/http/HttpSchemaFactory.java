@@ -69,8 +69,8 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
       }
 
       if (!activeTables.containsKey(name)) {
-        tableName = name;
-        return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(plugin.getName(), name)));
+       //tableName = name;
+        return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(plugin.getName(), name, tableName)));
       }
       return null; // Unknown table
     }
