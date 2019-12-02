@@ -299,12 +299,11 @@ public abstract class BaseGroupScan extends AbstractGroupScan {
     this.sessionOptions = from.sessionOptions;
   }
 
-  @JsonCreator
   public BaseGroupScan(
-      @JsonProperty("config") StoragePluginConfig config,
-      @JsonProperty("userName") String userName,
-      @JsonProperty("columns") List<SchemaPath> columns,
-      @JacksonInject StoragePluginRegistry engineRegistry) {
+      StoragePluginConfig config,
+      String userName,
+      List<SchemaPath> columns,
+      StoragePluginRegistry engineRegistry) {
     super(userName);
     this.storagePlugin = BaseStoragePlugin.resolvePlugin(engineRegistry, config);
     this.columns = columns;

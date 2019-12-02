@@ -20,30 +20,33 @@
       "tableName" : "myTable"
     },
     "columns" : [ "`a`", "`b`" ],
-    "andFilters" : [ {
-      "op" : "EQ",
-      "colName" : "a",
-      "value" : {
-        "type" : "VARCHAR",
-        "value" : "bar"
-      }
-    }, {
-      "op" : "EQ",
-      "colName" : "id",
-      "value" : {
-        "type" : "INT",
-        "value" : 10
-      }
-    } ],
+    "filters" : {
+      "andTerms" : [ {
+        "op" : "EQ",
+        "colName" : "a",
+        "value" : {
+          "type" : "VARCHAR",
+          "value" : "bar"
+        }
+      }, {
+        "op" : "EQ",
+        "colName" : "id",
+        "value" : {
+          "type" : "INT",
+          "value" : 10
+        }
+      } ]
+    },
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 225.0
     },
     "config" : {
       "type" : "dummy",
-      "enabled" : true,
-      "supportProjectPushDown" : true,
-      "filterPushDownStyle" : "REMOVE"
+      "enableProjectPushDown" : true,
+      "enableFilterPushDown" : true,
+      "keepFilters" : false,
+      "enabled" : true
     }
   }, {
     "pop" : "project",
@@ -61,7 +64,7 @@
     "maxAllocation" : 10000000000,
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 225.0
     }
   }, {
     "pop" : "screen",
@@ -71,7 +74,7 @@
     "maxAllocation" : 10000000000,
     "cost" : {
       "memoryCost" : 1.6777216E7,
-      "outputRowCount" : 5000.0
+      "outputRowCount" : 225.0
     }
   } ]
 }

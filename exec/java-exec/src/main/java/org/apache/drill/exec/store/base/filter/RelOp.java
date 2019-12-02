@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Semanticized form of a Calcite relational operator. Abstracts
@@ -24,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 
 @JsonInclude(Include.NON_NULL)
+@JsonPropertyOrder({"op", "colName", "value"})
 public class RelOp {
 
   public enum Op {
@@ -56,6 +58,34 @@ public class RelOp {
         return 1;
       default:
         return 2;
+      }
+    }
+
+    /**
+     * Poor-man's guess at selectivity of each operator.
+     * Should match Calcite's built-in defaults (which are
+     * hard to find.)
+     *
+     * TODO: Double check against Drill defaults.
+     * @return crude estimate of operator selectivity
+     */
+
+    public double selectivity() {
+      switch (this) {
+      case EQ:
+        return 0.15;
+      case GE:
+      case GT:
+      case LE:
+      case LT:
+        return 0.45;
+      case IS_NOT_NULL:
+      case IS_NULL:
+        return 0.5;
+      case NE:
+        return 0.85;
+      default:
+        return 0.5;
       }
     }
   }

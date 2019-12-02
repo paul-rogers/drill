@@ -26,40 +26,40 @@ import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
+import org.apache.drill.exec.store.base.filter.FilterSpec;
 import org.apache.drill.exec.store.base.filter.RelOp;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.base.Preconditions;
 
 @JsonTypeName("dummy-scan")
 @JsonPropertyOrder({"userName", "scanSpec", "columns",
-                    "andFilters", "orFilters", "cost", "config"})
+                    "filters", "cost", "config"})
+@JsonInclude(value=Include.NON_EMPTY, content=Include.NON_NULL)
 public class DummyGroupScan extends BaseGroupScan {
 
   private final DummyScanSpec scanSpec;
-  private final List<RelOp> andFilters;
-  private final DisjunctionFilterSpec orFilters;
+  private final FilterSpec filters;
 
   public DummyGroupScan(DummyStoragePlugin storagePlugin, String userName,
       DummyScanSpec scanSpec) {
     super(storagePlugin, userName, null);
     this.scanSpec = scanSpec;
-    andFilters = null;
-    orFilters = null;
+    filters = null;
   }
 
   public DummyGroupScan(DummyGroupScan from, List<SchemaPath> columns) {
     super(from.storagePlugin, from.getUserName(), columns);
     this.scanSpec = from.scanSpec;
-    this.andFilters = from.andFilters;
-    this.orFilters = from.orFilters;
+    this.filters = from.filters;
   }
 
   @JsonCreator
@@ -68,35 +68,27 @@ public class DummyGroupScan extends BaseGroupScan {
       @JsonProperty("userName") String userName,
       @JsonProperty("scanSpec") DummyScanSpec scanSpec,
       @JsonProperty("columns") List<SchemaPath> columns,
-      @JsonProperty("andFilters") List<RelOp> andFilters,
-      @JsonProperty("orFilters") DisjunctionFilterSpec orFilters,
+      @JsonProperty("filters") FilterSpec filters,
       @JacksonInject StoragePluginRegistry engineRegistry) {
     super(config, userName, columns, engineRegistry);
     this.scanSpec = scanSpec;
-    this.andFilters = andFilters;
-    this.orFilters = orFilters;
+    this.filters = filters;
   }
 
-  public DummyGroupScan(DummyGroupScan from,
-      List<RelOp> andFilters,
-      DisjunctionFilterSpec orFilters) {
+  public DummyGroupScan(DummyGroupScan from, FilterSpec filters) {
     super(from);
     this.scanSpec = from.scanSpec;
-    this.andFilters = andFilters;
-    this.orFilters = orFilters;
+    this.filters = filters;
   }
 
   @JsonProperty("scanSpec")
   public DummyScanSpec scanSpec() { return scanSpec; }
 
-  @JsonProperty("andFilters")
-  public List<RelOp> andFilters() { return andFilters; }
-
-  @JsonProperty("orFilters")
-  public DisjunctionFilterSpec orFilters() { return orFilters; }
+  @JsonProperty("filters")
+  public FilterSpec andFilters() { return filters; }
 
   public boolean hasFilters() {
-    return andFilters != null || orFilters != null;
+    return filters != null && ! filters.isEmpty();
   }
 
   private static final List<String> FILTER_COLS = ImmutableList.of("a", "b", "id");
@@ -161,12 +153,10 @@ public class DummyGroupScan extends BaseGroupScan {
     int estRowCount = 10_000;
 
     // If filter push down, assume this reduces data size.
-    // Just need to get Calcite to choose this version rather
+    // Need to get Calcite to choose this version rather
     // than the un-filtered version.
 
-    if (hasFilters()) {
-      estRowCount /= 2;
-    }
+    estRowCount = FilterSpec.applySelectivity(filters, estRowCount);
 
     // Assume no disk I/O. So we have to explain costs by reducing
     // CPU.
@@ -178,41 +168,47 @@ public class DummyGroupScan extends BaseGroupScan {
     if (getColumns() != BaseGroupScan.ALL_COLUMNS) {
       cpuRatio = 0.75;
     }
+
+    // Would like to reduce network costs, but not easy to do here since Drill
+    // scans assume we read from disk, not network.
+
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, estRowCount, cpuRatio, 0);
   }
 
   @Override
   @JsonIgnore
   public int getMinParallelizationWidth() {
-    return orFilters == null ? 1 :
-      orFilters.values.length;
+    return FilterSpec.parititonCount(filters);
   }
 
   @Override
+  @JsonIgnore
   public int getMaxParallelizationWidth() {
-    return orFilters == null ? 1 :
-      orFilters.values.length;
+    return FilterSpec.parititonCount(filters);
   }
 
   @Override
   public SubScan getSpecificScan(int minorFragmentId) {
     Preconditions.checkArgument(minorFragmentId < endpointCount);
-    int orCount = orFilters == null ? 1 : orFilters.values.length;
+    if (!hasFilters()) {
+      Preconditions.checkState(minorFragmentId == 0);
+      return new DummySubScan(this, null);
+    }
+    int orCount = filters.partitionCount();
     int sliceSize = orCount / endpointCount;
-    List<List<RelOp>> filters = new ArrayList<>();
+    List<List<RelOp>> segmentFilters = new ArrayList<>();
     int start = minorFragmentId * sliceSize;
     int end = Math.min(start + sliceSize, orCount);
     for (int i = start; i < end; i++) {
-      filters.add(DisjunctionFilterSpec.distribute(andFilters, orFilters, i));
+      segmentFilters.add(filters.distribute(i));
     }
-    return new DummySubScan(this, filters);
+    return new DummySubScan(this, segmentFilters);
   }
 
   @Override
   public void buildPlanString(PlanStringBuilder builder) {
     super.buildPlanString(builder);
     builder.field("scanSpec", scanSpec);
-    builder.field("andFilters", andFilters);
-    builder.field("orFilters", orFilters);
+    builder.field("filters", filters);
   }
 }

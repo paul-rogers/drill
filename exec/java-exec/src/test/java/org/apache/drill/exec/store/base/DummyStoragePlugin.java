@@ -37,10 +37,9 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
-import org.apache.drill.exec.store.base.DummyStoragePluginConfig.FilterPushDownStyle;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * "Test mule" for the base storage plugin and the filter push down
@@ -97,7 +96,7 @@ public class DummyStoragePlugin
   private static StoragePluginOptions buildOptions(DummyStoragePluginConfig config) {
     StoragePluginOptions options = new StoragePluginOptions();
     options.supportsRead = true;
-    options.supportsProjectPushDown = config.supportProjectPushDown();
+    options.supportsProjectPushDown = config.enableProjectPushDown();
     options.nullType = Types.optional(MinorType.VARCHAR);
     options.scanSpecType = new TypeReference<DummyScanSpec>() { };
     options.scanFactory = new DummyScanFactory();
@@ -107,23 +106,13 @@ public class DummyStoragePlugin
   @Override
   public Set<? extends StoragePluginOptimizerRule> getOptimizerRules(OptimizerRulesContext optimizerContext, PlannerPhase phase) {
 
-    // Push-down planning can be done at either the logical or physical phases
-    // to test the filter push down strategies for each.
+    // Push-down planning is done at the logical phase so it can
+    // influence parallelization in the physical phase. Note that many
+    // existing plugins perform filter push-down at the physical
+    // phase.
 
-    switch (phase) {
-    case LOGICAL_PRUNE_AND_JOIN: // HEP is disabled
-    case PARTITION_PRUNING:      // HEP partition push-down enabled
-    case LOGICAL_PRUNE:          // HEP partition push-down disabled
-      if (config.filterPushDownStyle() == FilterPushDownStyle.LOGICAL) {
-        return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
-      }
-      break;
-    case PHYSICAL:
-      if (config.filterPushDownStyle() == FilterPushDownStyle.PHYSICAL) {
-        return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
-      }
-      break;
-    default:
+    if (phase.isFilterPushDownPhase() && config.enableFilterPushDown()) {
+      return DummyFilterPushDownListener.rulesFor(optimizerContext, config);
     }
     return ImmutableSet.of();
   }

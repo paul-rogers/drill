@@ -63,8 +63,8 @@ public interface FilterPushDownListener {
   /**
    * Broad check to see if the scan is of the correct type for this
    * listener. Generally implemented as: <code><pre>
-   * public boolean isTargetScan(GroupScan groupScan) {
-   *   return groupScan instanceof MyGroupScan;
+   * public boolean isTargetScan(ScanPrel scan) {
+   *   return scan.getGroupScan() instanceof MyGroupScan;
    * }
    * </pre></code>
    */

@@ -32,7 +32,7 @@ import org.apache.drill.common.expression.ValueExpressions.QuotedString;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
-public class FilterPushDownPhysicalUtils {
+public class FilterPushDownUtils {
 
   /**
    * Extracted selected constants from an argument. Finds literals, omits

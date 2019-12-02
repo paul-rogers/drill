@@ -79,6 +79,30 @@ public class DisjunctionFilterSpec {
     return filters;
   }
 
+  public static List<RelOp> distribute(List<RelOp> andFilters,
+      DisjunctionFilterSpec orFilters, int orIndex) {
+    Preconditions.checkArgument(orIndex == 0 || (orFilters != null && orIndex < orFilters.values.length));
+    return orFilters == null ? andFilters :
+      orFilters.distributeTerm(andFilters, orIndex);
+  }
+
+  /**
+   * Compute the selectivity of this DNF (OR) clause. Drill assumes
+   * the selectivity of = is 0.15. An OR is a series of equal statements,
+   * so selectivity is n * 0.15. However, limit total selectivity to
+   * 0.9 (that is, if there are more than 6 clauses in the DNF, assume
+   * at least some reduction.)
+   *
+   * @return the estimated selectivity of this DNF clause
+   */
+  public double selectivity() {
+    if (values.length == 0) {
+      return 1.0;
+    } else {
+      return Math.min(0.9,  0.15 * values.length);
+    }
+  }
+
   @Override
   public String toString() {
     PlanStringBuilder builder = new PlanStringBuilder(this);
@@ -88,12 +112,5 @@ public class DisjunctionFilterSpec {
     builder.unquotedField("values",
         "[" + String.join(", ", strValues) + "]");
     return builder.toString();
-  }
-
-  public static List<RelOp> distribute(List<RelOp> andFilters,
-      DisjunctionFilterSpec orFilters, int orIndex) {
-    Preconditions.checkArgument(orIndex == 0 || (orFilters != null && orIndex < orFilters.values.length));
-    return orFilters == null ? andFilters :
-      orFilters.distributeTerm(andFilters, orIndex);
   }
 }

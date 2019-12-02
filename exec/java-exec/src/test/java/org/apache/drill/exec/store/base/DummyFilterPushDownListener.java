@@ -29,8 +29,8 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.base.filter.DisjunctionFilterSpec;
 import org.apache.drill.exec.store.base.filter.FilterPushDownListener;
-import org.apache.drill.exec.store.base.filter.FilterPushDownLogicalStrategy;
-import org.apache.drill.exec.store.base.filter.FilterPushDownPhysicalStrategy;
+import org.apache.drill.exec.store.base.filter.FilterPushDownStrategy;
+import org.apache.drill.exec.store.base.filter.FilterSpec;
 import org.apache.drill.exec.store.base.filter.RelOp;
 
 public class DummyFilterPushDownListener implements FilterPushDownListener {
@@ -43,12 +43,8 @@ public class DummyFilterPushDownListener implements FilterPushDownListener {
 
   public static Set<StoragePluginOptimizerRule> rulesFor(
       OptimizerRulesContext optimizerRulesContext, DummyStoragePluginConfig config) {
-    DummyFilterPushDownListener listener = new DummyFilterPushDownListener(config);
-    if (config.filterPushDownStyle() == DummyStoragePluginConfig.FilterPushDownStyle.PHYSICAL) {
-      return FilterPushDownPhysicalStrategy.rulesFor(optimizerRulesContext, listener);
-    } else {
-      return FilterPushDownLogicalStrategy.rulesFor(optimizerRulesContext, listener);
-    }
+    return FilterPushDownStrategy.rulesFor(optimizerRulesContext,
+        new DummyFilterPushDownListener(config));
   }
 
   @Override
@@ -89,8 +85,9 @@ public class DummyFilterPushDownListener implements FilterPushDownListener {
     } else {
       orExprs = orTerm.right;
     }
+    FilterSpec filters = FilterSpec.build(andExprs, orExprs);
     DummyGroupScan dummyScan = (DummyGroupScan) groupScan;
-    GroupScan newScan = new DummyGroupScan(dummyScan, andExprs, orExprs);
+    GroupScan newScan = new DummyGroupScan(dummyScan, filters);
 
     List<RexNode> exprs;
     if (config.keepFilters()) {
