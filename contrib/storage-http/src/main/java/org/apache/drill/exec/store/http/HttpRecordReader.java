@@ -32,6 +32,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.http.util.JsonConverter;
 import org.apache.drill.exec.store.http.util.SimpleHttp;
+import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
 import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
@@ -44,15 +45,25 @@ public class HttpRecordReader extends AbstractRecordReader {
   private static final Logger logger = LoggerFactory.getLogger(HttpRecordReader.class);
 
   private VectorContainerWriter writer;
+
   private JsonReader jsonReader;
+
   private FragmentContext fragmentContext;
+
   private HttpSubScan subScan;
+
   private Iterator<JsonNode> jsonIt;
+
   private JsonNode root;
+
   private ResultSetLoader loader;
+
   private final boolean enableAllTextMode;
+
   private final boolean enableNanInf;
+
   private final boolean readNumbersAsDouble;
+
   private final HttpStoragePluginConfig config;
 
   public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
@@ -64,6 +75,8 @@ public class HttpRecordReader extends AbstractRecordReader {
     enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
     enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
     readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
+
+    logger.debug("Creating HttpRecordReader");
   }
 
   @Override
@@ -88,7 +101,7 @@ public class HttpRecordReader extends AbstractRecordReader {
     String url = subScan.getFullURL();
     SimpleHttp http = new SimpleHttp();
     String content = http.get(url);
-    logger.info("http '{}' response {} bytes", url, content.length());
+    logger.debug("http '{}' response {} bytes", url, content.length());
     parseResult(content);
   }
 
@@ -119,15 +132,16 @@ public class HttpRecordReader extends AbstractRecordReader {
     writer.reset();
     int docCount = 0;
     try {
-      //while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
-        writer.rootAsMap();
-        jsonReader.setSource(root);
-        writer.setPosition(docCount);
-        jsonReader.write(writer);
-        root = jsonIt.next();
-        docCount++;  // TODO Make this a class variable
+      while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
 
-      //}
+      writer.rootAsMap();
+      jsonReader.setSource(root);
+      writer.setPosition(docCount);
+      jsonReader.write(writer);
+      root = jsonIt.next();
+      docCount++;
+
+     }
 
       jsonReader.ensureAtLeastOneField(writer);
       writer.setValueCount(docCount);

@@ -54,7 +54,7 @@ public class TestHttpPlugin extends ClusterTest {
     String sql = "SELECT SCHEMA_NAME, TYPE FROM INFORMATION_SCHEMA.`SCHEMATA` WHERE TYPE='http'";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
-    results.print();
+    logger.debug("Query Results: {}", results.toString());
 
     TupleMetadata expectedSchema = new SchemaBuilder()
       .add("SCHEMA_NAME", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -115,7 +115,8 @@ public class TestHttpPlugin extends ClusterTest {
     String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
-    results.print();
+    logger.debug("Query Results: {}", results.toString());
+
     TupleMetadata expectedSchema = new SchemaBuilder()
       .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -143,6 +144,7 @@ public class TestHttpPlugin extends ClusterTest {
     String sql = "SELECT sunrise, sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
+    logger.debug("Query Results: {}", results.toString());
     TupleMetadata expectedSchema = new SchemaBuilder()
       .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -153,11 +155,6 @@ public class TestHttpPlugin extends ClusterTest {
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);
-
-    int resultCount =  results.rowCount();
-    new RowSetComparison(expected).verifyAndClearAll(results);
-
-    assertEquals(1,  resultCount);
   }
 
   @Test

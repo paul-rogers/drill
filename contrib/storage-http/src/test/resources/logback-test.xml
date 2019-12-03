@@ -61,5 +61,9 @@
     </if>
     <appender-ref ref="STDOUT"/>
   </root>-->
+  <logger name="org.apache.drill.exec.store.http" additivity="false">
+    <level value="debug" />
+    <appender-ref ref="STDOUT" />
+  </logger>
 
 </configuration>
