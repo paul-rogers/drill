@@ -5,6 +5,7 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.base.BaseSubScan;
+import org.apache.drill.exec.store.base.PlanStringBuilder;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,4 +35,11 @@ public class SumoSubScan extends BaseSubScan {
 
   @JsonProperty("sumoQuery")
   public SumoQuery sumoQuery() { return sumoQuery; }
+
+
+  @Override
+  public void buildPlanString(PlanStringBuilder builder) {
+    super.buildPlanString(builder);
+    builder.field("sumoQuery", sumoQuery);
+  }
 }

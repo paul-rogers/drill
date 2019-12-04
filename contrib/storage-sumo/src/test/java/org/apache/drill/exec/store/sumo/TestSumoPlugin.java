@@ -21,6 +21,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.QueryRowSetIterator;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -37,7 +38,7 @@ public class TestSumoPlugin extends ClusterTest {
 
     SumoStoragePluginConfig config =
         new SumoStoragePluginConfig(CREDS.get(0), CREDS.get(1), CREDS.get(2),
-            "America/Los_Angeles", "-6m", "30s", false, 0);
+            "America/Los_Angeles", "-6m", "30s", false, 15);
     config.setEnabled(true);
     pluginRegistry.createOrUpdate(SumoStoragePluginConfig.NAME, config, true);
   }
@@ -205,15 +206,16 @@ public class TestSumoPlugin extends ClusterTest {
   @Test
   public void testViewAbsRelTimes() throws Exception {
     String sql = "SELECT `_collectorid` AS collector, `_messagetime` AS ts, " +
-                 "`_raw` AS message, _messagecount as mc\n" +
-                 "FROM sumo.logQuery1\n" +
+                 "`_raw` AS message\n" +
+                 "FROM sumo.logQuery2\n" +
                  "WHERE startTime = '2019-11-24T13:10:00'\n" +
-                 "  AND endTime = '20s'\n" +
-                 "LIMIT 10";
-    RowSet result = queryBuilder().sql(sql).rowSet();
-    result.print();
-
-    result.clear();
+                 "  AND endTime = '31s'\n";
+    QueryRowSetIterator result = queryBuilder().sql(sql).rowSetIterator();
+    while (result.hasNext()) {
+      RowSet rowSet = result.next();
+      rowSet.print();
+      rowSet.clear();
+    }
   }
 
   @Test

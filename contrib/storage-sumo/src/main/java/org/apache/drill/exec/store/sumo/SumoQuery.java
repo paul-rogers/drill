@@ -6,7 +6,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.drill.exec.store.base.PlanStringBuilder;
-import org.apache.drill.exec.store.base.filter.FilterSpec;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -16,8 +15,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.google.common.collect.Lists;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.Lists;
 
 /**
  * Represents a single Sumo REST query. Data is in the form
@@ -105,15 +104,6 @@ public class SumoQuery {
         timeZone, useReceiptTime);
   }
 
-  public SumoQuery rewrite(FilterSpec filterSpec) {
-    if (filterSpec == null) {
-      return this;
-    }
-    return new SumoQuery(
-        query, isAggregate, startTime, endTime,
-        timeZone, useReceiptTime);
-  }
-
   public int bestPartitionCount(int shardSizeSec) {
     if (isAggregate() || shardSizeSec == 0 || missingColumn() != null) {
       return 1;
@@ -123,7 +113,8 @@ public class SumoQuery {
     long startTimeStamp = dateFormat.parseMillis(startTime);
     long endTimeStamp = dateFormat.parseMillis(endTime);
     long duration = endTimeStamp - startTimeStamp;
-    return Math.max(1, (int) (duration / shardSizeSec));
+    double sliceCount = duration / (shardSizeSec * 1000D);
+    return Math.max(1, (int) Math.round(sliceCount));
   }
 
   public List<String> partition(int shardSizeSec, int maxSliceCount) {
@@ -132,13 +123,14 @@ public class SumoQuery {
     long startTimeStamp = dateFormat.parseMillis(startTime);
     long endTimeStamp = dateFormat.parseMillis(endTime);
     long duration = endTimeStamp - startTimeStamp;
-    int shardCount = Math.min(maxSliceCount, Math.max(1, (int) (duration / shardSizeSec)));
+    double sliceCount = duration / (shardSizeSec * 1000D);
+    int shardCount = Math.max(1, (int) Math.round(sliceCount));
     long shardDuration = duration / shardCount;
 
     List<String> bounds = new ArrayList<>();
     bounds.add(startTime);
     for (int i = 1; i < shardCount; i++) {
-      bounds.add(dateFormat.print(startTimeStamp + shardDuration * shardDuration * i));
+      bounds.add(dateFormat.print(startTimeStamp + shardDuration * i));
     }
     bounds.add(endTime);
     return bounds;

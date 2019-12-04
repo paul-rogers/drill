@@ -35,6 +35,14 @@ public class SumoSchemaFactory extends AbstractSchemaFactory {
         PT_TZ, false);
     dummySchema.put("logQuery1", query);
 
+    query = new SumoQuery(
+        "(_sourceHost=\"nite-metricsstore-9\") AND \"Done acking offset\"",
+        false,
+        "2019-11-12T13:10:00",
+        "2019-11-12T13:10:15",
+        PT_TZ, false);
+    dummySchema.put("logQuery2", query);
+
     // Example aggregate query
     query = new SumoQuery(
         "* | count _sourceHost",

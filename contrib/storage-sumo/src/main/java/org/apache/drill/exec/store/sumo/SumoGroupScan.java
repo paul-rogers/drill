@@ -20,6 +20,66 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
+/**
+ * Represents a query on top of the Sumo Search Job API, including:
+ * <ul>
+ * <li>Named views, currently implemented via a hard-coded set of
+ * names since Sumo does not support named queries, only materialized
+ * ("scheduled") views.</li>
+ * <li>Filter-push-down for query text (<code>`query` = 'query text'</code>),
+ * and for start and end times (<code>startTime = 'ISO time'</code>.)</li>
+ * <li>Parallelizing detail queries. (This is a bit of a hack since
+ * there is no a-prori way to know a query is detail or aggregate.</li>
+ * <li>Relative times, such as <code>2m</code> to indicate end time
+ * should be two minutes after the start time.</li>
+ * </ul>
+ * <p>
+ * A complexity is that the Drill planning process is pretty loose
+ * and ad-hoc: there is no fixed call sequence, instead there are
+ * events that arrive or do not arrive. This fact makes the above
+ * features very tricky to implement. We need to enforce an ordering:
+ * <ul>
+ * <li>Get the query "template" from a view, including query text,
+ * start time and end time. Times can be relative.</li>
+ * <li>Apply filter-push-down fields which can be any combination
+ * of query, start time and end time.</li>
+ * <li>At this point, the query
+ * should be "complete" with all fields filled in. If filter push-down
+ * does <i>not</i> occur, then the view itself must be complete.
+ * We can therefore rewrite the query to replace relative times with
+ * absolute times.</li>
+ * <li>If the query is detail, compute the time duration divide by
+ * the configured shared size, to get the desired parallelism.</li>
+ * <li>Drill provides the actual available number of endpoints (degree
+ * of parallelism.) Recompute the shard size to fit.</li>
+ * </ul>
+ * Points of complexity:
+ * <ul>
+ * <li>Drill will ask for the shard count <i>before</i> filter push-down
+ * which provides the information to compute the shards. These calls
+ * require a dummy number.</li>
+ * <li>Drill does not tell us when there is no filter push-down, thus
+ * we don't have a definite point at which we know that, if there were
+ * filters, they would have been applied.</li>
+ * <li>Drill will again ask for shard count, but now we should be able
+ * to translate relative dates to absolute and provide a count.</li>
+ * </ul>
+ * Given the above constraints, the final design is:
+ * <ul>
+ * <li>Maintain a flag, <code>finalizedSumoQuery</code> that tell us
+ * if we've finalized the query (checked required fields, converted
+ * relative times to absolute.</li>
+ * <li>Observe that the calls to get min/max parallelization width
+ * happen only in the physical planning stage. Check the flag and
+ * finalize the query on the first call.</li>
+ * <li>When finalizing, create an estimated shard count which is the
+ * maximum number of possible shards.</li>
+ * <li>Later, when Drill offers the set of endpoints in
+ * <code>applyAssignments()</code>, compute the actual shard count
+ * which may be lower than the ideal computed above. Then, create
+ * the shards as new, narrowed Sumo queries.</li>
+ * </ul>
+ */
 @JsonTypeName("sumo-scan")
 public class SumoGroupScan extends BaseGroupScan {
 
@@ -27,9 +87,33 @@ public class SumoGroupScan extends BaseGroupScan {
 
   private final String schemaName;
   private final String tableName;
-  private final SumoQuery sumoQuery;
+  private SumoQuery sumoQuery;
+
+  /**
+   * Count of pushed-down filters. Required to adjust cost estimate
+   * to reflect filter selectivity, which is required so that Calcite
+   * will choose the push-down plan rather than the original.
+   */
   private int filterCount;
+
+  /**
+   * There is no good event from Drill to tell us that logical
+   * planning is complete and we're on to physical planning. We want
+   * to know that because we will finalize the query (check for missing
+   * fields, convert relative times to absolute) once logical planning
+   * is done. Instead, we just track if we have finalized the query on
+   * any physical-related call, and do the finalization if needed.
+   */
+  private boolean finalizedSumoQuery;
+
+  /**
+   * The number of shards for this query. Drives parallelization.
+   */
   private int shardTarget;
+
+  /**
+   * Sumo query rewritten into shards.
+   */
   private List<SumoQuery> shards;
 
   public SumoGroupScan(SumoStoragePlugin storagePlugin, String userName,
@@ -60,12 +144,6 @@ public class SumoGroupScan extends BaseGroupScan {
     this.schemaName = schemaName;
     this.tableName = tableName;
     this.sumoQuery = sumoQuery;
-    setShardTarget();
-  }
-
-  private void setShardTarget() {
-    shardTarget = sumoQuery == null ? 1
-        : sumoQuery.bestPartitionCount(sumoPlugin().config().getShardSizeSecs());
   }
 
   public SumoGroupScan(SumoGroupScan from, SumoQuery sumoQuery, int filterCount) {
@@ -74,7 +152,6 @@ public class SumoGroupScan extends BaseGroupScan {
     this.tableName = from.tableName;
     this.sumoQuery = sumoQuery;
     this.filterCount = filterCount;
-    setShardTarget();
   }
 
   @JsonProperty("schemaName")
@@ -100,7 +177,7 @@ public class SumoGroupScan extends BaseGroupScan {
 
   @Override
   public void applyAssignments(List<DrillbitEndpoint> endpoints) {
-    verifyQuery();
+    finalizeQuery();
     super.applyAssignments(endpoints);
     SumoQuery resolvedQuery = sumoQuery.rewriteTimes();
     shards = resolvedQuery.shards(sumoPlugin().config().getShardSizeSecs(), endpointCount);
@@ -119,13 +196,26 @@ public class SumoGroupScan extends BaseGroupScan {
   @Override
   @JsonIgnore
   public int getMinParallelizationWidth() {
+    finalizeQuery();
     return shardTarget;
   }
 
   @Override
   @JsonIgnore
   public int getMaxParallelizationWidth() {
+    finalizeQuery();
     return shardTarget;
+  }
+
+  private void finalizeQuery() {
+    if (finalizedSumoQuery) {
+      return;
+    }
+    verifyQuery();
+    sumoQuery = sumoQuery.rewriteTimes();
+    shardTarget = sumoQuery == null ? 1
+        : sumoQuery.bestPartitionCount(sumoPlugin().config().getShardSizeSecs());
+    finalizedSumoQuery = true;
   }
 
   @Override
