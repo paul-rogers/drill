@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
@@ -81,8 +82,8 @@ public class HttpRecordReader extends AbstractRecordReader {
 
   @Override
   public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
-    this.writer = new VectorContainerWriter(output);
-    this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
+    writer = new VectorContainerWriter(output);
+    jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
       .schemaPathColumns(Lists.newArrayList(getColumns()))
       .allTextMode(enableAllTextMode)
       .readNumbersAsDouble(readNumbersAsDouble)
@@ -133,20 +134,21 @@ public class HttpRecordReader extends AbstractRecordReader {
     int docCount = 0;
     try {
       while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
-
-      writer.rootAsMap();
-      jsonReader.setSource(root);
-      writer.setPosition(docCount);
-      jsonReader.write(writer);
-      root = jsonIt.next();
+        writer.rootAsMap();
+        jsonReader.setSource(root);
+        writer.setPosition(docCount);
+        jsonReader.write(writer);
+        root = jsonIt.next();
       docCount++;
-
      }
-
       jsonReader.ensureAtLeastOneField(writer);
       writer.setValueCount(docCount);
     } catch (Exception e) {
-
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
     }
     writer.setValueCount(docCount);
     return docCount;
@@ -158,7 +160,8 @@ public class HttpRecordReader extends AbstractRecordReader {
     try {
       writer.close();
     } catch (Exception e) {
-      // Do something...
+      logger.warn("Error closing HTTP reader." + e.getMessage());
     }
+    writer = null;
   }
 }

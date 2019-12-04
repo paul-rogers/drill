@@ -37,9 +37,10 @@ import org.slf4j.LoggerFactory;
 public class HttpSchemaFactory extends AbstractSchemaFactory {
   private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
+  public static final String MY_TABLE = "result_table";
+
   private final HttpStoragePlugin plugin;
 
-  public static final String MY_TABLE = "result_table";
 
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
     super(schemaName);
@@ -62,17 +63,16 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     }
 
     @Override
-    public Table getTable(String tableName) { // table name can be any of string
+    public Table getTable(String tableName) {
       DynamicDrillTable table = activeTables.get(name);
       if (table != null) {
         return table;
       }
 
       if (!activeTables.containsKey(name)) {
-       //tableName = name;
         return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(plugin.getName(), name, tableName)));
       }
-      return null; // Unknown table
+      return null;
     }
 
     private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {

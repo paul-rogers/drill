@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +31,7 @@ public class JsonConverter {
   private static final Logger logger = LoggerFactory.getLogger(JsonConverter.class);
 
   public static JsonNode parse(String content, String key) {
-    String []path = key.split("/");
+    String[] path = key.split("/");
     try {
       JsonNode node = from(content);
       for (String p : path) {
@@ -41,9 +42,12 @@ public class JsonConverter {
       }
       return node;
     } catch (IOException e) {
-      e.printStackTrace();
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
     }
-    return null;
   }
 
   public static JsonNode parse(String content) {
@@ -54,9 +58,12 @@ public class JsonConverter {
       }
       return null;
     } catch (IOException e) {
-      e.printStackTrace();
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
     }
-    return null;
   }
 
   @SuppressWarnings("resource")
@@ -68,13 +75,16 @@ public class JsonConverter {
       stream.read(bytes);
       return new String(bytes, Charsets.UTF_8);
     } catch (IOException e) {
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
     }
-    return "";
   }
 
   private static JsonNode from(String content) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
-    JsonNode root = mapper.readTree(content);
-    return root;
+    return mapper.readTree(content);
   }
 }

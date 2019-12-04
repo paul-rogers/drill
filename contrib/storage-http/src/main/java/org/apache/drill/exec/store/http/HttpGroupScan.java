@@ -126,16 +126,11 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public ScanStats getScanStats() {
-
-
+    int colCount = columns.size();
     int estRowCount = 1;
-    int estDataSize = estRowCount * 200;
+    int estDataSize = estRowCount * 200 * colCount;
     int estCpuCost = 1;
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,estRowCount, estCpuCost, estDataSize);
-  }
-
-  public boolean isFilterPushedDown() {
-    return filterPushedDown;
   }
 
   public void setFilterPushedDown(boolean filterPushedDown) {

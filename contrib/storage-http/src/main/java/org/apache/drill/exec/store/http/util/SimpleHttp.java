@@ -17,37 +17,71 @@
  */
 package org.apache.drill.exec.store.http.util;
 
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
+import org.apache.drill.common.exceptions.UserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.net.URLConnection;
+import java.io.IOException;
+import java.io.InputStream;
+
 
 public class SimpleHttp {
   private static final Logger logger = LoggerFactory.getLogger(SimpleHttp.class);
 
+  private final OkHttpClient client = new OkHttpClient();
+
   public String get(String urlStr) {
+    Request request = new Request.Builder().url(urlStr).build();
 
-    String data = "";
     try {
-      URL url = new URL(urlStr);
-      URLConnection conn = url.openConnection();
-      conn.setDoOutput(true);
-      logger.debug("Getting page: " + urlStr);
-      BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
-      String line;
-      while ((line = rd.readLine()) != null) {
-        data += line;
+      Response response = client.newCall(request).execute();
+      if (!response.isSuccessful()) {
+        throw UserException
+          .dataReadError()
+          .message("Error retrieving data:")
+          .addContext("Response code: " + response)
+          .build(logger);
       }
-      logger.debug("Retrieved data: ");
-      logger.debug(data);
+      logger.debug("HTTP Request for {} successful.", urlStr);
+      logger.debug("Headers: {} ", response.headers().toString());
 
-      rd.close();
-    } catch (Exception e) {
-      // TODO Throw exception here if can't get the URL
+      return response.body().string();
+    } catch (IOException e) {
+      // TODO throw Drill user exception;
+      throw UserException
+        .functionError()
+        .message("Error retrieving data")
+        .addContext(e.getMessage())
+        .build(logger);
     }
-    return data;
+  }
+
+  public InputStream getInputStream(String urlStr) {
+    Request request = new Request.Builder().url(urlStr).build();
+
+    try {
+      Response response = client.newCall(request).execute();
+      if (!response.isSuccessful()) {
+        throw UserException
+          .dataReadError()
+          .message("Error retrieving data:")
+          .addContext("Response code: " + response)
+          .build(logger);
+      }
+      logger.debug("HTTP Request for {} successful.", urlStr);
+      logger.debug("Headers: {} ", response.headers().toString());
+
+      return response.body().byteStream();
+    } catch (IOException e) {
+      // TODO throw Drill user exception;
+      throw UserException
+        .functionError()
+        .message("Error retrieving data")
+        .addContext(e.getMessage())
+        .build(logger);
+    }
   }
 }

@@ -29,28 +29,19 @@ import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 @JsonTypeName("http-scan-spec")
 public class HttpScanSpec {
   private final String uri;
-  private final Map<String, Object> args = new HashMap<String, Object>();
+  private final Map<String, Object> args = new HashMap<>();
   private final String pluginName = HttpStoragePluginConfig.NAME;
   private final String tableName;
   private final String schemaName;
 
-  /*@JsonCreator
-  public HttpScanSpec(@JsonProperty("uri") String uri) {
-    this.uri = uri;
-  }*/
-
   @JsonCreator
-  public HttpScanSpec(@JsonProperty("schemaName") String schemaName, @JsonProperty("uri") String uri, @JsonProperty("tableName") String tableName) {
+  public HttpScanSpec(@JsonProperty("schemaName") String schemaName,
+                      @JsonProperty("uri") String uri,
+                      @JsonProperty("tableName") String tableName) {
     this.uri = uri;
     this.tableName = tableName;
     this.schemaName = schemaName;
   }
-
-  /*public HttpScanSpec(String uri, String key, Object val) {
-    this.uri = uri;
-    this.args.put(key, val);
-    this
-  }*/
 
   @JsonProperty("uri")
   public String uri() { return uri; }

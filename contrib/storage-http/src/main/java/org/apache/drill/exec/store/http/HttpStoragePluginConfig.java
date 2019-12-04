@@ -41,7 +41,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
                                  @JsonProperty("resultKey") String resultKey) {
-    logger.debug("initialize HttpStoragePluginConfig {}", connection);
+    logger.debug("Initialize HttpStoragePluginConfig {}", connection);
     this.connection = connection;
     this.resultKey = resultKey;
   }

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-
 import java.util.Iterator;
 import java.util.List;
 
