@@ -138,7 +138,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <p>
  * At some point, Drill serializes the scan spec to JSON, then recreates the
  * group scan via one of the
- * {@link AbstractStoragePlugin#getPhysicalScan(String userName, JSONOptions selection, SessionOptionManager sessionOptions, MetadataProviderManager metadataProviderManager)}
+ * {@link AbstractStoragePlugin#getPhysicalScan(String userName,
+ * JSONOptions selection, SessionOptionManager sessionOptions,
+ * MetadataProviderManager metadataProviderManager)}
  * methods. Each offer different levels of detail. The base scan will
  * automatically deserialize the scan spec, then call
  * {@link BaseStoragePlugin#newGroupScan(String, BaseScanSpec, SessionOptionManager, MetadataProviderManager)}
@@ -328,7 +330,8 @@ public abstract class BaseGroupScan extends AbstractGroupScan {
 
   @Override
   public boolean canPushdownProjects(List<SchemaPath> columns) {
-    return pluginOptions().supportsProjectPushDown;
+    // EVF (result set loader and so on) handles project push-down for us.
+    return true;
   }
 
   /**
@@ -353,12 +356,16 @@ public abstract class BaseGroupScan extends AbstractGroupScan {
    * single physical sub scan. That is, a sub scan operator should hold a list
    * of actual scans, and the scan operator should be ready to perform multiple
    * actual scans per sub-scan operator.
+   * <p>
+   * For convenience, returns 1 by default, which is the minimum. Derived
+   * classes should return a different number if they support filter push-down
+   * and parallelization.
    *
    * @return the number of sub-scans that this group scan will produce
    */
   @JsonIgnore
   @Override
-  public abstract int getMaxParallelizationWidth();
+  public int getMaxParallelizationWidth() { return 1; }
 
   @JsonIgnore
   @Override

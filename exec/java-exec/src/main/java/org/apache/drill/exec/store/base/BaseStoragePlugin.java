@@ -56,8 +56,6 @@ public abstract class BaseStoragePlugin<C extends StoragePluginConfig>
   public static class StoragePluginOptions {
     public boolean supportsRead;
     public boolean supportsWrite;
-    public boolean supportsProjectPushDown;
-    public MajorType nullType;
     public int readerId = CoreOperatorType.BASE_SUB_SCAN_VALUE;
     public int writerId;
     public TypeReference<?> scanSpecType;
@@ -127,9 +125,6 @@ public abstract class BaseStoragePlugin<C extends StoragePluginConfig>
   public void initFramework(ScanFrameworkBuilder builder, BaseSubScan subScan) {
     builder.setProjection(subScan.columns());
     builder.setUserName(subScan.getUserName());
-    if (options.nullType != null) {
-      builder.setNullType(options.nullType);
-    }
 
     // Provide custom error context
 

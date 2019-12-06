@@ -67,6 +67,7 @@ public class SumoStoragePlugin extends BaseStoragePlugin<SumoStoragePluginConfig
             }
           });
       builder.setReaderFactory(new SumoReaderFactory(config, subScan));
+      builder.setNullType(Types.optional(MinorType.VARCHAR));
       return builder;
     }
   }
@@ -82,9 +83,7 @@ public class SumoStoragePlugin extends BaseStoragePlugin<SumoStoragePluginConfig
   private static StoragePluginOptions buildOptions() {
     StoragePluginOptions options = new StoragePluginOptions();
     options.supportsRead = true;
-    options.supportsProjectPushDown = true;
     options.readerId = CoreOperatorType.SUMO_SUB_SCAN_VALUE;
-    options.nullType = Types.optional(MinorType.VARCHAR);
     options.scanSpecType = new TypeReference<SumoScanSpec>() { };
     options.scanFactory = new SumoScanFactory();
     return options;

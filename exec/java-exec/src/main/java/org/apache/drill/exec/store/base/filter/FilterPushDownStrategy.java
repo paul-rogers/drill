@@ -190,6 +190,11 @@ public class FilterPushDownStrategy {
     Pair<GroupScan, List<RexNode>> translated =
         listener.transform(scan.getGroupScan(), filterTerms.left, filterTerms.right);
 
+    // Listener abandoned effort. (Allows a stub early in development.)
+    if (translated == null) {
+      return;
+    }
+
     // Listener rejected the DNF terms
 
     GroupScan newGroupScan = translated.left;
