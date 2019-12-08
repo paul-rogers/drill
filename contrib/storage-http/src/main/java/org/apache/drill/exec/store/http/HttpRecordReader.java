@@ -18,150 +18,36 @@
 
 package org.apache.drill.exec.store.http;
 
-import java.util.Iterator;
-import java.util.List;
-
-import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.OutputMutator;
-import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
-import org.apache.drill.exec.ExecConstants;
-
-import org.apache.drill.exec.store.AbstractRecordReader;
-import org.apache.drill.exec.store.http.util.JsonConverter;
+import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.exec.store.http.util.SimpleHttp;
-import org.apache.drill.exec.vector.BaseValueVector;
-import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
-import org.apache.drill.exec.vector.complex.fn.JsonReader;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.InputStream;
+import java.util.List;
 
-public class HttpRecordReader extends AbstractRecordReader {
-  private static final Logger logger = LoggerFactory.getLogger(HttpRecordReader.class);
 
-  private VectorContainerWriter writer;
+public class HttpRecordReader extends JSONRecordReader {
 
-  private JsonReader jsonReader;
-
-  private FragmentContext fragmentContext;
-
-  private HttpSubScan subScan;
-
-  private Iterator<JsonNode> jsonIt;
-
-  private JsonNode root;
-
-  private ResultSetLoader loader;
-
-  private final boolean enableAllTextMode;
-
-  private final boolean enableNanInf;
-
-  private final boolean readNumbersAsDouble;
-
-  private final HttpStoragePluginConfig config;
+  private final HttpSubScan subScan;
+  private final InputStream inputStream;
 
   public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
-    this.config = config;
+    super(context, projectedColumns);
     this.subScan = subScan;
-    fragmentContext = context;
-    setColumns(projectedColumns);
+    this.inputStream = getInputStream();
 
-    enableAllTextMode = fragmentContext.getOptions().getOption(ExecConstants.JSON_ALL_TEXT_MODE).bool_val;
-    enableNanInf = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_NAN_INF_NUMBERS).bool_val;
-    readNumbersAsDouble = fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE).bool_val;
-
-    logger.debug("Creating HttpRecordReader");
+    setInputStream(inputStream);
   }
-
-  @Override
-  public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
-    writer = new VectorContainerWriter(output);
-    jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
-      .schemaPathColumns(Lists.newArrayList(getColumns()))
-      .allTextMode(enableAllTextMode)
-      .readNumbersAsDouble(readNumbersAsDouble)
-      .enableNanInf(enableNanInf)
-      .build();
-
-    String q = subScan.getURL();
-    if (q.startsWith("file://")) {
-      loadFile();
-    } else {
-      loadHttp();
-    }
-  }
-
-  private void loadHttp() {
+  /**
+   * Executes the HTTP request and returns an InputStream to the retrieved data
+   * @return InputStream the InputStream containing the data
+   */
+  private InputStream getInputStream() {
     String url = subScan.getFullURL();
     SimpleHttp http = new SimpleHttp();
-    String content = http.get(url);
-    logger.debug("http '{}' response {} bytes", url, content.length());
-    parseResult(content);
-  }
-
-  private void loadFile() {
-    logger.debug("load local file {}", subScan.getTableSpec().uri());
-    String file = subScan.getTableSpec().uri().substring("file://".length() - 1);
-    String content = JsonConverter.stringFromFile(file);
-    parseResult(content);
-  }
-
-  private void parseResult(String content) {
-    String key = subScan.getConfig().getResultKey();
-    root = key.length() == 0 ? JsonConverter.parse(content) : JsonConverter.parse(content, key);
-    if (root != null) {
-      logger.debug("response object count {}", root.size());
-      jsonIt = root.elements();
-    }
+    return http.getInputStream(url);
   }
 
 
-  @Override
-  public int next() {
-    logger.info("HttpRecordReader next");
-    if (jsonIt == null || !jsonIt.hasNext()) {
-      return 0;
-    }
-    writer.allocate();
-    writer.reset();
-    int docCount = 0;
-    try {
-      while (docCount < BaseValueVector.INITIAL_VALUE_ALLOCATION && jsonIt.hasNext()) {
-        writer.rootAsMap();
-        jsonReader.setSource(root);
-        writer.setPosition(docCount);
-        jsonReader.write(writer);
-        root = jsonIt.next();
-      docCount++;
-     }
-      jsonReader.ensureAtLeastOneField(writer);
-      writer.setValueCount(docCount);
-    } catch (Exception e) {
-      throw UserException
-        .dataReadError()
-        .message("Error reading JSON data:")
-        .addContext(e.getMessage())
-        .build(logger);
-    }
-    writer.setValueCount(docCount);
-    return docCount;
-  }
-
-  @Override
-  public void close() {
-    logger.debug("HttpRecordReader cleanup");
-    try {
-      writer.close();
-    } catch (Exception e) {
-      logger.warn("Error closing HTTP reader." + e.getMessage());
-    }
-    writer = null;
-  }
 }

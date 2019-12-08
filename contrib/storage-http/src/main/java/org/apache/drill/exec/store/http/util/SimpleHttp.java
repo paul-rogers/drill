@@ -17,9 +17,10 @@
  */
 package org.apache.drill.exec.store.http.util;
 
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.apache.drill.common.exceptions.UserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,8 @@ public class SimpleHttp {
   private final OkHttpClient client = new OkHttpClient();
 
   public String get(String urlStr) {
+
+    logger.debug("Attempting to connect to {}.", urlStr);
     Request request = new Request.Builder().url(urlStr).build();
 
     try {
@@ -42,7 +45,7 @@ public class SimpleHttp {
         throw UserException
           .dataReadError()
           .message("Error retrieving data:")
-          .addContext("Response code: " + response)
+          .message("Response code: {}", response)
           .build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
@@ -53,7 +56,7 @@ public class SimpleHttp {
       // TODO throw Drill user exception;
       throw UserException
         .functionError()
-        .message("Error retrieving data")
+        .message("Error retrieving data: {}", e.getMessage())
         .addContext(e.getMessage())
         .build(logger);
     }

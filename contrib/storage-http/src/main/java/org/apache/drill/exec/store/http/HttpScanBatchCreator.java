@@ -48,7 +48,8 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
       if ((columns = subScan.getColumns()) == null) {
         columns = GroupScan.ALL_COLUMNS;
       }
-      readers.add(new HttpRecordReader(context,columns, config, subScan));
+      logger.debug("Columns: {}", columns.toArray().toString());
+      readers.add(new HttpRecordReader(context, columns, config, subScan));
     } catch (Exception e) {
       throw UserException
         .dataReadError()

@@ -17,7 +17,11 @@
  */
 
 package org.apache.drill.exec.store.http;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.junit.Assert.assertEquals;
 
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
@@ -26,7 +30,6 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
-import org.apache.drill.test.QueryBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -34,23 +37,29 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
 
-@Ignore("requires remote http server")
 public class TestHttpPlugin extends ClusterTest {
   private static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
+
+  private final String TEST_JSON_RESPONSE = "{\"results\":{\"sunrise\":\"6:13:58 AM\",\"sunset\":\"5:59:55 PM\",\"solar_noon\":\"12:06:56 PM\",\"day_length\":\"11:45:57\"," +
+    "\"civil_twilight_begin\":\"5:48:14 AM\",\"civil_twilight_end\":\"6:25:38 PM\",\"nautical_twilight_begin\":\"5:18:16 AM\",\"nautical_twilight_end\":\"6:55:36 PM\",\"astronomical_twilight_begin\":\"4:48:07 AM\",\"astronomical_twilight_end\":\"7:25:45 PM\"},\"status\":\"OK\"}";
+
 
   @BeforeClass
   public static void setup() throws Exception {
     startCluster(ClusterFixture.builder(dirTestWatcher));
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
-    HttpStoragePluginConfig  storagePluginConfig = new HttpStoragePluginConfig("https://api.sunrise-sunset.org/", "results");
+    HttpStoragePluginConfig  storagePluginConfig = new HttpStoragePluginConfig("https://api.sunrise-sunset.org/");
     storagePluginConfig.setEnabled(true);
     pluginRegistry.createOrUpdate(HttpStoragePluginConfig.NAME, storagePluginConfig, true);
+
+    HttpStoragePluginConfig  mockStoragePluginConfig = new HttpStoragePluginConfig("http://localhost:8088/");
+    mockStoragePluginConfig.setEnabled(true);
+    pluginRegistry.createOrUpdate("mockRestServer", mockStoragePluginConfig, true);
   }
 
   @Test
-  public void verifyPluginConfig() throws Exception{
+  public void verifyPluginConfig() throws Exception {
     String sql = "SELECT SCHEMA_NAME, TYPE FROM INFORMATION_SCHEMA.`SCHEMATA` WHERE TYPE='http'";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
@@ -66,21 +75,6 @@ public class TestHttpPlugin extends ClusterTest {
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);
-  }
-
-
-  @Test
-  public void test() throws Exception {
-    String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
-    QueryBuilder x = queryBuilder().sql(sql);
-    x.run();
-  }
-
-  @Test
-  public void test2() throws Exception {
-    String sql = "SELECT sunrise, sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
-    QueryBuilder x = queryBuilder().sql(sql);
-    x.run();
   }
 
   /**
@@ -107,17 +101,18 @@ public class TestHttpPlugin extends ClusterTest {
    *       },
    *        "status":"OK"
    *     }
+   * }
    *
    * @throws Exception Throws exception if something goes awry
    */
   @Test
-  public void simpleStarQuery() throws Exception{
+  public void simpleStarQuery() throws Exception {
     String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
-    logger.debug("Query Results: {}", results.toString());
 
     TupleMetadata expectedSchema = new SchemaBuilder()
+      .addMap("results")
       .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("solar_noon", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -128,9 +123,12 @@ public class TestHttpPlugin extends ClusterTest {
       .add("nautical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("astronomical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("astronomical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
-      .buildSchema();
+      .resumeSchema()
+      .add("status", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .build();
+
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-      .addRow("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM")
+      .addRow( mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
       .build();
 
     int resultCount =  results.rowCount();
@@ -140,11 +138,13 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
-  public void simpleSpecificQuery() throws Exception{
-    String sql = "SELECT sunrise, sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+  @Ignore("requires remote http server")
+  public void simpleSpecificQuery() throws Exception {
+    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
+
     TupleMetadata expectedSchema = new SchemaBuilder()
       .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
       .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
@@ -159,9 +159,37 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
    public void testSerDe() throws Exception {
-    String sql = "SELECT COUNT(*) FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    MockWebServer server = new MockWebServer();
+    server.start(8088);
+    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+
+    server.enqueue(
+      new MockResponse().setResponseCode(200)
+        .setBody(TEST_JSON_RESPONSE)
+    );
+
+    String sql = "SELECT COUNT(*) FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
     String plan = queryBuilder().sql(sql).explainJson();
     long cnt = queryBuilder().physical(plan).singletonLong();
     assertEquals("Counts should match",1L, cnt);
+  }
+
+  @Test
+  public void simpleTestWithMockServer() throws Exception {
+    MockWebServer server = new MockWebServer();
+    server.start(8088);
+    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+
+    server.enqueue(
+      new MockResponse().setResponseCode(200)
+        .setBody(TEST_JSON_RESPONSE)
+    );
+
+    String sql = "SELECT * FROM mockRestServer.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+
+    RowSet results = client.queryBuilder().sql(sql).rowSet();
+    results.print();
+
+    server.shutdown();
   }
 }

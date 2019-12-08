@@ -2,8 +2,7 @@
   "storage":{
     "http" : {
       "type":"http",
-      "connection": "https://api.sunrise-sunset.org/",
-      "resultKey": "results",
+      "connection": "https://your-api-here/",
       "enabled": false
     }
   }

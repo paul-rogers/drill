@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.http.util;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,9 +51,47 @@ public class JsonConverter {
     }
   }
 
+  public static JsonNode parse(InputStream input, String key) {
+    String[] path = key.split("/");
+    ObjectMapper mapper = new ObjectMapper();
+    try {
+      JsonNode node = mapper.readTree(input);
+      for (String p : path) {
+        if (node == null) {
+          return null;
+        }
+        node = node.get(p);
+      }
+      return node;
+    } catch (IOException e) {
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
+    }
+  }
+
   public static JsonNode parse(String content) {
     try {
       JsonNode root = from(content);
+      if (root.isArray()) {
+        return root;
+      }
+      return null;
+    } catch (IOException e) {
+      throw UserException
+        .dataReadError()
+        .message("Error reading JSON data:")
+        .addContext(e.getMessage())
+        .build(logger);
+    }
+  }
+
+  public static JsonNode parse(InputStream in) {
+    ObjectMapper mapper = new ObjectMapper();
+    try {
+      JsonNode root = mapper.readTree(in);
       if (root.isArray()) {
         return root;
       }
