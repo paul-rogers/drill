@@ -216,4 +216,33 @@ public class TestHttpPlugin extends ClusterTest {
     assertEquals(1,  resultCount);
     server.shutdown();
   }
+
+  @Test
+  public void specificTestWithMockServer() throws Exception {
+    MockWebServer server = new MockWebServer();
+    server.start(8088);
+    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+
+    server.enqueue(
+      new MockResponse().setResponseCode(200)
+        .setBody(TEST_JSON_RESPONSE)
+    );
+
+    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
+
+    RowSet results = client.queryBuilder().sql(sql).rowSet();
+    logger.debug("Query Results: {}", results.toString());
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+      .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .buildSchema();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow("6:13:58 AM", "5:59:55 PM")
+      .build();
+
+    new RowSetComparison(expected).verifyAndClearAll(results);
+    server.shutdown();
+  }
 }
