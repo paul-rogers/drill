@@ -106,6 +106,7 @@ public class TestHttpPlugin extends ClusterTest {
    * @throws Exception Throws exception if something goes awry
    */
   @Test
+  @Ignore("Requires Remote Server")
   public void simpleStarQuery() throws Exception {
     String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
@@ -138,7 +139,7 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
-  @Ignore("requires remote http server")
+  @Ignore("Requires Remote Server")
   public void simpleSpecificQuery() throws Exception {
     String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
@@ -172,6 +173,7 @@ public class TestHttpPlugin extends ClusterTest {
     String plan = queryBuilder().sql(sql).explainJson();
     long cnt = queryBuilder().physical(plan).singletonLong();
     assertEquals("Counts should match",1L, cnt);
+    server.shutdown();
   }
 
   @Test
@@ -186,10 +188,32 @@ public class TestHttpPlugin extends ClusterTest {
     );
 
     String sql = "SELECT * FROM mockRestServer.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
-
     RowSet results = client.queryBuilder().sql(sql).rowSet();
-    results.print();
 
+    TupleMetadata expectedSchema = new SchemaBuilder()
+      .addMap("results")
+      .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("solar_noon", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("day_length", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .resumeSchema()
+      .add("status", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .build();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow( mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
+      .build();
+
+    int resultCount =  results.rowCount();
+    new RowSetComparison(expected).verifyAndClearAll(results);
+
+    assertEquals(1,  resultCount);
     server.shutdown();
   }
 }
