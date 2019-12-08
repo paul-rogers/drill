@@ -48,6 +48,4 @@ public class HttpRecordReader extends JSONRecordReader {
     SimpleHttp http = new SimpleHttp();
     return http.getInputStream(url);
   }
-
-
 }

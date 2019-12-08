@@ -11,21 +11,60 @@ To configure the plugin, create a new storage plugin, and add the following conf
 ```
 {
   "type": "http",
-  "connection": "https://api.sunrise-sunset.org/",
-  "resultKey": "results",
+  "connection": "https://<your url here>/",
   "enabled": true
 }
 ```
 The options are:
 * `type`:  This should be `http`
 * `connection`:  This should be the root level URL for your API. The trailing slash should be included here.
-* `resultKey`:  The result key is the key in the results which contains a table-like structure of the data you want to retrieve.  Using this will help you eliminate other data
- that often is transmitted in API calls. This parameter is optional. 
- 
+
+### Examples:
+The API sunrise-sunset.org returns data in the following format:
+
+ ```
+   {
+         "results":
+         {
+           "sunrise":"7:27:02 AM",
+           "sunset":"5:05:55 PM",
+           "solar_noon":"12:16:28 PM",
+           "day_length":"9:38:53",
+           "civil_twilight_begin":"6:58:14 AM",
+           "civil_twilight_end":"5:34:43 PM",
+           "nautical_twilight_begin":"6:25:47 AM",
+           "nautical_twilight_end":"6:07:10 PM",
+           "astronomical_twilight_begin":"5:54:14 AM",
+           "astronomical_twilight_end":"6:38:43 PM"
+         },
+          "status":"OK"
+       }
+   }
+```
+To query this API, set the configuration as follows:
+
+```
+{
+  "type": "http",
+  "connection": "https://api.sunrise-sunset.org/",
+  "enabled": true
+}
+```
+Then, to execute a query:
+
+    SELECT api_results.results.sunrise AS sunrise, 
+    api_results.results.sunset AS sunset
+    FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=today` AS api_results;
+
+Which yields the following results:
+```
++------------+------------+
+|  sunrise   |   sunset   |
++------------+------------+
+| 7:17:46 AM | 5:01:33 PM |
++------------+------------+
+1 row selected (0.632 seconds)
+```
 
 
-
-Samples:
-
-    SELECT sunrise, sunset from api.`/json?lat=36.7201600&lng=-4.4203400&date=today`;
 
