@@ -18,6 +18,7 @@ To configure the plugin, create a new storage plugin, and add the following conf
 The options are:
 * `type`:  This should be `http`
 * `connection`:  This should be the root level URL for your API. The trailing slash should be included here.
+* `cacheResults`:  Enable caching of the HTTP responses
 
 ### Examples:
 The API sunrise-sunset.org returns data in the following format:

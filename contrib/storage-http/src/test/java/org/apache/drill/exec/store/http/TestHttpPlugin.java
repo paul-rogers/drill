@@ -45,6 +45,8 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 
@@ -62,13 +64,23 @@ public class TestHttpPlugin extends ClusterTest {
 
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
-    HttpStoragePluginConfig  storagePluginConfig = new HttpStoragePluginConfig("https://api.sunrise-sunset.org/", true);
+    HttpStoragePluginConfig  storagePluginConfig = new HttpStoragePluginConfig("https://api.sunrise-sunset.org/", true, null);
     storagePluginConfig.setEnabled(true);
     pluginRegistry.createOrUpdate(HttpStoragePluginConfig.NAME, storagePluginConfig, true);
 
-    HttpStoragePluginConfig  mockStoragePluginConfig = new HttpStoragePluginConfig("http://localhost:8088/", false);
+    HttpStoragePluginConfig  mockStoragePluginConfig = new HttpStoragePluginConfig("http://localhost:8088/", false, null);
     mockStoragePluginConfig.setEnabled(true);
     pluginRegistry.createOrUpdate("mockRestServer", mockStoragePluginConfig, true);
+
+    HttpAPIConfig apiConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
+      ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null);
+
+    Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
+    configs.put("stock", apiConfig);
+
+    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig("none", true, configs);
+    mockStorageConfigWithWorkspace.setEnabled(true);
+
   }
 
   @Test
