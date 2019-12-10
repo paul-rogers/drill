@@ -36,10 +36,14 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public final String connection;
 
+  public final boolean cacheResults;
+
   @JsonCreator
-  public HttpStoragePluginConfig(@JsonProperty("connection") String connection) {
+  public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
+                                 @JsonProperty("cacheResults") boolean cacheResults) {
     logger.debug("Initialize HttpStoragePluginConfig {}", connection);
     this.connection = connection;
+    this.cacheResults = cacheResults;
   }
 
   @Override
@@ -50,7 +54,8 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       return false;
     }
     HttpStoragePluginConfig thatConfig = (HttpStoragePluginConfig) that;
-    return this.connection.equals(thatConfig.connection);
+    return this.connection.equals(thatConfig.connection) &&
+      this.cacheResults == thatConfig.cacheResults;
   }
 
   @Override
@@ -62,6 +67,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public String toString() {
     return MoreObjects.toStringHelper(this)
       .add("connection", connection)
+      .add("cacheResults", cacheResults)
       .toString();
   }
 
@@ -69,4 +75,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public String getConnection() {
     return connection;
   }
+
+  @JsonProperty("cacheResults")
+  public boolean getCacheResults() { return cacheResults; }
 }

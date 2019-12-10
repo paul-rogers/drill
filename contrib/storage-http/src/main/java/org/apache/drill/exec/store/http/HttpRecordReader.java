@@ -30,12 +30,15 @@ import java.util.List;
 public class HttpRecordReader extends JSONRecordReader {
 
   private final HttpSubScan subScan;
-  private final InputStream inputStream;
+
+  private final SimpleHttp http;
 
   public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
     super(context, projectedColumns);
     this.subScan = subScan;
-    this.inputStream = getInputStream();
+    this.http = new SimpleHttp(config, context);
+    InputStream inputStream = getInputStream();
+
 
     setInputStream(inputStream);
   }
@@ -45,7 +48,6 @@ public class HttpRecordReader extends JSONRecordReader {
    */
   private InputStream getInputStream() {
     String url = subScan.getFullURL();
-    SimpleHttp http = new SimpleHttp();
     return http.getInputStream(url);
   }
 }
