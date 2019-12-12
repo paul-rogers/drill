@@ -20,6 +20,8 @@ package org.apache.drill.exec.store.http;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,7 +41,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   public static final String MY_TABLE = "result_table";
 
   private final HttpStoragePlugin plugin;
-
 
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
     super(schemaName);
@@ -78,6 +79,25 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
       activeTables.put(name, table);
       return table;
     }
+
+    @Override
+    public Set<String> getSubSchemaNames() {
+      HttpStoragePluginConfig config = plugin.getConfig();
+      Map<String, HttpAPIConfig> connections = (Map<String, HttpAPIConfig>) config.getConnections();
+      Set<String> subSchemaNames = new HashSet<String>();
+
+      // Get the possible subschemas.
+      for (Map.Entry<String, HttpAPIConfig> entry : connections.entrySet()) {
+        subSchemaNames.add(entry.getKey());
+      }
+      return subSchemaNames;
+    }
+
+    /*@Override
+    public AbstractSchema getSubSchema(String name) {
+      return new HttpSchema(name);
+    }*/
+
 
     @Override
     public String getTypeName() {

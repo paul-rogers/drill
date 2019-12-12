@@ -72,6 +72,8 @@ public class TestHttpPlugin extends ClusterTest {
     mockStoragePluginConfig.setEnabled(true);
     pluginRegistry.createOrUpdate("mockRestServer", mockStoragePluginConfig, true);
 
+
+
     HttpAPIConfig apiConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
       ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null);
 
@@ -80,8 +82,16 @@ public class TestHttpPlugin extends ClusterTest {
 
     HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig("none", true, configs);
     mockStorageConfigWithWorkspace.setEnabled(true);
+    pluginRegistry.createOrUpdate("api", mockStorageConfigWithWorkspace, true);
 
   }
+
+  @Test
+  public void test() throws Exception {
+    String sql = "SELECT * FROM api.jira.`arg1=true`";
+    queryBuilder().sql(sql).run();
+  }
+
 
   @Test
   public void verifyPluginConfig() throws Exception {
@@ -96,7 +106,9 @@ public class TestHttpPlugin extends ClusterTest {
       .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow("api", "http")
       .addRow("http", "http")
+      .addRow("mockrestserver", "http")
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);

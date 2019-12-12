@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
@@ -101,4 +102,9 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   @JsonProperty("connections")
   public Map<String, HttpAPIConfig> getConnections() { return connections; }
+
+  @JsonIgnore
+  public HttpAPIConfig getConnnectionConfig(String name) {
+    return connections.get(name);
+  }
 }

@@ -39,7 +39,6 @@ public class HttpRecordReader extends JSONRecordReader {
     this.http = new SimpleHttp(config, context);
     InputStream inputStream = getInputStream();
 
-
     setInputStream(inputStream);
   }
   /**
