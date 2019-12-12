@@ -2,7 +2,7 @@
   "storage":{
     "http" : {
       "type":"http",
-      "connection": "https://your-api-here/",
+      "connections": {},
       "enabled": false
     }
   }

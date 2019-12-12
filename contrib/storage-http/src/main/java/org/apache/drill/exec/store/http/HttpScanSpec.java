@@ -25,40 +25,61 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 
 @JsonTypeName("http-scan-spec")
 public class HttpScanSpec {
-  private final String uri;
+  private final String database;
+
   private final Map<String, Object> args = new HashMap<>();
-  private final String pluginName = HttpStoragePluginConfig.NAME;
+
   private final String tableName;
+
   private final String schemaName;
+
+  private final HttpStoragePluginConfig config;
 
   @JsonCreator
   public HttpScanSpec(@JsonProperty("schemaName") String schemaName,
-                      @JsonProperty("uri") String uri,
-                      @JsonProperty("tableName") String tableName) {
-    this.uri = uri;
+                      @JsonProperty("database") String database,
+                      @JsonProperty("tableName") String tableName,
+                      @JsonProperty("plugin") HttpStoragePlugin plugin) {
+    this.database = database;
     this.tableName = tableName;
     this.schemaName = schemaName;
+    this.config = plugin.getConfig();
   }
 
-  @JsonProperty("uri")
-  public String uri() { return uri; }
+  @JsonProperty("database")
+  public String database() {
+    return database;
+  }
 
   @JsonProperty("args")
-  public Map<String, Object> args() { return args; }
+  public Map<String, Object> args() {
+    return args;
+  }
 
   @JsonProperty("tableName")
-  public String tableName() { return tableName; }
+  public String tableName() {
+    return tableName;
+  }
+
+  /*
+  @JsonProperty("config")
+  public HttpStoragePluginConfig config() {
+    return config;
+  }*/
+
 
   @JsonIgnore
   public String getURL() {
     if (args.size() == 0) {
-      return uri;
+      return database();
     }
     Joiner j = Joiner.on('&');
-    String url = uri;
+
+    String url = config.getConnections().get(database).url();
     String argStr = j.withKeyValueSeparator("=").join(args);
     if (url.endsWith("?")) {
       url += argStr;
@@ -79,6 +100,11 @@ public class HttpScanSpec {
 
   @Override
   public String toString() {
-    return "HttpScanSpec [uri='" + uri + "', args=" + args + "]";
+    return MoreObjects.toStringHelper(this)
+      .add("database", database)
+      .add("tableName", tableName)
+      .add("schemaName", schemaName)
+      .add("config", config)
+      .toString();
   }
 }

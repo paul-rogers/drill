@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.store.http;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -33,6 +35,7 @@ import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,10 +44,9 @@ import org.slf4j.LoggerFactory;
 public class HttpGroupScan extends AbstractGroupScan {
   private static final Logger logger = LoggerFactory.getLogger(HttpGroupScan.class);
 
-  private final List<SchemaPath> columns;
-  private final HttpScanSpec httpScanSpec;
-  private final HttpStoragePluginConfig config;
-  private boolean filterPushedDown = false;
+  private List<SchemaPath> columns;
+  private HttpScanSpec httpScanSpec;
+  private HttpStoragePluginConfig config;
 
   public HttpGroupScan (
     HttpStoragePluginConfig config,
@@ -77,13 +79,13 @@ public class HttpGroupScan extends AbstractGroupScan {
     this.httpScanSpec = httpScanSpec;
   }
 
-  @JsonProperty
+  @JsonProperty("config")
   public HttpStoragePluginConfig config() { return config; }
 
-  @JsonProperty
+  @JsonProperty("columns")
   public List<SchemaPath> columns() { return columns; }
 
-  @JsonProperty
+  @JsonProperty("httpScanSpec")
   public HttpScanSpec httpScanSpec() { return httpScanSpec; }
 
   @Override
@@ -110,7 +112,10 @@ public class HttpGroupScan extends AbstractGroupScan {
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
     logger.debug("HttpGroupScan clone {}", columns);
-    return new HttpGroupScan(this);
+    //return new HttpGroupScan(this);
+    HttpGroupScan newScan = new HttpGroupScan(this);
+    newScan.columns = columns;
+    return newScan;
   }
 
   @Override
@@ -133,16 +138,32 @@ public class HttpGroupScan extends AbstractGroupScan {
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,estRowCount, estCpuCost, estDataSize);
   }
 
-  public void setFilterPushedDown(boolean filterPushedDown) {
-    this.filterPushedDown = filterPushedDown;
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+      .add("httpScanSpec", httpScanSpec)
+      .add("columns", columns)
+      .add("httpStoragePluginConfig", config)
+      .toString();
   }
 
   @Override
-  public String toString() {
-    return this.getClass().getSimpleName() + " [" +
-      "httpScanSpec=" + httpScanSpec.toString() +
-      "columns=" + columns.toString() +
-      "httpStoragePluginConfig=" + config.toString() +
-      "]";
+  public int hashCode() {
+    return Arrays.hashCode(
+      new Object[]{httpScanSpec, columns, config});
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    HttpGroupScan other = (HttpGroupScan) obj;
+    return Objects.equals(httpScanSpec, other.httpScanSpec())
+      && Objects.equals(columns, other.columns())
+      && Objects.equals(config, other.config());
   }
 }

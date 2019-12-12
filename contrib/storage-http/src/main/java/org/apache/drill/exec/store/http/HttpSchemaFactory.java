@@ -21,24 +21,23 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class HttpSchemaFactory extends AbstractSchemaFactory {
   private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
-  public static final String MY_TABLE = "result_table";
+  private static final String DEFAULT_TABLE = "defaultConnection";
 
   private final HttpStoragePlugin plugin;
 
@@ -51,7 +50,12 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
     logger.debug("registerSchema {}", getName());
     HttpSchema schema = new HttpSchema(getName());
-    parent.add(schema.getName(), schema);
+    logger.debug("Registering {} {}", schema.getName(), schema.toString());
+
+    SchemaPlus schemaPlus = parent.add(getName(), schema);
+    schema.setHolder(schemaPlus);
+
+    //parent.add(schema.getName(), schema);
   }
 
   class HttpSchema extends AbstractSchema {
@@ -62,22 +66,10 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
       super(Collections.emptyList(), name);
     }
 
-    @Override
-    public Table getTable(String tableName) {
-      DynamicDrillTable table = activeTables.get(name);
-      if (table != null) {
-        return table;
+    void setHolder(SchemaPlus plusOfThis) {
+      for (String s : getSubSchemaNames()) {
+        plusOfThis.add(s, getSubSchemaKnownExists(s));
       }
-
-      if (!activeTables.containsKey(name)) {
-        return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(plugin.getName(), name, tableName)));
-      }
-      return null;
-    }
-
-    private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {
-      activeTables.put(name, table);
-      return table;
     }
 
     @Override
@@ -93,20 +85,34 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
       return subSchemaNames;
     }
 
-    /*@Override
+    @Override
     public AbstractSchema getSubSchema(String name) {
-      return new HttpSchema(name);
-    }*/
+      try {
+        if (!plugin.getConfig().getConnections().containsKey(name)) {
+          throw UserException
+            .connectionError()
+            .message("API '{}' does not exist in HTTP Storage plugin '{}'", name, getName())
+            .build(logger);
+        }
+        /*if (DEFAULT_WS_NAME.equals(name)) {
+          this.defaultSchema = schema;
+        }*/
+        return getSubSchemaKnownExists(name);
+      } catch (Exception e) {
+        throw new DrillRuntimeException(e);
+      }
+    }
 
+    /**
+     * Helper method to get subschema when we know it exists (already checked the existence)
+     */
+    private HttpAPIConnectionSchema getSubSchemaKnownExists(String name) {
+      return new HttpAPIConnectionSchema(this, name, plugin);
+    }
 
     @Override
     public String getTypeName() {
       return HttpStoragePluginConfig.NAME;
-    }
-
-    @Override
-    public Set<String> getTableNames() {
-      return Sets.newHashSet(MY_TABLE);
     }
   }
 }

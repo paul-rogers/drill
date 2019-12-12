@@ -54,6 +54,8 @@ public class HttpAPIConfig {
                        @JsonProperty("username") String username,
                        @JsonProperty("password") String password) {
     this.url = url;
+
+    // Get the method.  Only accept GET and POST requests.  Anything else will default to GET.
     if (method.toLowerCase().equals("get") || method.toLowerCase().equals("post")) {
       this.method = method.toLowerCase();
     } else {

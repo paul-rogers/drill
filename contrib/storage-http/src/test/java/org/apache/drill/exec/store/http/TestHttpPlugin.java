@@ -62,36 +62,24 @@ public class TestHttpPlugin extends ClusterTest {
 
     dirTestWatcher.copyResourceToRoot(Paths.get("data/"));
 
-
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
-    HttpStoragePluginConfig  storagePluginConfig = new HttpStoragePluginConfig("https://api.sunrise-sunset.org/", true, null);
-    storagePluginConfig.setEnabled(true);
-    pluginRegistry.createOrUpdate(HttpStoragePluginConfig.NAME, storagePluginConfig, true);
 
-    HttpStoragePluginConfig  mockStoragePluginConfig = new HttpStoragePluginConfig("http://localhost:8088/", false, null);
-    mockStoragePluginConfig.setEnabled(true);
-    pluginRegistry.createOrUpdate("mockRestServer", mockStoragePluginConfig, true);
+    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", null, null, null, null);
 
+    HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null);
 
-
-    HttpAPIConfig apiConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
+    HttpAPIConfig stockConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
       ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null);
 
     Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
-    configs.put("stock", apiConfig);
+    configs.put("stock", stockConfig);
+    configs.put("sunrise", sunriseConfig);
+    configs.put("mock", mockConfig);
 
-    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig("none", true, configs);
+    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs);
     mockStorageConfigWithWorkspace.setEnabled(true);
     pluginRegistry.createOrUpdate("api", mockStorageConfigWithWorkspace, true);
-
   }
-
-  @Test
-  public void test() throws Exception {
-    String sql = "SELECT * FROM api.jira.`arg1=true`";
-    queryBuilder().sql(sql).run();
-  }
-
 
   @Test
   public void verifyPluginConfig() throws Exception {
@@ -106,9 +94,10 @@ public class TestHttpPlugin extends ClusterTest {
       .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow("api.mock", "http")
+      .addRow("api.stock", "http")
+      .addRow("api.sunrise", "http")
       .addRow("api", "http")
-      .addRow("http", "http")
-      .addRow("mockrestserver", "http")
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);
@@ -117,8 +106,6 @@ public class TestHttpPlugin extends ClusterTest {
   /**
    * This test evaluates the HTTP plugin with the results from an API that returns the sunrise/sunset times for a given lat/long and date.
    * API documentation is available here: https://sunrise-sunset.org/api
-   *
-   * This evaluates a `SELECT *` query.
    *
    * The API returns results in the following format:
    *
@@ -145,7 +132,7 @@ public class TestHttpPlugin extends ClusterTest {
   @Test
   @Ignore("Requires Remote Server")
   public void simpleStarQuery() throws Exception {
-    String sql = "SELECT * FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT * FROM api.sunrise.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
 
@@ -178,7 +165,7 @@ public class TestHttpPlugin extends ClusterTest {
   @Test
   @Ignore("Requires Remote Server")
   public void simpleSpecificQuery() throws Exception {
-    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
+    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM api.sunrise.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
@@ -206,7 +193,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody(TEST_JSON_RESPONSE)
     );
 
-    String sql = "SELECT COUNT(*) FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT COUNT(*) FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
     String plan = queryBuilder().sql(sql).explainJson();
     long cnt = queryBuilder().physical(plan).singletonLong();
     assertEquals("Counts should match",1L, cnt);
@@ -224,7 +211,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody(TEST_JSON_RESPONSE)
     );
 
-    String sql = "SELECT * FROM mockRestServer.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT * FROM api.mock.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
     RowSet results = client.queryBuilder().sql(sql).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
@@ -265,7 +252,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody(TEST_JSON_RESPONSE)
     );
 
-    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
+    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
@@ -295,7 +282,7 @@ public class TestHttpPlugin extends ClusterTest {
         .throttleBody(64, 4, TimeUnit.SECONDS)
     );
 
-    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
+    String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
@@ -324,7 +311,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody("")
     );
 
-    String sql = "SELECT * FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT * FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     assertNull(results);
@@ -342,7 +329,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody("{}")
     );
 
-    String sql = "SELECT * FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT * FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
@@ -370,7 +357,7 @@ public class TestHttpPlugin extends ClusterTest {
         .setBody("{}")
     );
 
-    String sql = "SELECT * FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    String sql = "SELECT * FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     try {
       RowSet results = client.queryBuilder().sql(sql).rowSet();
@@ -395,7 +382,7 @@ public class TestHttpPlugin extends ClusterTest {
     );
 
     String sql = "SELECT * " +
-      "FROM mockRestServer.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` " +
+      "FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` " +
       "LIMIT 1";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();

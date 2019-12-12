@@ -117,25 +117,42 @@ public class SimpleHttp {
     // right now it is on or off.  The writer will write to the Drill temp directory if it is accessible and
     // output a warning if not.
     if (config.cacheResults) {
-      int cacheSize = 10 * 1024 * 1024;   // TODO Add cache size in MB to config
-      String drillTempDir;
-
-      try {
-        if (context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR) != null) {
-          drillTempDir = context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR).string_val;
-        } else {
-          drillTempDir = System.getenv("DRILL_TMP_DIR");
-        }
-        File cacheDirectory = new File(drillTempDir);
-        Cache cache = new Cache(cacheDirectory, cacheSize);
-        logger.info("Caching HTTP Query Results at: {}", drillTempDir);
-
-        builder.cache(cache);
-      } catch (Exception e) {
-        logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
-      }
+      setupCache(builder);
     }
 
     return builder.build();
   }
+
+  /**
+   * This function accepts a Builder object as input and configures response caching. In order for
+   * caching to work, the DRILL_TMP_DIR variable must be set either as a system environment variable or in the
+   * Drill configurations.
+   *
+   * The function will attempt to get the DRILL_TMP_DIR from these places, and if it cannot, it will issue a warning in the logger.
+   * @param builder Builder the Builder object to which the cacheing is to be configured
+   */
+  private void setupCache(Builder builder) {
+    int cacheSize = 10 * 1024 * 1024;   // TODO Add cache size in MB to config
+    String drillTempDir;
+
+    try {
+      if (context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR) != null) {
+        drillTempDir = context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR).string_val;
+      } else {
+        drillTempDir = System.getenv("DRILL_TMP_DIR");
+      }
+      File cacheDirectory = new File(drillTempDir);
+      if (cacheDirectory == null) {
+        logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
+      } else {
+        Cache cache = new Cache(cacheDirectory, cacheSize);
+        logger.info("Caching HTTP Query Results at: {}", drillTempDir);
+
+        builder.cache(cache);
+      }
+    } catch (Exception e) {
+      logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
+    }
+  }
+
 }

@@ -26,10 +26,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * In the HTTP storage plugin, users can define specific connections or APIs.  This class represents the
- * database component of other storage plugins and 
+ * database component of other storage plugins.
  */
 public class HttpAPIConnectionSchema extends AbstractSchema {
 
@@ -39,18 +40,26 @@ public class HttpAPIConnectionSchema extends AbstractSchema {
 
   private final HttpStoragePlugin plugin;
 
+  private final String pluginName;
 
   public HttpAPIConnectionSchema(HttpSchemaFactory.HttpSchema httpSchema,
                                  String name,
                                  HttpStoragePlugin plugin) {
     super(httpSchema.getSchemaPath(), name);
     this.plugin = plugin;
+    pluginName = plugin.getName();
   }
 
   @Override
   public String getTypeName() {
     return HttpStoragePluginConfig.NAME;
   }
+
+  /**
+   * This function get the table that is received from the query.
+   * @param tableName The "tableName" actually will contain the URL arguments passed to the record reader
+   * @return Table Returns the selected table
+   */
 
   @Override
   public Table getTable(String tableName) {
@@ -60,9 +69,14 @@ public class HttpAPIConnectionSchema extends AbstractSchema {
     }
 
     if (!activeTables.containsKey(name)) {
-      return registerTable(name, new DynamicDrillTable(plugin, plugin.getName(), new HttpScanSpec(plugin.getName(), name, tableName)));
+      return registerTable(name, new DynamicDrillTable(plugin, pluginName, new HttpScanSpec(pluginName, name, tableName, plugin)));
     }
     return null;
+  }
+
+  @Override
+  public Set<String> getTableNames() {
+    return activeTables.keySet();
   }
 
   private DynamicDrillTable registerTable(String name, DynamicDrillTable table) {

@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.http;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
@@ -41,19 +40,14 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "http";
 
-  public final String connection;
-
   public final Map<String, HttpAPIConfig> connections;
 
-  @JsonInclude(JsonInclude.Include.NON_DEFAULT)
   public final boolean cacheResults;
 
   @JsonCreator
-  public HttpStoragePluginConfig(@JsonProperty("connection") String connection,
-                                 @JsonProperty("cacheResults") boolean cacheResults,
+  public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
                                  @JsonProperty("connections") Map<String, HttpAPIConfig> connections) {
-    logger.debug("Initialize HttpStoragePluginConfig {}", connection);
-    this.connection = connection;
+    logger.debug("Initialize HttpStoragePluginConfig {}", connections);
     this.cacheResults = cacheResults;
 
     if (connections != null) {
@@ -73,28 +67,21 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       return false;
     }
     HttpStoragePluginConfig thatConfig = (HttpStoragePluginConfig) that;
-    return (this.connection.equals(thatConfig.connection) &&
-      this.cacheResults == thatConfig.cacheResults) &&
+    return (this.cacheResults == thatConfig.cacheResults) &&
       this.connections.equals(thatConfig.connections);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(connection, cacheResults, connections);
+    return Objects.hashCode(cacheResults, connections);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-      .add("connection", connection)
       .add("cacheResults", cacheResults)
       .add("connections", connections)
       .toString();
-  }
-
-  @JsonProperty("connection")
-  public String getConnection() {
-    return connection;
   }
 
   @JsonProperty("cacheResults")

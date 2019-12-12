@@ -17,8 +17,10 @@
  */
 package org.apache.drill.exec.store.http;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -31,6 +33,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +56,19 @@ public class HttpSubScan extends AbstractBase implements SubScan {
     this.tableSpec = tableSpec;
     this.columns = columns;
   }
-
-  public HttpScanSpec getTableSpec() {
+  @JsonProperty("tableSpec")
+  public HttpScanSpec tableSpec() {
     return tableSpec;
+  }
+
+  @JsonProperty("columns")
+  public List<SchemaPath> columns() {
+    return columns;
+  }
+
+  @JsonProperty("config")
+  public HttpStoragePluginConfig config() {
+    return config;
   }
 
   public String getURL() {
@@ -64,15 +77,9 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @JsonIgnore
   public String getFullURL() {
-    return config.getConnection() + tableSpec.tableName();
-  }
-
-  public List<SchemaPath> getColumns() {
-    return columns;
-  }
-
-  public HttpStoragePluginConfig getConfig() {
-    return config;
+    String selectedConnection = tableSpec.database();
+    String url = config.getConnections().get(selectedConnection).url();
+    return url + tableSpec.tableName();
   }
 
  @Override
@@ -82,8 +89,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
   }
 
   @Override
-  public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
-    throws ExecutionSetupException {
+  public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) throws ExecutionSetupException {
     return new HttpSubScan(config, tableSpec, columns);
   }
 
@@ -100,8 +106,30 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @Override
   public String toString() {
-    return this.getClass().getSimpleName() + "[" +
-      "httpScanSpec=" + tableSpec.toString() +
-      "columns=" + columns.toString() + "]";
+    return MoreObjects.toStringHelper(this)
+      .add("tableSpec", tableSpec)
+      .add("columns", columns)
+      .add("config", config)
+      .toString();
+  }
+
+  @Override
+  public int hashCode() {
+    return Arrays.hashCode(
+      new Object[]{tableSpec, columns, config});
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    HttpSubScan other = (HttpSubScan) obj;
+    return Objects.equals(tableSpec, other.tableSpec)
+      && Objects.equals(columns, other.columns)
+      && Objects.equals(config, other.config);
   }
 }
