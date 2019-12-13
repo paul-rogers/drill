@@ -17,8 +17,17 @@ To configure the plugin, create a new storage plugin, and add the following conf
 ```
 The options are:
 * `type`:  This should be `http`
-* `connection`:  This should be the root level URL for your API. The trailing slash should be included here.
 * `cacheResults`:  Enable caching of the HTTP responses
+
+### Configuring the API Connections
+The HTTP Storage plugin allows you to configure multiple APIS which you can query directly from this plugin. To do so, first add a `connections` parameter to the configuration
+. Next give the connection a name, which will be used in queries.  For instance `stockAPI` or `jira`.
+
+The `connection` can accept the following options:
+* `url`: The base URL which Drill will query. You should include the ending slash if there are additional arguments which you are passing.
+* `method`: The request method. Must be `get` or `post`. Other methods are not allowed.
+* `headers`: Often APIs will require
+
 
 ### Examples:
 The API sunrise-sunset.org returns data in the following format:

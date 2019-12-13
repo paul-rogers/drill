@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -58,10 +57,5 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
         .build(logger);
     }
     return new ScanBatch(subScan, context, readers);
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this).toString();
   }
 }

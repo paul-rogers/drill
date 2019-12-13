@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
@@ -40,9 +39,9 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "http";
 
-  public final Map<String, HttpAPIConfig> connections;
+  private final Map<String, HttpAPIConfig> connections;
 
-  public final boolean cacheResults;
+  private final boolean cacheResults;
 
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
@@ -85,13 +84,8 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   }
 
   @JsonProperty("cacheResults")
-  public boolean getCacheResults() { return cacheResults; }
+  public boolean cacheResults() { return cacheResults; }
 
   @JsonProperty("connections")
-  public Map<String, HttpAPIConfig> getConnections() { return connections; }
-
-  @JsonIgnore
-  public HttpAPIConfig getConnnectionConfig(String name) {
-    return connections.get(name);
-  }
+  public Map<String, HttpAPIConfig> connections() { return connections; }
 }

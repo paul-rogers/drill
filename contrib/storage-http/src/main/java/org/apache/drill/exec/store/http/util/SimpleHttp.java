@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.http.util;
 
 
+import jdk.internal.org.objectweb.asm.util.CheckAnnotationAdapter;
 import okhttp3.Cache;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -26,6 +27,7 @@ import okhttp3.Response;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.store.http.HttpAPIConfig;
 import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
 
 public class SimpleHttp {
@@ -44,44 +47,31 @@ public class SimpleHttp {
 
   private final FragmentContext context;
 
-  public SimpleHttp(HttpStoragePluginConfig config, FragmentContext context) {
+  private final HttpAPIConfig apiConfig;
+
+  public SimpleHttp(HttpStoragePluginConfig config, FragmentContext context, String connectionName) {
     this.config = config;
     this.context = context;
+    this.apiConfig = config.connections().get(connectionName);
     client = setupServer();
   }
 
-  public String get(String urlStr) {
-
-    logger.debug("Attempting to connect to {}.", urlStr);
-    Request request = new Request.Builder().url(urlStr).build();
-
-    try {
-      Response response = client.newCall(request).execute();
-      if (!response.isSuccessful()) {
-        throw UserException
-          .dataReadError()
-          .message("Error retrieving data:")
-          .message("Response code: {}", response)
-          .build(logger);
-      }
-      logger.debug("HTTP Request for {} successful.", urlStr);
-      logger.debug("Headers: {} ", response.headers().toString());
-
-      return response.body().string();
-    } catch (IOException e) {
-      // TODO throw Drill user exception;
-      throw UserException
-        .functionError()
-        .message("Error retrieving data: {}", e.getMessage())
-        .addContext(e.getMessage())
-        .build(logger);
-    }
-  }
-
   public InputStream getInputStream(String urlStr) {
-    Request request = new Request.Builder()
-      .url(urlStr)
-      .build();
+
+    Request.Builder requestBuilder = new Request.Builder()
+      .url(urlStr);
+
+    // Add headers to request
+    if (apiConfig.headers() != null) {
+      for (Map.Entry<String, String> entry : apiConfig.headers().entrySet()) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+        requestBuilder.addHeader(key, value);
+      }
+    }
+
+    // Build the request
+    Request request = requestBuilder.build();
 
     try {
       Response response = client.newCall(request).execute();
@@ -116,7 +106,7 @@ public class SimpleHttp {
     // Set up the HTTP Cache.   Future possibilities include making the cache size and retention configurable but
     // right now it is on or off.  The writer will write to the Drill temp directory if it is accessible and
     // output a warning if not.
-    if (config.cacheResults) {
+    if (config.cacheResults()) {
       setupCache(builder);
     }
 

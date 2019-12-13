@@ -36,7 +36,8 @@ public class HttpRecordReader extends JSONRecordReader {
   public HttpRecordReader(FragmentContext context, List<SchemaPath> projectedColumns, HttpStoragePluginConfig config, HttpSubScan subScan) {
     super(context, projectedColumns);
     this.subScan = subScan;
-    this.http = new SimpleHttp(config, context);
+    String connectionName = subScan.tableSpec().database();
+    this.http = new SimpleHttp(config, context, connectionName);
     InputStream inputStream = getInputStream();
 
     setInputStream(inputStream);

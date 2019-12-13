@@ -60,7 +60,6 @@ public class HttpAPIConnectionSchema extends AbstractSchema {
    * @param tableName The "tableName" actually will contain the URL arguments passed to the record reader
    * @return Table Returns the selected table
    */
-
   @Override
   public Table getTable(String tableName) {
     DynamicDrillTable table = activeTables.get(name);

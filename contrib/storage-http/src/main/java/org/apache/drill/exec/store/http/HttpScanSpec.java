@@ -65,12 +65,10 @@ public class HttpScanSpec {
     return tableName;
   }
 
-  /*
   @JsonProperty("config")
   public HttpStoragePluginConfig config() {
     return config;
-  }*/
-
+  }
 
   @JsonIgnore
   public String getURL() {
@@ -79,7 +77,7 @@ public class HttpScanSpec {
     }
     Joiner j = Joiner.on('&');
 
-    String url = config.getConnections().get(database).url();
+    String url = config.connections().get(database).url();
     String argStr = j.withKeyValueSeparator("=").join(args);
     if (url.endsWith("?")) {
       url += argStr;

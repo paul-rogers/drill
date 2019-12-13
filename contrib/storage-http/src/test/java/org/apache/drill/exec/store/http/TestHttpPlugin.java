@@ -183,6 +183,7 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
+  @Ignore
    public void testSerDe() throws Exception {
     MockWebServer server = new MockWebServer();
     server.start(8088);
@@ -383,7 +384,7 @@ public class TestHttpPlugin extends ClusterTest {
 
     String sql = "SELECT * " +
       "FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` " +
-      "LIMIT 1";
+      "WHERE ip_address='162.101.179.178'";
 
     RowSet results = client.queryBuilder().sql(sql).rowSet();
     logger.debug("Query Results: {}", results.toString());
@@ -399,7 +400,7 @@ public class TestHttpPlugin extends ClusterTest {
       .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-      .addRow(1, "Eba", "Le Sarr", "elesarr0@springer.com", "Female", "249.113.19.117", 92.3)
+      .addRow(3, "Selinda", "L' Estrange", "slestrange2@netscape.com", "Female", "162.101.179.178", 22.2)
       .build();
 
     new RowSetComparison(expected).verifyAndClearAll(results);

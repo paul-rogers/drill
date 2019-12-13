@@ -18,6 +18,7 @@
 
 package org.apache.drill.exec.store.http;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -69,7 +70,8 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
 
   @Override
   public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
+    HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(),
+      new TypeReference<HttpScanSpec>() {});
     return new HttpGroupScan(engineConfig, scanSpec, null);
   }
 }

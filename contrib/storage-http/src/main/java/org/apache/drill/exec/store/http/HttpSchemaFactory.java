@@ -54,8 +54,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
 
     SchemaPlus schemaPlus = parent.add(getName(), schema);
     schema.setHolder(schemaPlus);
-
-    //parent.add(schema.getName(), schema);
   }
 
   class HttpSchema extends AbstractSchema {
@@ -75,7 +73,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     @Override
     public Set<String> getSubSchemaNames() {
       HttpStoragePluginConfig config = plugin.getConfig();
-      Map<String, HttpAPIConfig> connections = (Map<String, HttpAPIConfig>) config.getConnections();
+      Map<String, HttpAPIConfig> connections = (Map<String, HttpAPIConfig>) config.connections();
       Set<String> subSchemaNames = new HashSet<String>();
 
       // Get the possible subschemas.
@@ -88,7 +86,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     @Override
     public AbstractSchema getSubSchema(String name) {
       try {
-        if (!plugin.getConfig().getConnections().containsKey(name)) {
+        if (!plugin.getConfig().connections().containsKey(name)) {
           throw UserException
             .connectionError()
             .message("API '{}' does not exist in HTTP Storage plugin '{}'", name, getName())

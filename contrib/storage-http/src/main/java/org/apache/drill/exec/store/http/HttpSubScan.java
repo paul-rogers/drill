@@ -71,6 +71,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
     return config;
   }
 
+  @JsonIgnore
   public String getURL() {
     return tableSpec.getURL();
   }
@@ -78,7 +79,7 @@ public class HttpSubScan extends AbstractBase implements SubScan {
   @JsonIgnore
   public String getFullURL() {
     String selectedConnection = tableSpec.database();
-    String url = config.getConnections().get(selectedConnection).url();
+    String url = config.connections().get(selectedConnection).url();
     return url + tableSpec.tableName();
   }
 
