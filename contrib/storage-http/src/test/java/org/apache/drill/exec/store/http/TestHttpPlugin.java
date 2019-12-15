@@ -25,6 +25,7 @@ import static org.junit.Assert.fail;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 import okio.Okio;
 import org.apache.drill.common.types.TypeProtos;
@@ -64,7 +65,11 @@ public class TestHttpPlugin extends ClusterTest {
 
     StoragePluginRegistry pluginRegistry = cluster.drillbit().getContext().getStorage();
 
-    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", null, null, null, null);
+    Map<String, String> headers = new HashMap<>();
+    headers.put("header1", "value1");
+    headers.put("header2", "value2");
+
+    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", headers, null, null, null);
 
     HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null);
 
@@ -372,9 +377,7 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
   public void specificTestWithLargeFile() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     File largeFile = new File(dirTestWatcher.getRootDir().getAbsolutePath() + "/" + "data/sample_data.json");
     server.enqueue(
@@ -407,10 +410,62 @@ public class TestHttpPlugin extends ClusterTest {
     server.shutdown();
   }
 
+  @Test
+  public void testHeaders() throws Exception {
+    MockWebServer server = startServer();
+
+    server.enqueue(
+      new MockResponse().setResponseCode(200)
+        .setBody(TEST_JSON_RESPONSE)
+    );
+
+    String sql = "SELECT * FROM api.mock.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    RowSet results = client.queryBuilder().sql(sql).rowSet();
+
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+      .addMap("results")
+      .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("solar_noon", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("day_length", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .resumeSchema()
+      .add("status", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .build();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow( mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
+      .build();
+
+    int resultCount =  results.rowCount();
+    new RowSetComparison(expected).verifyAndClearAll(results);
+
+    assertEquals(1,  resultCount);
+
+    RecordedRequest request = server.takeRequest();
+    assertEquals("value1", request.getHeader("header1"));
+    assertEquals("value2", request.getHeader("header2"));
+
+    server.shutdown();
+  }
+
   private Buffer fileToBytes(File file) throws IOException {
     Buffer result = new Buffer();
     result.writeAll(Okio.source(file));
     return result;
+  }
+
+  private MockWebServer startServer() throws IOException {
+    MockWebServer server = new MockWebServer();
+    server.start(8088);
+    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    return server;
   }
 
   /*

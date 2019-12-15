@@ -18,7 +18,6 @@
 
 package org.apache.drill.exec.store.http;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
@@ -54,16 +53,22 @@ public class HttpAPIConfig {
                        @JsonProperty("password") String password) {
     this.url = url;
 
-    // Get the method.  Only accept GET and POST requests.  Anything else will default to GET.
+    // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
     if (method.toLowerCase().equals("get") || method.toLowerCase().equals("post")) {
       this.method = method.toLowerCase();
     } else {
       this.method = "get";
     }
     this.headers = headers;
-    this.authType = authType;
+
+    // Get the authentication method. Future functionality will include OAUTH2 authentication but for now
+    // Accept either basic or none.  The default is none.
+    this.authType = (authType == null || authType.isEmpty()) ? "none" : authType;
     this.username = username;
     this.password = password;
+
+    // Validate the authentication type
+
   }
 
   @JsonProperty("url")

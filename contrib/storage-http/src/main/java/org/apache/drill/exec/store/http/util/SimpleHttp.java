@@ -18,12 +18,14 @@
 package org.apache.drill.exec.store.http.util;
 
 
-import jdk.internal.org.objectweb.asm.util.CheckAnnotationAdapter;
 import okhttp3.Cache;
+import okhttp3.Credentials;
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
+
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -58,8 +60,7 @@ public class SimpleHttp {
 
   public InputStream getInputStream(String urlStr) {
 
-    Request.Builder requestBuilder = new Request.Builder()
-      .url(urlStr);
+    Request.Builder requestBuilder = new Request.Builder().url(urlStr);
 
     // Add headers to request
     if (apiConfig.headers() != null) {
@@ -76,28 +77,20 @@ public class SimpleHttp {
     try {
       Response response = client.newCall(request).execute();
       if (!response.isSuccessful()) {
-        throw UserException
-          .dataReadError()
-          .message("Error retrieving data: " + response.code() + " " + response.message())
-          .addContext("Response code: " + response)
-          .build(logger);
+        throw UserException.dataReadError().message("Error retrieving data: " + response.code() + " " + response.message()).addContext("Response code: " + response).build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
       logger.debug("Headers: {} ", response.headers().toString());
 
       return response.body().byteStream();
     } catch (IOException e) {
-      // TODO throw Drill user exception;
-      throw UserException
-        .functionError()
-        .message("Error retrieving data")
-        .addContext(e.getMessage())
-        .build(logger);
+      throw UserException.functionError().message("Error retrieving data").addContext(e.getMessage()).build(logger);
     }
   }
 
   /**
    * Function configures the server.
+   *
    * @return OkHttpClient configured server
    */
   private OkHttpClient setupServer() {
@@ -110,6 +103,11 @@ public class SimpleHttp {
       setupCache(builder);
     }
 
+    // If the API uses basic authentication add the authentication code.
+    if (apiConfig.authType().toLowerCase().equals("basic")) {
+      builder.addInterceptor(new BasicAuthInterceptor(apiConfig.username(), apiConfig.password()));
+    }
+
     return builder.build();
   }
 
@@ -117,8 +115,9 @@ public class SimpleHttp {
    * This function accepts a Builder object as input and configures response caching. In order for
    * caching to work, the DRILL_TMP_DIR variable must be set either as a system environment variable or in the
    * Drill configurations.
-   *
+   * <p>
    * The function will attempt to get the DRILL_TMP_DIR from these places, and if it cannot, it will issue a warning in the logger.
+   *
    * @param builder Builder the Builder object to which the cacheing is to be configured
    */
   private void setupCache(Builder builder) {
@@ -143,6 +142,26 @@ public class SimpleHttp {
     } catch (Exception e) {
       logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
     }
+  }
+
+  class BasicAuthInterceptor implements Interceptor {
+
+    private String credentials;
+
+    public BasicAuthInterceptor(String user, String password) {
+      this.credentials = Credentials.basic(user, password);
+    }
+
+    @Override
+    public Response intercept(Chain chain) throws IOException {
+      Request request = chain.request();
+      Request authenticatedRequest = request
+        .newBuilder()
+        .header("Authorization", credentials)
+        .build();
+      return chain.proceed(authenticatedRequest);
+    }
+
   }
 
 }
