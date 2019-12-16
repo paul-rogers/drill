@@ -18,14 +18,17 @@
 package org.apache.drill.exec.store.http.util;
 
 
+import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.Credentials;
+import okhttp3.FormBody;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import okhttp3.Route;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -59,8 +62,16 @@ public class SimpleHttp {
   }
 
   public InputStream getInputStream(String urlStr) {
+    Request.Builder requestBuilder;
+    if (apiConfig.method().equals("get")) {
+      requestBuilder = new Request.Builder().url(urlStr);
+    } else {
 
-    Request.Builder requestBuilder = new Request.Builder().url(urlStr);
+      FormBody.Builder formBodyBuilder = new FormBody.Builder();
+      requestBuilder = new Request.Builder()
+        .url(urlStr)
+        .post(formBodyBuilder.build());
+    }
 
     // Add headers to request
     if (apiConfig.headers() != null) {
@@ -71,20 +82,64 @@ public class SimpleHttp {
       }
     }
 
+    // Code for basic authentication
+    client.authenticator(new Authenticator() {
+      @Override
+      public Request authenticate(Route route, Response response) throws IOException {
+        if (responseCount(response) >= 3) {
+          return null; // If we've failed 3 times, give up. - in real life, never give up!!
+        }
+        String credential = Credentials.basic(apiConfig.username(), apiConfig.password());
+        return response.request().newBuilder().header("Authorization", credential).build();
+      }
+    });
+
+
+    // Adds an Authentication header to the request
+    /*if (apiConfig.authType().toLowerCase().equals("basic") && apiConfig.method().equals("get")) {
+      // Validate the username
+      if (apiConfig.username() == null || apiConfig.username() == null) {
+        throw UserException
+          .validationError()
+          .message("Username is empty.  You must configure a username when using basic authentication.")
+          .build(logger);
+      }
+      if (apiConfig.password() == null || apiConfig.password() == null) {
+        throw UserException
+          .validationError()
+          .message("Password is empty.  You must configure a password when using basic authentication.")
+          .build(logger);
+      }
+
+
+      String rawCredString = apiConfig.username() + ":" + apiConfig.password();
+      String encodedString = "Basic " + Base64.getEncoder().encodeToString(rawCredString.getBytes());
+      requestBuilder.addHeader("Authorization", encodedString);
+    }*/
+
     // Build the request
     Request request = requestBuilder.build();
+    logger.debug("Headers: {}", request.headers());
 
     try {
       Response response = client.newCall(request).execute();
+
       if (!response.isSuccessful()) {
-        throw UserException.dataReadError().message("Error retrieving data: " + response.code() + " " + response.message()).addContext("Response code: " + response).build(logger);
+        throw UserException.dataReadError()
+          .message("Error retrieving data:{} {}", response.code(), response.message())
+          .addContext("Response code: {}", response)
+          .build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
-      logger.debug("Headers: {} ", response.headers().toString());
+      logger.debug("Response Headers: {} ", response.headers().toString());
+
 
       return response.body().byteStream();
     } catch (IOException e) {
-      throw UserException.functionError().message("Error retrieving data").addContext(e.getMessage()).build(logger);
+      throw UserException.functionError()
+        .message("Error retrieving data")
+        .addContext(e.getMessage())
+        .build(logger);
     }
   }
 
@@ -104,9 +159,9 @@ public class SimpleHttp {
     }
 
     // If the API uses basic authentication add the authentication code.
-    if (apiConfig.authType().toLowerCase().equals("basic")) {
-      builder.addInterceptor(new BasicAuthInterceptor(apiConfig.username(), apiConfig.password()));
-    }
+    //if (apiConfig.authType().toLowerCase().equals("basic")) {
+      //builder.addInterceptor(new BasicAuthInterceptor(apiConfig.username(), apiConfig.password()));
+    //}
 
     return builder.build();
   }
@@ -144,7 +199,15 @@ public class SimpleHttp {
     }
   }
 
-  class BasicAuthInterceptor implements Interceptor {
+  private int responseCount(Response response) {
+    int result = 1;
+    while ((response = response.priorResponse()) != null) {
+      result++;
+    }
+    return result;
+  }
+
+  static class BasicAuthInterceptor implements Interceptor {
 
     private String credentials;
 

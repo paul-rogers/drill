@@ -45,12 +45,15 @@ public class HttpAPIConfig {
 
   private final String password;
 
+  private final String postBody;
+
   public HttpAPIConfig(@JsonProperty("url") String url,
                        @JsonProperty("method") String method,
                        @JsonProperty("headers") Map<String, String> headers,
                        @JsonProperty("authType") String authType,
                        @JsonProperty("username") String username,
-                       @JsonProperty("password") String password) {
+                       @JsonProperty("password") String password,
+                       @JsonProperty("postBody") String postBody) {
     this.url = url;
 
     // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
@@ -66,6 +69,7 @@ public class HttpAPIConfig {
     this.authType = (authType == null || authType.isEmpty()) ? "none" : authType;
     this.username = username;
     this.password = password;
+    this.postBody = postBody;
 
     // Validate the authentication type
 
@@ -89,10 +93,13 @@ public class HttpAPIConfig {
   @JsonProperty("password")
   public String password() { return password; }
 
+  @JsonProperty("postBody")
+  public String postBody() { return postBody; }
+
   @Override
   public int hashCode() {
     return Arrays.hashCode(
-      new Object[]{url, method, headers, authType, username, password});
+      new Object[]{url, method, headers, authType, username, password, postBody});
   }
 
   @Override
@@ -104,6 +111,7 @@ public class HttpAPIConfig {
       .add("authType", authType)
       .add("username", username)
       .add("password", password)
+      .add("postBody", postBody)
       .toString();
   }
 
@@ -121,6 +129,7 @@ public class HttpAPIConfig {
       && Objects.equals(headers, other.headers)
       && Objects.equals(authType, other.authType)
       && Objects.equals(username, other.username)
-      && Objects.equals(password, other.password);
+      && Objects.equals(password, other.password)
+      && Objects.equals(postBody, other.postBody);
   }
 }

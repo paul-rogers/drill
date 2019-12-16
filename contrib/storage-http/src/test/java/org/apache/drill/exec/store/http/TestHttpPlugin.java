@@ -50,7 +50,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-
+/**
+ * This class tests the HTTP Storage plugin. Since the plugin makes use of REST requests, this
+ * test class makes use of the okhttp3 MockWebServer to simulate a remote web server.  There are
+ * two unit tests that make remote REST calls, however these tests are ignored by default.
+ *
+ * The HTTP reader uses Drill's existing JSON reader class, so the unit tests focus on testing the plugin configurations
+ * rather than how well it parses the JSON as this is tested elsewhere.
+ */
 public class TestHttpPlugin extends ClusterTest {
   private static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
 
@@ -69,17 +76,24 @@ public class TestHttpPlugin extends ClusterTest {
     headers.put("header1", "value1");
     headers.put("header2", "value2");
 
-    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", headers, null, null, null);
+    Map<String, String> jsonHeader = new HashMap<>();
+    jsonHeader.put("Accept", "application/json");
 
-    HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null);
+
+    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", headers, null, null, null,null);
+
+    HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null, null);
 
     HttpAPIConfig stockConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
-      ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null);
+      ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null, null);
+
+    HttpAPIConfig jiraConfig = new HttpAPIConfig("http://gtkcyber.atlassian.net/rest/api/3/", "get", jsonHeader, "basic", "charles.givre@gtkcyber,com", "ecezJUlsKqbYdFIahVspA8B5", null);
 
     Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
     configs.put("stock", stockConfig);
     configs.put("sunrise", sunriseConfig);
     configs.put("mock", mockConfig);
+    configs.put("jira", jiraConfig);
 
     HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs);
     mockStorageConfigWithWorkspace.setEnabled(true);
@@ -188,7 +202,6 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
-  @Ignore
    public void testSerDe() throws Exception {
     MockWebServer server = new MockWebServer();
     server.start(8088);
@@ -205,6 +218,13 @@ public class TestHttpPlugin extends ClusterTest {
     assertEquals("Counts should match",1L, cnt);
     server.shutdown();
   }
+
+  @Test
+  public void test() throws Exception {
+    String sql = "SELECT * FROM api.jira.`label`";
+    queryBuilder().sql(sql).run();
+  }
+
 
   @Test
   public void simpleTestWithMockServer() throws Exception {
