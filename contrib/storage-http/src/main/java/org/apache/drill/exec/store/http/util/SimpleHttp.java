@@ -147,7 +147,7 @@ public class SimpleHttp {
     // If the API uses basic authentication add the authentication code.
     if (apiConfig.authType().toLowerCase().equals("basic")) {
       logger.debug("Adding Interceptor");
-      builder.addInterceptor(new BasicAuthInterceptor(apiConfig.username(), apiConfig.password()));
+      builder.addInterceptor(new BasicAuthInterceptor(apiConfig.userName(), apiConfig.password()));
     }
 
     // Follow redirects

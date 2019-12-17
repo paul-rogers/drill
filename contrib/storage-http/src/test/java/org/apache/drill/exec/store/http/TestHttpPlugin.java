@@ -87,13 +87,10 @@ public class TestHttpPlugin extends ClusterTest {
     HttpAPIConfig stockConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
       ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null, null);
 
-    HttpAPIConfig jiraConfig = new HttpAPIConfig("http://gtkcyber.atlassian.net/rest/api/3/", "get", jsonHeader, "basic", "charles.givre@gtkcyber,com", "ecezJUlsKqbYdFIahVspA8B5", null);
-
     Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
     configs.put("stock", stockConfig);
     configs.put("sunrise", sunriseConfig);
     configs.put("mock", mockConfig);
-    configs.put("jira", jiraConfig);
 
     HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs);
     mockStorageConfigWithWorkspace.setEnabled(true);
@@ -218,13 +215,6 @@ public class TestHttpPlugin extends ClusterTest {
     assertEquals("Counts should match",1L, cnt);
     server.shutdown();
   }
-
-  @Test
-  public void test() throws Exception {
-    String sql = "SELECT * FROM api.jira.`label`";
-    queryBuilder().sql(sql).run();
-  }
-
 
   @Test
   public void simpleTestWithMockServer() throws Exception {

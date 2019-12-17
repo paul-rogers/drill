@@ -17,37 +17,32 @@
  */
 package org.apache.drill.exec.store.http;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 
 @JsonTypeName("http-scan-spec")
 public class HttpScanSpec {
-  private final String database;
 
-  private final Map<String, Object> args = new HashMap<>();
+  protected final String schemaName;
 
-  private final String tableName;
+  protected final String database;
 
-  private final String schemaName;
+  protected final String tableName;
 
-  private final HttpStoragePluginConfig config;
+  protected final HttpStoragePluginConfig config;
 
   @JsonCreator
   public HttpScanSpec(@JsonProperty("schemaName") String schemaName,
                       @JsonProperty("database") String database,
                       @JsonProperty("tableName") String tableName,
-                      @JsonProperty("plugin") HttpStoragePlugin plugin) {
+                      @JsonProperty("config") HttpStoragePluginConfig config) {
+    this.schemaName = schemaName;
     this.database = database;
     this.tableName = tableName;
-    this.schemaName = schemaName;
-    this.config = plugin.getConfig();
+    this.config = config;
   }
 
   @JsonProperty("database")
@@ -55,24 +50,16 @@ public class HttpScanSpec {
     return database;
   }
 
-  @JsonProperty("args")
-  public Map<String, Object> args() {
-    return args;
-  }
-
   @JsonProperty("tableName")
   public String tableName() {
     return tableName;
   }
 
-  @JsonProperty("config")
-  public HttpStoragePluginConfig config() {
-    return config;
-  }
-
   @JsonIgnore
   public String getURL() {
-    if (args.size() == 0) {
+
+    return database;
+    /*if (args.size() == 0) {
       return database();
     }
     Joiner j = Joiner.on('&');
@@ -86,22 +73,15 @@ public class HttpScanSpec {
     } else {
       url += '?' + argStr;
     }
-    return url;
-  }
-
-  @JsonIgnore
-  public void merge(HttpScanSpec that) {
-    for (Map.Entry<String, Object> entry : that.args.entrySet()) {
-      this.args.put(entry.getKey(), entry.getValue());
-    }
+    return url;*/
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
+      .add("schemaName", schemaName)
       .add("database", database)
       .add("tableName", tableName)
-      .add("schemaName", schemaName)
       .add("config", config)
       .toString();
   }

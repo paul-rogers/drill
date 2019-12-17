@@ -1,17 +1,18 @@
 
-# Generic API Storage Plugin
+# Generic REST API Storage Plugin
 This plugin is intended to enable you to query APIs over HTTP/REST. At this point, the API reader will only accept JSON as input however in the future, it may be possible to
  add additional format readers to allow for APIs which return XML, CSV or other formats.  
  
 Note:  This plugin should **NOT** be used for interacting with tools which have REST APIs such as Splunk or Solr. It will not be performant for those use cases.  
 
 ## Configuration
-To configure the plugin, create a new storage plugin, and add the following configuration options:
+To configure the plugin, create a new storage plugin, and add the following configuration options which apply to ALL connections defined in this plugin:
 
 ```
 {
   "type": "http",
   "connection": "https://<your url here>/",
+  "cacheResults": true,
   "enabled": true
 }
 ```
@@ -25,8 +26,21 @@ The HTTP Storage plugin allows you to configure multiple APIS which you can quer
 
 The `connection` can accept the following options:
 * `url`: The base URL which Drill will query. You should include the ending slash if there are additional arguments which you are passing.
-* `method`: The request method. Must be `get` or `post`. Other methods are not allowed.
-* `headers`: Often APIs will require
+* `method`: The request method. Must be `get` or `post`. Other methods are not allowed and will default to `GET`.  
+* `headers`: Often APIs will require custom headers as part of the authentication. This field allows you to define key/value pairs which are submitted with the http request
+.  The format is:
+```
+headers: {
+   "key1":, "Value1",
+   "key2", "Value2"
+}
+
+```
+* `authType`: If your API requires authentication, specify the authentication type. At the time of implementation, the plugin only supports basic authentication, however, the
+ plugin will likely support OAUTH2 in the future. Defaults to `none`. If the `authType` is set to `basic`, `username` and `password` must be set in the configuration as well. 
+ * `username`: The username for basic authentication. 
+ * `password`: The password for basic authentication.
+ * `postBody`: Contains data, in the form of key value pairs, which are sent during a `POST` request.
 
 
 ### Examples:
@@ -75,6 +89,10 @@ Which yields the following results:
 +------------+------------+
 1 row selected (0.632 seconds)
 ```
+
+### Known Issues
+1.  The plugin is supposed to follow redirects, however if you are using Authentication, you may encounter errors or empty responses if you are counting on the endpoint for
+ redirection. 
 
 
 

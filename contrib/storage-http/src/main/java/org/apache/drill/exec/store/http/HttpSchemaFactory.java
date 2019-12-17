@@ -37,8 +37,6 @@ import org.slf4j.LoggerFactory;
 public class HttpSchemaFactory extends AbstractSchemaFactory {
   private static final Logger logger = LoggerFactory.getLogger(HttpSchemaFactory.class);
 
-  private static final String DEFAULT_TABLE = "defaultConnection";
-
   private final HttpStoragePlugin plugin;
 
   public HttpSchemaFactory(HttpStoragePlugin plugin, String schemaName) {
@@ -48,7 +46,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
 
   @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
-    logger.debug("registerSchema {}", getName());
     HttpSchema schema = new HttpSchema(getName());
     logger.debug("Registering {} {}", schema.getName(), schema.toString());
 

@@ -39,9 +39,9 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "http";
 
-  private final Map<String, HttpAPIConfig> connections;
+  public final Map<String, HttpAPIConfig> connections;
 
-  private final boolean cacheResults;
+  public final boolean cacheResults;
 
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
@@ -75,13 +75,13 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
     return Objects.hashCode(cacheResults, connections);
   }
 
-  @Override
+ /*@Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
       .add("cacheResults", cacheResults)
       .add("connections", connections)
       .toString();
-  }
+  }*/
 
   @JsonProperty("cacheResults")
   public boolean cacheResults() { return cacheResults; }

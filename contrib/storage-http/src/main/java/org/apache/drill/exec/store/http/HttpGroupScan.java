@@ -23,6 +23,7 @@ import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.common.expression.SchemaPath;
@@ -45,8 +46,8 @@ public class HttpGroupScan extends AbstractGroupScan {
   private static final Logger logger = LoggerFactory.getLogger(HttpGroupScan.class);
 
   private List<SchemaPath> columns;
-  private HttpScanSpec httpScanSpec;
-  private HttpStoragePluginConfig config;
+  private final HttpScanSpec httpScanSpec;
+  private final HttpStoragePluginConfig config;
 
   public HttpGroupScan (
     HttpStoragePluginConfig config,
@@ -94,6 +95,7 @@ public class HttpGroupScan extends AbstractGroupScan {
   }
 
   @Override
+  @JsonIgnore
   public int getMaxParallelizationWidth() {
     return 0;
   }

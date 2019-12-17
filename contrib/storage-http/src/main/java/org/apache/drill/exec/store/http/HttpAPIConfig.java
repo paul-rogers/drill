@@ -21,8 +21,6 @@ package org.apache.drill.exec.store.http;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -30,8 +28,6 @@ import java.util.Objects;
 
 @JsonTypeName("http-api-config")
 public class HttpAPIConfig {
-
-  private static final Logger logger = LoggerFactory.getLogger(HttpAPIConfig.class);
 
   private final String url;
 
@@ -41,7 +37,7 @@ public class HttpAPIConfig {
 
   private final String authType;
 
-  private final String username;
+  private final String userName;
 
   private final String password;
 
@@ -51,7 +47,7 @@ public class HttpAPIConfig {
                        @JsonProperty("method") String method,
                        @JsonProperty("headers") Map<String, String> headers,
                        @JsonProperty("authType") String authType,
-                       @JsonProperty("username") String username,
+                       @JsonProperty("userName") String userName,
                        @JsonProperty("password") String password,
                        @JsonProperty("postBody") String postBody) {
     this.url = url;
@@ -67,7 +63,7 @@ public class HttpAPIConfig {
     // Get the authentication method. Future functionality will include OAUTH2 authentication but for now
     // Accept either basic or none.  The default is none.
     this.authType = (authType == null || authType.isEmpty()) ? "none" : authType;
-    this.username = username;
+    this.userName = userName;
     this.password = password;
     this.postBody = postBody;
 
@@ -87,8 +83,8 @@ public class HttpAPIConfig {
   @JsonProperty("authType")
   public String authType() { return authType; }
 
-  @JsonProperty("username")
-  public String username() { return username; }
+  @JsonProperty("userName")
+  public String userName() { return userName; }
 
   @JsonProperty("password")
   public String password() { return password; }
@@ -99,7 +95,7 @@ public class HttpAPIConfig {
   @Override
   public int hashCode() {
     return Arrays.hashCode(
-      new Object[]{url, method, headers, authType, username, password, postBody});
+      new Object[]{url, method, headers, authType, userName, password, postBody});
   }
 
   @Override
@@ -109,7 +105,7 @@ public class HttpAPIConfig {
       .add("method", method)
       .add("headers", headers)
       .add("authType", authType)
-      .add("username", username)
+      .add("username", userName)
       .add("password", password)
       .add("postBody", postBody)
       .toString();
@@ -128,7 +124,7 @@ public class HttpAPIConfig {
       && Objects.equals(method, other.method)
       && Objects.equals(headers, other.headers)
       && Objects.equals(authType, other.authType)
-      && Objects.equals(username, other.username)
+      && Objects.equals(userName, other.userName)
       && Objects.equals(password, other.password)
       && Objects.equals(postBody, other.postBody);
   }
