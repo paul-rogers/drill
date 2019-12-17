@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.http;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.apache.drill.shaded.guava.com.google.common.base.Objects;
 import org.slf4j.Logger;
