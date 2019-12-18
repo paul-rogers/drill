@@ -57,23 +57,7 @@ public class HttpScanSpec {
 
   @JsonIgnore
   public String getURL() {
-
     return database;
-    /*if (args.size() == 0) {
-      return database();
-    }
-    Joiner j = Joiner.on('&');
-
-    String url = config.connections().get(database).url();
-    String argStr = j.withKeyValueSeparator("=").join(args);
-    if (url.endsWith("?")) {
-      url += argStr;
-    } else if (url.contains("?")) {
-      url += '&' + argStr;
-    } else {
-      url += '?' + argStr;
-    }
-    return url;*/
   }
 
   @Override

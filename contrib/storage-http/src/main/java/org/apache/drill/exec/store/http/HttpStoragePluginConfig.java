@@ -42,9 +42,12 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public final boolean cacheResults;
 
+  public int timeout = 0;
+
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
-                                 @JsonProperty("connections") Map<String, HttpAPIConfig> connections) {
+                                 @JsonProperty("connections") Map<String, HttpAPIConfig> connections,
+                                 @JsonProperty("timeout") int timeout) {
     logger.debug("Initialize HttpStoragePluginConfig {}", connections);
     this.cacheResults = cacheResults;
 
@@ -55,6 +58,8 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
     } else {
       this.connections = new HashMap<String, HttpAPIConfig>();
     }
+
+    this.timeout = timeout;
   }
 
   @Override
@@ -74,17 +79,12 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
     return Objects.hashCode(cacheResults, connections);
   }
 
- /*@Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-      .add("cacheResults", cacheResults)
-      .add("connections", connections)
-      .toString();
-  }*/
-
   @JsonProperty("cacheResults")
   public boolean cacheResults() { return cacheResults; }
 
   @JsonProperty("connections")
   public Map<String, HttpAPIConfig> connections() { return connections; }
+
+  @JsonProperty("timeout")
+  public int timeout() { return timeout;}
 }

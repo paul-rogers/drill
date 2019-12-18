@@ -114,7 +114,6 @@ public class HttpGroupScan extends AbstractGroupScan {
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
     logger.debug("HttpGroupScan clone {}", columns);
-    //return new HttpGroupScan(this);
     HttpGroupScan newScan = new HttpGroupScan(this);
     newScan.columns = columns;
     return newScan;

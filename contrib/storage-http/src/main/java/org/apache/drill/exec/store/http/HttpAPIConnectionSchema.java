@@ -21,8 +21,6 @@ package org.apache.drill.exec.store.http;
 import org.apache.calcite.schema.Table;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,7 +32,6 @@ import java.util.Set;
  */
 public class HttpAPIConnectionSchema extends AbstractSchema {
 
-  private static final Logger logger = LoggerFactory.getLogger(HttpAPIConnectionSchema.class);
 
   private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
 

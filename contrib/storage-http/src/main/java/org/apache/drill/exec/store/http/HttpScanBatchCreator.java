@@ -42,7 +42,7 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
 
     HttpStoragePluginConfig config = subScan.config();
     List<RecordReader> readers = Lists.newArrayList();
-    List<SchemaPath> columns = null;
+    List<SchemaPath> columns;
 
     if ((columns = subScan.columns()) == null) {
       columns = GroupScan.ALL_COLUMNS;

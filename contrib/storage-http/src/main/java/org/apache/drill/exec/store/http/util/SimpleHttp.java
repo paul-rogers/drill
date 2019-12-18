@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http.util;
 
-
 import okhttp3.Cache;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
@@ -39,8 +38,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 
+/**
+ * This class performs the actual HTTP requests for the HTTP Storage Plugin. The core method is the getInputStream()
+ * method which accepts a url and opens an InputStream with that URL's contents.
+ */
 public class SimpleHttp {
   private static final Logger logger = LoggerFactory.getLogger(SimpleHttp.class);
 
@@ -59,13 +64,18 @@ public class SimpleHttp {
     client = setupServer();
   }
 
+
+
   public InputStream getInputStream(String urlStr) {
     Request.Builder requestBuilder;
+
+    // The configuration does not allow for any other request types other than POST and GET.
     if (apiConfig.method().equals("get")) {
+      // Handle GET requests
       requestBuilder = new Request.Builder().url(urlStr);
     } else {
-
-      FormBody.Builder formBodyBuilder = new FormBody.Builder();
+      // Handle POST requests
+      FormBody.Builder formBodyBuilder = buildPostBody();
       requestBuilder = new Request.Builder()
         .url(urlStr)
         .post(formBodyBuilder.build());
@@ -80,46 +90,28 @@ public class SimpleHttp {
       }
     }
 
-    // Adds an Authentication header to the request
-    /*if (apiConfig.authType().toLowerCase().equals("basic") && apiConfig.method().equals("get")) {
-      // Validate the username
-      if (apiConfig.username() == null || apiConfig.username() == null) {
-        throw UserException
-          .validationError()
-          .message("Username is empty.  You must configure a username when using basic authentication.")
-          .build(logger);
-      }
-      if (apiConfig.password() == null || apiConfig.password() == null) {
-        throw UserException
-          .validationError()
-          .message("Password is empty.  You must configure a password when using basic authentication.")
-          .build(logger);
-      }
-
-
-      String rawCredString = apiConfig.username() + ":" + apiConfig.password();
-      String encodedString = "Basic " + Base64.getEncoder().encodeToString(rawCredString.getBytes());
-      requestBuilder.addHeader("Authorization", encodedString);
-    }*/
-
-    // Build the request
+    // Build the request object
     Request request = requestBuilder.build();
     logger.debug("Headers: {}", request.headers());
 
     try {
-      Response response = client.newCall(request).execute();
+      // Execute the request
+      Response response = client
+        .newCall(request)
+        .execute();
       logger.debug(response.toString());
 
+      // If the request is unsuccessful, throw a UserException
       if (!response.isSuccessful()) {
         throw UserException.dataReadError()
           .message("Error retrieving data: " + response.code() + " " + response.message())
-          .addContext("Response code: {}", response.code())
+          .addContext("Response code: ", response.code())
           .build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
       logger.debug("Response Headers: {} ", response.headers().toString());
 
-
+      // Return the InputStream of the response
       return response.body().byteStream();
     } catch (IOException e) {
       throw UserException.functionError()
@@ -130,7 +122,7 @@ public class SimpleHttp {
   }
 
   /**
-   * Function configures the server.
+   * Function configures the OkHTTP3 server object with configuration info from the user.
    *
    * @return OkHttpClient configured server
    */
@@ -150,7 +142,11 @@ public class SimpleHttp {
       builder.addInterceptor(new BasicAuthInterceptor(apiConfig.userName(), apiConfig.password()));
     }
 
-    // Follow redirects
+    // Set timeout
+    builder.connectTimeout(config.timeout(), TimeUnit.SECONDS);
+    builder.writeTimeout(config.timeout(), TimeUnit.SECONDS);
+    builder.readTimeout(config.timeout(), TimeUnit.SECONDS);
+
     return builder.build();
   }
 
@@ -178,7 +174,7 @@ public class SimpleHttp {
         logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
       } else {
         Cache cache = new Cache(cacheDirectory, cacheSize);
-        logger.info("Caching HTTP Query Results at: {}", drillTempDir);
+        logger.debug("Caching HTTP Query Results at: {}", drillTempDir);
 
         builder.cache(cache);
       }
@@ -187,31 +183,53 @@ public class SimpleHttp {
     }
   }
 
-  private int responseCount(Response response) {
-    int result = 1;
-    while ((response = response.priorResponse()) != null) {
-      result++;
+  /**
+   * This function accepts text from a post body in the format:
+   * key1=value1
+   * key2=value2
+   *
+   * and creates the appropriate headers.
+   *
+   * @return FormBodu.Builder The populated formbody builder
+   */
+  private FormBody.Builder buildPostBody() {
+    final Pattern postBpdyPattern = Pattern.compile("^.+=.+$");
+
+    FormBody.Builder formBodyBuilder = new FormBody.Builder();
+    String[] lines = apiConfig.postBody().split("\\r?\\n");
+    for(String line : lines) {
+
+      // If the string is in the format key=value split it,
+      // Otherwise ignore
+      if (postBpdyPattern.matcher(line).find()) {
+        //Split into key/value
+        String[] parts = line.split("=");
+        formBodyBuilder.add(parts[0], parts[1]);
+      }
     }
-    return result;
+    return formBodyBuilder;
   }
 
+  /**
+   * This class intercepts requests and adds authentication headers to the request
+   */
   public static class BasicAuthInterceptor implements Interceptor {
-    String credentials;
+    private final String credentials;
 
     public BasicAuthInterceptor(String user, String password) {
-      this.credentials = Credentials.basic(user, password);
+      credentials = Credentials.basic(user, password);
       logger.debug("Intercepting request adding creds: {}", credentials);
     }
 
     @Override
     public Response intercept(Chain chain) throws IOException {
-      logger.debug("Adding headers {}", credentials);
+      logger.debug("Adding headers post intercept{}", credentials);
+      // Get the existing request
       Request request = chain.request();
+
+      // Replace with new request containing the authorization headers and previous headers
       Request authenticatedRequest = request.newBuilder().header("Authorization", credentials).build();
-      logger.debug(request.headers().toString());
       return chain.proceed(authenticatedRequest);
     }
-
   }
-
 }

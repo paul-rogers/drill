@@ -80,19 +80,22 @@ public class TestHttpPlugin extends ClusterTest {
     jsonHeader.put("Accept", "application/json");
 
 
-    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8088/", "get", headers, null, null, null,null);
+    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8091/", "get", headers, "basic", "user", "pass",null);
 
     HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null, null);
 
     HttpAPIConfig stockConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
       ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null, null);
 
+    HttpAPIConfig mockPostConfig = new HttpAPIConfig("http://localhost:8091/", "post", headers, null, null, null,"key1=value1\nkey2=value2");
+
     Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
     configs.put("stock", stockConfig);
     configs.put("sunrise", sunriseConfig);
     configs.put("mock", mockConfig);
+    configs.put("mockpost", mockPostConfig);
 
-    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs);
+    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs, 2);
     mockStorageConfigWithWorkspace.setEnabled(true);
     pluginRegistry.createOrUpdate("api", mockStorageConfigWithWorkspace, true);
   }
@@ -111,6 +114,7 @@ public class TestHttpPlugin extends ClusterTest {
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
       .addRow("api.mock", "http")
+      .addRow("api.mockpost", "http")
       .addRow("api.stock", "http")
       .addRow("api.sunrise", "http")
       .addRow("api", "http")
@@ -201,7 +205,7 @@ public class TestHttpPlugin extends ClusterTest {
   @Test
    public void testSerDe() throws Exception {
     MockWebServer server = new MockWebServer();
-    server.start(8088);
+    server.start(8091);
     logger.debug("Establishing Mock Server at: {}", server.getHostName());
 
     server.enqueue(
@@ -218,9 +222,7 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
   public void simpleTestWithMockServer() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(200)
@@ -247,7 +249,7 @@ public class TestHttpPlugin extends ClusterTest {
       .build();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-      .addRow( mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
+      .addRow(mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
       .build();
 
     int resultCount =  results.rowCount();
@@ -258,10 +260,53 @@ public class TestHttpPlugin extends ClusterTest {
   }
 
   @Test
+  public void testPostWithMockServer() throws Exception {
+    MockWebServer server = startServer();
+
+    server.enqueue(
+      new MockResponse()
+        .setResponseCode(200)
+        .setBody(TEST_JSON_RESPONSE)
+    );
+
+    String sql = "SELECT * FROM api.mockPost.`json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
+    RowSet results = client.queryBuilder().sql(sql).rowSet();
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+      .addMap("results")
+      .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("solar_noon", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("day_length", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("civil_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("nautical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_begin", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .add("astronomical_twilight_end", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .resumeSchema()
+      .add("status", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
+      .build();
+
+    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+      .addRow(mapValue("6:13:58 AM", "5:59:55 PM", "12:06:56 PM", "11:45:57", "5:48:14 AM", "6:25:38 PM", "5:18:16 AM", "6:55:36 PM", "4:48:07 AM", "7:25:45 PM"), "OK")
+      .build();
+
+    int resultCount =  results.rowCount();
+    new RowSetComparison(expected).verifyAndClearAll(results);
+
+    RecordedRequest recordedRequest = server.takeRequest();
+    assertEquals("POST", recordedRequest.getMethod());
+    assertEquals(recordedRequest.getHeader("header1"), "value1");
+    assertEquals(recordedRequest.getHeader("header2"), "value2");
+    assertEquals(1,  resultCount);
+    server.shutdown();
+  }
+
+
+  @Test
   public void specificTestWithMockServer() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(200)
@@ -288,9 +333,7 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
   public void testSlowResponse() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(200)
@@ -300,27 +343,18 @@ public class TestHttpPlugin extends ClusterTest {
 
     String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
-    RowSet results = client.queryBuilder().sql(sql).rowSet();
-    logger.debug("Query Results: {}", results.toString());
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-      .add("sunrise", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
-      .add("sunset", TypeProtos.MinorType.VARCHAR, TypeProtos.DataMode.OPTIONAL)
-      .buildSchema();
-
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-      .addRow("6:13:58 AM", "5:59:55 PM")
-      .build();
-
-    new RowSetComparison(expected).verifyAndClearAll(results);
+    try {
+      RowSet results = client.queryBuilder().sql(sql).rowSet();
+      fail();
+    } catch (Exception e) {
+      assertTrue(e.getMessage().contains("DATA_READ ERROR: Error parsing JSON - timeout"));
+    }
     server.shutdown();
   }
 
   @Test
   public void testZeroByteResponse() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(200)
@@ -336,9 +370,7 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
   public void testEmptyJSONObjectResponse() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(200)
@@ -364,9 +396,7 @@ public class TestHttpPlugin extends ClusterTest {
 
   @Test
   public void testErrorResponse() throws Exception {
-    MockWebServer server = new MockWebServer();
-    server.start(8088);
-    logger.debug("Establishing Mock Server at: {}", server.getHostName());
+    MockWebServer server = startServer();
 
     server.enqueue(
       new MockResponse().setResponseCode(404)
@@ -461,6 +491,7 @@ public class TestHttpPlugin extends ClusterTest {
     RecordedRequest request = server.takeRequest();
     assertEquals("value1", request.getHeader("header1"));
     assertEquals("value2", request.getHeader("header2"));
+    assertEquals("Basic dXNlcjpwYXNz", request.getHeader("Authorization"));
 
     server.shutdown();
   }
@@ -473,14 +504,8 @@ public class TestHttpPlugin extends ClusterTest {
 
   private MockWebServer startServer() throws IOException {
     MockWebServer server = new MockWebServer();
-    server.start(8088);
+    server.start(8091);
     logger.debug("Establishing Mock Server at: {}", server.getHostName());
     return server;
   }
-
-  /*
-Odd format (that requires, say, all text mode)
-Very large output (which will blow up the current load-to-string implementation)
-   */
-
 }
