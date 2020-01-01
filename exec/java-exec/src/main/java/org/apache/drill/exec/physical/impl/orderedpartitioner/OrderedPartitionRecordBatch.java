@@ -23,6 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.FieldReference;
@@ -184,7 +185,6 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
         switch (upstream) {
         case NONE:
         case NOT_YET:
-        case STOP:
           upstreamNone = true;
           break outer;
         default:
@@ -206,7 +206,9 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
       try {
         sorter.setup(context, sv4, sortedSamples);
       } catch (SchemaChangeException e) {
-        throw schemaChangeException(e, logger);
+        throw UserException.schemaChangeError(e)
+          .addContext("Failure when setting up the sorter for the ordered partitioner")
+          .build(logger);
       }
       sorter.sort(sv4, sortedSamples);
 
@@ -267,7 +269,7 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
       try {
         Thread.sleep(timeout);
       } catch (final InterruptedException e) {
-        throw new QueryCancelledException();
+        checkContinue();
       }
     }
   }
@@ -281,13 +283,9 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
    * table, and attempts to push the partition table to the distributed cache.
    * Whichever table gets pushed first becomes the table used by all fragments
    * for partitioning.
-   *
-   * @return True is successful. False if failed.
    */
-  private boolean getPartitionVectors() {
-    if (!saveSamples()) {
-      return false;
-    }
+  private void getPartitionVectors() {
+    saveSamples();
 
     CachedVectorContainer finalTable = null;
 
@@ -328,7 +326,6 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
     for (VectorWrapper<?> w : finalTable.get()) {
       partitionVectors.add(w.getValueVector());
     }
-    return true;
   }
 
   private void buildTable() {
@@ -358,7 +355,9 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
       try {
         sorter.setup(context, newSv4, allSamplesContainer);
       } catch (SchemaChangeException e) {
-        throw schemaChangeException(e, logger);
+        throw UserException.schemaChangeError(e)
+            .addContext("Unexpected schema change in Ordered Partitioner")
+            .build(logger);
       }
       sorter.sort(newSv4, allSamplesContainer);
 
@@ -444,13 +443,15 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
       sampleCopier.setupCopier(context, sv4, incoming, outgoing);
       return sampleCopier;
     } catch (SchemaChangeException e) {
-      throw schemaChangeException(e, logger);
+      throw UserException.schemaChangeError(e)
+          .addContext("Unexpected schema change in the Ordered Partitioner")
+          .build(logger);
     }
   }
 
   @Override
-  protected void killIncoming(boolean sendUpstream) {
-    incoming.kill(sendUpstream);
+  protected void cancelIncoming() {
+    incoming.cancel();
   }
 
   @Override
@@ -512,7 +513,6 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
     switch (upstream) {
     case NONE:
     case NOT_YET:
-    case STOP:
       close();
       recordCount = 0;
       return upstream;
@@ -606,7 +606,9 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
     try {
       projector.setup(context, batch, this, transfers, partitionVectors, partitions, popConfig.getRef());
     } catch (SchemaChangeException e) {
-      throw schemaChangeException(e, logger);
+      throw UserException.schemaChangeError(e)
+        .addContext("Unexpected schema change in the Ordered Partitioner")
+        .build(logger);
     }
   }
 

@@ -177,8 +177,6 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
             addBatchToHyperContainer(right);
             break;
           case NONE:
-          case STOP:
-            //TODO we got a STOP, shouldn't we stop immediately ?
           case NOT_YET:
             drainRight = false;
             break;
@@ -211,7 +209,7 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
     if (!hasMore(rightUpstream)) {
       return;
     }
-    right.kill(true);
+    right.cancel();
     while (hasMore(rightUpstream)) {
       VectorAccessibleUtilities.clear(right);
       rightUpstream = next(HashJoinHelper.RIGHT_INPUT, right);
@@ -443,12 +441,6 @@ public class NestedLoopJoinBatch extends AbstractBinaryRecordBatch<NestedLoopJoi
     rightContainer.clear();
     rightCounts.clear();
     super.close();
-  }
-
-  @Override
-  protected void killIncoming(boolean sendUpstream) {
-    this.left.kill(sendUpstream);
-    this.right.kill(sendUpstream);
   }
 
   @Override

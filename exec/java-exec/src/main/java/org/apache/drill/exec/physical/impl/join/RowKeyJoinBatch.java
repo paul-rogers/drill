@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.RowKeyJoinPOP;
 import org.apache.drill.exec.record.AbstractRecordBatch;
@@ -36,10 +35,12 @@ import org.apache.drill.exec.vector.ValueVector;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.Iterables;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class RowKeyJoinBatch extends AbstractRecordBatch<RowKeyJoinPOP> implements RowKeyJoin {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RowKeyJoinBatch.class);
+  private static final Logger logger = LoggerFactory.getLogger(RowKeyJoinBatch.class);
 
   // primary table side record batch
   private final RecordBatch left;
@@ -82,15 +83,10 @@ public class RowKeyJoinBatch extends AbstractRecordBatch<RowKeyJoinPOP> implemen
   }
 
   @Override
-  protected void buildSchema() throws SchemaChangeException {
+  protected void buildSchema() {
     container.clear();
 
     rightUpstream = next(right);
-
-    if (leftUpstream == IterOutcome.STOP || rightUpstream == IterOutcome.STOP) {
-      state = BatchState.STOP;
-      return;
-    }
 
     if (right.getRecordCount() > 0) {
       // set the hasRowKeyBatch flag such that calling next() on the left input
@@ -138,7 +134,6 @@ public class RowKeyJoinBatch extends AbstractRecordBatch<RowKeyJoinPOP> implemen
 
       switch(rightUpstream) {
       case NONE:
-      case STOP:
         rkJoinState = RowKeyJoinState.DONE;
         state = BatchState.DONE;
         return rightUpstream;
@@ -269,9 +264,9 @@ public class RowKeyJoinBatch extends AbstractRecordBatch<RowKeyJoinPOP> implemen
   }
 
   @Override
-  public void killIncoming(boolean sendUpstream) {
-    left.kill(sendUpstream);
-    right.kill(sendUpstream);
+  protected void cancelIncoming() {
+    left.cancel();
+    right.cancel();
   }
 
   @Override

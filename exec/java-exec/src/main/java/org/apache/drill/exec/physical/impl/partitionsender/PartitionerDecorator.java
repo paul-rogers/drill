@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.ops.QueryCancelledException;
@@ -78,7 +79,7 @@ public final class PartitionerDecorator {
    * @param incoming
    * @throws ExecutionException
    */
-  public void partitionBatch(final RecordBatch incoming) throws ExecutionException {
+  public void partitionBatch(final RecordBatch incoming) {
     executeMethodLogic(new PartitionBatchHandlingClass(incoming));
   }
 
@@ -88,7 +89,7 @@ public final class PartitionerDecorator {
    * @param schemaChanged
    * @throws ExecutionException
    */
-  public void flushOutgoingBatches(final boolean isLastBatch, final boolean schemaChanged) throws ExecutionException {
+  public void flushOutgoingBatches(final boolean isLastBatch, final boolean schemaChanged) {
     executeMethodLogic(new FlushBatchesHandlingClass(isLastBatch, schemaChanged));
   }
 
@@ -138,7 +139,7 @@ public final class PartitionerDecorator {
    * @throws ExecutionException
    */
   @VisibleForTesting
-  void executeMethodLogic(final GeneralExecuteIface iface) throws ExecutionException {
+  void executeMethodLogic(final GeneralExecuteIface iface) {
     // To simulate interruption of main fragment thread and interrupting the partition threads, create a
     // CountDownInject latch. Partitioner threads await on the latch and main fragment thread counts down or
     // interrupts waiting threads. This makes sure that we are actually interrupting the blocked partitioner threads.
@@ -158,8 +159,9 @@ public final class PartitionerDecorator {
         logger.warn("fragment thread interrupted", e);
         throw new QueryCancelledException();
       } catch (RejectedExecutionException e) {
-        logger.warn("Failed to execute partitioner tasks. Execution service down?", e);
-        executionException = new ExecutionException(e);
+        throw UserException.dataWriteError(e)
+            .addContext("Failed to execute partitioner tasks. Execution service down?")
+            .build(logger);
       } finally {
         await(count, partitionerTasks);
         stopWait();
@@ -206,7 +208,7 @@ public final class PartitionerDecorator {
     }
   }
 
-  private void processPartitionerTasks(List<PartitionerTask> partitionerTasks, ExecutionException executionException) throws ExecutionException {
+  private void processPartitionerTasks(List<PartitionerTask> partitionerTasks, ExecutionException executionException) {
     long maxProcessTime = 0l;
     for (PartitionerTask partitionerTask : partitionerTasks) {
       ExecutionException e = partitionerTask.getException();
@@ -230,7 +232,9 @@ public final class PartitionerDecorator {
       }
     }
     if (executionException != null) {
-      throw executionException;
+      throw UserException.dataWriteError(executionException)
+          .addContext("Partioner failed")
+          .build(logger);
     }
     // scale down main stats wait time based on calculated processing time
     // since we did not wait for whole duration of above execution

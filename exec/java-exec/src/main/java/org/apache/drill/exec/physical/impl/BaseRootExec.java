@@ -141,12 +141,7 @@ public abstract class BaseRootExec implements RootExec {
     List<CloseableRecordBatch> failedBatchStack = new LinkedList<>();
     for (int i = operators.size() - 1; i >= 0; i--) {
       CloseableRecordBatch batch = operators.get(i);
-      if (batch.hasFailed()) {
-        failedBatchStack.add(0, batch);
-        if (failedBatchStack.size() == numberOfBatchesToDump) {
-          break;
-        }
-      }
+      failedBatchStack.add(0, batch);
     }
     for (CloseableRecordBatch batch : failedBatchStack) {
       batch.dump();

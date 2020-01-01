@@ -89,7 +89,6 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   private TypedFieldId[] aggrOutFieldIds;      // field ids for the outgoing batch
   private final List<Comparator> comparators;
   private BatchSchema incomingSchema;
-  private boolean wasKilled;
   private List<BaseWriter.ComplexWriter> complexWriters;
 
   private int numGroupByExprs;
@@ -186,7 +185,6 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   public HashAggBatch(HashAggregate popConfig, RecordBatch incoming, FragmentContext context) {
     super(popConfig, context);
     this.incoming = incoming;
-    wasKilled = false;
 
     final int numGrpByExprs = popConfig.getGroupByExprs().size();
     comparators = Lists.newArrayListWithExpectedSize(numGrpByExprs);
@@ -250,9 +248,6 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
         state = BatchState.DONE;
         container.buildSchema(SelectionVectorMode.NONE);
         return;
-      case STOP:
-        state = BatchState.STOP;
-        return;
       default:
         break;
     }
@@ -297,12 +292,6 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       }
     }
 
-    if (wasKilled) { // if kill() was called before, then finish up
-      aggregator.cleanup();
-      incoming.kill(false);
-      return IterOutcome.NONE;
-    }
-
     // Read and aggregate records
     // ( may need to run again if the spilled partition that was read
     //   generated new partitions that were all spilled )
@@ -340,16 +329,12 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       }
 
     case UPDATE_AGGREGATOR:
-      context.getExecutorState().fail(UserException.unsupportedError()
+      throw UserException.unsupportedError()
           .message(SchemaChangeException.schemaChanged(
               "Hash aggregate does not support schema change",
               incomingSchema,
               incoming.getSchema()).getMessage())
-          .build(logger));
-      close();
-      killIncoming(false);
-      firstBatch = false;
-      return IterOutcome.STOP;
+          .build(logger);
     default:
       throw new IllegalStateException(String.format("Unknown state %s.", out));
     }
@@ -556,16 +541,15 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   }
 
   @Override
-  protected void killIncoming(boolean sendUpstream) {
-    wasKilled = true;
-    incoming.kill(sendUpstream);
+  protected void cancelIncoming() {
+    incoming.cancel();
   }
 
   @Override
   public void dump() {
     logger.error("HashAggBatch[container={}, aggregator={}, groupByOutFieldIds={}, aggrOutFieldIds={}, " +
-            "incomingSchema={}, wasKilled={}, numGroupByExprs={}, numAggrExprs={}, popConfig={}]",
+            "incomingSchema={}, numGroupByExprs={}, numAggrExprs={}, popConfig={}]",
         container, aggregator, Arrays.toString(groupByOutFieldIds), Arrays.toString(aggrOutFieldIds), incomingSchema,
-        wasKilled, numGroupByExprs, numAggrExprs, popConfig);
+        numGroupByExprs, numAggrExprs, popConfig);
   }
 }

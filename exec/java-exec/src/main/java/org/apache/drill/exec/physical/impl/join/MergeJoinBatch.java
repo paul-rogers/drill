@@ -27,6 +27,7 @@ import com.sun.codemodel.JExpr;
 import com.sun.codemodel.JMod;
 import com.sun.codemodel.JVar;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -200,8 +201,10 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
         case FAILURE:
           status.left.clearInflightBatches();
           status.right.clearInflightBatches();
-          kill(false);
-          return IterOutcome.STOP;
+          // Should handle at the source of the error to provide a better error message.
+          throw UserException.executionError(null)
+              .message("Merge failed")
+              .build(logger);
         case WAITING:
           return IterOutcome.NOT_YET;
         default:
@@ -215,6 +218,11 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
           stats.startSetup();
           worker = generateNewWorker();
           first = true;
+        } catch (ClassTransformationException | IOException | SchemaChangeException e) {
+          // TODO: Handle in above method to report better error message.
+          throw UserException.executionError(e)
+              .addContext("Failure when starting the merge worker")
+              .build(logger);
         } finally {
           stats.stopSetup();
         }
@@ -235,8 +243,10 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
         case FAILURE:
           status.left.clearInflightBatches();
           status.right.clearInflightBatches();
-          kill(false);
-          return IterOutcome.STOP;
+          // Should handle at the source of the error to provide a better error message.
+          throw UserException.executionError(null)
+              .message("Merge failed")
+              .build(logger);
         case NO_MORE_DATA:
           logger.debug("NO MORE DATA; returning {}",
             (status.getOutPosition() > 0 ? (first ? "OK_NEW_SCHEMA" : "OK") : (first ? "OK_NEW_SCHEMA" : "NONE")));
@@ -294,12 +304,6 @@ public class MergeJoinBatch extends AbstractBinaryRecordBatch<MergeJoinPOP> {
     super.close();
     leftIterator.close();
     rightIterator.close();
-  }
-
-  @Override
-  protected void killIncoming(boolean sendUpstream) {
-    left.kill(sendUpstream);
-    right.kill(sendUpstream);
   }
 
   private JoinWorker generateNewWorker() {

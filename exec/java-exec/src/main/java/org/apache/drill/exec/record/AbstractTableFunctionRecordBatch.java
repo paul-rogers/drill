@@ -33,7 +33,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
  * @param <T>
  */
 public abstract class AbstractTableFunctionRecordBatch<T extends PhysicalOperator> extends
-    AbstractUnaryRecordBatch<T> implements TableFunctionContract{
+    AbstractUnaryRecordBatch<T> implements TableFunctionContract {
 
   protected RecordBatch incoming;
   protected LateralContract lateral;
@@ -48,12 +48,14 @@ public abstract class AbstractTableFunctionRecordBatch<T extends PhysicalOperato
     return incoming;
   }
 
+  @Override
   public void setIncoming(RecordBatch incoming) {
     Preconditions.checkArgument(this.incoming == null, "Incoming is already set. setIncoming cannot be called "
         + "multiple times.");
     this.incoming = incoming;
   }
 
+  @Override
   public void setIncoming(LateralContract incoming) {
     setIncoming(incoming.getIncoming());
     lateral = incoming;

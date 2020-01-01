@@ -142,10 +142,6 @@ public final class JoinStatus {
    *  4. JoinOutcome.SCHEMA_CHANGED : one of the side has change in schema.
    */
   public JoinOutcome getOutcome() {
-    // on STOP, OUT_OF_MEMORY return FAILURE.
-    if (!ok || eitherMatches(IterOutcome.STOP)) {
-      return JoinOutcome.FAILURE;
-    }
     if (hasMoreData) {
       return JoinOutcome.BATCH_RETURNED;
     }

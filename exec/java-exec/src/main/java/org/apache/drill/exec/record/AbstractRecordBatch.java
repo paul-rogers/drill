@@ -19,7 +19,6 @@ package org.apache.drill.exec.record;
 
 import java.util.Iterator;
 
-import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
@@ -89,8 +88,6 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     FIRST,
     /** The first data batch has already been returned. */
     NOT_FIRST,
-    /** The query most likely failed, we need to propagate STOP to the root. */
-    STOP,
     /** All work is done, no more data to be sent. */
     DONE
   }
@@ -159,9 +156,6 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
             case DONE:
               lastOutcome = IterOutcome.NONE;
               break;
-            case STOP:
-              lastOutcome = IterOutcome.STOP;
-              break;
             default:
               state = BatchState.FIRST;
               lastOutcome = IterOutcome.OK_NEW_SCHEMA;
@@ -178,12 +172,6 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
           break;
       }
       return lastOutcome;
-    } catch (SchemaChangeException e) {
-      lastOutcome = IterOutcome.STOP;
-      throw new DrillRuntimeException(e);
-    } catch (Exception e) {
-      lastOutcome = IterOutcome.STOP;
-      throw e;
     } finally {
       stats.stopProcessing();
     }
@@ -200,15 +188,14 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     }
   }
 
-  protected void buildSchema() throws SchemaChangeException {
-  }
+  protected void buildSchema()  { }
 
   @Override
-  public void kill(boolean sendUpstream) {
-    killIncoming(sendUpstream);
+  public void cancel() {
+    cancelIncoming();
   }
 
-  protected abstract void killIncoming(boolean sendUpstream);
+  protected abstract void cancelIncoming();
 
   @Override
   public void close() {
@@ -250,11 +237,6 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
   @Override
   public VectorContainer getContainer() {
     return container;
-  }
-
-  @Override
-  public boolean hasFailed() {
-    return lastOutcome == IterOutcome.STOP;
   }
 
   public RecordBatchStatsContext getRecordBatchStatsContext() {

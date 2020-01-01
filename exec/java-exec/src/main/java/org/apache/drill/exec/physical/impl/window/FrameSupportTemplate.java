@@ -90,7 +90,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
    * processes all rows of the first batch.
    */
   @Override
-  public void doWork() throws DrillException {
+  public void doWork() throws SchemaChangeException {
     int currentRow = 0;
 
     this.current = batches.get(0);
@@ -144,7 +144,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
    * @return index of next unprocessed row
    * @throws DrillException if it can't write into the container
    */
-  private int processPartition(final int currentRow) throws DrillException {
+  private int processPartition(final int currentRow) throws SchemaChangeException {
     logger.trace("{} rows remaining to process, currentRow: {}, outputCount: {}", remainingRows, currentRow, outputCount);
 
     setupWriteFirstValue(internal, container);
@@ -156,7 +156,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
     }
   }
 
-  private int processROWS(int row) throws DrillException {
+  private int processROWS(int row) throws SchemaChangeException {
     //TODO (DRILL-4413) we only need to call these once per batch
     setupEvaluatePeer(current, container);
     setupReadLastValue(current, container);
@@ -175,7 +175,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
     return row;
   }
 
-  private int processRANGE(int row) throws DrillException {
+  private int processRANGE(int row) throws SchemaChangeException {
     while (row < outputCount && !isPartitionDone()) {
       if (remainingPeers == 0) {
         // because all peer rows share the same frame, we only need to compute and aggregate the frame once
@@ -354,6 +354,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
    * @param b2 batch for second row
    * @return true if the rows are in the same partition
    */
+  @Override
   public abstract boolean isSamePartition(@Named("b1Index") int b1Index, @Named("b1") VectorAccessible b1,
                                           @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2);
 
@@ -366,6 +367,7 @@ public abstract class FrameSupportTemplate implements WindowFramer {
    * @param b2 batch for second row
    * @return true if the rows are in the same partition
    */
+  @Override
   public abstract boolean isPeer(@Named("b1Index") int b1Index, @Named("b1") VectorAccessible b1,
                                  @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2);
 }

@@ -63,8 +63,7 @@ public class SchemalessBatch implements CloseableRecordBatch {
   }
 
   @Override
-  public void kill(boolean sendUpstream) {
-  }
+  public void cancel() { }
 
   @Override
   public VectorContainer getOutgoingContainer() {
@@ -107,11 +106,6 @@ public class SchemalessBatch implements CloseableRecordBatch {
 
   @Override
   public VectorContainer getContainer() { return null; }
-
-  @Override
-  public boolean hasFailed() {
-    return false;
-  }
 
   @Override
   public void dump() {

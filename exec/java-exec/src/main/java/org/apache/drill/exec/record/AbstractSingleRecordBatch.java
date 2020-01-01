@@ -59,4 +59,9 @@ public abstract class AbstractSingleRecordBatch<T extends PhysicalOperator> exte
     }
     return IterOutcome.OK;
   }
+
+  @Override
+  protected void cancelIncoming() {
+    incoming.cancel();
+  }
 }

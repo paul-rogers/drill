@@ -29,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
@@ -160,7 +161,6 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           finishedLeft = !firstLeft;
           break outer;
         case NOT_YET:
-        case STOP:
           return outcome;
         case OK_NEW_SCHEMA:
           if (firstLeft) {
@@ -183,11 +183,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           }
           break;
         default:
-          context.getExecutorState()
-              .fail(new UnsupportedOperationException("Unsupported upstream state " + outcome));
-          close();
-          killIncoming(false);
-          return IterOutcome.STOP;
+          throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
       }
     }
 
@@ -210,42 +206,23 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           finishedRight = true;
           break outer;
         case NOT_YET:
-        case STOP:
           return outcome;
         case OK_NEW_SCHEMA:
           firstRight = false;
           //fall through
         case OK:
           assert !firstRight : "First batch should be OK_NEW_SCHEMA";
-          try {
-            appendStatistics(statisticsCollector);
-          } catch (IOException e) {
-            context.getExecutorState().fail(e);
-            close();
-            killIncoming(false);
-            return IterOutcome.STOP;
-          }
+          appendStatistics(statisticsCollector);
           break;
         default:
-          context.getExecutorState()
-              .fail(new UnsupportedOperationException("Unsupported upstream state " + outcome));
-          close();
-          killIncoming(false);
-          return IterOutcome.STOP;
+          throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
       }
     }
     return null;
   }
 
   private IterOutcome handleLeftIncoming() {
-    try {
-      metadataUnits.addAll(getMetadataUnits(left.getContainer()));
-    } catch (Exception e) {
-      context.getExecutorState().fail(e);
-      close();
-      killIncoming(false);
-      return IterOutcome.STOP;
-    }
+    metadataUnits.addAll(getMetadataUnits(left.getContainer()));
     return IterOutcome.OK;
   }
 
@@ -265,11 +242,9 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     MetastoreTableInfo metastoreTableInfo = popConfig.getContext().metastoreTableInfo();
 
     if (tables.basicRequests().hasMetastoreTableInfoChanged(metastoreTableInfo)) {
-      context.getExecutorState()
-          .fail(new IllegalStateException(String.format("Metadata for table [%s] was changed before analyze is finished", tableInfo.name())));
-      close();
-      killIncoming(false);
-      return IterOutcome.STOP;
+      throw UserException.executionError(null)
+        .message("Metadata for table [%s] was changed before analyze is finished", tableInfo.name())
+        .build(logger);
     }
 
     modify.overwrite(metadataUnits)
@@ -668,7 +643,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     return metadataStatistics;
   }
 
-  private void appendStatistics(StatisticsRecordCollector statisticsCollector) throws IOException {
+  private void appendStatistics(StatisticsRecordCollector statisticsCollector) {
     if (context.getOptions().getOption(PlannerSettings.STATISTICS_USE)) {
       List<FieldConverter> fieldConverters = new ArrayList<>();
       int fieldId = 0;
@@ -683,16 +658,22 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         fieldConverters.add(converter);
       }
 
-      for (int counter = 0; counter < right.getRecordCount(); counter++) {
-        statisticsCollector.startStatisticsRecord();
-        // write the current record
-        for (FieldConverter converter : fieldConverters) {
-          converter.setPosition(counter);
-          converter.startField();
-          converter.writeField();
-          converter.endField();
+      try {
+        for (int counter = 0; counter < right.getRecordCount(); counter++) {
+          statisticsCollector.startStatisticsRecord();
+          // write the current record
+          for (FieldConverter converter : fieldConverters) {
+            converter.setPosition(counter);
+            converter.startField();
+            converter.writeField();
+            converter.endField();
+          }
+          statisticsCollector.endStatisticsRecord();
         }
-        statisticsCollector.endStatisticsRecord();
+      } catch (IOException e) {
+        throw UserException.dataWriteError(e)
+            .addContext("Failed to write metadata")
+            .build(logger);
       }
     }
   }
@@ -748,12 +729,6 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     }
 
     return childLocations;
-  }
-
-  @Override
-  protected void killIncoming(boolean sendUpstream) {
-    left.kill(sendUpstream);
-    right.kill(sendUpstream);
   }
 
   @Override

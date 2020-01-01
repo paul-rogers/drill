@@ -31,6 +31,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.drill.categories.OperatorTest;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.PlanTestBase;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
@@ -292,7 +293,7 @@ public class TestPartitionSender extends PlanTestBase {
         try {
           partDecor.executeMethodLogic(new InjectExceptionTest());
           fail("executeMethodLogic should throw an exception.");
-        } catch (ExecutionException e) {
+        } catch (UserException e) {
           final OperatorProfile.Builder oPBuilder = OperatorProfile.newBuilder();
           partionSenderRootExec.getStats().addAllMetrics(oPBuilder);
           final List<MetricValue> metrics = oPBuilder.getMetricList();

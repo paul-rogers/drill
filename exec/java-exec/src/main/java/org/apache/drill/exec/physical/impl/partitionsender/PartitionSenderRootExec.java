@@ -153,7 +153,7 @@ public class PartitionSenderRootExec extends BaseRootExec {
     if (!done) {
       out = next(incoming);
     } else {
-      incoming.kill(true);
+      incoming.cancel();
       out = IterOutcome.NONE;
     }
 
@@ -162,55 +162,30 @@ public class PartitionSenderRootExec extends BaseRootExec {
       out = IterOutcome.OK_NEW_SCHEMA;
     }
     switch(out){
-      case NONE:
-        try {
-          // send any pending batches
-          if(partitioner != null) {
-            partitioner.flushOutgoingBatches(true, false);
-          } else {
-            sendEmptyBatch(true);
-          }
-        } catch (ExecutionException e) {
-          incoming.kill(false);
-          logger.error("Error while creating partitioning sender or flushing outgoing batches", e);
-          context.getExecutorState().fail(e.getCause());
-        }
-        return false;
-
-      case STOP:
-        if (partitioner != null) {
-          partitioner.clear();
+    case NONE:
+        // send any pending batches
+        if(partitioner != null) {
+          partitioner.flushOutgoingBatches(true, false);
+        } else {
+          sendEmptyBatch(true);
         }
         return false;
 
       case OK_NEW_SCHEMA:
-        try {
-          // send all existing batches
-          if (partitioner != null) {
-            partitioner.flushOutgoingBatches(false, true);
-            partitioner.clear();
-          }
-          createPartitioner();
+        // send all existing batches
+        if (partitioner != null) {
+          partitioner.flushOutgoingBatches(false, true);
+          partitioner.clear();
+        }
+        createPartitioner();
 
-          if (first) {
-            // Send an empty batch for fast schema
-            first = false;
-            sendEmptyBatch(false);
-          }
-        } catch (ExecutionException e) {
-          incoming.kill(false);
-          logger.error("Error while flushing outgoing batches", e);
-          context.getExecutorState().fail(e.getCause());
-          return false;
+        if (first) {
+          // Send an empty batch for fast schema
+          first = false;
+          sendEmptyBatch(false);
         }
       case OK:
-        try {
-          partitioner.partitionBatch(incoming);
-        } catch (ExecutionException e) {
-          context.getExecutorState().fail(e.getCause());
-          incoming.kill(false);
-          return false;
-        }
+        partitioner.partitionBatch(incoming);
         for (VectorWrapper<?> v : incoming) {
           v.clear();
         }

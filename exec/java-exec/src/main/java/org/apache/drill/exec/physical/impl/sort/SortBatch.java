@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.sort;
 
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -107,8 +108,6 @@ public class SortBatch extends AbstractRecordBatch<Sort> {
         break outer;
       case NOT_YET:
         throw new UnsupportedOperationException();
-      case STOP:
-        return upstream;
       case OK_NEW_SCHEMA:
         // only change in the case that the schema truly changes.  Artificial schema changes are ignored.
         if (!incoming.getSchema().equals(schema)) {
@@ -138,7 +137,9 @@ public class SortBatch extends AbstractRecordBatch<Sort> {
     try {
       sorter.setup(context, getSelectionVector4(), this.container);
     } catch (SchemaChangeException e) {
-      throw schemaChangeException(e, logger);
+      throw UserException.schemaChangeError(e)
+          .addContext("Unexpected schema change in in-memory Sort operator")
+          .build(logger);
     }
     sorter.sort(getSelectionVector4(), this.container);
 
@@ -205,8 +206,8 @@ public class SortBatch extends AbstractRecordBatch<Sort> {
   }
 
   @Override
-  protected void killIncoming(boolean sendUpstream) {
-    incoming.kill(sendUpstream);
+  protected void cancelIncoming() {
+    incoming.cancel();
   }
 
   @Override

@@ -139,7 +139,7 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   }
 
   @Override
-  public void kill(boolean sendUpstream) {
+  public void cancel() {
     driver.cancel();
   }
 
@@ -149,10 +149,6 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
       driver.operatorContext().getStats().startProcessing();
       lastOutcome = driver.next();
       return lastOutcome;
-    } catch (Exception e) {
-      // mark batch as failed
-      lastOutcome = IterOutcome.STOP;
-      throw e;
     } finally {
       driver.operatorContext().getStats().stopProcessing();
     }
@@ -166,11 +162,6 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   @Override
   public VectorContainer getContainer() {
     return batchAccessor.container();
-  }
-
-  @Override
-  public boolean hasFailed() {
-    return lastOutcome == IterOutcome.STOP;
   }
 
   @Override

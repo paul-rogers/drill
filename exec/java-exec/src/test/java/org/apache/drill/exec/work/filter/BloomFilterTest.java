@@ -84,9 +84,7 @@ public class BloomFilterTest extends BaseTest {
     }
 
     @Override
-    public void kill(boolean sendUpstream) {
-
-    }
+    public void cancel() { }
 
     @Override
     public VectorContainer getOutgoingContainer() {
@@ -124,13 +122,7 @@ public class BloomFilterTest extends BaseTest {
     }
 
     @Override
-    public void dump() {
-    }
-
-    @Override
-    public boolean hasFailed() {
-      return false;
-    }
+    public void dump() { }
   }
 
 

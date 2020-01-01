@@ -48,7 +48,6 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
   private final BlockingDeque<RecordBatchDataWrapper> queue;
   private int recordCount;
   private BatchSchema schema;
-  private boolean stop = false;
   private final CountDownLatch cleanUpLatch = new CountDownLatch(1); // used to wait producer to clean up
 
   protected ProducerConsumerBatch(final ProducerConsumer popConfig, final FragmentContext context, final RecordBatch incoming) throws OutOfMemoryException {
@@ -75,10 +74,6 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
     }
     if (wrapper.finished) {
       return IterOutcome.NONE;
-    } else if (wrapper.failed) {
-      return IterOutcome.STOP;
-    } else if (wrapper.outOfMemory) {
-      throw new OutOfMemoryException();
     }
 
     recordCount = wrapper.batch.getRecordCount();
@@ -119,10 +114,8 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
 
     @Override
     public void run() {
+      boolean stop = false;
       try {
-        if (stop) {
-          return;
-        }
         outer:
         while (true) {
           final IterOutcome upstream = incoming.next();
@@ -130,9 +123,6 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
             case NONE:
               stop = true;
               break outer;
-            case STOP:
-              queue.putFirst(RecordBatchDataWrapper.failed());
-              return;
             case OK_NEW_SCHEMA:
             case OK:
               wrapper = RecordBatchDataWrapper.batch(new RecordBatchData(incoming, oContext.getAllocator()));
@@ -142,13 +132,6 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
             default:
               throw new UnsupportedOperationException();
           }
-        }
-      } catch (final OutOfMemoryException e) {
-        try {
-          queue.putFirst(RecordBatchDataWrapper.outOfMemory());
-        } catch (final InterruptedException ex) {
-          logger.error("Unable to enqueue the last batch indicator. Something is broken.", ex);
-          // TODO InterruptedException
         }
       } catch (final InterruptedException e) {
         logger.warn("Producer thread is interrupted.", e);
@@ -181,8 +164,10 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
   }
 
   @Override
-  protected void killIncoming(final boolean sendUpstream) {
-    stop = true;
+  protected void cancelIncoming() { }
+
+  @Override
+  public void close() {
     producer.interrupt();
     try {
       producer.join();
@@ -190,11 +175,6 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
       logger.warn("Interrupted while waiting for producer thread");
       // TODO InterruptedException
     }
-  }
-
-  @Override
-  public void close() {
-    stop = true;
     try {
       cleanUpLatch.await();
     } catch (final InterruptedException e) {
@@ -215,36 +195,24 @@ public class ProducerConsumerBatch extends AbstractRecordBatch<ProducerConsumer>
   private static class RecordBatchDataWrapper {
     final RecordBatchData batch;
     final boolean finished;
-    final boolean failed;
-    final boolean outOfMemory;
 
-    RecordBatchDataWrapper(final RecordBatchData batch, final boolean finished, final boolean failed, final boolean outOfMemory) {
+    RecordBatchDataWrapper(final RecordBatchData batch, final boolean finished) {
       this.batch = batch;
       this.finished = finished;
-      this.failed = failed;
-      this.outOfMemory = outOfMemory;
     }
 
     public static RecordBatchDataWrapper batch(final RecordBatchData batch) {
-      return new RecordBatchDataWrapper(batch, false, false, false);
+      return new RecordBatchDataWrapper(batch, false);
     }
 
     public static RecordBatchDataWrapper finished() {
-      return new RecordBatchDataWrapper(null, true, false, false);
-    }
-
-    public static RecordBatchDataWrapper failed() {
-      return new RecordBatchDataWrapper(null, false, true, false);
-    }
-
-    public static RecordBatchDataWrapper outOfMemory() {
-      return new RecordBatchDataWrapper(null, false, false, true);
+      return new RecordBatchDataWrapper(null, true);
     }
   }
 
   @Override
   public void dump() {
-    logger.error("ProducerConsumerBatch[container={}, recordCount={}, schema={}, stop={}]",
-        container, recordCount, schema, stop);
+    logger.error("ProducerConsumerBatch[container={}, recordCount={}, schema={}]",
+        container, recordCount, schema);
   }
 }

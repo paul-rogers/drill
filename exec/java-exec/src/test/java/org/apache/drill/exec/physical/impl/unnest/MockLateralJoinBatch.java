@@ -139,7 +139,6 @@ public class MockLateralJoinBatch implements LateralContract, CloseableRecordBat
         }
         return currentOutcome;
       case NONE:
-      case STOP:
         isDone = true;
         return currentOutcome;
       case NOT_YET:
@@ -163,13 +162,7 @@ public class MockLateralJoinBatch implements LateralContract, CloseableRecordBat
   }
 
   @Override
-  public boolean hasFailed() {
-    return false;
-  }
-
-  @Override
-  public void dump() {
-  }
+  public void dump() { }
 
   @Override public int getRecordCount() {
     return 0;
@@ -194,8 +187,8 @@ public class MockLateralJoinBatch implements LateralContract, CloseableRecordBat
     return null;
   }
 
-  @Override public void kill(boolean sendUpstream) {
-    unnest.kill(sendUpstream);
+  @Override public void cancel() {
+    unnest.cancel();
   }
 
   @Override public VectorContainer getOutgoingContainer() {

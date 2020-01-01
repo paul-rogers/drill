@@ -171,7 +171,6 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
   private final MutableBoolean buildSideIsEmpty = new MutableBoolean(false);
   private final MutableBoolean probeSideIsEmpty = new MutableBoolean(false);
   private boolean canSpill = true;
-  private boolean wasKilled; // a kill was received, may need to clean spilled partns
 
   /**
    * This array holds the currently active {@link HashPartition}s.
@@ -448,18 +447,12 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
 
     isEmpty.setValue(outcome == IterOutcome.NONE); // If we received NONE there is no data.
 
-    if (outcome == IterOutcome.STOP) {
-      // We reached a termination state
-      state = BatchState.STOP;
-    } else {
-      // Got our first batch(es)
-      if (spilledState.isFirstCycle()) {
-        // Only collect stats for the first cycle
-        memoryManagerUpdate.run();
-      }
-      state = BatchState.FIRST;
+    // Got our first batch(es)
+    if (spilledState.isFirstCycle()) {
+      // Only collect stats for the first cycle
+      memoryManagerUpdate.run();
     }
-
+    state = BatchState.FIRST;
     return outcome;
   }
 
@@ -515,12 +508,6 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
 
   @Override
   public IterOutcome innerNext() {
-    if (wasKilled) {
-      // We have received a kill signal. We need to stop processing.
-      this.cleanup();
-      super.close();
-      return IterOutcome.NONE;
-    }
 
     prefetchFirstBuildBatch();
 
@@ -550,11 +537,6 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
           // discard the first left batch which was fetched by buildSchema, and get the new
           // one based on rowkey join
           leftUpstream = next(left);
-
-          if (leftUpstream == IterOutcome.STOP || rightUpstream == IterOutcome.STOP) {
-            state = BatchState.STOP;
-            return leftUpstream;
-          }
         }
 
         // Update the hash table related stats for the operator
@@ -687,12 +669,13 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
    * @param isLeft is it the left or right
    */
   private void killAndDrainUpstream(RecordBatch batch, IterOutcome upstream, boolean isLeft) {
-      batch.kill(true);
-      while (upstream == IterOutcome.OK_NEW_SCHEMA || upstream == IterOutcome.OK) {
-        VectorAccessibleUtilities.clear(batch);
-        upstream = next( isLeft ? HashJoinHelper.LEFT_INPUT : HashJoinHelper.RIGHT_INPUT, batch);
-      }
+    batch.cancel();
+    while (upstream == IterOutcome.OK_NEW_SCHEMA || upstream == IterOutcome.OK) {
+      VectorAccessibleUtilities.clear(batch);
+      upstream = next( isLeft ? HashJoinHelper.LEFT_INPUT : HashJoinHelper.RIGHT_INPUT, batch);
+    }
   }
+
   private void killAndDrainLeftUpstream() { killAndDrainUpstream(probeBatch, leftUpstream, true); }
   private void killAndDrainRightUpstream() { killAndDrainUpstream(buildBatch, rightUpstream, false); }
 
@@ -998,7 +981,6 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
       switch (rightUpstream) {
       case NONE:
       case NOT_YET:
-      case STOP:
         moreData = false;
         continue;
 
@@ -1391,10 +1373,9 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
   }
 
   @Override
-  public void killIncoming(boolean sendUpstream) {
-    wasKilled = true;
-    probeBatch.kill(sendUpstream);
-    buildBatch.kill(sendUpstream);
+  protected void cancelIncoming() {
+    probeBatch.cancel();
+    buildBatch.cancel();
   }
 
   public void updateMetrics() {
@@ -1429,7 +1410,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> implem
     if (!spilledState.isFirstCycle()) { // spilling happened
       // In case closing due to cancellation, BaseRootExec.close() does not close the open
       // SpilledRecordBatch "scanners" as it only knows about the original left/right ops.
-      killIncoming(false);
+      // TODO: Code that was here didn't actually close the "scanners"
     }
 
     updateMetrics();

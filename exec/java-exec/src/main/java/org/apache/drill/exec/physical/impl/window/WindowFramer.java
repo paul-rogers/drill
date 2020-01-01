@@ -34,15 +34,16 @@ public interface WindowFramer {
   TemplateClassDefinition<WindowFramer> FRAME_TEMPLATE_DEFINITION =
       new TemplateClassDefinition<>(WindowFramer.class, FrameSupportTemplate.class);
 
-  void setup(final List<WindowDataBatch> batches, final VectorContainer container,
-      final OperatorContext operatorContext, final boolean requireFullPartition,
-      final WindowPOP popConfig) throws SchemaChangeException;
+  void setup(List<WindowDataBatch> batches, VectorContainer container,
+      OperatorContext operatorContext, boolean requireFullPartition,
+      WindowPOP popConfig) throws SchemaChangeException;
 
   /**
    * process the inner batch and write the aggregated values in the container
+   * @throws SchemaChangeException
    * @throws DrillException
    */
-  void doWork() throws DrillException;
+  void doWork() throws SchemaChangeException;
 
   /**
    * @return number rows processed in last batch

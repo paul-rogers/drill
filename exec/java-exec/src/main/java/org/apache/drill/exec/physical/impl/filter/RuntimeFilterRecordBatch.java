@@ -129,7 +129,7 @@ public class RuntimeFilterRecordBatch extends AbstractSingleRecordBatch<RuntimeF
   }
 
   @Override
-  protected boolean setupNewSchema() throws SchemaChangeException {
+  protected boolean setupNewSchema() {
     if (sv2 != null) {
       sv2.clear();
     }
