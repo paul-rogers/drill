@@ -148,7 +148,7 @@ jira_data.issues.fields.labels AS labels,
 jira_data.issues.fields.subtasks AS subtasks
 FROM (
 SELECT flatten(t1.issues) as issues 
-FROM api.jira.`search?jql=project=GTKOPS&maxResults=100` AS t1
+FROM api.jira.`search?jql=project=<project>&&maxResults=100` AS t1
 ) AS jira_data
 ```
 The query below counts the number of issues by priority:
@@ -159,7 +159,7 @@ jira_data.issues.fields.priority.name AS priority,
 COUNT(*) AS issue_count
 FROM (
 SELECT flatten(t1.issues) as issues 
-FROM api.jira.`search?jql=project=GTKOPS&maxResults=100` AS t1
+FROM api.jira.`search?jql=project=<project>&maxResults=100` AS t1
 ) AS jira_data
 GROUP BY priority
 ORDER BY issue_count DESC
