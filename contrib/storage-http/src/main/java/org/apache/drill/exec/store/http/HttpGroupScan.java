@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,7 +34,6 @@ import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
@@ -71,8 +69,7 @@ public class HttpGroupScan extends AbstractGroupScan {
   public HttpGroupScan(
     @JsonProperty("config") HttpStoragePluginConfig config,
     @JsonProperty("columns") List<SchemaPath> columns,
-    @JsonProperty("httpScanSpec") HttpScanSpec httpScanSpec,
-    @JacksonInject StoragePluginRegistry engineRegistry
+    @JsonProperty("httpScanSpec") HttpScanSpec httpScanSpec
   ) {
     super("no-user");
     this.config = config;
@@ -97,7 +94,7 @@ public class HttpGroupScan extends AbstractGroupScan {
   @Override
   @JsonIgnore
   public int getMaxParallelizationWidth() {
-    return 0;
+    return 1;
   }
 
   @Override
