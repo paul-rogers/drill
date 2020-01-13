@@ -409,7 +409,7 @@ public class TestHttpPlugin extends ClusterTest {
       RowSet results = client.queryBuilder().sql(sql).rowSet();
       fail();
     } catch (Exception e) {
-      assertTrue(e.getMessage().contains("DATA_READ ERROR: Error retrieving data: 404 Client Error"));
+      assertTrue(e.getMessage().contains("DATA_READ ERROR: Error retrieving data from HTTP Storage Plugin: 404 Client Error"));
     }
     server.shutdown();
   }

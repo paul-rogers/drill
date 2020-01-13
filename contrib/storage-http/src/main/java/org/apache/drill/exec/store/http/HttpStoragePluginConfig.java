@@ -42,7 +42,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public final boolean cacheResults;
 
-  public int timeout = 0;
+  public int timeout;
 
   @JsonCreator
   public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
@@ -53,10 +53,10 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
     if (connections != null) {
       Map<String, HttpAPIConfig> caseInsensitiveAPIs = CaseInsensitiveMap.newHashMap();
-      Optional.ofNullable(connections).ifPresent(caseInsensitiveAPIs::putAll);
+      Optional.of(connections).ifPresent(caseInsensitiveAPIs::putAll);
       this.connections = caseInsensitiveAPIs;
     } else {
-      this.connections = new HashMap<String, HttpAPIConfig>();
+      this.connections = new HashMap<>();
     }
 
     this.timeout = timeout;

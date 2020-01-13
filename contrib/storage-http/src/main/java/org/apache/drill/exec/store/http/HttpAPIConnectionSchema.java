@@ -53,7 +53,7 @@ public class HttpAPIConnectionSchema extends AbstractSchema {
   }
 
   /**
-   * This function get the table that is received from the query.
+   * This function get the table that is received from the query. This plugin is intended to
    * @param tableName The "tableName" actually will contain the URL arguments passed to the record reader
    * @return Table Returns the selected table
    */
@@ -61,13 +61,12 @@ public class HttpAPIConnectionSchema extends AbstractSchema {
   public Table getTable(String tableName) {
     DynamicDrillTable table = activeTables.get(name);
     if (table != null) {
+      // Return the found table
       return table;
-    }
-
-    if (!activeTables.containsKey(name)) {
+    } else {
+      // Register a new table
       return registerTable(name, new DynamicDrillTable(plugin, pluginName, new HttpScanSpec(pluginName, name, tableName, plugin.getConfig())));
     }
-    return null;
   }
 
   @Override

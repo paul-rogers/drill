@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,7 +44,7 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   }
 
   @Override
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
+  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) {
     HttpSchema schema = new HttpSchema(getName());
     logger.debug("Registering {} {}", schema.getName(), schema.toString());
 
@@ -70,8 +69,8 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
     @Override
     public Set<String> getSubSchemaNames() {
       HttpStoragePluginConfig config = plugin.getConfig();
-      Map<String, HttpAPIConfig> connections = (Map<String, HttpAPIConfig>) config.connections();
-      Set<String> subSchemaNames = new HashSet<String>();
+      Map<String, HttpAPIConfig> connections = config.connections();
+      Set<String> subSchemaNames = new HashSet<>();
 
       // Get the possible subschemas.
       for (Map.Entry<String, HttpAPIConfig> entry : connections.entrySet()) {

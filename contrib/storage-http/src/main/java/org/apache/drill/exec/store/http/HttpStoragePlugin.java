@@ -36,7 +36,7 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
 
   private final HttpSchemaFactory schemaFactory;
 
-  public HttpStoragePlugin(HttpStoragePluginConfig configuration, DrillbitContext context, String name) throws IOException {
+  public HttpStoragePlugin(HttpStoragePluginConfig configuration, DrillbitContext context, String name) {
     super(context, name);
     engineConfig = configuration;
     schemaFactory = new HttpSchemaFactory(this, name);
@@ -44,7 +44,7 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
+  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) {
     schemaFactory.registerSchemas(schemaConfig, parent);
   }
 

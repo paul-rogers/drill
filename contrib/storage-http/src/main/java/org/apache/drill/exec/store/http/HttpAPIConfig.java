@@ -50,7 +50,6 @@ public class HttpAPIConfig {
                        @JsonProperty("userName") String userName,
                        @JsonProperty("password") String password,
                        @JsonProperty("postBody") String postBody) {
-    this.url = url;
 
     // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
     if (method.toLowerCase().equals("get") || method.toLowerCase().equals("post")) {
@@ -59,6 +58,13 @@ public class HttpAPIConfig {
       this.method = "get";
     }
     this.headers = headers;
+
+    // Put a trailing slash on the URL if it is missing
+    if (url.charAt(url.length() - 1) != '/') {
+      this.url = url + "/";
+    } else {
+      this.url = url;
+    }
 
     // Get the authentication method. Future functionality will include OAUTH2 authentication but for now
     // Accept either basic or none.  The default is none.

@@ -31,6 +31,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.store.http.HttpAPIConfig;
 import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -61,7 +63,7 @@ public class SimpleHttp {
     this.config = config;
     this.context = context;
     this.apiConfig = config.connections().get(connectionName);
-    client = setupServer();
+    client = setupHttpClient();
   }
 
 
@@ -99,12 +101,11 @@ public class SimpleHttp {
       Response response = client
         .newCall(request)
         .execute();
-      logger.debug(response.toString());
 
       // If the request is unsuccessful, throw a UserException
       if (!response.isSuccessful()) {
         throw UserException.dataReadError()
-          .message("Error retrieving data: " + response.code() + " " + response.message())
+          .message("Error retrieving data from HTTP Storage Plugin: " + response.code() + " " + response.message())
           .addContext("Response code: ", response.code())
           .build(logger);
       }
@@ -112,11 +113,11 @@ public class SimpleHttp {
       logger.debug("Response Headers: {} ", response.headers().toString());
 
       // Return the InputStream of the response
-      return response.body().byteStream();
+      return Objects.requireNonNull(response.body()).byteStream();
     } catch (IOException e) {
-      throw UserException.functionError()
-        .message("Error retrieving data")
-        .addContext(e.getMessage())
+      throw UserException
+        .dataReadError()
+        .message("Error retrieving data from HTTP Storage Plugin. %s", e.getMessage())
         .build(logger);
     }
   }
@@ -126,7 +127,7 @@ public class SimpleHttp {
    *
    * @return OkHttpClient configured server
    */
-  private OkHttpClient setupServer() {
+  private OkHttpClient setupHttpClient() {
     Builder builder = new OkHttpClient.Builder();
 
     // Set up the HTTP Cache.   Future possibilities include making the cache size and retention configurable but
@@ -221,6 +222,7 @@ public class SimpleHttp {
       logger.debug("Intercepting request adding creds: {}", credentials);
     }
 
+    @NotNull
     @Override
     public Response intercept(Chain chain) throws IOException {
       logger.debug("Adding headers post intercept{}", credentials);
