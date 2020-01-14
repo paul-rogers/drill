@@ -28,6 +28,8 @@ import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.record.metadata.TupleNameSpace;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Represents an explicit projection at some tuple level.
@@ -75,7 +77,7 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 public class RequestedTupleImpl implements RequestedTuple {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RequestedTupleImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(RequestedTupleImpl.class);
   private static final Collection<SchemaPath> PROJECT_ALL = Collections.singletonList(SchemaPath.STAR_COLUMN);
 
   private final RequestedColumnImpl parent;
@@ -257,7 +259,9 @@ public class RequestedTupleImpl implements RequestedTuple {
 
       map = member.projectAllMembers(true);
     }
-    map.parseSegment(nameSeg.getChild());
+    if (!nameSeg.isLastPath()) {
+      map.parseSegment(nameSeg.getChild());
+    }
   }
 
   private void parseArray(NameSegment nameSeg) {
@@ -287,8 +291,19 @@ public class RequestedTupleImpl implements RequestedTuple {
     // But, the SchemaPath does support them, so no harm in
     // parsing them here.
 
-    if (! arraySeg.isLastPath()) {
-      parseInternal(nameSeg);
+    if (arraySeg.isLastPath()) {
+      return;
+    }
+
+    PathSegment child = arraySeg.getChild();
+    if (child.isNamed()) {
+      parseInternal((NameSegment) child);
+    } else if (child.isArray()) {
+      // No specific support for a[0][1]. Just treat as an array.
+      return;
+    } else {
+      // Not expected. Fail in tests, ignore in production.
+      assert false;
     }
   }
 

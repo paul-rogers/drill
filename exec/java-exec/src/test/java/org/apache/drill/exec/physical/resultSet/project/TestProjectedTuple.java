@@ -336,6 +336,30 @@ public class TestProjectedTuple extends BaseTest {
     assertTrue(indexes[3]);
   }
 
+  @Test
+  public void testMultiDimArray() {
+    RequestedTuple projSet = RequestedTupleImpl.parse(
+        RowSetTestUtils.projectList("a[0][1][2]", "a[2][3]"));
+    List<RequestedColumn> cols = projSet.projections();
+    assertEquals(1, cols.size());
+
+    assertEquals(ProjectionType.ARRAY, projSet.projectionType("a"));
+    RequestedColumn a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isArray());
+    assertFalse(a.isSimple());
+    assertFalse(a.isTuple());
+    boolean indexes[] = a.indexes();
+    assertNotNull(indexes);
+    assertEquals(3, indexes.length);
+    assertTrue(indexes[0]);
+    assertFalse(indexes[1]);
+    assertTrue(indexes[2]);
+
+    // At present, projection does not track multiple array indexes.
+    // It could, but this case is obscure, and not checked at present.
+  }
+
   /**
    * Duplicate array entries are allowed to handle the
    * use case of a[1], a[1].z. Each element is reported once;

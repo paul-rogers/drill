@@ -59,7 +59,7 @@ public interface RequestedTuple {
    * <tt>SELECT columns, columns[1]</tt><br>
    * <tt>SELECT a, a.b</tt><br>
    * In each case, the same column is referenced in different
-   * forms which are consolidated in to this abstraction.
+   * forms which are consolidated into this abstraction.
    * <p>
    * Depending on the syntax, we can infer if a column must
    * be an array or map. This is definitive: though we know that

@@ -395,7 +395,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
           @Override
           public void addContext(UserException.Builder builder) {
             builder.addContext("Format plugin:", easyConfig.defaultName);
-            builder.addContext("Format plugin:",
+            builder.addContext("Format plugin class:",
                 EasyFormatPlugin.this.getClass().getSimpleName());
             builder.addContext("Plugin config name:", getName());
           }
