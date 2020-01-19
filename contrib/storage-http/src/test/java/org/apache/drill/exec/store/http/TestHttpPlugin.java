@@ -76,10 +76,6 @@ public class TestHttpPlugin extends ClusterTest {
     headers.put("header1", "value1");
     headers.put("header2", "value2");
 
-    Map<String, String> jsonHeader = new HashMap<>();
-    jsonHeader.put("Accept", "application/json");
-
-
     HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8091/", "get", headers, "basic", "user", "pass",null);
 
     HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null, null);
@@ -89,7 +85,7 @@ public class TestHttpPlugin extends ClusterTest {
 
     HttpAPIConfig mockPostConfig = new HttpAPIConfig("http://localhost:8091/", "post", headers, null, null, null,"key1=value1\nkey2=value2");
 
-    Map<String, HttpAPIConfig> configs = new HashMap<String, HttpAPIConfig>();
+    Map<String, HttpAPIConfig> configs = new HashMap<>();
     configs.put("stock", stockConfig);
     configs.put("sunrise", sunriseConfig);
     configs.put("mock", mockConfig);
@@ -344,7 +340,7 @@ public class TestHttpPlugin extends ClusterTest {
     String sql = "SELECT t1.results.sunrise AS sunrise, t1.results.sunset AS sunset FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02` AS t1";
 
     try {
-      RowSet results = client.queryBuilder().sql(sql).rowSet();
+      client.queryBuilder().sql(sql).rowSet();
       fail();
     } catch (Exception e) {
       assertTrue(e.getMessage().contains("DATA_READ ERROR: Error parsing JSON - timeout"));
@@ -406,7 +402,7 @@ public class TestHttpPlugin extends ClusterTest {
     String sql = "SELECT * FROM api.mock.`/json?lat=36.7201600&lng=-4.4203400&date=2019-10-02`";
 
     try {
-      RowSet results = client.queryBuilder().sql(sql).rowSet();
+      client.queryBuilder().sql(sql).rowSet();
       fail();
     } catch (Exception e) {
       assertTrue(e.getMessage().contains("DATA_READ ERROR: Error retrieving data from HTTP Storage Plugin: 404 Client Error"));
@@ -496,12 +492,23 @@ public class TestHttpPlugin extends ClusterTest {
     server.shutdown();
   }
 
+  /**
+   * Helper function to convert files to a readable input steam.
+   * @param file The input file to be read
+   * @return A buffer to the file
+   * @throws IOException If the file is unreadable, throws an IOException
+   */
   private Buffer fileToBytes(File file) throws IOException {
     Buffer result = new Buffer();
     result.writeAll(Okio.source(file));
     return result;
   }
 
+  /**
+   * Helper function to start the MockHTTPServer
+   * @return Started Mock server
+   * @throws IOException If the server cannot start, throws IOException
+   */
   private MockWebServer startServer() throws IOException {
     MockWebServer server = new MockWebServer();
     server.start(8091);

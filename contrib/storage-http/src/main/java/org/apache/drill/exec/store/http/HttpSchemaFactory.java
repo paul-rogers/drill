@@ -88,9 +88,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
             .message("API '{}' does not exist in HTTP Storage plugin '{}'", name, getName())
             .build(logger);
         }
-        /*if (DEFAULT_WS_NAME.equals(name)) {
-          this.defaultSchema = schema;
-        }*/
         return getSubSchemaKnownExists(name);
       } catch (Exception e) {
         throw new DrillRuntimeException(e);
