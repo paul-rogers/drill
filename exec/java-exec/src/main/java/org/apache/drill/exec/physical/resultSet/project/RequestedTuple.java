@@ -19,8 +19,8 @@ package org.apache.drill.exec.physical.resultSet.project;
 
 import java.util.List;
 
-import org.apache.drill.common.expression.PathSegment;
-import org.apache.drill.common.project.ProjectionType;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
  * Represents the set of columns projected for a tuple (row or map.)
@@ -50,51 +50,15 @@ import org.apache.drill.common.project.ProjectionType;
 
 public interface RequestedTuple {
 
-  /**
-   * Plan-time properties of a requested column. Represents
-   * a consolidated view of the set of references to a column.
-   * For example, the project list might contain:<br>
-   * <tt>SELECT columns[4], columns[8]</tt><br>
-   * <tt>SELECT a.b, a.c</tt><br>
-   * <tt>SELECT columns, columns[1]</tt><br>
-   * <tt>SELECT a, a.b</tt><br>
-   * In each case, the same column is referenced in different
-   * forms which are consolidated into this abstraction.
-   * <p>
-   * Depending on the syntax, we can infer if a column must
-   * be an array or map. This is definitive: though we know that
-   * columns of the form above must be an array or a map,
-   * we cannot know if a simple column reference might refer
-   * to an array or map.
-   */
-
-  public interface RequestedColumn {
-
-    String name();
-    ProjectionType type();
-    boolean isWildcard();
-    boolean isSimple();
-    boolean isArray();
-    boolean isTuple();
-    boolean isDict();
-    String fullName();
-    RequestedTuple mapProjection();
-    boolean nameEquals(String target);
-    int maxIndex();
-    boolean[] indexes();
-    boolean hasIndexes();
-    boolean hasIndex(int index);
-    String summary();
-  }
-
   public enum TupleProjectionType {
     ALL, NONE, SOME
   }
 
   TupleProjectionType type();
-  void parseSegment(PathSegment child);
   RequestedColumn get(String colName);
-  ProjectionType projectionType(String colName);
+  boolean isProjected(String colName);
+  boolean isConsistentWith(ColumnMetadata col);
+  boolean isConsistentWith(String name, MajorType type);
   RequestedTuple mapProjection(String colName);
   List<RequestedColumn> projections();
   void buildName(StringBuilder buf);

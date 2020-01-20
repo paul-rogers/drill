@@ -20,8 +20,8 @@ package org.apache.drill.exec.physical.resultSet.project;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.expression.PathSegment;
-import org.apache.drill.common.project.ProjectionType;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
  * Represents a wildcard: SELECT * when used at the root tuple.
@@ -44,19 +44,9 @@ public class ImpliedTupleRequest implements RequestedTuple {
   }
 
   @Override
-  public ProjectionType projectionType(String colName) {
-    return allProjected
-      ? ProjectionType.GENERAL
-      : ProjectionType.UNPROJECTED;
-  }
-
-  @Override
   public RequestedTuple mapProjection(String colName) {
     return allProjected ? ALL_MEMBERS : NO_MEMBERS;
   }
-
-  @Override
-  public void parseSegment(PathSegment child) { }
 
   @Override
   public RequestedColumn get(String colName) { return null; }
@@ -70,5 +60,31 @@ public class ImpliedTupleRequest implements RequestedTuple {
   @Override
   public TupleProjectionType type() {
     return allProjected ? TupleProjectionType.ALL : TupleProjectionType.NONE;
+  }
+
+  @Override
+  public boolean isProjected(String colName) {
+    return allProjected;
+  }
+
+  @Override
+  public boolean isConsistentWith(ColumnMetadata col) {
+    return true;
+  }
+
+  @Override
+  public boolean isConsistentWith(String name, MajorType type) {
+    return true;
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder buf = new StringBuilder()
+        .append(getClass().getSimpleName())
+        .append("[");
+    if (allProjected) {
+      buf.append("*");
+    }
+    return buf.append("]").toString();
   }
 }

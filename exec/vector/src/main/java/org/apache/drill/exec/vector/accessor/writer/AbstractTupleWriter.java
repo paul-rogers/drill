@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -149,7 +148,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
 
-    ProjectionType projectionType(String columnName);
+    boolean isProjected(String columnName);
   }
 
   /**
@@ -159,7 +158,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
    */
 
   static class MemberWriterIndex implements ColumnWriterIndex {
-    private ColumnWriterIndex baseIndex;
+    private final ColumnWriterIndex baseIndex;
 
     MemberWriterIndex(ColumnWriterIndex baseIndex) {
       this.baseIndex = baseIndex;
@@ -244,9 +243,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public ProjectionType projectionType(String columnName) {
-    return listener == null ? ProjectionType.GENERAL
-        : listener.projectionType(columnName);
+  public boolean isProjected(String columnName) {
+    return listener == null ? true
+        : listener.isProjected(columnName);
   }
 
   @Override

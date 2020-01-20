@@ -17,130 +17,61 @@
  */
 package org.apache.drill.exec.physical.resultSet.project;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.common.expression.PathSegment.NameSegment;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.project.ProjectionType;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.physical.resultSet.project.Qualifier.MapQualifier;
+import org.apache.drill.exec.physical.resultSet.project.Qualifier.SelectedArrayQualifier;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this
  * version is an aggregate. If the projection list contains `a.b` and `a.c`,
  * then one name segment exists for a, and contains segments for both b and c.
  */
-
 public class RequestedColumnImpl implements RequestedColumn {
-
-  /**
-   * Special marker to indicate that that a) the item is an
-   * array, and b) that all indexes are to be projected.
-   * Used when seeing both a and a[x].
-   */
-
-  private static final Set<Integer> ALL_INDEXES = new HashSet<>();
 
   private final RequestedTuple parent;
   private final String name;
-  private RequestedTuple members;
-  private Set<Integer> indexes;
-  private ProjectionType type;
+  private List<Qualifier> qualifiers;
 
   public RequestedColumnImpl(RequestedTuple parent, String name) {
     this.parent = parent;
     this.name = name;
-    setType();
-  }
-
-  public RequestedColumnImpl(RequestedTuple parent, String name, ProjectionType type) {
-    this.parent = parent;
-    this.name = name;
-    this.type = type;
   }
 
   @Override
   public String name() { return name; }
-  @Override
-  public ProjectionType type() { return type; }
-  @Override
-  public boolean isWildcard() { return type == ProjectionType.WILDCARD; }
-  @Override
-  public boolean isSimple() { return type == ProjectionType.GENERAL; }
 
   @Override
-  public boolean isArray() { return type.isArray(); }
+  public boolean isSimple() { return qualifiers == null; }
 
-  @Override
-  public boolean isTuple() { return type.isTuple(); }
-
-  @Override
-  public boolean isDict() {
-    return type.isDict();
-  }
-
-  public RequestedTuple asTuple() {
-    if (members == null) {
-      members = new RequestedTupleImpl(this);
-      setType();
-    }
-    return members;
-  }
-
-  public RequestedTuple projectAllMembers(boolean projectAll) {
-    members = projectAll ? ImpliedTupleRequest.ALL_MEMBERS : ImpliedTupleRequest.NO_MEMBERS;
-    setType();
-    return members;
-  }
-
-  public void addIndex(int index) {
-    if (indexes == null) {
-      indexes = new HashSet<>();
-    }
-    if (indexes != ALL_INDEXES) {
-      indexes.add(index);
-    }
-    setType();
-  }
-
-  public void projectAllElements() {
-    indexes = ALL_INDEXES;
-    setType();
-  }
-
-  @Override
-  public boolean hasIndexes() {
-    return indexes != null && indexes != ALL_INDEXES;
-  }
-
-  @Override
-  public boolean hasIndex(int index) {
-    return hasIndexes() ? indexes.contains(index) : false;
-  }
-
-  @Override
-  public int maxIndex() {
-    if (! hasIndexes()) {
-      return 0;
-    }
-    int max = 0;
-    for (final Integer index : indexes) {
-      max = Math.max(max, index);
-    }
-    return max;
-  }
-
-  @Override
-  public boolean[] indexes() {
-    if (! hasIndexes()) {
+  protected Qualifier qualifier(int posn) {
+    if (qualifiers == null || qualifiers.size() <= posn) {
       return null;
     }
-    final int max = maxIndex();
-    final boolean map[] = new boolean[max+1];
-    for (final Integer index : indexes) {
-      map[index] = true;
+    return qualifiers.get(posn);
+  }
+
+  @Override
+  public RequestedColumn.PathType pathType(int posn) {
+    Qualifier qual = qualifier(posn);
+    return qual == null ? null : qual.pathType();
+  }
+
+  public void setQualifier(int posn, Qualifier qualifier) {
+    if (qualifiers == null) {
+      qualifiers = new ArrayList<>();
     }
-    return map;
+    if (posn == qualifiers.size()) {
+      qualifiers.add(qualifier);
+    } else {
+      qualifiers.set(posn, qualifier);
+    }
   }
 
   @Override
@@ -152,18 +83,64 @@ public class RequestedColumnImpl implements RequestedColumn {
 
   public boolean isRoot() { return parent == null; }
 
-  private void setType() {
-    if (name.equals(SchemaPath.DYNAMIC_STAR)) {
-      type = ProjectionType.WILDCARD;
-    } else if (indexes != null && members != null) {
-      type = ProjectionType.TUPLE_ARRAY;
+  @Override
+  public boolean isTuple() {
+    if (qualifiers == null && qualifiers.isEmpty()) {
+      return false;
     }
-    else if (indexes != null) {
-      type = ProjectionType.ARRAY;
-    } else if (members != null) {
-      type = ProjectionType.TUPLE;
+    return pathType(qualifiers.size() - 1) == RequestedColumn.PathType.MAP;
+  }
+
+  @Override
+  public boolean isDict() {
+    return pathType(0) == RequestedColumn.PathType.KEY;
+  }
+
+  @Override
+  public boolean isArray() {
+    return pathType(0) == RequestedColumn.PathType.ARRAY;
+  }
+
+  @Override
+  public boolean hasIndexes() {
+    Qualifier qual = qualifier(0);
+    return qual != null && qual instanceof SelectedArrayQualifier;
+  }
+
+  @Override
+  public boolean hasIndex(int index) {
+    if (!hasIndexes()) {
+      return false;
+    }
+    return ((SelectedArrayQualifier) qualifier(0)).hasIndex(index);
+  }
+
+  @Override
+  public int maxIndex() {
+    if (!hasIndexes()) {
+      return 0;
+    }
+    return ((SelectedArrayQualifier) qualifier(0)).maxIndex();
+  }
+
+  @Override
+  public boolean[] indexes() {
+    if (!hasIndexes()) {
+      return null;
+    }
+    return ((SelectedArrayQualifier) qualifier(0)).indexArray();
+  }
+
+  @Override
+  public RequestedTuple mapProjection() {
+    if (qualifiers == null || qualifiers.isEmpty()) {
+      return ImpliedTupleRequest.ALL_MEMBERS;
+    }
+    Qualifier qual = qualifiers.get(qualifiers.size() - 1);
+    if (qual instanceof MapQualifier) {
+      return ((MapQualifier) qual).members();
     } else {
-      type = ProjectionType.GENERAL;
+      return ImpliedTupleRequest.ALL_MEMBERS;
     }
   }
 
@@ -175,69 +152,161 @@ public class RequestedColumnImpl implements RequestedColumn {
   }
 
   @Override
-  public String summary() {
-    switch (type) {
-    case ARRAY:
-      return "array column";
-    case TUPLE:
-      return "map column";
-    case TUPLE_ARRAY:
-      return "repeated map";
-    case DICT:
-      return "dict column";
-    case DICT_ARRAY:
-      return "repeated dict column";
-    case WILDCARD:
-      return "wildcard";
-    default:
-      return "column";
-    }
-  }
-
-  @Override
   public boolean nameEquals(String target) {
     return name.equalsIgnoreCase(target);
   }
 
+  /**
+   * Convert the projection to a string of the form:
+   * {@code a[0,1,4]['*']{b, c d}}.
+   * The information here s insufficient to specify a type,
+   * it only specifies a pattern to which types are compatible.
+   */
   @Override
-  public RequestedTuple mapProjection() {
-    switch (type) {
-    case ARRAY:
-    case GENERAL:
-      // Don't know if the target is a tuple or not.
+  public String toString() {
+    final StringBuilder buf = new StringBuilder()
+        .append(name);
+    if (qualifiers != null) {
+      for (Qualifier qualifier : qualifiers) {
+        buf.append(qualifier.toString());
+      }
+    }
+    return buf.toString();
+  }
 
-      return ImpliedTupleRequest.ALL_MEMBERS;
-    case TUPLE:
-    case TUPLE_ARRAY:
-      return members == null ? ImpliedTupleRequest.ALL_MEMBERS : members;
-    case UNPROJECTED:
-      return ImpliedTupleRequest.NO_MEMBERS;
+  /**
+   * Reports if the projection (representing an item in a projection list)
+   * is compatible with an actual schema column.
+   *
+   * @param majorType type of a schema column
+   * @return true if this projection type is compatible with the
+   * column's projection type
+   */
+  @Override
+  public boolean isConsistentWith(ColumnMetadata col) {
+    return checkPath(0, col) != NOT_COMPATIBLE;
+  }
+
+  private int checkPath(int level, ColumnMetadata col) {
+    MajorType type = col.majorType();
+    if (isArrayLike(type) && pathType(level) == RequestedColumn.PathType.ARRAY) {
+      level++;
+    }
+    switch (col.type()) {
+    case DICT:
+      level = checkDict(level, type);
+      if (level > 0) {
+        // TODO
+//        level = checkPath(level, col.valueCol());
+      }
+      return level;
+    case LIST:
+      return checkList(level, type);
+    case MAP:
+      return checkMap(level, type);
+    case UNION:
+      return checkUnion(level, type);
+    case NULL: // What are rules for NULL?
     default:
-      return null;
+      return checkScalar(level, type);
     }
   }
 
+  public static final int ACCEPT_ALL = -1;
+  public static final int NOT_COMPATIBLE = -2;
+
+  /**
+   * Reports if the projection (representing an item in a projection list)
+   * is compatible with an actual schema column. This form is limited to
+   * what the major type can provide: checks are done only at the first
+   * level. Specifically:
+   *
+   * <ul>
+   * <li>MAP: Does not check map members.</li>
+   * <li>DICT: Does check value type.</li>
+   * <li>LIST, UNION: Does not check members.</li>
+   * </ul>
+   *
+   * @param majorType type of a schema column
+   * @return true if this projection type is compatible with the
+   * column's projection type
+   */
   @Override
-  public String toString() {
-    final StringBuilder buf = new StringBuilder();
-    buf
-      .append("[")
-      .append(getClass().getSimpleName())
-      .append(" name=")
-      .append(name())
-      .append(", type=")
-      .append(summary());
-    if (isArray()) {
-      buf
-        .append(", array=")
-        .append(indexes);
+  public boolean isConsistentWith(MajorType type) {
+    int result = checkPath(0, type);
+    return result != NOT_COMPATIBLE;
+  }
+
+  private static boolean isArrayLike(MajorType type) {
+    return Types.isRepeated(type) || type.getMinorType() == MinorType.LIST;
+  }
+
+  private int checkPath(int level, MajorType type) {
+    if (isArrayLike(type) && pathType(level) == RequestedColumn.PathType.ARRAY) {
+      level++;
     }
-    if (isTuple()) {
-      buf
-        .append(", tuple=")
-        .append(members);
+    switch (type.getMinorType()) {
+    case DICT:
+
+      // Recursively check the value type, if provided.
+      //return checkPath(level, Types.getValueType(type));
+      return checkDict(level, type);
+    case LIST:
+      return checkList(level, type);
+    case MAP:
+      return checkMap(level, type);
+    case UNION:
+      return checkUnion(level, type);
+    case NULL: // What are rules for NULL?
+    default:
+      return checkScalar(level, type);
     }
-    buf.append("]");
-    return buf.toString();
+  }
+
+  private int checkScalar(int level, MajorType type) {
+    return pathType(level) == null ? ACCEPT_ALL : NOT_COMPATIBLE;
+  }
+
+  private int checkMap(int level, MajorType type) {
+    RequestedColumn.PathType pathType = pathType(level);
+    if (pathType == null) {
+      return ACCEPT_ALL;
+    }
+    if (pathType != RequestedColumn.PathType.MAP) {
+      return NOT_COMPATIBLE;
+    }
+    return level;
+  }
+
+  private int checkDict(int level, MajorType type) {
+    RequestedColumn.PathType pathType = pathType(level);
+    if (pathType == null) {
+      return ACCEPT_ALL;
+    }
+    if (pathType != RequestedColumn.PathType.KEY) {
+      return NOT_COMPATIBLE;
+    }
+    return level;
+  }
+
+  /**
+   * A LIST is an array, and can be repeated for two levels of
+   * array. However, the LIST members can be a UNION, which can be
+   * anything. So, go through the formalities of checking, but we
+   * end up accepting everything.
+   */
+  private int checkList(int level, MajorType type) {
+    // Contents can be a UNION, so just punt. The major type, and
+    // the UNION type are both under-constrained; we don't know what
+    // they contain.
+    return ACCEPT_ALL;
+  }
+
+  /**
+   * A UNION can contain anything at run time. Very hard to check
+   * consistency. For now, just punt.
+   */
+  private int checkUnion(int level, MajorType type) {
+    return ACCEPT_ALL;
   }
 }

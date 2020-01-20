@@ -22,8 +22,8 @@ import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
 import org.apache.drill.exec.physical.resultSet.project.RequestedColumnImpl;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;

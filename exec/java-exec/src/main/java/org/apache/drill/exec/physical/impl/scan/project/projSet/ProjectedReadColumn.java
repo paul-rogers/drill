@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
+import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 
@@ -66,11 +65,6 @@ public class ProjectedReadColumn extends AbstractReadColProj {
   public ProjectionSet mapProjection() {
     // Should never occur: maps should use the map class.
     return null;
-  }
-
-  @Override
-  public ProjectionType projectionType() {
-    return requestedCol == null ? null : requestedCol.type();
   }
 
   @Override

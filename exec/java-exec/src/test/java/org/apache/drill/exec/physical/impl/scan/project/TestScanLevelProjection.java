@@ -27,7 +27,6 @@ import static org.junit.Assert.fail;
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
@@ -36,8 +35,8 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.Scan
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet.ColumnReadProjection;
 import org.apache.drill.exec.physical.resultSet.impl.RowSetTestUtils;
+import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;

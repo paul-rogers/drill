@@ -202,7 +202,14 @@ public abstract class PathSegment {
 
     @Override
     public String toString() {
-      return "NameSegment [path=" + path + ", getChild()=" + getChild() + "]";
+      StringBuilder buf = new StringBuilder()
+          .append("NameSegment [path=")
+          .append(path);
+      if (!isLastPath()) {
+        buf.append(" child=");
+        buf.append(getChild().toString());
+      }
+      return buf.append("]").toString();
     }
 
     @Override

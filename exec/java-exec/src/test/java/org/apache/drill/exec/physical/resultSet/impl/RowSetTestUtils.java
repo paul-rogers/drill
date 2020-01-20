@@ -58,6 +58,10 @@ public class RowSetTestUtils {
         new SchemaPath[] {SchemaPath.STAR_COLUMN});
   }
 
+  public static List<SchemaPath> projectNone() {
+    return new ArrayList<>();
+  }
+
   @SafeVarargs
   public static List<SchemaPath> concat(List<SchemaPath>... parts) {
     List<SchemaPath> selected = new ArrayList<>();

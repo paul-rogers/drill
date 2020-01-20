@@ -18,12 +18,11 @@
 package org.apache.drill.exec.physical.impl.scan.project.projSet;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
+import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
 import org.apache.drill.exec.physical.resultSet.project.RequestedColumnImpl;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple.TupleProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
@@ -73,7 +72,7 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
 
       TypeConverter childConverter = childConverter(outputSchema);
       ProjectionSet mapProjection;
-      if (! reqCol.type().isTuple() || reqCol.mapProjection().type() == TupleProjectionType.ALL) {
+      if (! reqCol.isTuple() || reqCol.mapProjection().type() == TupleProjectionType.ALL) {
 
         // Projection is simple: "m". This is equivalent to
         // (non-SQL) m.*
@@ -102,18 +101,13 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
     if (colReq == null || readCol == null) {
       return;
     }
-    ProjectionType type = colReq.type();
-    if (type == null) {
-      return;
-    }
-    ProjectionType neededType = ProjectionType.typeFor(readCol.majorType());
-    if (type.isCompatible(neededType)) {
+    if (colReq.isConsistentWith(readCol)) {
       return;
     }
     throw UserException.validationError()
       .message("Column type not compatible with projection specification")
       .addContext("Column:", readCol.name())
-      .addContext("Projection type:", type.label())
+      .addContext("Projection type:", colReq.toString())
       .addContext("Column type:", Types.getSqlTypeName(readCol.majorType()))
       .addContext(errorContext)
       .build(logger);
@@ -137,9 +131,4 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
 
   @Override
   public boolean isEmpty() { return requestedProj.projections().isEmpty(); }
-
-  @Override
-  public ProjectionType projectionType(String colName) {
-    return requestedProj.projectionType(colName);
-  }
 }

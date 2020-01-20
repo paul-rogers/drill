@@ -311,8 +311,7 @@ class ObjectParser extends ContainerParser {
     if (key.isEmpty()) {
       throw loader.syntaxError("Drill does not allow empty keys in JSON key/value pairs");
     }
-    ProjectionType projType = writer.projectionType(key);
-    if (projType == ProjectionType.UNPROJECTED) {
+    if (!writer.isProjected(key)) {
       return new DummyValueParser(this, key);
     }
 

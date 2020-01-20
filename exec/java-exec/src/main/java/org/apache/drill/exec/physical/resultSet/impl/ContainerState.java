@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.resultSet.impl;
 
 import java.util.Collection;
 
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetFactory;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
 import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
@@ -86,10 +85,6 @@ public abstract class ContainerState {
   protected LoaderInternals loader() { return loader; }
   public ResultVectorCache vectorCache() { return vectorCache; }
   public ProjectionSet projectionSet() { return projectionSet; }
-
-  public ProjectionType projectionType(String columnName) {
-    return projectionSet.projectionType(columnName);
-  }
 
   public ColumnState addColumn(ColumnMetadata columnSchema) {
 

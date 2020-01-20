@@ -27,7 +27,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 
 import org.apache.drill.categories.RowSetTests;
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.TypeConverter.CustomTypeTransform;
 import org.apache.drill.exec.physical.resultSet.ProjectionSet;
@@ -85,7 +84,7 @@ public class TestProjectionSet extends BaseTest {
     assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertSame(EmptyProjectionSet.PROJECT_NONE, aCol.mapProjection());
-    assertNull(aCol.projectionType());
+    assertTrue(aCol.isConsistentWith(aSchema));
 
     ColumnReadProjection mCol = projSet.readProjection(readSchema.metadata("m"));
     assertFalse(mCol.isProjected());
@@ -114,7 +113,7 @@ public class TestProjectionSet extends BaseTest {
     assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertNull(aCol.mapProjection());
-    assertNull(aCol.projectionType());
+    assertTrue(aCol.isConsistentWith(aSchema));
   }
 
   /**
@@ -388,7 +387,6 @@ public class TestProjectionSet extends BaseTest {
     assertSame(aSchema, aCol.outputSchema());
     assertNull(aCol.conversionFactory());
     assertNull(aCol.mapProjection());
-    assertEquals(ProjectionType.GENERAL, aCol.projectionType());
 
     ColumnReadProjection bCol = projSet.readProjection(readSchema.metadata("b"));
     assertFalse(bCol.isProjected());
@@ -431,13 +429,13 @@ public class TestProjectionSet extends BaseTest {
     assertSame(m1Schema, m1Col.readSchema());
     assertSame(m1Schema, m1Col.outputSchema());
     assertNull(m1Col.conversionFactory());
-    assertEquals(ProjectionType.TUPLE, m1Col.projectionType());
+    assertTrue(m1Col.isConsistentWith(m1Schema));
 
     // m1.c is projected
 
     ColumnReadProjection cCol = m1Col.mapProjection().readProjection(m1ReadSchema.metadata("c"));
     assertTrue(cCol.isProjected());
-    assertEquals(ProjectionType.GENERAL, cCol.projectionType());
+    assertTrue(cCol.isConsistentWith(m1ReadSchema.metadata("c")));
 
     // but m1.d is not projected
 
@@ -446,13 +444,12 @@ public class TestProjectionSet extends BaseTest {
     // m2 is entirely projected
 
     ColumnReadProjection m2Col = projSet.readProjection(m2Schema);
-    assertEquals(ProjectionType.GENERAL, m2Col.projectionType());
+    assertTrue(m2Col.isConsistentWith(m2Schema));
     assertTrue(m2Col.isProjected());
     assertSame(m2Schema, m2Col.readSchema());
     assertSame(m2Schema, m2Col.outputSchema());
     assertNull(m2Col.conversionFactory());
     assertTrue(m2Col.mapProjection() instanceof WildcardProjectionSet);
-    assertEquals(ProjectionType.GENERAL, m2Col.projectionType());
     assertTrue(m2Col.mapProjection().readProjection(m2ReadSchema.metadata("e")).isProjected());
 
     // m3 is not projected at all
@@ -487,7 +484,7 @@ public class TestProjectionSet extends BaseTest {
 
     ColumnReadProjection m1Col = projSet.readProjection(m1Schema);
     assertTrue(m1Col.isProjected());
-    assertEquals(ProjectionType.TUPLE, m1Col.projectionType());
+    assertTrue(m1Col.isConsistentWith(m1Schema));
 
     // M1.c is projected
 
