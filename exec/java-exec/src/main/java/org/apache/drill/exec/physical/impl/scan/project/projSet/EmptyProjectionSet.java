@@ -31,6 +31,9 @@ public class EmptyProjectionSet implements ProjectionSet {
   public static final ProjectionSet PROJECT_NONE = new EmptyProjectionSet();
 
   @Override
+  public boolean isProjected(String colName) { return false; }
+
+  @Override
   public ColumnReadProjection readProjection(ColumnMetadata col) {
     return new UnprojectedReadColumn(col);
   }

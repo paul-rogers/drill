@@ -69,4 +69,9 @@ public class ProjectedReadColumn extends AbstractReadColProj {
 
   @Override
   public ColumnConversionFactory conversionFactory() { return conversionFactory; }
+
+  @Override
+  public boolean isConsistentWith(ColumnMetadata col) {
+    return requestedCol == null || requestedCol.isConsistentWith(col);
+  }
 }

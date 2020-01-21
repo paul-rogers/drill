@@ -33,19 +33,16 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * version is an aggregate. If the projection list contains `a.b` and `a.c`,
  * then one name segment exists for a, and contains segments for both b and c.
  */
-public class RequestedColumnImpl implements RequestedColumn {
+public class RequestedColumnImpl extends BaseRequestedColumn {
 
-  private final RequestedTuple parent;
-  private final String name;
   private List<Qualifier> qualifiers;
 
   public RequestedColumnImpl(RequestedTuple parent, String name) {
-    this.parent = parent;
-    this.name = name;
+    super(parent, name);
   }
 
   @Override
-  public String name() { return name; }
+  public boolean isWildcard() { return false; }
 
   @Override
   public boolean isSimple() { return qualifiers == null; }
@@ -75,25 +72,11 @@ public class RequestedColumnImpl implements RequestedColumn {
   }
 
   @Override
-  public String fullName() {
-    final StringBuilder buf = new StringBuilder();
-    buildName(buf);
-    return buf.toString();
-  }
-
-  public boolean isRoot() { return parent == null; }
-
-  @Override
   public boolean isTuple() {
-    if (qualifiers == null && qualifiers.isEmpty()) {
+    if (qualifiers == null || qualifiers.isEmpty()) {
       return false;
     }
     return pathType(qualifiers.size() - 1) == RequestedColumn.PathType.MAP;
-  }
-
-  @Override
-  public boolean isDict() {
-    return pathType(0) == RequestedColumn.PathType.KEY;
   }
 
   @Override
@@ -143,37 +126,6 @@ public class RequestedColumnImpl implements RequestedColumn {
       return ImpliedTupleRequest.ALL_MEMBERS;
     }
   }
-
-  protected void buildName(StringBuilder buf) {
-    parent.buildName(buf);
-    buf.append('`')
-       .append(name)
-       .append('`');
-  }
-
-  @Override
-  public boolean nameEquals(String target) {
-    return name.equalsIgnoreCase(target);
-  }
-
-  /**
-   * Convert the projection to a string of the form:
-   * {@code a[0,1,4]['*']{b, c d}}.
-   * The information here s insufficient to specify a type,
-   * it only specifies a pattern to which types are compatible.
-   */
-  @Override
-  public String toString() {
-    final StringBuilder buf = new StringBuilder()
-        .append(name);
-    if (qualifiers != null) {
-      for (Qualifier qualifier : qualifiers) {
-        buf.append(qualifier.toString());
-      }
-    }
-    return buf.toString();
-  }
-
   /**
    * Reports if the projection (representing an item in a projection list)
    * is compatible with an actual schema column.
@@ -194,7 +146,7 @@ public class RequestedColumnImpl implements RequestedColumn {
     }
     switch (col.type()) {
     case DICT:
-      level = checkDict(level, type);
+      level = checkDict(level, col);
       if (level > 0) {
         // TODO
 //        level = checkPath(level, col.valueCol());
@@ -283,10 +235,37 @@ public class RequestedColumnImpl implements RequestedColumn {
     if (pathType == null) {
       return ACCEPT_ALL;
     }
-    if (pathType != RequestedColumn.PathType.KEY) {
+    // Dict supports both a.b and a[10] references.
+    // MajorType does not give the key type, so can't check.
+    return level + 1;
+  }
+
+  private int checkDict(int level, ColumnMetadata col) {
+    RequestedColumn.PathType pathType = pathType(level);
+    if (pathType == null) {
+      return ACCEPT_ALL;
+    }
+    MinorType keyType = col.tupleSchema().metadata("key").type();
+    MajorType valueType = col.tupleSchema().metadata("value").majorType();
+    switch (keyType) {
+    case BIGINT:
+    case INT:
+    case SMALLINT:
+    case TINYINT:
+      if (pathType != PathType.ARRAY) {
+        return NOT_COMPATIBLE;
+      } else {
+        return checkPath(level + 1, valueType);
+      }
+    case VARCHAR:
+      if (pathType != PathType.MAP) {
+        return NOT_COMPATIBLE;
+      } else {
+        return checkPath(level + 1, valueType);
+      }
+    default:
       return NOT_COMPATIBLE;
     }
-    return level;
   }
 
   /**
@@ -308,5 +287,36 @@ public class RequestedColumnImpl implements RequestedColumn {
    */
   private int checkUnion(int level, MajorType type) {
     return ACCEPT_ALL;
+  }
+
+  @Override
+  public String summary() {
+    if (isArray() && isTuple()) {
+      return "repeated map";
+    } else if (isArray()) {
+      return "array column";
+    } else if (isTuple()) {
+      return "map column";
+    } else {
+      return "column";
+    }
+  }
+
+  /**
+   * Convert the projection to a string of the form:
+   * {@code a[0,1,4]['*']{b, c d}}.
+   * The information here s insufficient to specify a type,
+   * it only specifies a pattern to which types are compatible.
+   */
+  @Override
+  public String toString() {
+    final StringBuilder buf = new StringBuilder()
+        .append(name());
+    if (qualifiers != null) {
+      for (Qualifier qualifier : qualifiers) {
+        buf.append(qualifier.toString());
+      }
+    }
+    return buf.toString();
   }
 }

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.resultSet.impl.RowSetTestUtils;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -39,10 +40,18 @@ public class TestProjectedPath {
   private static final ColumnMetadata INT_ARRAY_COLUMN = intArraySchema().metadata("a");
   private static final ColumnMetadata MAP_COLUMN = mapSchema().metadata("a");
   private static final ColumnMetadata MAP_ARRAY_COLUMN = mapArraySchema().metadata("a");
-  private static final ColumnMetadata DICT_COLUMN = dictSchema().metadata("a");
-  private static final ColumnMetadata DICT_ARRAY_COLUMN = dictArraySchema().metadata("a");
   private static final ColumnMetadata UNION_COLUMN = unionSchema().metadata("a");
   private static final ColumnMetadata LIST_COLUMN = listSchema().metadata("a");
+  private static final ColumnMetadata DICT_INT_INT_COLUMN = dictSchema(MinorType.INT).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_INT_INT_COLUMN = dictArraySchema(MinorType.INT).metadata("a");
+  private static final ColumnMetadata DICT_BIGINT_INT_COLUMN = dictSchema(MinorType.BIGINT).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_BIGINT_INT_COLUMN = dictArraySchema(MinorType.BIGINT).metadata("a");
+  private static final ColumnMetadata DICT_VARCHAR_INT_COLUMN = dictSchema(MinorType.VARCHAR).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_VARCHAR_INT_COLUMN = dictArraySchema(MinorType.VARCHAR).metadata("a");
+  private static final ColumnMetadata DICT_DOUBLE_INT_COLUMN = dictSchema(MinorType.FLOAT8).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_DOUBLE_INT_COLUMN = dictArraySchema(MinorType.FLOAT8).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_INT_INT_ARRAY_COLUMN = dictArrayArraySchema(MinorType.INT).metadata("a");
+  private static final ColumnMetadata DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN = dictArrayArraySchema(MinorType.VARCHAR).metadata("a");
 
   private static TupleMetadata intSchema() {
     return new SchemaBuilder()
@@ -78,18 +87,26 @@ public class TestProjectedPath {
         .build();
   }
 
-  private static TupleMetadata dictSchema() {
+  private static TupleMetadata dictSchema(MinorType keyType) {
     return new SchemaBuilder()
-        .addDict("a", MinorType.VARCHAR)
+        .addDict("a", keyType)
           .value(MinorType.INT)
           .resumeSchema()
         .build();
   }
 
-  private static TupleMetadata dictArraySchema() {
+  private static TupleMetadata dictArraySchema(MinorType keyType) {
     return new SchemaBuilder()
-        .addDictArray("a", MinorType.VARCHAR)
+        .addDictArray("a", keyType)
           .value(MinorType.INT)
+          .resumeSchema()
+        .build();
+  }
+
+  private static TupleMetadata dictArrayArraySchema(MinorType keyType) {
+    return new SchemaBuilder()
+        .addDictArray("a", keyType)
+          .value(Types.repeated(MinorType.INT))
           .resumeSchema()
         .build();
   }
@@ -120,13 +137,24 @@ public class TestProjectedPath {
     assertFalse(projSet.isConsistentWith(col.name(), col.majorType()));
   }
 
+  private void assertDictConsistent(RequestedTuple projSet, ColumnMetadata col) {
+    assertTrue(projSet.isConsistentWith(col));
+    assertTrue(projSet.isConsistentWith(col.name(), col.majorType()));
+  }
+
+  private void assertDictNotConsistent(RequestedTuple projSet, ColumnMetadata col) {
+    assertFalse(projSet.isConsistentWith(col));
+    // Major type does not contain key type
+    assertTrue(projSet.isConsistentWith(col.name(), col.majorType()));
+  }
+
   private void assertAllConsistent(RequestedTuple projSet) {
     assertConsistent(projSet, INT_COLUMN);
     assertConsistent(projSet, INT_ARRAY_COLUMN);
     assertConsistent(projSet, MAP_COLUMN);
     assertConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertConsistent(projSet, DICT_COLUMN);
-    assertConsistent(projSet, DICT_ARRAY_COLUMN);
+    assertConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
     assertConsistent(projSet, UNION_COLUMN);
     assertConsistent(projSet, LIST_COLUMN);
   }
@@ -170,10 +198,19 @@ public class TestProjectedPath {
     assertConsistent(projSet, INT_ARRAY_COLUMN);
     assertNotConsistent(projSet, MAP_COLUMN);
     assertConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertNotConsistent(projSet, DICT_COLUMN);
-    assertConsistent(projSet, DICT_ARRAY_COLUMN);
     assertConsistent(projSet, UNION_COLUMN);
     assertConsistent(projSet, LIST_COLUMN);
+
+    assertDictConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_INT_INT_ARRAY_COLUMN);
+    assertDictConsistent(projSet, DICT_BIGINT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_DOUBLE_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_DOUBLE_INT_COLUMN);
   }
 
   @Test
@@ -185,10 +222,19 @@ public class TestProjectedPath {
     assertNotConsistent(projSet, INT_ARRAY_COLUMN);
     assertNotConsistent(projSet, MAP_COLUMN);
     assertNotConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertNotConsistent(projSet, DICT_COLUMN);
-    assertNotConsistent(projSet, DICT_ARRAY_COLUMN);
     assertConsistent(projSet, UNION_COLUMN);
     assertConsistent(projSet, LIST_COLUMN);
+
+    assertDictNotConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_INT_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_BIGINT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_VARCHAR_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_VARCHAR_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_DOUBLE_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_DOUBLE_INT_COLUMN);
   }
 
   @Test
@@ -200,10 +246,19 @@ public class TestProjectedPath {
     assertNotConsistent(projSet, INT_ARRAY_COLUMN);
     assertNotConsistent(projSet, MAP_COLUMN);
     assertNotConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertNotConsistent(projSet, DICT_COLUMN);
-    assertNotConsistent(projSet, DICT_ARRAY_COLUMN);
     assertConsistent(projSet, UNION_COLUMN);
     assertConsistent(projSet, LIST_COLUMN);
+
+    assertDictNotConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_INT_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_VARCHAR_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_VARCHAR_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_DOUBLE_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_DOUBLE_INT_COLUMN);
   }
 
   @Test
@@ -215,8 +270,6 @@ public class TestProjectedPath {
     assertNotConsistent(projSet, INT_ARRAY_COLUMN);
     assertConsistent(projSet, MAP_COLUMN);
     assertConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertNotConsistent(projSet, DICT_COLUMN);
-    assertNotConsistent(projSet, DICT_ARRAY_COLUMN);
 
     // A UNION could contain a map, which would allow the
     // a.b path to be valid.
@@ -224,6 +277,17 @@ public class TestProjectedPath {
     // A LIST could be a list of MAPs, so a.b could mean
     // to pick out the b column in all array entries.
     assertConsistent(projSet, LIST_COLUMN);
+
+    assertDictNotConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_INT_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_BIGINT_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_DOUBLE_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_DOUBLE_INT_COLUMN);
   }
 
   @Test
@@ -235,16 +299,22 @@ public class TestProjectedPath {
     assertNotConsistent(projSet, INT_ARRAY_COLUMN);
     assertNotConsistent(projSet, MAP_COLUMN);
     assertConsistent(projSet, MAP_ARRAY_COLUMN);
-    assertNotConsistent(projSet, DICT_COLUMN);
-    assertNotConsistent(projSet, DICT_ARRAY_COLUMN);
 
     // A UNION could contain a repeated map, which would allow the
     // a.b path to be valid.
     assertConsistent(projSet, UNION_COLUMN);
     // A LIST could contain MAPs.
     assertConsistent(projSet, LIST_COLUMN);
+
+    assertDictNotConsistent(projSet, DICT_INT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_INT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_INT_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_BIGINT_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_COLUMN);
+    assertDictConsistent(projSet, DICT_ARRAY_VARCHAR_INT_ARRAY_COLUMN);
+    assertDictNotConsistent(projSet, DICT_DOUBLE_INT_COLUMN);
+    assertDictNotConsistent(projSet, DICT_ARRAY_DOUBLE_INT_COLUMN);
   }
-
-  // TODO: Test DICT projection when supported.
-
 }

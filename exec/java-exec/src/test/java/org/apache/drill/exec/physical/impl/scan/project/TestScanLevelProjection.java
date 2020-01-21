@@ -138,9 +138,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     final RequestedColumn a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
     assertTrue(a.isTuple());
-    assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("x"));
-    assertEquals(ProjectionType.GENERAL, a.mapProjection().projectionType("y"));
-    assertEquals(ProjectionType.UNPROJECTED,  a.mapProjection().projectionType("z"));
+    assertTrue(a.mapProjection().isProjected("x"));
+    assertTrue(a.mapProjection().isProjected("y"));
+    assertFalse(a.mapProjection().isProjected("z"));
 
     final RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());
@@ -172,13 +172,13 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // an actual reader.
 
     ProjectionSet projSet = scanProj.projectionSet().build();
+    assertTrue(projSet.isProjected("a"));
     ColumnReadProjection aProj = projSet.readProjection(readerSchema.metadata("a"));
     assertTrue(aProj.isProjected());
-    assertEquals(ProjectionType.TUPLE, aProj.projectionType());
     ColumnReadProjection cProj = projSet.readProjection(readerSchema.metadata("c"));
     assertTrue(cProj.isProjected());
-    assertEquals(ProjectionType.GENERAL, cProj.projectionType());
     assertFalse(projSet.readProjection(readerSchema.metadata("d")).isProjected());
+    assertFalse(projSet.isProjected("d"));
   }
 
   /**
@@ -228,7 +228,6 @@ public class TestScanLevelProjection extends SubOperatorTest {
     ProjectionSet projSet = scanProj.projectionSet().build();
     ColumnReadProjection aProj = projSet.readProjection(readerSchema.metadata("a"));
     assertTrue(aProj.isProjected());
-    assertEquals(ProjectionType.ARRAY, aProj.projectionType());
     assertFalse(projSet.readProjection(readerSchema.metadata("c")).isProjected());
   }
 

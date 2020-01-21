@@ -79,7 +79,6 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * selected. Index information is available only at the top level, but
  * not for 2+ dimensions.
  */
-
 public interface RequestedColumn {
 
   /**
@@ -97,11 +96,16 @@ public interface RequestedColumn {
    * with an array of any kind." Specifically, the projection
    * type is a mask of bits, each of which registers evidence
    * that the column is consistent with columns of some "shape."
+   * <p>
+   * Note that DICT-style projections in SQL ({@code d['key']}
+   * are converted to map-style syntax in the execution plan
+   * {@code d.key}.
    */
-  enum PathType { ARRAY, KEY, MAP }
+  enum PathType { ARRAY, MAP }
 
   String name();
   String fullName();
+  String summary();
 
   /**
    * A column may have any number of qualifiers. Report the type of
@@ -113,6 +117,7 @@ public interface RequestedColumn {
    * the requested position.
    */
   RequestedColumn.PathType pathType(int posn);
+  boolean isWildcard();
 
   /**
    * @return true if this column has no qualifiers. Example:
@@ -124,7 +129,8 @@ public interface RequestedColumn {
    * Report whether the projection implies a tuple. Example:
    * {@code a.b}. Not that this method, and others can only tell
    * if the projection implies a tuple; the actual column may
-   * be a tuple (MAP), but be projected simply.
+   * be a tuple (MAP), but be projected simply. The map
+   * format also describes a DICT with a VARCHAR key.
    *
    * @return true if the column has a map-like projection.
    */
@@ -134,7 +140,8 @@ public interface RequestedColumn {
 
   /**
    * Report whether the first qualifier is an array.
-   * Example: {@code a[1]}
+   * Example: {@code a[1]}. The array format also describes
+   * a DICT with an integer key.
    * @return true if the column must be an array.
    */
   boolean isArray();
@@ -159,13 +166,6 @@ public interface RequestedColumn {
     */
   boolean[] indexes();
   boolean hasIndex(int index);
-
-  /**
-   * Report whether the projection implies a DICT column.
-   * Example: {@code a['key']}.
-   * @return true if the projection implies a DICT column.
-   */
-  boolean isDict();
   boolean isConsistentWith(ColumnMetadata col);
   boolean isConsistentWith(MajorType type);
 }

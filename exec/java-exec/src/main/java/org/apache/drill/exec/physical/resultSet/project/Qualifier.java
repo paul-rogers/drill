@@ -92,21 +92,6 @@ public abstract class Qualifier {
   }
 
   /**
-   * The column is projected as a DICT, with a key suffix. That is,
-   * {@code a['key']}. We do not track the specific keys.
-   */
-  public static class KeyQualifier extends Qualifier {
-
-    @Override
-    public RequestedColumn.PathType pathType() { return RequestedColumn.PathType.KEY; }
-
-    @Override
-    public String toString() {
-      return "['*']";
-    }
-  }
-
-  /**
    * The column is projected with nested members, and thus must
    * be a {@code MAP} or {@code ARRAY<MAP>}. This form tracks the
    * specific members projected, that is {@code a.{b,c,d}}.

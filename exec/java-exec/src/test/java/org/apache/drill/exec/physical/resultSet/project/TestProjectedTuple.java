@@ -49,7 +49,6 @@ import org.junit.experimental.categories.Category;
  * parsing; the only bits not tested here is that which is
  * inherently specific to some use case.
  */
-
 @Category(RowSetTests.class)
 public class TestProjectedTuple extends BaseTest {
 
@@ -69,11 +68,11 @@ public class TestProjectedTuple extends BaseTest {
    */
   @Test
   public void testWildcard() {
-
     RequestedTuple projSet = Projections.parse(RowSetTestUtils.projectAll());
     assertSame(TupleProjectionType.ALL, projSet.type());
     assertTrue(projSet.isProjected("foo"));
-    assertTrue(projSet.projections().isEmpty());
+    assertNull(projSet.get("foo"));
+    assertEquals(1, projSet.projections().size());
   }
 
   /**
@@ -111,7 +110,6 @@ public class TestProjectedTuple extends BaseTest {
     assertTrue(a.isSimple());
     assertFalse(a.isArray());
     assertFalse(a.isTuple());
-    assertFalse(a.isDict());
   }
 
   @Test
@@ -286,7 +284,6 @@ public class TestProjectedTuple extends BaseTest {
     assertEquals("a", a.name());
     assertFalse(a.isSimple());
     assertFalse(a.isArray());
-    assertFalse(a.isDict());
     assertTrue(a.isTuple());
 
     {
@@ -351,7 +348,6 @@ public class TestProjectedTuple extends BaseTest {
     assertTrue(a.isArray());
     assertFalse(a.isSimple());
     assertFalse(a.isTuple());
-    assertFalse(a.isDict());
     assertTrue(a.hasIndexes());
     boolean indexes[] = a.indexes();
     assertNotNull(indexes);
@@ -374,7 +370,6 @@ public class TestProjectedTuple extends BaseTest {
     assertTrue(a.isArray());
     assertFalse(a.isSimple());
     assertFalse(a.isTuple());
-    assertFalse(a.isDict());
     boolean indexes[] = a.indexes();
     assertNotNull(indexes);
     assertEquals(3, indexes.length);

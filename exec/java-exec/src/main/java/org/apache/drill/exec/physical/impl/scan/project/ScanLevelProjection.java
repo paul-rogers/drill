@@ -26,9 +26,9 @@ import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn
 import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.project.projSet.ProjectionSetBuilder;
 import org.apache.drill.exec.physical.resultSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.resultSet.project.Projections;
 import org.apache.drill.exec.physical.resultSet.project.RequestedColumn;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
-import org.apache.drill.exec.physical.resultSet.project.RequestedTupleImpl;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
@@ -222,7 +222,7 @@ public class ScanLevelProjection {
 
   public static class Builder {
     private List<SchemaPath> projectionList;
-    private List<ScanProjectionParser> parsers = new ArrayList<>();
+    private final List<ScanProjectionParser> parsers = new ArrayList<>();
     private TupleMetadata outputSchema;
     /**
      * Context used with error messages.
@@ -351,7 +351,7 @@ public class ScanLevelProjection {
   }
 
   private void doParse() {
-    outputProjection = RequestedTupleImpl.parse(projectionList);
+    outputProjection = Projections.parse(projectionList);
 
     for (ScanProjectionParser parser : parsers) {
       parser.bind(this);
@@ -405,7 +405,7 @@ public class ScanLevelProjection {
           outputProj.add(((AbstractUnresolvedColumn) col).element());
         }
       }
-      readerProjection = RequestedTupleImpl.build(outputProj);
+      readerProjection = Projections.build(outputProj);
     }
   }
 

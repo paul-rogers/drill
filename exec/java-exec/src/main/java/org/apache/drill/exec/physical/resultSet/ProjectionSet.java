@@ -89,6 +89,7 @@ public interface ProjectionSet {
     boolean isConsistentWith(ColumnMetadata col);
   }
 
+  boolean isProjected(String colName);
   void setErrorContext(CustomErrorContext errorContext);
   ColumnReadProjection readProjection(ColumnMetadata col);
   ColumnReadProjection readDictProjection(ColumnMetadata col);

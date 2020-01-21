@@ -15,32 +15,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project.projSet;
+package org.apache.drill.exec.physical.resultSet.project;
 
-import org.apache.drill.exec.physical.resultSet.ProjectionSet;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
+public abstract class BaseRequestedColumn implements RequestedColumn {
 
-/**
- * Unprojected column. No validation needed. No type conversion.
- * Reader column just "free wheels", without a materialized vector,
- * accepting any data the reader cares to throw at it, then simply
- * discarding that data.
- */
+  private final RequestedTuple parent;
+  private final String name;
 
-public class UnprojectedReadColumn extends AbstractReadColProj {
+  public BaseRequestedColumn(RequestedTuple parent, String name) {
+    this.parent = parent;
+    this.name = name;
+  }
 
-  public UnprojectedReadColumn(ColumnMetadata readSchema) {
-    super(readSchema);
+  public boolean isRoot() { return parent == null; }
+
+  @Override
+  public String name() { return name; }
+
+  @Override
+  public String fullName() {
+    final StringBuilder buf = new StringBuilder();
+    buildName(buf);
+    return buf.toString();
+  }
+
+  protected void buildName(StringBuilder buf) {
+    parent.buildName(buf);
+    buf.append('`')
+       .append(name)
+       .append('`');
   }
 
   @Override
-  public boolean isProjected() { return false; }
-
-  @Override
-  public ProjectionSet mapProjection() { return ProjectionSetFactory.projectNone(); }
-
-  @Override
-  public boolean isConsistentWith(ColumnMetadata col) {
-    return true;
+  public boolean nameEquals(String target) {
+    return name.equalsIgnoreCase(target);
   }
 }

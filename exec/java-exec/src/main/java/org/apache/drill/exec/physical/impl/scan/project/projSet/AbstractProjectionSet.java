@@ -27,7 +27,6 @@ import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
  * Base class for projection set implementations. Handles an optional
  * type conversion based on a provided schema, custom conversion, or both.
  */
-
 public abstract class AbstractProjectionSet implements ProjectionSet {
   protected final TypeConverter typeConverter;
   protected final TupleMetadata providedSchema;

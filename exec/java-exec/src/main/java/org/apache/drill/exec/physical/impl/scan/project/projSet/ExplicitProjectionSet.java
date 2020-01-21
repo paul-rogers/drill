@@ -47,6 +47,11 @@ public class ExplicitProjectionSet extends AbstractProjectionSet {
   }
 
   @Override
+  public boolean isProjected(String colName) {
+    return requestedProj.get(colName) != null;
+  }
+
+  @Override
   public ColumnReadProjection readProjection(ColumnMetadata col) {
     RequestedColumn reqCol = requestedProj.get(col.name());
     if (reqCol == null) {

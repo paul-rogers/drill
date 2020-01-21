@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
-import org.apache.drill.common.project.ProjectionType;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -298,15 +297,13 @@ class ObjectParser extends ContainerParser {
   }
 
   /**
-   * If the column is not projected, create a dummy parser to "free wheel"
-   * over the value. Otherwise,
-   * look ahead a token or two to determine the the type of the field.
-   * Then the caller will backtrack to parse the field.
+   * If the column is not projected, create a dummy parser to "free wheel" over
+   * the value. Otherwise, look ahead a token or two to determine the the type
+   * of the field. Then the caller will backtrack to parse the field.
    *
    * @param key name of the field
    * @return parser for the field
    */
-
   JsonElementParser detectValueParser(final String key) {
     if (key.isEmpty()) {
       throw loader.syntaxError("Drill does not allow empty keys in JSON key/value pairs");
@@ -335,15 +332,7 @@ class ObjectParser extends ContainerParser {
     case VALUE_NULL:
 
       // Position: key: null ^
-      // Use the projection type as a hint. Note that this is not a panacea,
-      // and may even lead to seemingly-random behavior. In one query, we can
-      // pick out arrays or array lists when confronted with a list of nulls
-      // (because we use the projection hint), but in other queries, the user
-      // will get a schema change exception (because we could not guess the type
-      // because the projection list differed.) It is not clear if such behavior
-      // is a bug or feature...
-
-      valueParser = inferParser(key, projType);
+      valueParser = inferParser(key);
       break;
 
     default:
@@ -383,46 +372,12 @@ class ObjectParser extends ContainerParser {
    * @return
    */
 
-  private JsonElementParser inferParser(String key, ProjectionType projType) {
+  private JsonElementParser inferParser(String key) {
     JsonElementParser valueParser = inferFromType(key);
-    if (valueParser == null) {
-      valueParser = inferFromProjection(key, projType);
-    }
     if (valueParser == null) {
       valueParser = new NullTypeParser(this, key);
     }
     return valueParser;
-  }
-
-  /**
-   * Use information from the projection list to infer the general shape of
-   * a field that contains nulls. This information is weak, but it is better
-   * than nothing. Plus, if the shape we guess here is inconsistent with the
-   * project list, the query will simply fail during the projection step.
-   *
-   * @param key name of the key
-   * @param projType projection type hint from the projection system
-   * @return a parser for the value
-   */
-
-  private JsonElementParser inferFromProjection(String key, ProjectionType projType) {
-    switch (projType) {
-    case ARRAY:
-      return new ObjectParser.NullArrayParser(this, key);
-
-    case TUPLE:
-      return objectParser(key);
-
-    case TUPLE_ARRAY:
-
-      // Note: Drill syntax does not support this
-      // case yet.
-
-      return objectArrayParser(key);
-
-    default:
-      return null;
-    }
   }
 
   /**

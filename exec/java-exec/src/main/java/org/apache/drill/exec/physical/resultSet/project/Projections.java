@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.resultSet.project;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.apache.calcite.util.Pair;
 import org.apache.drill.common.exceptions.UserException;
@@ -32,6 +33,10 @@ import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Converts a projection list passed to an operator into a scan projection list,
+ * coalescing multiple references to the same column into a single reference.
+ */
 public class Projections {
   private static final Logger logger = LoggerFactory.getLogger(Projections.class);
   private static final FullArrayQualifier ARRAY_WILDCARD_QUALIFIER = new FullArrayQualifier();
@@ -41,17 +46,22 @@ public class Projections {
 
     protected abstract void becomeWildcard();
 
-    protected abstract Pair<RequestedColumnImpl,Boolean> addMember(String colName);
+    protected abstract Pair<RequestedColumn, Boolean> addMember(String colName);
 
-    protected Pair<RequestedColumnImpl,Boolean> addMember(RequestedTupleImpl tuple, String colName) {
-      RequestedColumnImpl member = tuple.getImpl(colName);
+    protected Pair<RequestedColumn, Boolean> addMember(RequestedTupleImpl tuple, String colName) {
+      RequestedColumn member = tuple.get(colName);
       boolean isNew = member == null;
 
       // Simplest case: never saw this column before. Assume it is a simple
       // projection: a
 
       if (isNew) {
-        member = new RequestedColumnImpl(tuple, colName);
+        if (colName.equals(SchemaPath.DYNAMIC_STAR)) {
+          member = new RequestedWildcardColumn(tuple, colName);
+          tuple.projectionType = TupleProjectionType.ALL;
+        } else {
+          member = new RequestedColumnImpl(tuple, colName);
+        }
         tuple.add(member);
       }
       return Pair.of(member, isNew);
@@ -74,7 +84,7 @@ public class Projections {
     }
 
     @Override
-    public Pair<RequestedColumnImpl,Boolean> addMember(String colName) {
+    public Pair<RequestedColumn, Boolean> addMember(String colName) {
       return addMember(tupleProj, colName);
     }
   }
@@ -94,7 +104,7 @@ public class Projections {
     }
 
     @Override
-    public Pair<RequestedColumnImpl,Boolean> addMember(String colName) {
+    public Pair<RequestedColumn, Boolean> addMember(String colName) {
       MapQualifier qual = (MapQualifier) col.qualifier(mapLevel);
       RequestedTuple members = qual.members();
       if (members.type() != TupleProjectionType.SOME) {
@@ -150,12 +160,6 @@ public class Projections {
     if (projList.isEmpty()) {
       return projectNone();
     }
-    if (projList.size() == 1) {
-      NameSegment namedSeg = projList.iterator().next().getRootSegment();
-      if (namedSeg.getPath().equals(SchemaPath.DYNAMIC_STAR)) {
-        return projectAll();
-      }
-    }
     RequestedTupleImpl tupleProj = new RequestedTupleImpl();
     TupleHolder tupleHolder = new RowHolder(tupleProj);
     for (SchemaPath col : projList) {
@@ -166,16 +170,21 @@ public class Projections {
 
   private static void parseMember(TupleHolder tupleHolder, NameSegment nameSeg) {
     String colName = nameSeg.getPath();
-    if (colName.equals(SchemaPath.DYNAMIC_STAR)) {
-      // Tuple: Can't have a, *, b
-      // Map: (m or m.a)?, m.* --> m.*
-      tupleHolder.becomeWildcard();
-    } else {
-      Pair<RequestedColumnImpl,Boolean> result = tupleHolder.addMember(colName);
+    Pair<RequestedColumn, Boolean> result = tupleHolder.addMember(colName);
 
-      // If column is known, drill down further.
-      if (result != null) {
-        parsePath(result.left, result.right, 0, nameSeg);
+    // If column is known, drill down further.
+    if (result != null) {
+      RequestedColumn member = result.left;
+      boolean isNew = result.right;
+      if (member.isWildcard()) {
+        if (!isNew) {
+          throw UserException
+            .validationError()
+            .message("Duplicate wildcard in project list")
+            .build(logger);
+        }
+      } else {
+        parsePath((RequestedColumnImpl) member, isNew, 0, nameSeg);
       }
     }
   }
@@ -228,10 +237,6 @@ public class Projections {
       if (qualifier instanceof SelectedArrayQualifier) {
         col.setQualifier(level, ARRAY_WILDCARD_QUALIFIER);
       }
-      break;
-    case KEY:
-      // a && a['*'] --> a['*']
-      // That is, for a dictionary key, do nothing.
       break;
     case MAP:
       // a && a.b --> a.*
@@ -288,12 +293,6 @@ public class Projections {
         ((SelectedArrayQualifier) qualifier).indexes().add(arraySeg.getIndex());
       }
       break;
-    case KEY:
-      throw UserException
-        .validationError()
-        .message("Cannot project a column as both %s[n] and %s['key']",
-            col.fullName(), col.fullName())
-        .build(logger);
     case MAP:
       throw UserException
         .validationError()
@@ -335,12 +334,6 @@ public class Projections {
         .message("Cannot project a column as both %s.member and %s[n]",
             col.fullName(), col.fullName())
         .build(logger);
-    case KEY:
-      throw UserException
-        .validationError()
-        .message("Cannot project a column as both %s.member and %s['key']",
-            col.fullName(), col.fullName())
-        .build(logger);
     case MAP:
       parseMember(new MapHolder(col, level), memberSeg);
       break;
@@ -349,28 +342,24 @@ public class Projections {
     }
   }
 
-//  /**
-//   * Create a requested tuple projection from a rewritten top-level
-//   * projection list. The columns within the list have already been parsed to
-//   * pick out arrays, maps and scalars. The list must not include the
-//   * wildcard: a wildcard list must be passed in as a null list. An
-//   * empty list means project nothing. Null list means project all, else
-//   * project only the columns in the list.
-//   *
-//   * @param projList top-level, parsed columns
-//   * @return the tuple projection for the top-level row
-//   */
-//  public static InputTupleProjection build(List<InputColumnProjection> projList) {
-//    if (projList == null) {
-//      return new ImpliedTupleProjection(true);
-//    }
-//    if (projList.isEmpty()) {
-//      return ImpliedTupleProjection.NO_MEMBERS;
-//    }
-//    TupleProjectionImpl projection = new TupleProjectionImpl();
-//    for (InputColumnProjection col : projList) {
-//      projection.add(col);
-//    }
-//    return projection;
-//  }
+  /**
+   * Create a requested tuple projection from a rewritten top-level
+   * projection list. The columns within the list have already been parsed to
+   * pick out arrays, maps and scalars. The list must not include the
+   * wildcard: a wildcard list must be passed in as a null list. An
+   * empty list means project nothing. Null list means project all, else
+   * project only the columns in the list.
+   *
+   * @param projList top-level, parsed columns
+   * @return the tuple projection for the top-level row
+   */
+  public static RequestedTuple build(List<RequestedColumn> projList) {
+    if (projList == null) {
+      return new ImpliedTupleRequest(true);
+    }
+    if (projList.isEmpty()) {
+      return ImpliedTupleRequest.NO_MEMBERS;
+    }
+    return new RequestedTupleImpl(projList);
+  }
 }

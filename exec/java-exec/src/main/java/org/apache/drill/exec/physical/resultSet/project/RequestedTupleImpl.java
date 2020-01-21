@@ -94,14 +94,22 @@ import org.apache.drill.exec.record.metadata.TupleNameSpace;
 public class RequestedTupleImpl implements RequestedTuple {
 
   private final RequestedColumnImpl parent;
+  protected TupleProjectionType projectionType = TupleProjectionType.SOME;
   private final TupleNameSpace<RequestedColumn> projection = new TupleNameSpace<>();
 
   public RequestedTupleImpl() {
-    this(null);
+    this.parent = null;
   }
 
   public RequestedTupleImpl(RequestedColumnImpl parent) {
     this.parent = parent;
+  }
+
+  public RequestedTupleImpl(List<RequestedColumn> cols) {
+    parent = null;
+    for (RequestedColumn col : cols) {
+      projection.add(col.name(), col);
+    }
   }
 
   @Override
@@ -113,7 +121,7 @@ public class RequestedTupleImpl implements RequestedTuple {
     return (RequestedColumnImpl) get(colName);
   }
 
-  public void add(RequestedColumnImpl col) {
+  public void add(RequestedColumn col) {
     projection.add(col.name(), col);
   }
 
@@ -136,12 +144,12 @@ public class RequestedTupleImpl implements RequestedTuple {
    */
   @Override
   public TupleProjectionType type() {
-    return TupleProjectionType.SOME;
+    return projectionType;
   }
 
   @Override
   public boolean isProjected(String colName) {
-    return get(colName) != null;
+    return projectionType == TupleProjectionType.ALL ? true : get(colName) != null;
   }
 
   @Override
