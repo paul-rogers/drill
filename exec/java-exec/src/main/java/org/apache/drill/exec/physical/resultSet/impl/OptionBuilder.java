@@ -30,7 +30,6 @@ import org.apache.drill.exec.vector.ValueVector;
  * are provided for all options; use the default options for test code or
  * for clients that don't need special settings.
  */
-
 public class OptionBuilder {
   protected int vectorSizeLimit;
   protected int rowCountLimit;

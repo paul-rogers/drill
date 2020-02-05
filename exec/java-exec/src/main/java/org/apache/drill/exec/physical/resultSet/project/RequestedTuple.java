@@ -46,7 +46,6 @@ import org.apache.drill.common.expression.PathSegment;
  * added column is wanted (and so should have a backing vector) or
  * is unwanted (and can just receive a dummy writer.)
  */
-
 public interface RequestedTuple {
 
   /**
@@ -66,7 +65,6 @@ public interface RequestedTuple {
    * we cannot know if a simple column reference might refer
    * to an array or map.
    */
-
   public interface RequestedColumn {
 
     String name();

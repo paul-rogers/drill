@@ -39,13 +39,11 @@ import org.slf4j.LoggerFactory;
  *
  * @see {@link ResultSetLoader}
  */
-
 public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   /**
    * Read-only set of options for the result set loader.
    */
-
   public static class ResultSetOptions {
     protected final int vectorSizeLimit;
     protected final int rowCountLimit;
@@ -95,13 +93,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     /**
      * Before the first batch.
      */
-
     START,
 
     /**
      * Writing to a batch normally.
      */
-
     ACTIVE,
 
     /**
@@ -109,14 +105,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
      * to write to a temporary "overflow" batch until the
      * end of the current row.
      */
-
     OVERFLOW,
 
     /**
      * Temporary state to avoid batch-size related overflow while
      * an overflow is in progress.
      */
-
     IN_OVERFLOW,
 
     /**
@@ -124,14 +118,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
      * when saving a row.
      * No more writes allowed until harvesting the current batch.
      */
-
     FULL_BATCH,
 
     /**
      * Current batch was harvested: data is gone. No lookahead
      * batch exists.
      */
-
     HARVESTED,
 
     /**
@@ -155,13 +147,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
      * fine. The correct buffers are restored once a new batch is started
      * and the state moves to ACTIVE.
      */
-
     LOOK_AHEAD,
 
     /**
      * Mutator is closed: no more operations are allowed.
      */
-
     CLOSED
   }
 
@@ -280,13 +270,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
-    targetRowCount = options.rowCountLimit;
-    writerIndex = new WriterIndexImpl(this);
-    columnBuilder = new ColumnBuilder();
+    this.targetRowCount = options.rowCountLimit;
+    this.writerIndex = new WriterIndexImpl(this);
+    this.columnBuilder = new ColumnBuilder();
 
     // Set the projections
 
-    projectionSet = options.projectionSet;
+    this.projectionSet = options.projectionSet;
 
     // Determine the root vector cache
 
@@ -299,8 +289,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
     // Build the row set model depending on whether a schema is provided.
 
-    rootState = new RowState(this, vectorCache);
-    rootWriter = rootState.rootWriter();
+    this.rootState = new RowState(this, vectorCache);
+    this.rootWriter = rootState.rootWriter();
 
     // If no schema, columns will be added incrementally as they
     // are discovered. Start with an empty model.

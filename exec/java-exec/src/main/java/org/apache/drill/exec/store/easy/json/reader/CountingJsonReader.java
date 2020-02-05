@@ -45,7 +45,5 @@ public class CountingJsonReader extends BaseJsonReader {
   }
 
   @Override
-  public void ensureAtLeastOneField(ComplexWriter writer) {
-
-  }
+  public void ensureAtLeastOneField(ComplexWriter writer) { }
 }
