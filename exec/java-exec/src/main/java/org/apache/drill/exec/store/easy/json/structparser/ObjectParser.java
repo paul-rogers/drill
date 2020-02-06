@@ -201,7 +201,7 @@ class ObjectParser extends ContainerParser {
       // Position: EOF ^
       return false;
     }
-    // Position: ? ^
+    // Position: ^ ?
     switch (token) {
       case NOT_AVAILABLE:
         return false; // Should never occur
@@ -209,10 +209,12 @@ class ObjectParser extends ContainerParser {
       case VALUE_NULL:
         // Position: null ^
         // Same as omitting the object
+        listener.onNull();
         return true;
 
       case START_OBJECT:
         // Position: { ^
+        listener.onStart();
         break;
 
       default:
@@ -229,6 +231,7 @@ class ObjectParser extends ContainerParser {
       switch (token) {
         case END_OBJECT:
           // Position: { (key: value)* } ^
+          listener.onEnd();
           return true;
 
         case FIELD_NAME:
