@@ -15,27 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.common.exceptions;
+package org.apache.drill.exec.store.easy.json.loader;
 
-@SuppressWarnings("serial")
-public class DrillConfigurationException extends DrillException {
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
-  public DrillConfigurationException() { }
+public class DoubleListener extends ScalarListener {
 
-  public DrillConfigurationException(String message, Throwable cause, boolean enableSuppression,
-      boolean writableStackTrace) {
-    super(message, cause, enableSuppression, writableStackTrace);
+  public DoubleListener(JsonLoaderImpl loader, ScalarWriter writer) {
+    super(loader, writer);
   }
 
-  public DrillConfigurationException(String message, Throwable cause) {
-    super(message, cause);
+  @Override
+  public void onBoolean(boolean value) {
+    writer.setDouble(value ? 1 : 0);
   }
 
-  public DrillConfigurationException(String message) {
-    super(message);
+  @Override
+  public void onInt(long value) {
+    writer.setDouble(value);
   }
 
-  public DrillConfigurationException(Throwable cause) {
-    super(cause);
+  @Override
+  public void onFloat(double value) {
+    writer.setDouble(value);
+  }
+
+  @Override
+  public void onString(String value) {
+    value = value.trim();
+    if (value.isEmpty()) {
+      writer.setNull();
+    } else {
+      try {
+        writer.setDouble(Double.parseDouble(value));
+      } catch (NumberFormatException e) {
+        throw dataConversionError("string", value);
+      }
+    }
   }
 }

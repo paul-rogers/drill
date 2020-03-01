@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.common.exceptions;
+package org.apache.drill.exec.store.easy.json.loader;
 
-/**
- * Special exception to be caught by caller, who is supposed to free memory by
- * spilling and try again
- */
-@SuppressWarnings("serial")
-public class RetryAfterSpillException extends Exception {
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+
+public class RowListener extends TupleListener {
+
+  public RowListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
+      TupleMetadata providedSchema) {
+    super(loader, tupleWriter, providedSchema);
+  }
 
 }

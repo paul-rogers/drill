@@ -15,13 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.common.exceptions;
+package org.apache.drill.exec.store.easy.json.loader;
 
-/**
- * Special exception to be caught by caller, who is supposed to free memory by
- * spilling and try again
- */
-@SuppressWarnings("serial")
-public class RetryAfterSpillException extends Exception {
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
+public class VarCharListener extends ScalarListener {
+
+  public VarCharListener(JsonLoaderImpl loader, ScalarWriter writer) {
+    super(loader, writer);
+    // TODO: Set text mode from col property
+  }
+
+  @Override
+  public void onBoolean(boolean value) {
+    writer.setString(Boolean.toString(value));
+  }
+
+  @Override
+  public void onInt(long value) {
+    writer.setString(Long.toString(value));
+  }
+
+  @Override
+  public void onFloat(double value) {
+    writer.setString(Double.toString(value));
+  }
+
+  @Override
+  public void onString(String value) {
+    writer.setString(value);
+  }
 }
