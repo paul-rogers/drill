@@ -49,7 +49,7 @@ public class DoubleListener extends ScalarListener {
       try {
         writer.setDouble(Double.parseDouble(value));
       } catch (NumberFormatException e) {
-        throw dataConversionError("string", value);
+        throw loader.dataConversionError(schema(), "string", value);
       }
     }
   }

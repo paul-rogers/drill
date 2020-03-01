@@ -24,6 +24,7 @@ import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
@@ -217,6 +218,27 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
         UserException.dataReadError()
           .addContext("Unrecoverable syntax error on token")
           .addContext("Recovery attempts", parser.recoverableErrorCount()));
+  }
+
+  protected UserException typeConversionError(ColumnMetadata schema, String tokenType) {
+    return buildError(schema,
+        UserException.dataReadError()
+          .message("Type of JSON token is not compatible with its column")
+          .addContext("JSON token type", tokenType));
+  }
+
+  protected UserException dataConversionError(ColumnMetadata schema, String tokenType, String value) {
+    return buildError(schema,
+        UserException.dataReadError()
+          .message("Type of JSON token is not compatible with its column")
+          .addContext("JSON token type", tokenType)
+          .addContext("JSON token", value));
+  }
+
+  protected UserException buildError(ColumnMetadata schema, UserException.Builder builder) {
+    return buildError(builder
+        .addContext("Column", schema.name())
+        .addContext("Column type", schema.typeString()));
   }
 
   protected UserException buildError(UserException.Builder builder) {

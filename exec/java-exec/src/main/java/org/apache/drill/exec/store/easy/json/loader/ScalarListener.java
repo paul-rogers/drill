@@ -19,21 +19,17 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
-public class ScalarListener implements ValueListener {
+public class ScalarListener extends AbstractValueListener {
 
-  protected final JsonLoaderImpl loader;
   protected final ScalarWriter writer;
 
   public ScalarListener(JsonLoaderImpl loader, ScalarWriter writer) {
-    this.loader = loader;
+    super(loader);
     this.writer = writer;
   }
 
@@ -59,7 +55,7 @@ public class ScalarListener implements ValueListener {
     case TIMESTAMP:
     case VARBINARY:
     case VARDECIMAL:
-      // TODO: Implement conversions for aoblve
+      // TODO: Implement conversions for above
     default:
       throw loader.buildError(
           UserException.internalError(null)
@@ -69,77 +65,16 @@ public class ScalarListener implements ValueListener {
   }
 
   @Override
-  public boolean isText() { return false; }
+  public ColumnMetadata schema() { return writer.schema(); }
 
   @Override
   public void onNull() {
     try {
       writer.setNull();
     } catch (UnsupportedConversionError e) {
-      throw buildError(
+      throw loader.buildError(schema(),
           UserException.dataReadError()
             .message("Null value encountered in JSON input where Drill does not allow nulls."));
     }
-  }
-
-  @Override
-  public void onBoolean(boolean value) {
-    throw typeConversionError("Boolean");
-  }
-
-  @Override
-  public void onInt(long value) {
-    throw typeConversionError("integer");
-  }
-
-  @Override
-  public void onFloat(double value) {
-    throw typeConversionError("float");
-  }
-
-  @Override
-  public void onString(String value) {
-    throw typeConversionError("string");
-  }
-
-  @Override
-  public void onEmbedddObject(String value) {
-    throw typeConversionError("object");
-  }
-
-  @Override
-  public ObjectListener object() {
-    throw typeConversionError("object");
-  }
-
-  @Override
-  public ArrayListener array(int arrayDims, JsonType type) {
-    throw typeConversionError(type.name() + " array[" + arrayDims + "]");
-  }
-
-  @Override
-  public ArrayListener objectArray(int arrayDims) {
-    throw typeConversionError("object array[" + arrayDims + "]");
-  }
-
-  protected UserException typeConversionError(String tokenType) {
-    return buildError(
-        UserException.dataReadError()
-          .message("Type of JSON token is not compatible with its column")
-          .addContext("JSON token type", tokenType));
-  }
-
-  protected UserException dataConversionError(String tokenType, String value) {
-    return buildError(
-        UserException.dataReadError()
-          .message("Type of JSON token is not compatible with its column")
-          .addContext("JSON token type", tokenType)
-          .addContext("JSON token", value));
-  }
-
-  protected UserException buildError(UserException.Builder builder) {
-    return loader.buildError(builder
-        .addContext("Column", writer.schema().name())
-        .addContext("Column type", writer.schema().typeString()));
   }
 }

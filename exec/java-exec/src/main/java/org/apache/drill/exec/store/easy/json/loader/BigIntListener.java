@@ -49,7 +49,7 @@ public class BigIntListener extends ScalarListener {
       try {
         writer.setLong(Long.parseLong(value));
       } catch (NumberFormatException e) {
-        throw dataConversionError("string", value);
+        throw loader.dataConversionError(schema(), "string", value);
       }
     }
   }
