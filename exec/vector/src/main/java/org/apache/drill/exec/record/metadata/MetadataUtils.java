@@ -139,6 +139,10 @@ public class MetadataUtils {
     return new MapColumnMetadata(name, DataMode.REQUIRED, (TupleSchema) schema);
   }
 
+  public static MapColumnMetadata newMap(String name) {
+    return newMap(name, new TupleSchema());
+  }
+
   public static DictColumnMetadata newDict(MaterializedField field) {
     return new DictColumnMetadata(field, fromFields(field.getChildren()));
   }

@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoader;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
-import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderOptions;
 import org.apache.drill.test.SubOperatorTest;
 
 public class BaseJsonLoaderTest extends SubOperatorTest {
@@ -39,7 +39,7 @@ public class BaseJsonLoaderTest extends SubOperatorTest {
 
     public OptionBuilder rsLoaderOptions = new OptionBuilder();
     public TupleMetadata providedSchema;
-    public JsonStructureOptions jsonOptions = new JsonStructureOptions();
+    public JsonLoaderOptions jsonOptions = new JsonLoaderOptions();
     public CustomErrorContext errorContext = new EmptyErrorContext();
     private ResultSetLoader rsLoader;
     private JsonLoader loader;

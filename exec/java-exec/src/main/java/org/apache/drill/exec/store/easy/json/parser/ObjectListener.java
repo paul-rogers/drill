@@ -52,6 +52,35 @@ package org.apache.drill.exec.store.easy.json.parser;
  */
 public interface ObjectListener {
 
+  public enum FieldType {
+
+    /**
+     * The field is unprojected, ignore its content. No value listener
+     * is created.
+     */
+    IGNORE,
+
+    /**
+     * Parse the JSON object according to its type.
+     */
+    TYPED,
+
+    /**
+     * The field is to be treated as "all-text". Used when the parser-level
+     * setting for {@code allTextMode} is {@code false}; allows per-field
+     * overrides to, perhaps, ride over inconsistent scalar types for a
+     * single field. The listener will receive only strings.
+     */
+    TEXT,
+
+    /**
+     * Parse the value, and all its children, as JSON.
+     * That is, converts the parsed JSON back into a
+     * JSON string. The listener will receive only strings.
+     */
+    JSON
+  }
+
   /**
    * Called at the start of a set of values for an object. That is, called
    * when the structure parser accepts the <code>{</code> token.
@@ -66,18 +95,21 @@ public interface ObjectListener {
 
   /**
    * Called by the structure parser when it first sees a new field for
-   * and object to determine if that field is to be projected (is needed
-   * by the listener.) If not projected, the structure parser will not
+   * and object to determine how to parse the field.
+   * If not projected, the structure parser will not
    * ask for a value listener and will insert a "dummy" parser that will
    * free-wheel over any value of that field. As a result, unprojected
    * fields can not cause type errors: they are invisible as long as
    * they are syntactically valid.
+   * <p>
+   * The {@link FieldType#JSON} type says to parse the entire field, and
+   * its children, as a JSON string. The parser will ask for a value
+   * listener to accept the JSON text.
    *
    * @param key the object field name
-   * @return {@code true} if this listener wants to provide a listener
-   * for the field, {@code false} if the field should be ignored
+   * @return how the field should be parsed
    */
-  boolean isProjected(String key);
+  FieldType fieldType(String key);
 
   /**
    * A new field has appeared with a scalar (or {@code null}) value.

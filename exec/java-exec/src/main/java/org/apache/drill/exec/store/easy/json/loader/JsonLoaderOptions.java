@@ -17,14 +17,28 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
 
-public class RowListener extends TupleListener {
+/**
+ * Extends the {@link JsonStructureOptions} class, which provides
+ * JSON syntactic options, with a number of semantic options enforced
+ * at the JSON loader level.
+ */
+public class JsonLoaderOptions extends JsonStructureOptions {
 
-  public RowListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
-      TupleMetadata providedSchema) {
-    super(loader, tupleWriter, providedSchema);
-  }
+  public boolean readNumbersAsDouble;
 
+  /**
+   * Drill prior to version 1.8 would read a null string
+   * array element as the string "null". Drill 1.8 and later
+   * reads the same token as a blank string. This flag forces
+   * the pre-1.18 behavior.
+   * <p>
+   * For <code>{a: [null]}</code>
+   * <ul>
+   * <li>If true: --> "null"</li>
+   * <li>if false: --> ""</li>
+   * </ul>
+   */
+  public boolean classicArrayNulls;
 }

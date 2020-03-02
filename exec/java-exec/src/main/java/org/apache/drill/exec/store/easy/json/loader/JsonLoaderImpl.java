@@ -26,9 +26,10 @@ import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
-import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
+import org.apache.drill.exec.store.easy.json.parserOld.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,19 +127,23 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   protected static final Logger logger = LoggerFactory.getLogger(JsonLoaderImpl.class);
 
   private final ResultSetLoader rsLoader;
+  private final JsonLoaderOptions options;
   private final CustomErrorContext errorContext;
   private final RowListener rowListener;
   private final JsonStructureParser parser;
   private boolean eof;
 
   public JsonLoaderImpl(ResultSetLoader rsLoader, TupleMetadata providedSchema,
-      JsonStructureOptions options, CustomErrorContext errorContext,
+      JsonLoaderOptions options, CustomErrorContext errorContext,
       InputStream stream) {
     this.rsLoader = rsLoader;
+    this.options = options;
     this.errorContext = errorContext;
     this.rowListener = new RowListener(this, rsLoader.writer(), providedSchema);
     this.parser = new JsonStructureParser(stream, options, rowListener, this);
   }
+
+  public JsonLoaderOptions options() { return options; }
 
   @Override // JsonLoader
   public boolean next() {

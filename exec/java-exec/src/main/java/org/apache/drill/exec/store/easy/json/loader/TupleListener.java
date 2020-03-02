@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
@@ -104,8 +104,24 @@ public class TupleListener implements ObjectListener {
   public void onEnd() { }
 
   @Override
-  public boolean isProjected(String key) {
-    return true; // tupleWriter.isProjected(key); // TODO
+  public FieldType fieldType(String key) {
+    // tupleWriter.isProjected(key); // TODO
+    ColumnMetadata providedCol = providedColumn(key);
+    if (providedCol == null) {
+      return FieldType.TYPED;
+    }
+    String mode = providedCol.property(ColumnMetadata.JSON_MODE);
+    if (mode == null) {
+      return FieldType.TYPED;
+    }
+    switch (mode) {
+    case ColumnMetadata.JSON_TEXT_MODE:
+      return FieldType.TEXT;
+    case ColumnMetadata.JSON_LITERAL_MODE:
+      return FieldType.JSON;
+    default:
+      return FieldType.TYPED;
+    }
   }
 
   @Override
@@ -136,13 +152,20 @@ public class TupleListener implements ObjectListener {
   }
 
   private MinorType drillTypeFor(JsonType type) {
+    if (loader.options().allTextMode) {
+      return MinorType.VARCHAR;
+    }
     switch (type) {
     case BOOLEAN:
       return MinorType.BIT;
     case FLOAT:
       return MinorType.FLOAT8;
     case INTEGER:
-      return MinorType.BIGINT;
+      if (loader.options().readNumbersAsDouble) {
+        return MinorType.FLOAT8;
+      } else {
+        return MinorType.BIGINT;
+      }
     case STRING:
       return MinorType.VARCHAR;
     default:
@@ -159,12 +182,12 @@ public class TupleListener implements ObjectListener {
     case PRIMITIVE:
       return primitiveListenerFor(colSchema);
     case TUPLE:
-      break;
+      return ObjectValueListener.listenerFor(loader, tupleWriter,
+          colSchema.name(), colSchema.tupleSchema());
     case VARIANT:
       break;
     default:
       break;
-
     }
     // TODO
     throw new IllegalStateException();
@@ -219,8 +242,7 @@ public class TupleListener implements ObjectListener {
 
   @Override
   public ValueListener addObject(String key) {
-    // TODO Auto-generated method stub
-    return null;
+    return ObjectValueListener.listenerFor(loader, tupleWriter, key, null);
   }
 
   @Override
@@ -233,4 +255,19 @@ public class TupleListener implements ObjectListener {
     return providedSchema == null ? null : providedSchema.metadata(key);
   }
 
+  public static class RowListener extends TupleListener {
+
+    public RowListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
+        TupleMetadata providedSchema) {
+      super(loader, tupleWriter, providedSchema);
+    }
+  }
+
+  public static class MapListener extends TupleListener {
+
+    public MapListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
+        TupleMetadata providedSchema) {
+      super(loader, tupleWriter, providedSchema);
+    }
+  }
 }

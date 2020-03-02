@@ -21,9 +21,11 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 public class VarCharListener extends ScalarListener {
 
+  private final boolean classicArrayNulls;
+
   public VarCharListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
-    // TODO: Set text mode from col property
+    classicArrayNulls = isArray ? loader.options().classicArrayNulls : false;
   }
 
   @Override
@@ -48,6 +50,6 @@ public class VarCharListener extends ScalarListener {
 
   @Override
   protected void setArrayNull() {
-    writer.setString("");
+    writer.setString(classicArrayNulls ? "null" : "");
   }
 }

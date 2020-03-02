@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
@@ -117,9 +118,6 @@ public class BaseTestJsonParser {
       this.dimCount = dimCount;
       this.type = type;
     }
-
-    @Override
-    public boolean isText() { return false; }
 
     @Override
     public void onNull() {
@@ -238,6 +236,7 @@ public class BaseTestJsonParser {
 
     final Map<String, ValueListenerFixture> fields = new HashMap<>();
     Set<String> projectFilter;
+    FieldType fieldType = FieldType.TYPED;
     int startCount;
     int endCount;
 
@@ -252,8 +251,11 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public boolean isProjected(String key) {
-      return projectFilter == null || projectFilter.contains(key);
+    public FieldType fieldType(String key) {
+      if (projectFilter != null && !projectFilter.contains(key)) {
+        return FieldType.IGNORE;
+      }
+      return fieldType;
     }
 
     @Override
@@ -318,6 +320,25 @@ public class BaseTestJsonParser {
 
     public ValueListenerFixture field(String key) {
       return rootObject.field(key);
+    }
+
+    public void expect(String key, Object[] values) {
+      ValueListenerFixture valueListener = null;
+      int expectedNullCount = 0;
+      for (int i = 0; i < values.length; i++) {
+        assertTrue(next());
+        if (valueListener == null) {
+          valueListener = field(key);
+          expectedNullCount = valueListener.nullCount;
+        }
+        Object value = values[i];
+        if (value == null) {
+          expectedNullCount++;
+        } else {
+          assertEquals(value, valueListener.value);
+        }
+        assertEquals(expectedNullCount, valueListener.nullCount);
+      }
     }
 
     public void close() {

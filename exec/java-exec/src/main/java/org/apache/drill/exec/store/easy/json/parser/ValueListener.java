@@ -62,18 +62,6 @@ package org.apache.drill.exec.store.easy.json.parser;
 public interface ValueListener {
 
   /**
-   * The field is to be treated as "all-text". Used when the parser-level
-   * setting for {@code allTextMode} is {@code false}; allows per-field
-   * overrides to, perhaps, ride over inconsistent scalar types for a
-   * single field.
-   *
-   * @return {@code true} if the field is to be read in "all-text mode" even
-   * if the global setting is off, {@code false} to read the field as
-   * typed values.
-   */
-  boolean isText();
-
-  /**
    * Called on parsing a {@code null} value for the field. Called whether
    * the field is parsed as all-text or as typed values.
    */

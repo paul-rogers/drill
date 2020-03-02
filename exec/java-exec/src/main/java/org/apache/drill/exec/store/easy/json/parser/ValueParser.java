@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
@@ -108,15 +110,15 @@ public class ValueParser extends AbstractElementParser {
 
   private final String key;
   private final ValueListener listener;
-  private final ValueHandler valueHandler;
+  protected final ValueHandler valueHandler;
   private ObjectParser objectParser;
   private ArrayParser arrayParser;
 
-  public ValueParser(ElementParser parent, String key, ValueListener listener) {
+  public ValueParser(ElementParser parent, String key, FieldType type, ValueListener listener) {
     super(parent);
     this.key = key;
     this.listener = listener;
-    if (listener.isText() || structParser().options().allTextMode) {
+    if (type == FieldType.TEXT || structParser().options().allTextMode) {
       valueHandler = new TextValueHandler();
     } else {
       valueHandler = new TypedValueHandler();

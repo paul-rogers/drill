@@ -1,9 +1,13 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.TupleListener.MapListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -72,6 +76,29 @@ public class StructuredValueListener extends AbstractValueListener {
     @Override
     public void onString(String value) {
       elementListener.onString(value);
+    }
+  }
+
+  public static class ObjectValueListener extends StructuredValueListener {
+
+    private final ObjectListener tupleListener;
+
+    public ObjectValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ObjectListener tupleListener) {
+      super(loader, colSchema);
+      this.tupleListener = tupleListener;
+    }
+
+    public static ObjectValueListener listenerFor(JsonLoaderImpl loader,
+        TupleWriter tupleWriter, String key, TupleMetadata providedSchema) {
+      ColumnMetadata colSchema = MetadataUtils.newMap(key);
+      int index = tupleWriter.addColumn(colSchema);
+      return new ObjectValueListener(loader, colSchema,
+          new MapListener(loader, tupleWriter.tuple(index), providedSchema));
+    }
+
+    @Override
+    public ObjectListener object() {
+      return tupleListener;
     }
   }
 }

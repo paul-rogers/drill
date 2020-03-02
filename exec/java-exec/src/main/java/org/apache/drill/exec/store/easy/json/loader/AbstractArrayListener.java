@@ -5,7 +5,6 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class AbstractArrayListener implements ArrayListener {
 

@@ -26,7 +26,7 @@ import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 public abstract class ScalarListener extends AbstractValueListener {
 
   protected final ScalarWriter writer;
-  private final boolean isArray;
+  protected final boolean isArray;
 
   public ScalarListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader);

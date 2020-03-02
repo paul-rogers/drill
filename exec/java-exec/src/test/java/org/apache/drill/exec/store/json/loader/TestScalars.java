@@ -43,6 +43,7 @@ import org.junit.Test;
  * see the data.
  */
 public class TestScalars extends BaseJsonLoaderTest {
+
   /**
    * Test Boolean type using type inference to guess the type from the
    * first row of data. All other types can be converted to Boolean.
@@ -74,6 +75,30 @@ public class TestScalars extends BaseJsonLoaderTest {
         .addRow(false)  // ""
         .addRow(false)  // "false"
         .addRow(false)  // "other"
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testAllTextBoolean() {
+    String json =
+        "{a: true} {a: false} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("true")   // true
+        .addRow("false")  // false
+        .addRow((String) null)    // null
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -148,6 +173,65 @@ public class TestScalars extends BaseJsonLoaderTest {
         .addRow(0)      // 0.0
         .addRow((Long) null)   // ""
         .addRow(3)      // "3"
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testIntAsDouble() {
+    String json =
+        "{a: 1} {a: 0} {a: -300} {a: null} " +
+        "{a: true} {a: false} " +
+        "{a: 1.0} {a: 1.5} {a: 0.0} " +
+        "{a: \"\"} {a: \"3\"}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.readNumbersAsDouble = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.FLOAT8)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1D)      // 1
+        .addRow(0D)      // 0
+        .addRow(-300D)   // -300
+        .addRow((Double) null)   // null
+        .addRow(1D)      // true
+        .addRow(0D)      // false
+        .addRow(1D)      // 1.0
+        .addRow(1.5D)    // 1.5
+        .addRow(0D)      // 0.0
+        .addRow((Double) null)   // ""
+        .addRow(3D)      // "3"
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testAllTextInt() {
+    String json =
+        "{a: 1} {a: 0} {a: -300} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("1")    // 1
+        .addRow("0")    // 0
+        .addRow("-300") // -300
+        .addRow((String) null)    // null
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -258,6 +342,37 @@ public class TestScalars extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testAllTextFloat() {
+    String json =
+        "{a: 0.0} {a: 1.0} {a: 1.25} {a: -123.125} {a: null} " +
+        "{a: -Infinity} {a: NaN} {a: Infinity}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.jsonOptions.allowNanInf = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("0.0")
+        .addRow("1.0")
+        .addRow("1.25")
+        .addRow("-123.125")
+        .addRow((String) null)
+        .addRow("-Infinity")
+        .addRow("NaN")
+        .addRow("Infinity")
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
   public void testFloatWithSchema() {
     String json =
         "{a: 0} {a: 12} " +
@@ -341,6 +456,31 @@ public class TestScalars extends BaseJsonLoaderTest {
         .addRow("false")  // false
         .addRow("0.0")    // 0.0
         .addRow("1.25")   // 1.25
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testAllTextString() {
+    String json =
+        "{a: \"\"} {a: \"foo\"} {a: \" bar \"} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("")       // ""
+        .addRow("foo")    // "foo"
+        .addRow(" bar ")  // " bar "
+        .addRow((String) null) // null
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

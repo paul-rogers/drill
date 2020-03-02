@@ -16,9 +16,6 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   @Override
-  public boolean isText() { return false; }
-
-  @Override
   public void onBoolean(boolean value) {
     throw typeConversionError("Boolean");
   }
@@ -63,5 +60,4 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   protected abstract ColumnMetadata schema();
-
 }

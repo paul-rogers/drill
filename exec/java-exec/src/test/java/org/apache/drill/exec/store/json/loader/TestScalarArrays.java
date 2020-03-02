@@ -71,6 +71,30 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testAllTextBoolean() {
+    String json =
+        "{a: [true, false, null]} {a: []} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray("true", "false", ""))
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+         .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
   public void testBooleanWithSchema() {
     String json =
         "{a: []} {a: null} {a: [true, false]} " +
@@ -119,6 +143,58 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .addSingleCol(longArray(10L))
         .addSingleCol(longArray(3L, 2L, 1L, 0L, 5L, 0L))
         .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testIntAsDouble() {
+    String json =
+        "{a: [2, 4, null]} {a: []} {a: null} " +
+        "{a: 10} " +
+        "{a: [3, 2.25, true, false, \"5\", \"\"]}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.readNumbersAsDouble = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.FLOAT8)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(doubleArray(2D, 4D, 0D))
+        .addSingleCol(doubleArray())
+        .addSingleCol(doubleArray())
+        .addSingleCol(doubleArray(10D))
+        .addSingleCol(doubleArray(3D, 2.25D, 1D, 0D, 5D, 0D))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testAllTextInt() {
+    String json =
+        "{a: [2, 4, null]} {a: []} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray("2", "4", ""))
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
     loader.close();
@@ -179,6 +255,30 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testAllTextDouble() {
+    String json =
+        "{a: [2.25, 4.5, null]} {a: []} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.allTextMode = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray("2.25", "4.5", ""))
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+         .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
   public void testDoubleWithSchema() {
     String json =
         "{a: []} {a: null} {a: [2.25, 4.5, null]} " +
@@ -226,6 +326,30 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .addSingleCol(strArray())
         .addSingleCol(strArray("bar"))
         .addSingleCol(strArray("3", "2.75", "true", "false"))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testStringClassicNulls() {
+    String json =
+        "{a: [\"foo\", \"\", null]} {a: []} {a: null}";
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.classicArrayNulls = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray("foo", "", "null"))
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

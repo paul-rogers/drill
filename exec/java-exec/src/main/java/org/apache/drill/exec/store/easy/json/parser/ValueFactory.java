@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
@@ -67,11 +69,13 @@ public class ValueFactory {
    *
    * @param parent the object parser declaring the field
    * @param key the name of the field
+   * @param type the kind of field parser to create
    * @param tokenizer the token parser
    * @return the value parser for the element, which may contain additional
    * structure for objects or arrays
    */
-  public static ElementParser createFieldParser(ObjectParser parent, String key, TokenIterator tokenizer) {
+  public static ElementParser createFieldParser(ObjectParser parent, String key,
+      FieldType type, TokenIterator tokenizer) {
     FieldDescrip descrip = new FieldDescrip();
     inferFieldType(descrip, tokenizer);
     ObjectListener objListener = parent.listener();
@@ -93,7 +97,7 @@ public class ValueFactory {
         fieldListener = objListener.addScalar(key, descrip.type);
       }
     }
-    ValueParser fp = new ValueParser(parent, key, fieldListener);
+    ValueParser fp = new ValueParser(parent, key, type, fieldListener);
     createStructureParser(fp, descrip);
     return fp;
   }
