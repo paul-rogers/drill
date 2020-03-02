@@ -122,7 +122,6 @@ import com.fasterxml.jackson.core.JsonToken;
  * </li>
  * </ul>
  */
-
 public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   protected static final Logger logger = LoggerFactory.getLogger(JsonLoaderImpl.class);
 

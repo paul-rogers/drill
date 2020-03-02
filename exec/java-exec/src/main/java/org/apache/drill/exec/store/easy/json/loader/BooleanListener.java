@@ -42,6 +42,16 @@ public class BooleanListener extends ScalarListener {
 
   @Override
   public void onString(String value) {
-    writer.setBoolean(Boolean.parseBoolean(value.trim()));
+    value = value.trim();
+    if (value.isEmpty()) {
+      setNull();
+    } else {
+      writer.setBoolean(Boolean.parseBoolean(value.trim()));
+    }
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setBoolean(false);
   }
 }

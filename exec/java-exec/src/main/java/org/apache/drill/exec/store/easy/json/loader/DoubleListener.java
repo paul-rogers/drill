@@ -44,7 +44,7 @@ public class DoubleListener extends ScalarListener {
   public void onString(String value) {
     value = value.trim();
     if (value.isEmpty()) {
-      writer.setNull();
+      setNull();
     } else {
       try {
         writer.setDouble(Double.parseDouble(value));
@@ -52,5 +52,10 @@ public class DoubleListener extends ScalarListener {
         throw loader.dataConversionError(schema(), "string", value);
       }
     }
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setDouble(0);
   }
 }

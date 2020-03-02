@@ -172,12 +172,10 @@ public class TupleListener implements ObjectListener {
 
   private ValueListener primitiveListenerFor(ColumnMetadata colSchema) {
     if (colSchema.isArray()) {
-      // Do something
+      return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
     } else {
       return ScalarListener.listenerFor(loader, tupleWriter, colSchema);
     }
-    // TODO
-    throw new IllegalStateException();
   }
 
   @Override
@@ -196,9 +194,7 @@ public class TupleListener implements ObjectListener {
     MinorType colType = drillTypeFor(type);
     if (colType != null) {
       ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
-      return new ScalarArrayValueListener(loader, colSchema,
-          new ScalarArrayListener(loader, colSchema,
-              ScalarListener.listenerFor(loader, tupleWriter, colSchema)));
+      return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
     }
     switch (type) {
     case ARRAY:

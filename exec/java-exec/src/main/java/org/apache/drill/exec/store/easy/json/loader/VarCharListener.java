@@ -45,4 +45,9 @@ public class VarCharListener extends ScalarListener {
   public void onString(String value) {
     writer.setString(value);
   }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setString("");
+  }
 }

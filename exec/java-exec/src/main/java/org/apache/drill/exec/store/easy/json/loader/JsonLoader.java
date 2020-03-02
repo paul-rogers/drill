@@ -22,7 +22,6 @@ package org.apache.drill.exec.store.easy.json.loader;
  * source and creates a series of record batches using the
  * {@link ResultSetLoader} abstraction.
  */
-
 public interface JsonLoader {
 
   /**
@@ -33,14 +32,12 @@ public interface JsonLoader {
    * @throws RuntimeException for unexpected errors, most often due
    * to code errors
    */
-
   boolean next();
 
   /**
    * Indicates that a batch is complete. Tells the loader to materialize
    * any deferred null fields.
    */
-
   void endBatch();
 
   /**
@@ -48,6 +45,5 @@ public interface JsonLoader {
    * passed into the class, such as the input stream or result set
    * loader.
    */
-
   void close();
 }

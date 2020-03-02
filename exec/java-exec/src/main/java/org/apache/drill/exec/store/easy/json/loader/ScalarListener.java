@@ -19,22 +19,25 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
-public class ScalarListener extends AbstractValueListener {
+public abstract class ScalarListener extends AbstractValueListener {
 
   protected final ScalarWriter writer;
+  private final boolean isArray;
 
   public ScalarListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader);
     this.writer = writer;
+    ColumnMetadata colSchema = writer.schema();
+    isArray = colSchema.isArray();
   }
 
-  public static ValueListener listenerFor(JsonLoaderImpl loader, TupleWriter parent, ColumnMetadata col) {
-    ScalarWriter writer = parent.scalar(parent.addColumn(col));
+  public static ScalarListener listenerFor(JsonLoaderImpl loader, TupleWriter parent, ColumnMetadata col) {
+    int index = parent.addColumn(col);
+    ScalarWriter writer = col.isArray() ? parent.array(index).scalar() : parent.scalar(index);
     switch (col.type()) {
     case BIGINT:
       return new BigIntListener(loader, writer);
@@ -69,12 +72,22 @@ public class ScalarListener extends AbstractValueListener {
 
   @Override
   public void onNull() {
+    setNull();
+  }
+
+  protected void setNull() {
     try {
-      writer.setNull();
+      if (isArray) {
+        setArrayNull();
+      } else {
+        writer.setNull();
+      }
     } catch (UnsupportedConversionError e) {
       throw loader.buildError(schema(),
           UserException.dataReadError()
             .message("Null value encountered in JSON input where Drill does not allow nulls."));
     }
   }
+
+  protected abstract void setArrayNull();
 }

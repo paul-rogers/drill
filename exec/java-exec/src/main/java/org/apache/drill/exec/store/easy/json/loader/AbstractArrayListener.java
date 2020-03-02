@@ -52,17 +52,18 @@ public class AbstractArrayListener implements ArrayListener {
 
   public static class ScalarArrayListener extends AbstractArrayListener {
 
-    private final ValueListener valueListener;
+    private final ScalarListener valueListener;
 
-    public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ValueListener valueListener) {
+    public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarListener valueListener) {
       super(loader, colSchema);
       this.valueListener = valueListener;
     }
 
     @Override
-    public ValueListener arrayElement(int arrayDims, JsonType type) {
-      Preconditions.checkArgument(arrayDims == 0);
+    public ValueListener scalarElement(JsonType type) {
       return valueListener;
     }
+
+    public ScalarListener elementListener() { return valueListener; }
   }
 }
