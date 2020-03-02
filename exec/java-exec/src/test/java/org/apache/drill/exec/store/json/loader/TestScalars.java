@@ -72,7 +72,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .addRow(true)   // 1.0
         .addRow(false)  // 0.0
         .addRow(true)   // "true"
-        .addRow(false)  // ""
+        .addRow((Boolean) null)  // ""
         .addRow(false)  // "false"
         .addRow(false)  // "other"
         .build();
@@ -133,7 +133,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .addRow(true)   // 1.0
         .addRow(false)  // 0.0
         .addRow(true)   // "true"
-        .addRow(false)  // ""
+        .addRow((Boolean) null)  // ""
         .addRow(false)  // "false"
         .addRow(false)  // "other"
         .addRow(true)   // true

@@ -21,5 +21,6 @@ package org.apache.drill.exec.store.easy.json.parser;
  * Description of JSON types as derived from JSON tokens.
  */
 public enum JsonType {
-  ARRAY, OBJECT, NULL, EMPTY, BOOLEAN, INTEGER, FLOAT, STRING
+  ARRAY, OBJECT, NULL, EMPTY, BOOLEAN,
+  INTEGER, FLOAT, STRING, EMBEDDED_OBJECT
 }

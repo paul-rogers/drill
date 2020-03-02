@@ -179,7 +179,7 @@ public class TestObjects extends BaseJsonLoaderTest {
         .addRow(2L, mapArray(mapValue(110L, null)))
         .addRow(3L, mapArray(mapValue(null, 220L)))
         .addRow(4L, mapArray(mapValue(null, null)))
-        .addRow(5L, mapArray())
+        .addRow(5L, mapArray(mapValue(null, null)))
         .addRow(6L, mapArray())
         .addRow(7L, mapArray())
         .addRow(8L, mapArray())

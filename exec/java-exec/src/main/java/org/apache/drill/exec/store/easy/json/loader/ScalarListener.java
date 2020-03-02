@@ -18,10 +18,17 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.store.easy.json.parser.JsonType;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public abstract class ScalarListener extends AbstractValueListener {
 
@@ -35,10 +42,24 @@ public abstract class ScalarListener extends AbstractValueListener {
     isArray = colSchema.isArray();
   }
 
-  public static ScalarListener listenerFor(JsonLoaderImpl loader, TupleWriter parent, ColumnMetadata col) {
-    int index = parent.addColumn(col);
-    ScalarWriter writer = col.isArray() ? parent.array(index).scalar() : parent.scalar(index);
-    switch (col.type()) {
+  public static ScalarListener listenerFor(JsonLoaderImpl loader,
+      TupleWriter parentWriter, String key, JsonType jsonType) {
+    MinorType colType = loader.drillTypeFor(jsonType);
+    Preconditions.checkArgument(colType != null, "Not a scalar: " + jsonType.name());
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.optional(colType));
+    return listenerFor(loader, parentWriter, colSchema);
+  }
+
+  public static ScalarListener listenerFor(JsonLoaderImpl loader,
+      TupleWriter parentWriter, ColumnMetadata colSchema) {
+    int index = parentWriter.addColumn(colSchema);
+    return listenerFor(loader, parentWriter.column(index));
+  }
+
+  public static ScalarListener listenerFor(JsonLoaderImpl loader, ObjectWriter colWriter) {
+    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
+        colWriter.array().scalar() : colWriter.scalar();
+    switch (writer.schema().type()) {
     case BIGINT:
       return new BigIntListener(loader, writer);
     case BIT:
@@ -62,7 +83,8 @@ public abstract class ScalarListener extends AbstractValueListener {
     default:
       throw loader.buildError(
           UserException.internalError(null)
-            .message("Unsupported JSON reader type: %s", col.type().name()));
+            .message("Unsupported JSON reader type: %s",
+                writer.schema().type().name()));
 
     }
   }

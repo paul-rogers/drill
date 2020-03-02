@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener.ValueHost;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -38,7 +39,7 @@ import com.fasterxml.jackson.core.JsonToken;
  * Listeners can enforce one type only, or can be more flexible and
  * allow multiple types.
  */
-public class ValueParser extends AbstractElementParser {
+public class ValueParser extends AbstractElementParser implements ValueHost {
 
   private interface ValueHandler {
     void accept(TokenIterator tokenizer, JsonToken token);
@@ -109,20 +110,25 @@ public class ValueParser extends AbstractElementParser {
   }
 
   private final String key;
-  private final ValueListener listener;
   protected final ValueHandler valueHandler;
+  private ValueListener listener;
   private ObjectParser objectParser;
   private ArrayParser arrayParser;
 
-  public ValueParser(ElementParser parent, String key, FieldType type, ValueListener listener) {
+  public ValueParser(ElementParser parent, String key, FieldType type) {
     super(parent);
     this.key = key;
-    this.listener = listener;
     if (type == FieldType.TEXT || structParser().options().allTextMode) {
       valueHandler = new TextValueHandler();
     } else {
       valueHandler = new TypedValueHandler();
     }
+  }
+
+  @Override
+  public void bindListener(ValueListener listener) {
+    this.listener = listener;
+    listener.bind(this);
   }
 
   public String key() { return key; }

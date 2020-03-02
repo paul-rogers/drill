@@ -22,6 +22,7 @@ import java.io.InputStream;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -29,6 +30,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
+import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parserOld.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
@@ -163,6 +165,25 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     return rsLoader.hasRows();
   }
 
+  /**
+   * Finish reading a batch of data. We may have pending "null" columns:
+   * a column for which we've seen only nulls, or an array that has
+   * always been empty. The batch needs to finish, and needs a type,
+   * but we still don't know the type. Since we must decide on one,
+   * we do the following guess Varchar, and switch to text mode.
+   * <p>
+   * This choices is not perfect. Switching to text mode means
+   * results will vary
+   * from run to run depending on the order that we see empty and
+   * non-empty values for this column. Plus, since the system is
+   * distributed, the decision made here may conflict with that made in
+   * some other fragment.
+   * <p>
+   * The only real solution is for the user to provide a schema.
+   * <p>
+   * Bottom line: the user is responsible for not giving Drill
+   * ambiguous data that would require Drill to predict the future.
+   */
   @Override // JsonLoader
   public void endBatch() {
     // TODO Auto-generated method stub
@@ -172,6 +193,28 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   @Override // JsonLoader
   public void close() {
     parser.close();
+  }
+
+  public MinorType drillTypeFor(JsonType type) {
+    if (options.allTextMode) {
+      return MinorType.VARCHAR;
+    }
+    switch (type) {
+    case BOOLEAN:
+      return MinorType.BIT;
+    case FLOAT:
+      return MinorType.FLOAT8;
+    case INTEGER:
+      if (options.readNumbersAsDouble) {
+        return MinorType.FLOAT8;
+      } else {
+        return MinorType.BIGINT;
+      }
+    case STRING:
+      return MinorType.VARCHAR;
+    default:
+      return null;
+    }
   }
 
   @Override // ErrorFactory

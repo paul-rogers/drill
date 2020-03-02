@@ -1,12 +1,17 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class AbstractArrayListener implements ArrayListener {
@@ -17,6 +22,29 @@ public class AbstractArrayListener implements ArrayListener {
   public AbstractArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema) {
     this.loader = loader;
     this.colSchema = colSchema;
+  }
+
+  public static ValueListener listenerFor(JsonLoaderImpl loader,
+      TupleWriter parentWriter, String key, JsonType jsonType) {
+    MinorType colType = loader.drillTypeFor(jsonType);
+    if (colType != null) {
+      ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
+      return ScalarArrayValueListener.listenerFor(loader, parentWriter, colSchema);
+    }
+    switch (jsonType) {
+    case ARRAY:
+      break;
+    case EMPTY:
+      break;
+    case NULL:
+      break;
+    case OBJECT:
+      break;
+    default:
+      break;
+    }
+    // TODO
+    throw new IllegalStateException();
   }
 
   @Override

@@ -121,6 +121,8 @@ public interface ObjectListener {
    */
   ValueListener addScalar(String key, JsonType type);
 
+  ValueListener addUnknown(String key);
+
   /**
    * A new field has appeared with a scalar, {@code null} or empty array
    * value. That is, one of:

@@ -40,7 +40,8 @@ public class ArrayParser extends AbstractElementParser {
   public ArrayParser(ValueParser parent, ArrayListener arrayListener, ValueListener elementListener) {
     super(parent);
     this.arrayListener = arrayListener;
-    this.elementParser = new ValueParser(this, "[]", FieldType.TYPED, elementListener);
+    this.elementParser = new ValueParser(this, "[]", FieldType.TYPED);
+    this.elementParser.bindListener(elementListener);
   }
 
   public ValueParser elementParser() { return elementParser; }

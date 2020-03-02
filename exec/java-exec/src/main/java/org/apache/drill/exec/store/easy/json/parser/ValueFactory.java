@@ -59,6 +59,10 @@ public class ValueFactory {
     public boolean isArray() { return arrayDims > 0; }
 
     public boolean isObject() { return type == JsonType.OBJECT; }
+
+    public boolean isUnknown() {
+      return type == JsonType.NULL || type == JsonType.EMPTY;
+    }
   }
 
   private ValueFactory() { }
@@ -92,12 +96,16 @@ public class ValueFactory {
       if (descrip.isArray()) {
         // Scalar (or unknown) array field
         fieldListener = objListener.addArray(key, descrip.arrayDims, descrip.type);
+      } else if (descrip.isUnknown()) {
+        // Unknown field type
+        fieldListener = objListener.addUnknown(key);
       } else {
         // Scalar field
         fieldListener = objListener.addScalar(key, descrip.type);
       }
     }
-    ValueParser fp = new ValueParser(parent, key, type, fieldListener);
+    ValueParser fp = new ValueParser(parent, key, type);
+    fp.bindListener(fieldListener);
     createStructureParser(fp, descrip);
     return fp;
   }

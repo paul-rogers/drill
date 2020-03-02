@@ -17,10 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
@@ -89,7 +86,7 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 public class TupleListener implements ObjectListener {
 
   protected final JsonLoaderImpl loader;
-  private final TupleWriter tupleWriter;
+  protected final TupleWriter tupleWriter;
   private final TupleMetadata providedSchema;
 
   public TupleListener(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
@@ -130,47 +127,8 @@ public class TupleListener implements ObjectListener {
     ColumnMetadata colSchema = providedColumn(key);
     if (colSchema != null) {
       return listenerFor(colSchema);
-    }
-    MinorType colType = drillTypeFor(type);
-    if (colType != null) {
-      colSchema = MetadataUtils.newScalar(key, Types.optional(colType));
-      return ScalarListener.listenerFor(loader, tupleWriter, colSchema);
-    }
-    switch (type) {
-    case ARRAY:
-      break;
-    case EMPTY:
-      break;
-    case NULL:
-      break;
-    case OBJECT:
-      break;
-    default:
-      break;
-    }
-    // TODO
-    throw new IllegalStateException();
-  }
-
-  private MinorType drillTypeFor(JsonType type) {
-    if (loader.options().allTextMode) {
-      return MinorType.VARCHAR;
-    }
-    switch (type) {
-    case BOOLEAN:
-      return MinorType.BIT;
-    case FLOAT:
-      return MinorType.FLOAT8;
-    case INTEGER:
-      if (loader.options().readNumbersAsDouble) {
-        return MinorType.FLOAT8;
-      } else {
-        return MinorType.BIGINT;
-      }
-    case STRING:
-      return MinorType.VARCHAR;
-    default:
-      return null;
+    } else {
+       return ScalarListener.listenerFor(loader, tupleWriter, key, type);
     }
   }
 
@@ -181,7 +139,11 @@ public class TupleListener implements ObjectListener {
     case MULTI_ARRAY:
       break;
     case PRIMITIVE:
-      return primitiveListenerFor(colSchema);
+      if (colSchema.isArray()) {
+        return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
+      } else {
+        return ScalarListener.listenerFor(loader, tupleWriter, colSchema);
+      }
     case TUPLE:
       if (colSchema.isArray()) {
         return ObjectArrayValueListener.listenerFor(loader, tupleWriter,
@@ -199,46 +161,16 @@ public class TupleListener implements ObjectListener {
     throw new IllegalStateException();
   }
 
-  private ValueListener primitiveListenerFor(ColumnMetadata colSchema) {
-    if (colSchema.isArray()) {
-      return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
-    } else {
-      return ScalarListener.listenerFor(loader, tupleWriter, colSchema);
-    }
-  }
-
   @Override
   public ValueListener addArray(String key, int arrayDims, JsonType type) {
     ColumnMetadata colSchema = providedColumn(key);
     if (colSchema != null) {
       return listenerFor(colSchema);
     } else if (arrayDims == 1) {
-      return addRepeated(key, type);
+      return AbstractArrayListener.listenerFor(loader, tupleWriter, key, type);
     } else {
       return addList(key, type);
     }
-  }
-
-  private ValueListener addRepeated(String key, JsonType type) {
-    MinorType colType = drillTypeFor(type);
-    if (colType != null) {
-      ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
-      return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
-    }
-    switch (type) {
-    case ARRAY:
-      break;
-    case EMPTY:
-      break;
-    case NULL:
-      break;
-    case OBJECT:
-      break;
-    default:
-      break;
-    }
-    // TODO
-    throw new IllegalStateException();
   }
 
   private ValueListener addList(String key, JsonType type) {
@@ -254,6 +186,16 @@ public class TupleListener implements ObjectListener {
   @Override
   public ValueListener addObjectArray(String key, int dims) {
     return ObjectArrayValueListener.listenerFor(loader, tupleWriter, key, null);
+  }
+
+  @Override
+  public ValueListener addUnknown(String key) {
+    ColumnMetadata colSchema = providedColumn(key);
+    if (colSchema != null) {
+      return listenerFor(colSchema);
+    } else {
+      return new UnknownValueListener(loader, tupleWriter, key);
+    }
   }
 
   public ColumnMetadata providedColumn(String key) {

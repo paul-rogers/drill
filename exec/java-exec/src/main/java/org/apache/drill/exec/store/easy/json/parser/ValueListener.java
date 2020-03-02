@@ -62,6 +62,17 @@ package org.apache.drill.exec.store.easy.json.parser;
 public interface ValueListener {
 
   /**
+   * Allows the object listener to revise the listener for a field,
+   * such as when a field starts null and resolves to some concrete
+   * type.
+   */
+  interface ValueHost {
+    void bindListener(ValueListener listener);
+  }
+
+  void bind(ValueHost host);
+
+  /**
    * Called on parsing a {@code null} value for the field. Called whether
    * the field is parsed as all-text or as typed values.
    */

@@ -111,6 +111,7 @@ public class BaseTestJsonParser {
     int nullCount;
     int valueCount;
     Object value;
+    ValueHost host;
     ObjectListenerFixture objectValue;
     ArrayListenerFixture arrayValue;
 
@@ -173,6 +174,11 @@ public class BaseTestJsonParser {
       assertNull(arrayValue);
       arrayValue = new ArrayListenerFixture(arrayDims, JsonType.OBJECT);
       return arrayValue;
+    }
+
+    @Override
+    public void bind(ValueHost host) {
+      this.host = host;
     }
   }
 
@@ -292,6 +298,11 @@ public class BaseTestJsonParser {
       ValueListenerFixture field = fields.get(key);
       assertNotNull(field);
       return field;
+    }
+
+    @Override
+    public ValueListener addUnknown(String key) {
+      return field(key, 0, JsonType.NULL);
     }
   }
 
