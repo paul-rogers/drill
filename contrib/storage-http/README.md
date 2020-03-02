@@ -20,7 +20,7 @@ To configure the plugin, create a new storage plugin, and add the following conf
 The options are:
 * `type`:  This should be `http`
 * `cacheResults`:  Enable caching of the HTTP responses
-* `timeout`:  Sets the response timeout. Defaults to `0` which is no timeout. 
+* `timeout`:  Sets the response timeout in seconds. Defaults to `0` which is no timeout. 
 
 ### Configuring the API Connections
 The HTTP Storage plugin allows you to configure multiple APIS which you can query directly from this plugin. To do so, first add a `connections` parameter to the configuration
@@ -46,6 +46,28 @@ headers: {
 key1=value1
 key2=value2
 ```
+
+## Usage:
+This plugin is different from other plugins in that it the table component of the `FROM` clause is different. In normal Drill queries, the `FROM` clause is constructed as follows:
+```sql
+FROM <storage plugin>.<schema>.<table>
+```
+For example, you might have:
+```sql
+FROM dfs.test.`somefile.csv`
+
+-- or 
+
+FROM mongo.stats.sales_data
+```
+
+The HTTP/REST plugin the `FROM` clause enables you to pass arguments to your REST call. The structure is:
+```sql
+FROM <plugin>.<connection>.<arguments>
+--Actual example:
+ FROM http.sunrise.`/json?lat=36.7201600&lng=-4.4203400&date=today`
+```
+
 
 ## Examples:
 ### Example 1:  Reference Data, A Sunrise/Sunset API
@@ -74,16 +96,29 @@ To query this API, set the configuration as follows:
 
 ```json
 {
-  "type": "http",
-  "connection": "https://api.sunrise-sunset.org/",
-  "enabled": true
+ {
+   "type": "http",
+   "cacheResults": false,
+   "enabled": true,
+   "timeout" 5,
+   "connections": {
+     "sunrise": {
+       "url": "https://api.sunrise-sunset.org/",
+       "method": "get",
+       "headers": null,
+       "authType": "none",
+       "userName": null,
+       "password": null,
+       "postBody": null
+     }
+   },
 }
 ```
 Then, to execute a query:
 ```sql
     SELECT api_results.results.sunrise AS sunrise, 
     api_results.results.sunset AS sunset
-    FROM http.`/json?lat=36.7201600&lng=-4.4203400&date=today` AS api_results;
+    FROM http.sunrise.`/json?lat=36.7201600&lng=-4.4203400&date=today` AS api_results;
 ```
 Which yields the following results:
 ```

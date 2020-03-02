@@ -104,7 +104,8 @@ public class SimpleHttp {
 
       // If the request is unsuccessful, throw a UserException
       if (!response.isSuccessful()) {
-        throw UserException.dataReadError()
+        throw UserException
+          .dataReadError()
           .message("Error retrieving data from HTTP Storage Plugin: " + response.code() + " " + response.message())
           .addContext("Response code: ", response.code())
           .build(logger);
@@ -116,8 +117,9 @@ public class SimpleHttp {
       return Objects.requireNonNull(response.body()).byteStream();
     } catch (IOException e) {
       throw UserException
-        .dataReadError()
+        .dataReadError(e)
         .message("Error retrieving data from HTTP Storage Plugin. %s", e.getMessage())
+        .addContext("URL Requested:" + urlStr)
         .build(logger);
     }
   }
