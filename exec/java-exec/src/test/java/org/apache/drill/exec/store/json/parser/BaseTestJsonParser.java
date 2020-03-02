@@ -196,9 +196,12 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void onElement() {
+    public void onElementStart() {
       elementCount++;
     }
+
+    @Override
+    public void onElementEnd() { }
 
     @Override
     public void onEnd() {

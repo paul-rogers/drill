@@ -157,7 +157,7 @@ public class ValueFactory {
         // Scalar (or unknown) array elements
         elementListener = arrayListener.arrayElement(descrip.arrayDims, descrip.type);
       } else {
-        // Scalar elements
+        // Scalar (or unknown) elements
         elementListener = arrayListener.scalarElement(descrip.type);
       }
     }

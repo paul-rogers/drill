@@ -60,8 +60,9 @@ public class ArrayParser extends AbstractElementParser {
 
         default:
           tokenizer.unget(token);
-          arrayListener.onElement();
+          arrayListener.onElementStart();
           elementParser.parse(tokenizer);
+          arrayListener.onElementEnd();
           break;
       }
     }

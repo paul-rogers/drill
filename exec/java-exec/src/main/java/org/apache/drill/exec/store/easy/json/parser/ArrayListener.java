@@ -91,7 +91,12 @@ public interface ArrayListener {
    * by its own listener which receives the value of the element (if
    * scalar) or element events (if structured.)
    */
-  void onElement();
+  void onElementStart();
+
+  /**
+   * Called after each element of the array.
+   */
+  void onElementEnd();
 
   /**
    * Called at the end of a set of values for an array. That is, called

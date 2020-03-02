@@ -3,12 +3,14 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener.MapListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -99,6 +101,42 @@ public class StructuredValueListener extends AbstractValueListener {
     @Override
     public ObjectListener object() {
       return tupleListener;
+    }
+  }
+
+  public static class ObjectArrayValueListener extends StructuredValueListener {
+
+    private final ObjectArrayListener arrayListener;
+
+    public ObjectArrayValueListener(JsonLoaderImpl loader,
+        ColumnMetadata colSchema, ObjectArrayListener arrayListener) {
+      super(loader, colSchema);
+      this.arrayListener = arrayListener;
+     }
+
+    public static ValueListener listenerFor(JsonLoaderImpl loader,
+        TupleWriter tupleWriter, String key, TupleMetadata providedSchema) {
+      ColumnMetadata colSchema = MetadataUtils.newMapArray(key);
+      int index = tupleWriter.addColumn(colSchema);
+      ArrayWriter arrayWriter = tupleWriter.array(index);
+      return new ObjectArrayValueListener(loader, colSchema,
+          new ObjectArrayListener(loader, arrayWriter,
+              new ObjectValueListener(loader, colSchema,
+                  new MapListener(loader, arrayWriter.tuple(), providedSchema))));
+    }
+
+    @Override
+    public ArrayListener objectArray(int arrayDims) {
+      Preconditions.checkArgument(arrayDims == 1);
+      return arrayListener;
+    }
+
+    // Called with a provided schema where the initial array
+    // value is empty.
+    @Override
+    public ArrayListener array(int arrayDims, JsonType type) {
+      Preconditions.checkArgument(type == JsonType.EMPTY || type == JsonType.NULL);
+      return arrayListener;
     }
   }
 }

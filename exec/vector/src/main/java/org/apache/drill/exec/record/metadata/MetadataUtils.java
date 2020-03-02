@@ -191,6 +191,10 @@ public class MetadataUtils {
     return new MapColumnMetadata(name, DataMode.REPEATED, (TupleSchema) schema);
   }
 
+  public static ColumnMetadata newMapArray(String name) {
+    return newMapArray(name, new TupleSchema());
+  }
+
   public static DictColumnMetadata newDictArray(String name) {
     return new DictColumnMetadata(name, DataMode.REPEATED);
   }

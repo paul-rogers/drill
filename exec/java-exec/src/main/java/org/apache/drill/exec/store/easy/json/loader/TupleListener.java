@@ -22,6 +22,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
@@ -182,8 +183,13 @@ public class TupleListener implements ObjectListener {
     case PRIMITIVE:
       return primitiveListenerFor(colSchema);
     case TUPLE:
-      return ObjectValueListener.listenerFor(loader, tupleWriter,
-          colSchema.name(), colSchema.tupleSchema());
+      if (colSchema.isArray()) {
+        return ObjectArrayValueListener.listenerFor(loader, tupleWriter,
+            colSchema.name(), colSchema.tupleSchema());
+      } else {
+        return ObjectValueListener.listenerFor(loader, tupleWriter,
+            colSchema.name(), colSchema.tupleSchema());
+      }
     case VARIANT:
       break;
     default:
@@ -247,8 +253,7 @@ public class TupleListener implements ObjectListener {
 
   @Override
   public ValueListener addObjectArray(String key, int dims) {
-    // TODO Auto-generated method stub
-    return null;
+    return ObjectArrayValueListener.listenerFor(loader, tupleWriter, key, null);
   }
 
   public ColumnMetadata providedColumn(String key) {

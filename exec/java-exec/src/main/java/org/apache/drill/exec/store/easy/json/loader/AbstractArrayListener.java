@@ -2,9 +2,12 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class AbstractArrayListener implements ArrayListener {
 
@@ -20,7 +23,10 @@ public class AbstractArrayListener implements ArrayListener {
   public void onStart() { }
 
   @Override
-  public void onElement() { }
+  public void onElementStart() { }
+
+  @Override
+  public void onElementEnd() { }
 
   @Override
   public void onEnd() { }
@@ -64,5 +70,34 @@ public class AbstractArrayListener implements ArrayListener {
     }
 
     public ScalarListener elementListener() { return valueListener; }
+  }
+
+  public static class ObjectArrayListener extends AbstractArrayListener {
+    private final ArrayWriter arrayWriter;
+    private final ObjectValueListener valueListener;
+
+    public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter, ObjectValueListener valueListener) {
+      super(loader, arrayWriter.schema());
+      this.arrayWriter = arrayWriter;
+      this.valueListener = valueListener;
+    }
+
+    @Override
+    public ValueListener objectElement() {
+      return valueListener;
+    }
+
+    // Called with a provided schema where the initial array
+    // value is empty.
+    @Override
+    public ValueListener scalarElement(JsonType type) {
+      Preconditions.checkArgument(type == JsonType.EMPTY || type == JsonType.NULL);
+      return valueListener;
+    }
+
+    @Override
+    public void onElementEnd() {
+      arrayWriter.save();
+    }
   }
 }
