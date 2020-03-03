@@ -93,7 +93,7 @@ public class TestHttpPlugin extends ClusterTest {
 
     HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs, 2);
     mockStorageConfigWithWorkspace.setEnabled(true);
-    pluginRegistry.createOrUpdate("api", mockStorageConfigWithWorkspace, true);
+    pluginRegistry.put("api", mockStorageConfigWithWorkspace);
   }
 
   @Test

@@ -107,6 +107,7 @@ public class SimpleHttp {
         throw UserException
           .dataReadError()
           .message("Error retrieving data from HTTP Storage Plugin: " + response.code() + " " + response.message())
+          .addContext("URL: ", urlStr)
           .addContext("Response code: ", response.code())
           .build(logger);
       }
@@ -118,7 +119,7 @@ public class SimpleHttp {
     } catch (IOException e) {
       throw UserException
         .dataReadError(e)
-        .message("Error retrieving data from HTTP Storage Plugin. %s", e.getMessage())
+        .message("Error retrieving data from HTTP Storage Plugin: %s", e.getMessage())
         .addContext("URL Requested:" + urlStr)
         .build(logger);
     }

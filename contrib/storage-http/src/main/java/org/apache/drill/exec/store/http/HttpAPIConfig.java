@@ -19,14 +19,12 @@
 package org.apache.drill.exec.store.http;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
-@JsonTypeName("http-api-config")
 public class HttpAPIConfig {
 
   private final String url;

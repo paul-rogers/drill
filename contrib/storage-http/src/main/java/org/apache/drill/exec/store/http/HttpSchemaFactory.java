@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.http;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +25,6 @@ import java.util.Set;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
 import org.apache.drill.exec.store.SchemaConfig;
@@ -53,8 +51,6 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
   }
 
   class HttpSchema extends AbstractSchema {
-
-    private final Map<String, DynamicDrillTable> activeTables = new HashMap<>();
 
     public HttpSchema(String name) {
       super(Collections.emptyList(), name);
