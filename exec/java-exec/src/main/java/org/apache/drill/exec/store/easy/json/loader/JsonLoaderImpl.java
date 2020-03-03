@@ -19,6 +19,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException;
@@ -31,7 +33,6 @@ import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
-import org.apache.drill.exec.store.easy.json.parserOld.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,12 +129,29 @@ import com.fasterxml.jackson.core.JsonToken;
 public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   protected static final Logger logger = LoggerFactory.getLogger(JsonLoaderImpl.class);
 
+  interface NullTypeMarker {
+    void forceResolution();
+  }
+
   private final ResultSetLoader rsLoader;
   private final JsonLoaderOptions options;
   private final CustomErrorContext errorContext;
   private final RowListener rowListener;
   private final JsonStructureParser parser;
   private boolean eof;
+
+  /**
+   * List of "unknown" columns (have only seen nulls or empty values)
+   * that are waiting for resolution, or forced resolution at the end
+   * of a batch. Unknown columns occur only when using dynamic type
+   * inference, and not JSON tokens have been seen which would hint
+   * at a type. Not needed when a schema is provided.
+   */
+
+  // Using a simple list. Won't perform well if we have hundreds of
+  // null fields; but then we've never seen such a pathologically bad
+  // case... Usually just one or two fields have deferred nulls.
+  private final List<NullTypeMarker> nullStates = new ArrayList<>();
 
   public JsonLoaderImpl(ResultSetLoader rsLoader, TupleMetadata providedSchema,
       JsonLoaderOptions options, CustomErrorContext errorContext,
@@ -165,6 +183,14 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     return rsLoader.hasRows();
   }
 
+  public void addNullMarker(JsonLoaderImpl.NullTypeMarker marker) {
+    nullStates.add(marker);
+  }
+
+  public void removeNullMarker(JsonLoaderImpl.NullTypeMarker marker) {
+    nullStates.remove(marker);
+  }
+
   /**
    * Finish reading a batch of data. We may have pending "null" columns:
    * a column for which we've seen only nulls, or an array that has
@@ -186,8 +212,12 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
    */
   @Override // JsonLoader
   public void endBatch() {
-    // TODO Auto-generated method stub
-
+    List<NullTypeMarker> copy = new ArrayList<>();
+    copy.addAll(nullStates);
+    for (NullTypeMarker marker : copy) {
+      marker.forceResolution();
+    }
+    assert nullStates.isEmpty();
   }
 
   @Override // JsonLoader

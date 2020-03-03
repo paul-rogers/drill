@@ -17,14 +17,21 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class UnknownValueListener extends AbstractValueListener {
+public class UnknownValueListener extends AbstractValueListener implements NullTypeMarker {
+  protected static final Logger logger = LoggerFactory.getLogger(UnknownValueListener.class);
 
   private final TupleWriter tupleWriter;
   private final String key;
@@ -34,6 +41,7 @@ public class UnknownValueListener extends AbstractValueListener {
     super(loader);
     this.tupleWriter = tupleWriter;
     this.key = key;
+    loader.addNullMarker(this);
   }
 
   @Override
@@ -68,8 +76,13 @@ public class UnknownValueListener extends AbstractValueListener {
    */
   private ValueListener resolveScalar(JsonType type) {
     ValueListener newListener = ScalarListener.listenerFor(loader, tupleWriter, key, type);
-    host.bindListener(newListener);
+    resolveTo(newListener);
     return newListener;
+  }
+
+  private void resolveTo(ValueListener newListener) {
+    host.bindListener(newListener);
+    loader.removeNullMarker(this);
   }
 
   @Override
@@ -100,5 +113,16 @@ public class UnknownValueListener extends AbstractValueListener {
   @Override
   protected ColumnMetadata schema() {
     throw new IllegalStateException("Unknown column has no schema");
+  }
+
+  @Override
+  public void forceResolution() {
+    logger.warn("Ambiguous type! JSON field {}" +
+        " contains all nulls. Assuming VARCHAR.",
+        key);
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.optional(MinorType.VARCHAR));
+//    colSchema.setProperty(ColumnMetadata.JSON_MODE, ColumnMetadata.JSON_TEXT_MODE);
+    ValueListener newListener = ScalarListener.listenerFor(loader, tupleWriter, colSchema);
+    resolveTo(newListener);
   }
 }

@@ -58,6 +58,7 @@ public class BaseJsonLoaderTest extends SubOperatorTest {
       if (!loader.next()) {
         return null;
       }
+      loader.endBatch();
       return fixture.wrap(rsLoader.harvest());
     }
 
