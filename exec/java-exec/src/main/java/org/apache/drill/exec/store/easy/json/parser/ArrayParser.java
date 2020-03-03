@@ -52,20 +52,17 @@ public class ArrayParser extends AbstractElementParser {
   @Override
   public void parse(TokenIterator tokenizer) {
     arrayListener.onStart();
-    top: for (;;) {
+    for (;;) {
       // Position: [ (value, )* ^ ?
-     JsonToken token = tokenizer.requireNext();
-      switch (token) {
-        case END_ARRAY:
-          break top;
-
-        default:
-          tokenizer.unget(token);
-          arrayListener.onElementStart();
-          elementParser.parse(tokenizer);
-          arrayListener.onElementEnd();
-          break;
+      JsonToken token = tokenizer.requireNext();
+      if (token == JsonToken.END_ARRAY) {
+        break;
       }
+
+      tokenizer.unget(token);
+      arrayListener.onElementStart();
+      elementParser.parse(tokenizer);
+      arrayListener.onElementEnd();
     }
     arrayListener.onEnd();
   }

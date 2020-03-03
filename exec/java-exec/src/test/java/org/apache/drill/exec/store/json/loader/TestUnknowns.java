@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.json.loader;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.boolArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -99,4 +100,33 @@ public class TestUnknowns extends BaseJsonLoaderTest {
     assertNull(loader.next());
     loader.close();
   }
+
+  @Test
+  public void testArrayToBoolean() {
+    String json =
+        "{a: []} {a: [true, false]} {a: true}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIT)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(boolArray())
+        .addSingleCol(boolArray(true, false))
+        .addSingleCol(boolArray(false))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  // null to array to boolean
+
+  // array to null
+
+  // array to object
+
 }

@@ -124,7 +124,7 @@ public interface ValueListener {
 
   /**
    * The parser has encountered a object value for the field for the first
-   * time. That is: {@code foo: {</code}.
+   * time. That is: <code>foo: {</code>.
    *
    * @return an object listener for the object
    */
@@ -132,20 +132,11 @@ public interface ValueListener {
 
   /**
    * The parser has encountered a array value for the first
-   * time, and that array is scalar, null or empty.
+   * time,.
    *
-   * @param arrayDims the number of observed array dimensions
-   * @param type the observed JSON token type for the array element
+   * @param valueDef description of the array dimensions (if
+   * a multi-dimensional array) and type (if known)
    * @return an array listener for the array
    */
-  ArrayListener array(int arrayDims, JsonType type);
-
-  /**
-   * The parser has encountered a array value for the first
-   * time, and that array contains an object.
-   *
-   * @param arrayDims the number of observed array dimensions
-   * @return an array listener for the array
-   */
-  ArrayListener objectArray(int arrayDims);
+  ArrayListener array(ValueDef valueDef);
 }

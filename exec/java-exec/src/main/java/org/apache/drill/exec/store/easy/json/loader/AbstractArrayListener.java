@@ -5,26 +5,29 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-public class AbstractArrayListener implements ArrayListener {
+public abstract class AbstractArrayListener implements ArrayListener {
 
   protected final JsonLoaderImpl loader;
-  private final ColumnMetadata colSchema;
+  protected final ColumnMetadata colSchema;
+  protected final ValueListener elementListener;
 
-  public AbstractArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema) {
+  public AbstractArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ValueListener elementListener) {
     this.loader = loader;
     this.colSchema = colSchema;
+    this.elementListener = elementListener;
   }
 
-  public static ValueListener listenerFor(JsonLoaderImpl loader,
+  public static ArrayValueListener listenerFor(JsonLoaderImpl loader,
       TupleWriter parentWriter, String key, JsonType jsonType) {
     MinorType colType = loader.drillTypeFor(jsonType);
     if (colType != null) {
@@ -32,8 +35,6 @@ public class AbstractArrayListener implements ArrayListener {
       return ScalarArrayValueListener.listenerFor(loader, parentWriter, colSchema);
     }
     switch (jsonType) {
-    case ARRAY:
-      break;
     case EMPTY:
       break;
     case NULL:
@@ -46,6 +47,8 @@ public class AbstractArrayListener implements ArrayListener {
     // TODO
     throw new IllegalStateException();
   }
+
+  public ValueListener elementListener() { return elementListener; }
 
   @Override
   public void onStart() { }
@@ -60,23 +63,8 @@ public class AbstractArrayListener implements ArrayListener {
   public void onEnd() { }
 
   @Override
-  public ValueListener scalarElement(JsonType type) {
-    throw typeConversionError("Boolean");
-  }
-
-  @Override
-  public ValueListener arrayElement(int arrayDims, JsonType type) {
-    throw typeConversionError(type.name() + " array[" + arrayDims + "]");
-  }
-
-  @Override
-  public ValueListener objectElement() {
-    throw typeConversionError("object");
-  }
-
-  @Override
-  public ValueListener objectArrayElement(int arrayDims) {
-    throw typeConversionError("object array[" + arrayDims + "]");
+  public ValueListener element(ValueDef valueDef) {
+    throw loader.typeConversionError(colSchema, valueDef);
   }
 
   protected UserException typeConversionError(String jsonType) {
@@ -85,42 +73,27 @@ public class AbstractArrayListener implements ArrayListener {
 
   public static class ScalarArrayListener extends AbstractArrayListener {
 
-    private final ScalarListener valueListener;
-
     public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarListener valueListener) {
-      super(loader, colSchema);
-      this.valueListener = valueListener;
+      super(loader, colSchema, valueListener);
     }
 
     @Override
-    public ValueListener scalarElement(JsonType type) {
-      return valueListener;
+    public ValueListener element(ValueDef valueDef) {
+      return elementListener;
     }
-
-    public ScalarListener elementListener() { return valueListener; }
   }
 
   public static class ObjectArrayListener extends AbstractArrayListener {
     private final ArrayWriter arrayWriter;
-    private final ObjectValueListener valueListener;
 
     public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter, ObjectValueListener valueListener) {
-      super(loader, arrayWriter.schema());
+      super(loader, arrayWriter.schema(), valueListener);
       this.arrayWriter = arrayWriter;
-      this.valueListener = valueListener;
     }
 
     @Override
-    public ValueListener objectElement() {
-      return valueListener;
-    }
-
-    // Called with a provided schema where the initial array
-    // value is empty.
-    @Override
-    public ValueListener scalarElement(JsonType type) {
-      Preconditions.checkArgument(type == JsonType.EMPTY || type == JsonType.NULL);
-      return valueListener;
+    public ValueListener element(ValueDef valueDef) {
+      return elementListener;
     }
 
     @Override

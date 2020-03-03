@@ -23,7 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 
 /**
@@ -48,7 +48,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
-    assertEquals(JsonType.STRING, name.type);
+    assertEquals(JsonType.STRING, name.valueDef.type());
     assertEquals("fred", name.value);
 
     assertTrue(fixture.next());

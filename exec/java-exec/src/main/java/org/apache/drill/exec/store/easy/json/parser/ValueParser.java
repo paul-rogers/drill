@@ -166,7 +166,7 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
       if (arrayParser == null) {
         // No array parser yet. May be that the value was null,
         // or may be that it changed types.
-        arrayParser = ValueFactory.createArrayParser(this, tokenizer);
+        arrayParser = new ValueFactory(tokenizer).createArrayParser(this);
       }
       arrayParser.parse(tokenizer);
       break;

@@ -21,6 +21,7 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -162,12 +163,13 @@ public class ObjectParser extends AbstractElementParser {
     }
     FieldType type = listener.fieldType(key);
     switch (type) {
-    case IGNORE:
-      return new DummyValueParser(this);
-    case JSON:
-      return new JsonValueParser(this, key, listener.addScalar(key, JsonType.STRING));
-    default:
-      return ValueFactory.createFieldParser(this, key, type, tokenizer);
+      case IGNORE:
+        return new DummyValueParser(this);
+      case JSON:
+        return new JsonValueParser(this, key,
+            listener.addField(key, new ValueDef(JsonType.STRING, 0)));
+      default:
+        return new ValueFactory(tokenizer).createFieldParser(this, key, type);
     }
   }
 }

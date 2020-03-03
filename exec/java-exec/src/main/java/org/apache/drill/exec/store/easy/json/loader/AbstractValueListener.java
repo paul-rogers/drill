@@ -3,8 +3,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 
 public abstract class AbstractValueListener implements ValueListener {
@@ -49,13 +49,8 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   @Override
-  public ArrayListener array(int arrayDims, JsonType type) {
-    throw typeConversionError(type.name() + " array[" + arrayDims + "]");
-  }
-
-  @Override
-  public ArrayListener objectArray(int arrayDims) {
-    throw typeConversionError("object array[" + arrayDims + "]");
+  public ArrayListener array(ValueDef valueDef) {
+    throw loader.typeConversionError(schema(), valueDef);
   }
 
   protected UserException typeConversionError(String jsonType) {

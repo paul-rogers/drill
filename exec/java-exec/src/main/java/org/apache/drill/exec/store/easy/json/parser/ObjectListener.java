@@ -88,12 +88,6 @@ public interface ObjectListener {
   void onStart();
 
   /**
-   * Called at the end of a set of values for an object. That is, called
-   * when the structure parser accepts the <code>}</code> token.
-   */
-  void onEnd();
-
-  /**
    * Called by the structure parser when it first sees a new field for
    * and object to determine how to parse the field.
    * If not projected, the structure parser will not
@@ -111,55 +105,11 @@ public interface ObjectListener {
    */
   FieldType fieldType(String key);
 
-  /**
-   * A new field has appeared with a scalar (or {@code null}) value.
-   * That is: {@code key: <scalar>}.
-   *
-   * @param key the field name
-   * @param type the type as given by the JSON token for the value
-   * @return a value listener for the scalar value
-   */
-  ValueListener addScalar(String key, JsonType type);
-
-  ValueListener addUnknown(String key);
+  ValueListener addField(String key, ValueDef valueDef);
 
   /**
-   * A new field has appeared with a scalar, {@code null} or empty array
-   * value. That is, one of:
-   * <ul>
-   * <li><code>key: [+ &lt;scalar></code></li>
-   * <li><code>key: [+ null</code></li>
-   * <li><code>key: [+ ]</code></li>
-   * </ul>
-   * Where "[+" means one or more opening array elements.
-   *
-   * @param key the field name
-   * @param arrayDims number of dimensions observed in the first appearance
-   * of the array (more may appear later)
-   * @param type the observed type of the first element of the array, or
-   * {@link JsonType.NULL} if {@code null} was see, or
-   * {@link JsonType.EMPTY} if an empty array was seen
-   * @return a listener for the field itself which is prepared to
-   * return an array listener
+   * Called at the end of a set of values for an object. That is, called
+   * when the structure parser accepts the <code>}</code> token.
    */
-  ValueListener addArray(String key, int arrayDims, JsonType type);
-
-  /**
-   * A new field has appeared with an object value.
-   * That is: {@code key: <scalar>}.
-   *
-   * @param key the field name
-   * @return a value listener which assumes the value is an object
-   */
-  ValueListener addObject(String key);
-
-  /**
-   * A new field has appeared with an object array value.
-   * That is: <code>key: ]+ {</code>.
-   *
-   * @param key the field name
-   * @return a value listener which assumes the value is an object
-   * array
-   */
-  ValueListener addObjectArray(String key, int dims);
+  void onEnd();
 }

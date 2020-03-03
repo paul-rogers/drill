@@ -36,8 +36,8 @@ import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
@@ -106,8 +106,7 @@ public class BaseTestJsonParser {
 
   protected static class ValueListenerFixture implements ValueListener {
 
-    final int dimCount;
-    final JsonType type;
+    final ValueDef valueDef;
     int nullCount;
     int valueCount;
     Object value;
@@ -115,9 +114,8 @@ public class BaseTestJsonParser {
     ObjectListenerFixture objectValue;
     ArrayListenerFixture arrayValue;
 
-    public ValueListenerFixture(int dimCount, JsonType type) {
-      this.dimCount = dimCount;
-      this.type = type;
+    public ValueListenerFixture(ValueDef valueDef) {
+      this.valueDef = valueDef;
     }
 
     @Override
@@ -163,16 +161,9 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public ArrayListener array(int arrayDims, JsonType type) {
+    public ArrayListener array(ValueDef valueDef) {
       assertNull(arrayValue);
-      arrayValue = new ArrayListenerFixture(arrayDims, type);
-      return arrayValue;
-    }
-
-    @Override
-    public ArrayListener objectArray(int arrayDims) {
-      assertNull(arrayValue);
-      arrayValue = new ArrayListenerFixture(arrayDims, JsonType.OBJECT);
+      arrayValue = new ArrayListenerFixture(valueDef);
       return arrayValue;
     }
 
@@ -184,16 +175,14 @@ public class BaseTestJsonParser {
 
   protected static class ArrayListenerFixture implements ArrayListener {
 
-    final int dimCount;
-    final JsonType type;
+    final ValueDef valueDef;
     int startCount;
     int endCount;
     int elementCount;
     ValueListenerFixture element;
 
-    public ArrayListenerFixture(int dimCount, JsonType type) {
-      this.dimCount = dimCount;
-      this.type = type;
+    public ArrayListenerFixture(ValueDef valueDef) {
+      this.valueDef = valueDef;
     }
 
     @Override
@@ -215,28 +204,9 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public ValueListener objectArrayElement(int arrayDims) {
-      return element(arrayDims, JsonType.OBJECT);
-    }
-
-    @Override
-    public ValueListener objectElement() {
-      return element(0, JsonType.OBJECT);
-    }
-
-    @Override
-    public ValueListener arrayElement(int arrayDims, JsonType type) {
-      return element(arrayDims, type);
-    }
-
-    @Override
-    public ValueListener scalarElement(JsonType type) {
-      return element(0, type);
-    }
-
-    private ValueListener element(int arrayDims, JsonType type) {
+    public ValueListener element(ValueDef valueDef) {
       assertNull(element);
-      element = new ValueListenerFixture(arrayDims, type);
+      element = new ValueListenerFixture(valueDef);
       return element;
     }
   }
@@ -268,28 +238,9 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public ValueListener addScalar(String key, JsonType type) {
-      return field(key, 0, type);
-    }
-
-    @Override
-    public ValueListener addArray(String key, int dims, JsonType type) {
-      return field(key, dims, type);
-    }
-
-    @Override
-    public ValueListener addObject(String key) {
-      return field(key, 0, JsonType.OBJECT);
-    }
-
-    @Override
-    public ValueListener addObjectArray(String key, int dims) {
-      return field(key, dims, JsonType.OBJECT);
-    }
-
-    private ValueListener field(String key, int dims, JsonType type) {
+    public ValueListener addField(String key, ValueDef valueDef) {
       assertFalse(fields.containsKey(key));
-      ValueListenerFixture field = new ValueListenerFixture(dims, type);
+      ValueListenerFixture field = new ValueListenerFixture(valueDef);
       fields.put(key, field);
       return field;
     }
@@ -298,11 +249,6 @@ public class BaseTestJsonParser {
       ValueListenerFixture field = fields.get(key);
       assertNotNull(field);
       return field;
-    }
-
-    @Override
-    public ValueListener addUnknown(String key) {
-      return field(key, 0, JsonType.NULL);
     }
   }
 

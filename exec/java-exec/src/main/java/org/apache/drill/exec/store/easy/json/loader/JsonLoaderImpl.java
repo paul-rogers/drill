@@ -29,10 +29,16 @@ import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
+import org.apache.drill.exec.store.easy.json.loader.UnknownValueListener.UnknownFieldListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -225,6 +231,33 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     parser.close();
   }
 
+  protected ValueListener listenerFor(TupleWriter tupleWriter, String key, ValueDef valueDef) {
+    if (!valueDef.isArray()) {
+      if (valueDef.type().isObject()) {
+        return ObjectValueListener.listenerFor(this, tupleWriter, key, null);
+      } else if (valueDef.type().isUnknown()) {
+        return new UnknownFieldListener(this, tupleWriter, key);
+      } else {
+        return ScalarListener.listenerFor(this, tupleWriter, key, valueDef.type());
+      }
+    } else if (valueDef.dimensions() == 1) {
+      if (valueDef.type().isObject()) {
+        return ObjectArrayValueListener.listenerFor(this, tupleWriter, key, null);
+      } else if (valueDef.type().isUnknown()) {
+        return UnknownArrayListener.listenerFor(this, tupleWriter, key);
+      } else {
+        return AbstractArrayListener.listenerFor(this, tupleWriter, key, valueDef.type());
+      }
+    } else {
+      return addList(key, valueDef);
+    }
+  }
+
+  private ValueListener addList(String key, ValueDef valueDef) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
   public MinorType drillTypeFor(JsonType type) {
     if (options.allTextMode) {
       return MinorType.VARCHAR;
@@ -295,6 +328,16 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
         UserException.dataReadError()
           .addContext("Unrecoverable syntax error on token")
           .addContext("Recovery attempts", parser.recoverableErrorCount()));
+  }
+
+  protected UserException typeConversionError(ColumnMetadata schema, ValueDef valueDef) {
+    String type = valueDef.type().name();
+    if (valueDef.isArray()) {
+      for (int i = 0; i < valueDef.dimensions(); i++) {
+        type += "[]";
+      }
+    }
+    return typeConversionError(schema, type);
   }
 
   protected UserException typeConversionError(ColumnMetadata schema, String tokenType) {

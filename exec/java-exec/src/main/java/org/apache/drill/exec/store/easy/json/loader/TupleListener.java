@@ -22,8 +22,8 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
-import org.apache.drill.exec.store.easy.json.parser.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -123,12 +123,12 @@ public class TupleListener implements ObjectListener {
   }
 
   @Override
-  public ValueListener addScalar(String key, JsonType type) {
+  public ValueListener addField(String key, ValueDef valueDef) {
     ColumnMetadata colSchema = providedColumn(key);
     if (colSchema != null) {
       return listenerFor(colSchema);
     } else {
-       return ScalarListener.listenerFor(loader, tupleWriter, key, type);
+      return loader.listenerFor(tupleWriter, key, valueDef);
     }
   }
 
@@ -159,43 +159,6 @@ public class TupleListener implements ObjectListener {
     }
     // TODO
     throw new IllegalStateException();
-  }
-
-  @Override
-  public ValueListener addArray(String key, int arrayDims, JsonType type) {
-    ColumnMetadata colSchema = providedColumn(key);
-    if (colSchema != null) {
-      return listenerFor(colSchema);
-    } else if (arrayDims == 1) {
-      return AbstractArrayListener.listenerFor(loader, tupleWriter, key, type);
-    } else {
-      return addList(key, type);
-    }
-  }
-
-  private ValueListener addList(String key, JsonType type) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public ValueListener addObject(String key) {
-    return ObjectValueListener.listenerFor(loader, tupleWriter, key, null);
-  }
-
-  @Override
-  public ValueListener addObjectArray(String key, int dims) {
-    return ObjectArrayValueListener.listenerFor(loader, tupleWriter, key, null);
-  }
-
-  @Override
-  public ValueListener addUnknown(String key) {
-    ColumnMetadata colSchema = providedColumn(key);
-    if (colSchema != null) {
-      return listenerFor(colSchema);
-    } else {
-      return new UnknownValueListener(loader, tupleWriter, key);
-    }
   }
 
   public ColumnMetadata providedColumn(String key) {

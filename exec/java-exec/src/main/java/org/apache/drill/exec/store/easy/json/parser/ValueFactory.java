@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -52,20 +53,64 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public class ValueFactory {
 
-  public static class FieldDescrip {
-    protected int arrayDims;
-    protected JsonType type;
+  protected int arrayDims;
+  protected JsonType jsonType;
 
-    public boolean isArray() { return arrayDims > 0; }
-
-    public boolean isObject() { return type == JsonType.OBJECT; }
-
-    public boolean isUnknown() {
-      return type == JsonType.NULL || type == JsonType.EMPTY;
-    }
+  public ValueFactory(TokenIterator tokenizer) {
+    inferValueType(tokenizer);
   }
 
-  private ValueFactory() { }
+  protected void inferValueType(TokenIterator tokenizer) {
+    JsonToken token = tokenizer.requireNext();
+    switch (token) {
+      case START_ARRAY:
+        // Position: key: [ ^
+        arrayDims++;
+        inferValueType(tokenizer);
+        break;
+
+      case END_ARRAY:
+        if (arrayDims == 0) {
+          throw tokenizer.errorFactory().syntaxError(token);
+        }
+        jsonType = JsonType.EMPTY;
+        break;
+
+      case START_OBJECT:
+        // Position: key: { ^
+        jsonType = JsonType.OBJECT;
+        break;
+
+      case VALUE_NULL:
+
+        // Position: key: null ^
+        jsonType = JsonType.NULL;
+        break;
+
+      case VALUE_FALSE:
+      case VALUE_TRUE:
+        jsonType = JsonType.BOOLEAN;
+        break;
+
+      case VALUE_NUMBER_INT:
+        jsonType = JsonType.INTEGER;
+        break;
+
+      case VALUE_NUMBER_FLOAT:
+        jsonType = JsonType.FLOAT;
+        break;
+
+      case VALUE_STRING:
+        jsonType = JsonType.STRING;
+        break;
+
+      default:
+        // Won't get here: the Jackson parser catches
+        // errors.
+        throw tokenizer.errorFactory().syntaxError(token);
+    }
+    tokenizer.unget(token);
+  }
 
   /**
    * Parse position: <code>{ ... field : ^ ?</code> for a newly-seen field.
@@ -78,47 +123,23 @@ public class ValueFactory {
    * @return the value parser for the element, which may contain additional
    * structure for objects or arrays
    */
-  public static ElementParser createFieldParser(ObjectParser parent, String key,
-      FieldType type, TokenIterator tokenizer) {
-    FieldDescrip descrip = new FieldDescrip();
-    inferFieldType(descrip, tokenizer);
-    ObjectListener objListener = parent.listener();
-    ValueListener fieldListener;
-    if (descrip.isObject()) {
-      if (descrip.isArray()) {
-        // Object array field
-        fieldListener = objListener.addObjectArray(key, descrip.arrayDims);
-      } else {
-        // Object field
-        fieldListener = objListener.addObject(key);
-      }
-    } else {
-      if (descrip.isArray()) {
-        // Scalar (or unknown) array field
-        fieldListener = objListener.addArray(key, descrip.arrayDims, descrip.type);
-      } else if (descrip.isUnknown()) {
-        // Unknown field type
-        fieldListener = objListener.addUnknown(key);
-      } else {
-        // Scalar field
-        fieldListener = objListener.addScalar(key, descrip.type);
-      }
-    }
+  public ElementParser createFieldParser(ObjectParser parent, String key,
+      FieldType type) {
     ValueParser fp = new ValueParser(parent, key, type);
-    fp.bindListener(fieldListener);
-    createStructureParser(fp, descrip);
+    ValueDef valueDef = new ValueDef(jsonType, arrayDims);
+    fp.bindListener(parent.listener().addField(key, valueDef));
+    createStructureParser(fp, valueDef);
     return fp;
   }
 
   /**
    * Add the object or array parser, if the structured type is known.
    */
-  private static void createStructureParser(ValueParser valueParser,
-      FieldDescrip descrip) {
-    if (descrip.isArray()) {
-      valueParser.bindArrayParser(createArrayParser(valueParser, descrip));
-    } else if (descrip.isObject()) {
+  private void createStructureParser(ValueParser valueParser, ValueDef valueDef) {
+    if (valueDef.type().isObject()) {
       valueParser.bindObjectParser(objectParser(valueParser));
+    } if (valueDef.isArray()) {
+      valueParser.bindArrayParser(createArrayParser(valueParser, valueDef));
     }
   }
 
@@ -133,44 +154,17 @@ public class ValueFactory {
    * @return an array parser to bind to the parent value parser to parse the
    * array
    */
-  public static ArrayParser createArrayParser(ValueParser parent, TokenIterator tokenizer) {
-    FieldDescrip descrip = new FieldDescrip();
+  public ArrayParser createArrayParser(ValueParser parent) {
     // Already in an array, so add the outer dimension.
-    descrip.arrayDims++;
-    inferFieldType(descrip, tokenizer);
-    return createArrayParser(parent, descrip);
+    return createArrayParser(parent, new ValueDef(jsonType, arrayDims + 1));
   }
 
-  public static ArrayParser createArrayParser(ValueParser parent, FieldDescrip descrip) {
-    ValueListener fieldListener = parent.listener();
-    ArrayListener arrayListener;
-    if (descrip.isObject()) {
-      // Object array elements
-      arrayListener = fieldListener.objectArray(descrip.arrayDims);
-    } else {
-      arrayListener = fieldListener.array(descrip.arrayDims, descrip.type);
-    }
-    descrip.arrayDims--;
-    ValueListener elementListener;
-    if (descrip.isObject()) {
-      if (descrip.isArray()) {
-        // Object array elements
-        elementListener = arrayListener.objectArrayElement(descrip.arrayDims);
-      } else {
-        // Object elements
-        elementListener = arrayListener.objectElement();
-      }
-    } else {
-      if (descrip.isArray()) {
-        // Scalar (or unknown) array elements
-        elementListener = arrayListener.arrayElement(descrip.arrayDims, descrip.type);
-      } else {
-        // Scalar (or unknown) elements
-        elementListener = arrayListener.scalarElement(descrip.type);
-      }
-    }
-    ArrayParser arrayParser = new ArrayParser(parent, arrayListener, elementListener);
-    createStructureParser(arrayParser.elementParser(), descrip);
+  private ArrayParser createArrayParser(ValueParser parent, ValueDef valueDef) {
+    ArrayListener arrayListener = parent.listener().array(valueDef);
+    ValueDef elementDef = valueDef.element();
+    ArrayParser arrayParser = new ArrayParser(parent, arrayListener,
+        arrayListener.element(elementDef));
+    createStructureParser(arrayParser.elementParser(), elementDef);
     return arrayParser;
   }
 
@@ -178,57 +172,5 @@ public class ValueFactory {
     ValueListener valueListener = parent.listener();
     ObjectListener objListener = valueListener.object();
     return new ObjectParser(parent, objListener);
-  }
-
-  protected static void inferFieldType(FieldDescrip descrip, TokenIterator tokenizer) {
-    JsonToken token = tokenizer.requireNext();
-    switch (token) {
-      case START_ARRAY:
-        // Position: key: [ ^
-        descrip.arrayDims++;
-        inferFieldType(descrip, tokenizer);
-        break;
-
-      case END_ARRAY:
-        if (descrip.arrayDims == 0) {
-          throw tokenizer.errorFactory().syntaxError(token);
-        }
-        descrip.type = JsonType.EMPTY;
-        break;
-
-      case START_OBJECT:
-        // Position: key: { ^
-        descrip.type = JsonType.OBJECT;
-        break;
-
-      case VALUE_NULL:
-
-        // Position: key: null ^
-        descrip.type = JsonType.NULL;
-        break;
-
-      case VALUE_FALSE:
-      case VALUE_TRUE:
-        descrip.type = JsonType.BOOLEAN;
-        break;
-
-      case VALUE_NUMBER_INT:
-        descrip.type = JsonType.INTEGER;
-        break;
-
-      case VALUE_NUMBER_FLOAT:
-        descrip.type = JsonType.FLOAT;
-        break;
-
-      case VALUE_STRING:
-        descrip.type = JsonType.STRING;
-        break;
-
-      default:
-        // Won't get here: the Jackson parser catches
-        // errors.
-        throw tokenizer.errorFactory().syntaxError(token);
-    }
-    tokenizer.unget(token);
   }
 }

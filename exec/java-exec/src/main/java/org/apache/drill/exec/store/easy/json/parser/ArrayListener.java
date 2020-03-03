@@ -86,6 +86,8 @@ public interface ArrayListener {
    */
   void onStart();
 
+  ValueListener element(ValueDef valueDef);
+
   /**
    * Called for each element of the array. The array element is represented
    * by its own listener which receives the value of the element (if
@@ -103,54 +105,4 @@ public interface ArrayListener {
    * when the structure parser accepts the {@code ]} token.
    */
   void onEnd();
-
-  /**
-   * The first element seen is a scalar, {@code null} or empty. That is,
-   * {@code [ <scalar>}, {@code [ null} or {@code [ ]}.
-   *
-   * @param type the JSON type of the object as given by the token
-   * which the Jackson parser returned for the value. The type can
-   * be {@code null}, which means that the parser does not know what
-   * actual type might occur later
-   * @return a value listener for the scalar type, or if {@code null},
-   * perhaps waiting for more information to commit to a type
-   */
-  ValueListener scalarElement(JsonType type);
-
-  /**
-   * The first element an array or scalars (or {@code null}.That is,
-   * {@code [ [+ <scalar>}.
-   *
-   * @param arrayDims the number of dimensions observed during the
-   * first-element parse, not including the surrounding array
-   * itself. As in all cases, there is no guarantee that
-   * that this number will remain valid later, and may be wrong if the
-   * first-seen element was empty: {@code []}.
-   * @return a listener for the value of the top-level element (which
-   * the listener can assume will turn out to be an array.)
-   */
-  ValueListener arrayElement(int arrayDims, JsonType type);
-
-  /**
-   * The first element seen for an array is an object. That is,
-   * <code>[ {</code>.
-   *
-   * @return a listener for the value of the top-level element (which
-   * the listener can assume will turn out to be an object.)
-   */
-  ValueListener objectElement();
-
-  /**
-   * The first element seen is an object array.That is,
-   * <code>[ [* {</code>.
-   *
-   * @param arrayDims the number of dimensions observed during the
-   * first-element parse, not including the surrounding array
-   * itself. As in all cases, there is no guarantee that
-   * that this number will remain valid later, and may be wrong if the
-   * first-seen element was empty: {@code []}.
-   * @return a listener for the value of the top-level element (which
-   * the listener can assume will turn out to be an array.)
-   */
-  ValueListener objectArrayElement(int arrayDims);
 }
