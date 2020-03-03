@@ -161,7 +161,7 @@ public class ValueFactory {
 
   private ArrayParser createArrayParser(ValueParser parent, ValueDef valueDef) {
     ArrayListener arrayListener = parent.listener().array(valueDef);
-    ValueDef elementDef = valueDef.element();
+    ValueDef elementDef = new ValueDef(valueDef.type(), valueDef.dimensions() - 1);
     ArrayParser arrayParser = new ArrayParser(parent, arrayListener,
         arrayListener.element(elementDef));
     createStructureParser(arrayParser.elementParser(), elementDef);

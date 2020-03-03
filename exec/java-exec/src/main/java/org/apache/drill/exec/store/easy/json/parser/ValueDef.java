@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 public class ValueDef {
+
   /**
    * Description of JSON types as derived from JSON tokens.
    */
@@ -48,18 +49,12 @@ public class ValueDef {
   public int dimensions() { return arrayDims; }
   public boolean isArray() { return arrayDims > 0; }
 
-  public ValueDef element() {
-    if (isArray()) {
-      return new ValueDef(type, arrayDims - 1);
-    } else {
-      return this;
-    }
-  }
-
   @Override
   public String toString() {
-    return getClass().getSimpleName() +
-        "[type=" + type.name() +
-        ", dims=" + arrayDims + "]";
+    String result = type.name();
+    for (int i = 0; i < arrayDims; i++) {
+      result += "[]";
+    }
+    return result;
   }
 }
