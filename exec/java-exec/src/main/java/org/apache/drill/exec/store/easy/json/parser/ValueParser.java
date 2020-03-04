@@ -129,6 +129,12 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
   public void bindListener(ValueListener listener) {
     this.listener = listener;
     listener.bind(this);
+    if (objectParser != null) {
+      objectParser.bindListener(listener.object());
+    }
+    if (arrayParser != null) {
+      arrayParser.bindListener(listener.array());
+    }
   }
 
   public String key() { return key; }

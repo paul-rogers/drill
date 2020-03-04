@@ -131,8 +131,7 @@ public interface ValueListener {
   ObjectListener object();
 
   /**
-   * The parser has encountered a array value for the first
-   * time,.
+   * The parser has encountered a array value for the first time.
    *
    * @param valueDef description of the array dimensions (if
    * a multi-dimensional array) and type (if known)
