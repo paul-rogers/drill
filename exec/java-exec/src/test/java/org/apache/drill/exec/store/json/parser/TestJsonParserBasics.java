@@ -19,13 +19,11 @@ package org.apache.drill.exec.store.json.parser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.HashSet;
 
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 
@@ -321,37 +319,6 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
         new Object[] {"{}", "{\"b\": null}", "{\"b\": null, \"b\": null}",
             "{\"b\": {\"c\": {\"d\": [{\"e\": 10}, null, 20], \"f\": \"foo\"}, \"g\": 30}, \"h\": 40}"});
     assertFalse(fixture.next());
-    fixture.close();
-  }
-
-  /**
-   * Test replacing a value lister "in-flight". Handles the
-   * (simulated) case where the initial value is ambiguous (here, null),
-   * and a later token resolves the value to something concrete.
-   */
-  @Test
-  public void testReplaceListener() {
-    final String json = "{a: null} {a: true} {a: false}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.open(json);
-    assertTrue(fixture.next());
-    assertEquals(1, fixture.rootObject.startCount);
-    assertEquals(1, fixture.rootObject.fields.size());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.NULL, a.valueDef.type());
-    assertEquals(0, a.valueDef.dimensions());
-    assertEquals(1, a.nullCount);
-
-    // Replace the listener with a new one
-    ValueListenerFixture a2 = new ValueListenerFixture(new ValueDef(JsonType.BOOLEAN, a.valueDef.dimensions()));
-    a.host.bindListener(a2);
-    assertSame(a.host, a2.host);
-
-    assertTrue(fixture.next());
-    assertEquals(Boolean.TRUE, a2.value);
-    assertTrue(fixture.next());
-    assertEquals(0, a2.nullCount);
-    assertEquals(Boolean.FALSE, a2.value);
     fixture.close();
   }
 }

@@ -34,8 +34,8 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public class ArrayParser extends AbstractElementParser {
 
-  private final ArrayListener arrayListener;
   private final ValueParser elementParser;
+  private ArrayListener arrayListener;
 
   public ArrayParser(ValueParser parent, ArrayListener arrayListener, ValueListener elementListener) {
     super(parent);
@@ -51,19 +51,32 @@ public class ArrayParser extends AbstractElementParser {
    */
   @Override
   public void parse(TokenIterator tokenizer) {
-    arrayListener.onStart();
-    for (;;) {
+    parseLevel(1, tokenizer);
+  }
+
+  private void parseLevel(int level, TokenIterator tokenizer) {
+    arrayListener.onStart(level);
+    top: for (;;) {
       // Position: [ (value, )* ^ ?
       JsonToken token = tokenizer.requireNext();
-      if (token == JsonToken.END_ARRAY) {
-        break;
+      switch (token) {
+        case END_ARRAY:
+          break top;
+        case START_ARRAY:
+          parseLevel(level + 1, tokenizer);
+          break;
+        default:
+          tokenizer.unget(token);
+          arrayListener.onElementStart();
+          elementParser.parse(tokenizer);
+          arrayListener.onElementEnd();
       }
-
-      tokenizer.unget(token);
-      arrayListener.onElementStart();
-      elementParser.parse(tokenizer);
-      arrayListener.onElementEnd();
     }
-    arrayListener.onEnd();
+    arrayListener.onEnd(level);
+  }
+
+  public void bindListener(ArrayListener newListener) {
+    arrayListener = newListener;
+    elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
   }
 }

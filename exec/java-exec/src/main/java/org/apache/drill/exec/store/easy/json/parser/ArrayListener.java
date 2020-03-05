@@ -80,13 +80,17 @@ package org.apache.drill.exec.store.easy.json.parser;
  */
 public interface ArrayListener {
 
-  /**
-   * Called at the start of a set of values for an array. That is, called
-   * when the structure parser accepts the {@code [} token.
-   */
-  void onStart();
-
   ValueListener element(ValueDef valueDef);
+
+  /**
+   * Called at the entrance to each level (dimension) of an array.
+   * That is, called when the structure parser accepts the {@code [}
+   * token.
+   *
+   * @param dim the 1-based array depth (dimension). If a null is seen,
+   * then the enclosing value listener is considered level 0.
+   */
+  void onStart(int dim);
 
   /**
    * Called for each element of the array. The array element is represented
@@ -104,5 +108,5 @@ public interface ArrayListener {
    * Called at the end of a set of values for an array. That is, called
    * when the structure parser accepts the {@code ]} token.
    */
-  void onEnd();
+  void onEnd(int dim);
 }

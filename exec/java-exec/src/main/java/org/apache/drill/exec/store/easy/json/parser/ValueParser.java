@@ -129,25 +129,14 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
   public void bindListener(ValueListener listener) {
     this.listener = listener;
     listener.bind(this);
-    if (objectParser != null) {
-      objectParser.bindListener(listener.object());
-    }
     if (arrayParser != null) {
-      arrayParser.bindListener(listener.array());
+      arrayParser.bindListener(listener.array(ValueDef.UNKNOWN_ARRAY));
     }
   }
 
   public String key() { return key; }
 
   public ValueListener listener() { return listener; }
-
-  public void bindObjectParser(ObjectParser parser) {
-    objectParser = parser;
-  }
-
-  public void bindArrayParser(ArrayParser parser) {
-    arrayParser = parser;
-  }
 
   /**
    * Parses <code>true | false | null | integer | float | string|
@@ -162,17 +151,17 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
       if (objectParser == null) {
         // No object parser yet. May be that the value was null,
         // or may be that it changed types.
-        objectParser = ValueFactory.objectParser(this);
+        addObjectParser();
       }
       objectParser.parse(tokenizer);
       break;
 
     case START_ARRAY:
-      // Position: { ^
+      // Position: [ ^
       if (arrayParser == null) {
         // No array parser yet. May be that the value was null,
         // or may be that it changed types.
-        arrayParser = new ValueFactory(tokenizer).createArrayParser(this);
+        addArrayParser(ValueDefFactory.arrayLookAhead(tokenizer));
       }
       arrayParser.parse(tokenizer);
       break;
@@ -183,6 +172,20 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
 
     default:
       valueHandler.accept(tokenizer, token);
+    }
+  }
+
+  public void addObjectParser() {
+    objectParser = new ObjectParser(this, listener().object());
+  }
+
+  public void addArrayParser(ValueDef valueDef) {
+    ArrayListener arrayListener = listener().array(valueDef);
+    ValueDef elementDef = new ValueDef(valueDef.type(), 0);
+    arrayParser = new ArrayParser(this, arrayListener,
+        arrayListener.element(elementDef));
+    if (elementDef.type().isObject()) {
+      arrayParser.elementParser().addObjectParser();
     }
   }
 }

@@ -23,19 +23,34 @@ public class ValueDef {
    * Description of JSON types as derived from JSON tokens.
    */
   public enum JsonType {
-    OBJECT, NULL, EMPTY, BOOLEAN,
-    INTEGER, FLOAT, STRING, EMBEDDED_OBJECT;
+    OBJECT, NULL, BOOLEAN,
+    INTEGER, FLOAT, STRING, EMBEDDED_OBJECT,
 
-    public boolean isObject() { return this == JsonType.OBJECT; }
+    /**
+     * Indicates an empty array.
+     */
+    EMPTY,
+
+    /**
+     * Indicates an unknown array, appears when replacing the
+     * value listener for an array.
+     */
+    UNKNOWN;
+
+    public boolean isObject() { return this == OBJECT; }
 
     public boolean isUnknown() {
-      return this == JsonType.NULL || this == JsonType.EMPTY;
+      return this == NULL || this == EMPTY ||
+             this == UNKNOWN;
     }
 
     public boolean isScalar() {
       return !isObject() && !isUnknown();
     }
   }
+
+  public static final ValueDef UNKNOWN_ARRAY = new ValueDef(JsonType.UNKNOWN, 1);
+  public static final ValueDef UNKNOWN = new ValueDef(JsonType.UNKNOWN, 0);
 
   private final int arrayDims;
   private final JsonType type;

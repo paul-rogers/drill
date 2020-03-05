@@ -169,7 +169,57 @@ public class ObjectParser extends AbstractElementParser {
         return new JsonValueParser(this, key,
             listener.addField(key, new ValueDef(JsonType.STRING, 0)));
       default:
-        return new ValueFactory(tokenizer).createFieldParser(this, key, type);
+        return createFieldParser(key, type, tokenizer);
     }
+  }
+
+  /**
+   * Parse position: <code>{ ... field : ^ ?</code> for a newly-seen field.
+   * Constructs a value parser and its listeners by looking ahead
+   * some number of tokens to "sniff" the type of the value. For
+   * example:
+   * <ul>
+   * <li>{@code foo: <value>} - Field value</li>
+   * <li>{@code foo: [ <value> ]} - 1D array value</li>
+   * <li>{@code foo: [ [<value> ] ]} - 2D array value</li>
+   * <li>Etc.</li>
+   * </ul>
+   * <p>
+   * There are two cases in which no type estimation is possible:
+   * <ul>
+   * <li>The value is {@code null}, indicated by
+   * {@link JsonType#NULL}.</code>
+   * <li>The value is an array, and the array is empty, indicated
+   * by {@link JsonType#EMPTY}.</li>
+   * </ul>
+   * {@link ValueDefFactory} handles syntactic type inference. The associated
+   * listener enforces semantic rules. For example, if a schema is
+   * available, and we know that field "x" must be an Integer, but
+   * this class reports that it is an object, then the listener should
+   * raise an exception.
+   * <p>
+   * Also, the parser cannot enforce type consistency. This method
+   * looks only at the first appearance of a value: a sample size of
+   * one. JSON allows anything.
+   * The listener must enforce semantic rules that say whether a different
+   * type is allowed for later values.
+   *
+   * @param key the name of the field
+   * @param type the kind of field parser to create
+   * @param tokenizer the token parser
+   * @return the value parser for the element, which may contain additional
+   * structure for objects or arrays
+   */
+  public ElementParser createFieldParser(String key, FieldType type,
+      TokenIterator tokenizer) {
+    ValueParser fp = new ValueParser(this, key, type);
+    ValueDef valueDef = ValueDefFactory.lookAhead(tokenizer);
+    fp.bindListener(listener.addField(key, valueDef));
+    if (valueDef.isArray()) {
+      fp.addArrayParser(valueDef);
+    } else if (valueDef.type().isObject()) {
+      fp.addObjectParser();
+    }
+    return fp;
   }
 }

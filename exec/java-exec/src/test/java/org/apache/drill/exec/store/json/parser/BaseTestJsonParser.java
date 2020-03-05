@@ -162,8 +162,9 @@ public class BaseTestJsonParser {
 
     @Override
     public ArrayListener array(ValueDef valueDef) {
-      assertNull(arrayValue);
-      arrayValue = new ArrayListenerFixture(valueDef);
+      if (arrayValue == null) {
+        arrayValue = new ArrayListenerFixture(valueDef);
+      }
       return arrayValue;
     }
 
@@ -186,7 +187,7 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void onStart() {
+    public void onStart(int level) {
       startCount++;
     }
 
@@ -199,14 +200,15 @@ public class BaseTestJsonParser {
     public void onElementEnd() { }
 
     @Override
-    public void onEnd() {
+    public void onEnd(int level) {
       endCount++;
     }
 
     @Override
     public ValueListener element(ValueDef valueDef) {
-      assertNull(element);
-      element = new ValueListenerFixture(valueDef);
+      if (element == null) {
+        element = new ValueListenerFixture(valueDef);
+      }
       return element;
     }
   }
@@ -240,9 +242,13 @@ public class BaseTestJsonParser {
     @Override
     public ValueListener addField(String key, ValueDef valueDef) {
       assertFalse(fields.containsKey(key));
-      ValueListenerFixture field = new ValueListenerFixture(valueDef);
+      ValueListenerFixture field = makeField(key, valueDef);
       fields.put(key, field);
       return field;
+    }
+
+    public ValueListenerFixture makeField(String key, ValueDef valueDef) {
+      return new ValueListenerFixture(valueDef);
     }
 
     public ValueListenerFixture field(String key) {
