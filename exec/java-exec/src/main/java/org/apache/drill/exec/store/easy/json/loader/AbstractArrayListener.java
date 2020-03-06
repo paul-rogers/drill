@@ -1,20 +1,16 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.MetadataUtils;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 
+/**
+ * Base class for scalar and object arrays.
+ */
 public abstract class AbstractArrayListener implements ArrayListener {
 
   protected final JsonLoaderImpl loader;
@@ -27,31 +23,10 @@ public abstract class AbstractArrayListener implements ArrayListener {
     this.elementListener = elementListener;
   }
 
-  public static ArrayValueListener listenerFor(JsonLoaderImpl loader,
-      TupleWriter parentWriter, String key, JsonType jsonType) {
-    MinorType colType = loader.drillTypeFor(jsonType);
-    if (colType != null) {
-      ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
-      return ScalarArrayValueListener.listenerFor(loader, parentWriter, colSchema);
-    }
-    switch (jsonType) {
-    case EMPTY:
-      break;
-    case NULL:
-      break;
-    case OBJECT:
-      break;
-    default:
-      break;
-    }
-    // TODO
-    throw new IllegalStateException();
-  }
-
   public ValueListener elementListener() { return elementListener; }
 
   @Override
-  public void onStart() { }
+  public void onStart(int level) { }
 
   @Override
   public void onElementStart() { }
@@ -60,7 +35,7 @@ public abstract class AbstractArrayListener implements ArrayListener {
   public void onElementEnd() { }
 
   @Override
-  public void onEnd() { }
+  public void onEnd(int end) { }
 
   @Override
   public ValueListener element(ValueDef valueDef) {
@@ -75,6 +50,13 @@ public abstract class AbstractArrayListener implements ArrayListener {
 
     public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarListener valueListener) {
       super(loader, colSchema, valueListener);
+    }
+
+    @Override
+    public void onStart(int level) {
+      if (level > 1) {
+        throw loader.typeConversionError(colSchema, "nested array");
+      }
     }
 
     @Override

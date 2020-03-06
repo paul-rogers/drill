@@ -17,15 +17,28 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Accepts { name : value ... }
@@ -82,6 +95,27 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * by default. It can be enabled, for efficiency, if Drill ever supports
  * a JSON schema. If an array is well-behaved, mark that column as able
  * to use a repeated type.
+ *
+ * <h4>Ambiguous Types</h4>
+ *
+ * JSON nulls are untyped. A run of nulls does not tell us what type will
+ * eventually appear. The best solution is to provide a schema. Without a
+ * schema, the code is forgiving: defers selection of the column type until
+ * the first non-null value (or, forces a type at the end of the batch.)
+ * <p>
+ * For scalars the pattern is: <code>{a: null} {a: "foo"}</code>. Type
+ * selection happens on the value {@code "foo"}.
+ * <p>
+ * For arrays, the pattern is: <code>{a: []} {a: ["foo"]}</code>. Type
+ * selection happens on the first array element. Note that type selection
+ * must happen on the first element, even if tha element is null (which,
+ * as we just said, ambiguous.)
+ * <p>
+ * If we are forced to pick a type (because we hit the end of a batch, or
+ * we see {@code [null]}, then we pick {@code VARCHAR} as we allow any
+ * scalar to be converted to {@code VARCHAR}. This helps for a single-file
+ * query, but not if multiple fragments each make their own (inconsistent)
+ * decisions. Only a schema provides a consistent answer.
  */
 public class TupleListener implements ObjectListener {
 
@@ -94,6 +128,8 @@ public class TupleListener implements ObjectListener {
     this.tupleWriter = tupleWriter;
     this.providedSchema = providedSchema;
   }
+
+  public JsonLoaderImpl loader() { return loader; }
 
   @Override
   public void onStart() { }
@@ -128,7 +164,29 @@ public class TupleListener implements ObjectListener {
     if (colSchema != null) {
       return listenerFor(colSchema);
     } else {
-      return loader.listenerFor(tupleWriter, key, valueDef);
+      return listenerFor(key, valueDef);
+    }
+  }
+
+  protected ValueListener listenerFor(String key, ValueDef valueDef) {
+    if (!valueDef.isArray()) {
+      if (valueDef.type().isUnknown()) {
+        return unknownListenerFor(key);
+      } else if (valueDef.type().isObject()) {
+        return objectListenerFor(key, null);
+      } else {
+        return scalarListenerFor(key, valueDef.type());
+      }
+    } else if (valueDef.dimensions() == 1) {
+      if (valueDef.type().isUnknown()) {
+        return unknownArrayListenerFor(key, valueDef);
+      } else if (valueDef.type().isObject()) {
+        return objectArrayListenerFor(key, null);
+      } else {
+        return arrayListenerFor(key, valueDef.type());
+      }
+    } else {
+      return addList(key, valueDef);
     }
   }
 
@@ -140,16 +198,16 @@ public class TupleListener implements ObjectListener {
       break;
     case PRIMITIVE:
       if (colSchema.isArray()) {
-        return ScalarArrayValueListener.listenerFor(loader, tupleWriter, colSchema);
+        return scalarArrayListenerFor(colSchema);
       } else {
-        return ScalarListener.listenerFor(loader, tupleWriter, colSchema);
+        return scalarListenerFor(colSchema);
       }
     case TUPLE:
       if (colSchema.isArray()) {
-        return ObjectArrayValueListener.listenerFor(loader, tupleWriter,
+        return objectArrayListenerFor(
             colSchema.name(), colSchema.tupleSchema());
       } else {
-        return ObjectValueListener.listenerFor(loader, tupleWriter,
+        return objectListenerFor(
             colSchema.name(), colSchema.tupleSchema());
       }
     case VARIANT:
@@ -159,6 +217,112 @@ public class TupleListener implements ObjectListener {
     }
     // TODO
     throw new IllegalStateException();
+  }
+
+
+  private ValueListener addList(String key, ValueDef valueDef) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+
+  public ScalarListener scalarListenerFor(String key, JsonType jsonType) {
+    MinorType colType = loader.drillTypeFor(jsonType);
+    Preconditions.checkArgument(colType != null, "Not a scalar: " + jsonType.name());
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.optional(colType));
+    return scalarListenerFor(colSchema);
+  }
+
+  public ScalarListener scalarListenerFor(ColumnMetadata colSchema) {
+    int index = tupleWriter.addColumn(colSchema);
+    return scalarListenerFor(tupleWriter.column(index));
+  }
+
+  public ScalarListener scalarListenerFor(ObjectWriter colWriter) {
+    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
+        colWriter.array().scalar() : colWriter.scalar();
+    switch (writer.schema().type()) {
+    case BIGINT:
+      return new BigIntListener(loader, writer);
+    case BIT:
+      return new BooleanListener(loader, writer);
+    case FLOAT8:
+      return new DoubleListener(loader, writer);
+    case VARCHAR:
+      return new VarCharListener(loader, writer);
+    case DATE:
+    case FLOAT4:
+    case INT:
+    case INTERVAL:
+    case INTERVALDAY:
+    case INTERVALYEAR:
+    case SMALLINT:
+    case TIME:
+    case TIMESTAMP:
+    case VARBINARY:
+    case VARDECIMAL:
+      // TODO: Implement conversions for above
+    default:
+      throw loader.buildError(
+          UserException.internalError(null)
+            .message("Unsupported JSON reader type: %s",
+                writer.schema().type().name()));
+
+    }
+  }
+
+  public ObjectValueListener objectListenerFor(String key, TupleMetadata providedSchema) {
+    ColumnMetadata colSchema = MetadataUtils.newMap(key);
+    int index = tupleWriter.addColumn(colSchema);
+    return new ObjectValueListener(loader, colSchema,
+        new MapListener(loader, tupleWriter.tuple(index), providedSchema));
+  }
+
+  public ArrayValueListener objectArrayListenerFor(
+      String key, TupleMetadata providedSchema) {
+    ColumnMetadata colSchema = MetadataUtils.newMapArray(key);
+    int index = tupleWriter.addColumn(colSchema);
+    ArrayWriter arrayWriter = tupleWriter.array(index);
+    return new ObjectArrayValueListener(loader, colSchema,
+        new ObjectArrayListener(loader, arrayWriter,
+            new ObjectValueListener(loader, colSchema,
+                new MapListener(loader, arrayWriter.tuple(), providedSchema))));
+  }
+
+  public ArrayValueListener arrayListenerFor(String key, JsonType jsonType) {
+    MinorType colType = loader.drillTypeFor(jsonType);
+    if (colType != null) {
+      ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
+      return scalarArrayListenerFor(colSchema);
+    }
+    switch (jsonType) {
+    case EMPTY:
+      break;
+    case NULL:
+      break;
+    case OBJECT:
+      break;
+    default:
+      break;
+    }
+    // TODO
+    throw new IllegalStateException();
+  }
+
+  public ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
+    return new ScalarArrayValueListener(loader, colSchema,
+        new ScalarArrayListener(loader, colSchema,
+            scalarListenerFor(colSchema)));
+  }
+
+  private ValueListener unknownListenerFor(String key) {
+    return new UnknownFieldListener(this, key);
+  }
+
+  private ValueListener unknownArrayListenerFor(String key, ValueDef valueDef) {
+    UnknownFieldListener fieldListener = new UnknownFieldListener(this, key);
+    fieldListener.array(valueDef);
+    return fieldListener;
   }
 
   public ColumnMetadata providedColumn(String key) {

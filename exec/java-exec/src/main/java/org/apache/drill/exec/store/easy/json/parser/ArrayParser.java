@@ -26,6 +26,10 @@ import com.fasterxml.jackson.core.JsonToken;
  * represented by a {@code ValueListener}. There is a single listener
  * for all the elements, which are presumed to be of the same type.
  * <p>
+ * The element is created when first encountered, either as part of field
+ * creation (<code>{a: [10]}</code>) or when later encountered in parsing
+ * (<code{a: []} {a: [10]}</code>).
+ * <p>
  * This parser <i>does not</i> attempt to parse an array as a poor-man's
  * tuple: {@code [ 101, "fred", 23.45 ]}. The listener could handle this
  * case. But, if we need to handle such a case, it would be better to
@@ -34,14 +38,12 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public class ArrayParser extends AbstractElementParser {
 
-  private final ValueParser elementParser;
+  private ValueParser elementParser;
   private ArrayListener arrayListener;
 
-  public ArrayParser(ValueParser parent, ArrayListener arrayListener, ValueListener elementListener) {
+  public ArrayParser(ValueParser parent, ArrayListener arrayListener) {
     super(parent);
     this.arrayListener = arrayListener;
-    this.elementParser = new ValueParser(this, "[]", FieldType.TYPED);
-    this.elementParser.bindListener(elementListener);
   }
 
   public ValueParser elementParser() { return elementParser; }
@@ -67,16 +69,35 @@ public class ArrayParser extends AbstractElementParser {
           break;
         default:
           tokenizer.unget(token);
-          arrayListener.onElementStart();
-          elementParser.parse(tokenizer);
-          arrayListener.onElementEnd();
+          parseElement(tokenizer);
       }
     }
     arrayListener.onEnd(level);
   }
 
+  private void parseElement(TokenIterator tokenizer) {
+    if (elementParser == null) {
+      detectElement(tokenizer);
+    }
+    arrayListener.onElementStart();
+    elementParser.parse(tokenizer);
+    arrayListener.onElementEnd();
+  }
+
+  private void detectElement(TokenIterator tokenizer) {
+    bindElement(arrayListener.element(
+        ValueDefFactory.lookAhead(tokenizer)));
+  }
+
+  public void bindElement(ValueListener elementListener) {
+    elementParser = new ValueParser(this, "[]", FieldType.TYPED);
+    elementParser.bindListener(elementListener);
+  }
+
   public void bindListener(ArrayListener newListener) {
     arrayListener = newListener;
-    elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
+    if (elementParser != null) {
+      elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
+    }
   }
 }

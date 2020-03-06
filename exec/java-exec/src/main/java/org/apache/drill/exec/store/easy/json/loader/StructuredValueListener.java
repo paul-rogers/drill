@@ -18,19 +18,18 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.MetadataUtils;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.TupleListener.MapListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+/**
+ * Base class for structured value listeners: arrays and objects.
+ * Contains the concrete implementations as nested static classes.
+ */
 public abstract class StructuredValueListener extends AbstractValueListener {
 
   private final ColumnMetadata colSchema;
@@ -48,6 +47,10 @@ public abstract class StructuredValueListener extends AbstractValueListener {
   @Override
   public void onNull() { }
 
+  /**
+   * Abstract base class for array values which hold a nested array
+   * listener.
+   */
   public static abstract class ArrayValueListener extends StructuredValueListener {
 
     protected final AbstractArrayListener arrayListener;
@@ -71,13 +74,6 @@ public abstract class StructuredValueListener extends AbstractValueListener {
 
     public ScalarArrayValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarArrayListener arrayListener) {
       super(loader, colSchema, arrayListener);
-    }
-
-    public static ArrayValueListener listenerFor(JsonLoaderImpl loader,
-        TupleWriter tupleWriter, ColumnMetadata colSchema) {
-      return new ScalarArrayValueListener(loader, colSchema,
-          new ScalarArrayListener(loader, colSchema,
-              ScalarListener.listenerFor(loader, tupleWriter, colSchema)));
     }
 
     @Override
@@ -107,6 +103,9 @@ public abstract class StructuredValueListener extends AbstractValueListener {
     }
   }
 
+  /**
+   * Value listener for object (MAP) values.
+   */
   public static class ObjectValueListener extends StructuredValueListener {
 
     private final ObjectListener tupleListener;
@@ -116,37 +115,21 @@ public abstract class StructuredValueListener extends AbstractValueListener {
       this.tupleListener = tupleListener;
     }
 
-    public static ObjectValueListener listenerFor(JsonLoaderImpl loader,
-        TupleWriter tupleWriter, String key, TupleMetadata providedSchema) {
-      ColumnMetadata colSchema = MetadataUtils.newMap(key);
-      int index = tupleWriter.addColumn(colSchema);
-      return new ObjectValueListener(loader, colSchema,
-          new MapListener(loader, tupleWriter.tuple(index), providedSchema));
-    }
-
     @Override
     public ObjectListener object() {
       return tupleListener;
     }
   }
 
+  /**
+   * Value listener for object array (repeated MAP) values.
+   */
   public static class ObjectArrayValueListener extends ArrayValueListener {
 
     public ObjectArrayValueListener(JsonLoaderImpl loader,
         ColumnMetadata colSchema, ObjectArrayListener arrayListener) {
       super(loader, colSchema, arrayListener);
      }
-
-    public static ArrayValueListener listenerFor(JsonLoaderImpl loader,
-        TupleWriter tupleWriter, String key, TupleMetadata providedSchema) {
-      ColumnMetadata colSchema = MetadataUtils.newMapArray(key);
-      int index = tupleWriter.addColumn(colSchema);
-      ArrayWriter arrayWriter = tupleWriter.array(index);
-      return new ObjectArrayValueListener(loader, colSchema,
-          new ObjectArrayListener(loader, arrayWriter,
-              new ObjectValueListener(loader, colSchema,
-                  new MapListener(loader, arrayWriter.tuple(), providedSchema))));
-    }
 
     @Override
     public ArrayListener array(ValueDef valueDef) {

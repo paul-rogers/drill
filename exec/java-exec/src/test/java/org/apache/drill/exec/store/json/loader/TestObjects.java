@@ -21,7 +21,10 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -275,6 +278,36 @@ public class TestObjects extends BaseJsonLoaderTest {
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testObjectToScalar() {
+    String json =
+        "{a: {b: 10}} {a: 10}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    try {
+      loader.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("integer"));
+    }
+    loader.close();
+  }
+
+  @Test
+  public void testObjectToArray() {
+    String json =
+        "{a: {b: 10}} {a: [10]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    try {
+      loader.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("integer[]"));
+    }
     loader.close();
   }
 }

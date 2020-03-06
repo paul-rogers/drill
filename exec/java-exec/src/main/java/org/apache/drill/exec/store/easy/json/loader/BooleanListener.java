@@ -19,6 +19,11 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
+/**
+ * Listener for JSON Boolean fields. Allows conversion from numeric
+ * fields (with the usual semantics: 0 = false, ~0 = true) and from
+ * strings (using Java Boolean parsing semantics.)
+ */
 public class BooleanListener extends ScalarListener {
 
   public BooleanListener(JsonLoaderImpl loader, ScalarWriter writer) {

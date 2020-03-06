@@ -18,6 +18,9 @@
 package org.apache.drill.exec.store.json.loader;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.boolArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -81,7 +84,7 @@ public class TestUnknowns extends BaseJsonLoaderTest {
    * may later appear can be converted to VARCHAR.
    */
   @Test
-  public void testForcedResolve() {
+  public void testForcedNullResolve() {
     String json =
         "{a: null} {a: null}";
     JsonLoaderFixture loader = new JsonLoaderFixture();
@@ -102,7 +105,7 @@ public class TestUnknowns extends BaseJsonLoaderTest {
   }
 
   @Test
-  public void testArrayToBoolean() {
+  public void testArrayToBooleanArray() {
     String json =
         "{a: []} {a: [true, false]} {a: true}";
     JsonLoaderFixture loader = new JsonLoaderFixture();
@@ -116,17 +119,131 @@ public class TestUnknowns extends BaseJsonLoaderTest {
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addSingleCol(boolArray())
         .addSingleCol(boolArray(true, false))
-        .addSingleCol(boolArray(false))
+        .addSingleCol(boolArray(true))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
     loader.close();
   }
 
-  // null to array to boolean
+  @Test
+  public void testArrayToBooleanScalar() {
+    String json =
+        "{a: []} {a: true} {a: [true, false]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
 
-  // array to null
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIT)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(boolArray())
+        .addSingleCol(boolArray(true))
+        .addSingleCol(boolArray(true, false))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
 
-  // array to object
+  /**
+   * Input contains all nulls. The loader will force resolve to a
+   * type, and will choose VARCHAR as all scalar types which
+   * may later appear can be converted to VARCHAR.
+   */
+  @Test
+  public void testForcedArrayResolve() {
+    String json =
+        "{a: []} {a: []}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
 
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testNullToArrayToBoolean() {
+    String json =
+        "{a: null} {a: []} {a: [true, false]} {a: true}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIT)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(boolArray())
+        .addSingleCol(boolArray())
+        .addSingleCol(boolArray(true, false))
+        .addSingleCol(boolArray(true))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testArrayToNull() {
+    String json =
+        "{a: []} {a: [null]} {a: [\"foo\"]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray(""))
+        .addSingleCol(strArray("foo"))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testArrayToObjectArray() {
+    String json =
+        "{a: 1, m: []}\n" +
+        "{a: 2, m: [{b: 10, c: 20}, {b: 11, c: 21}]}\n" +
+        "{a: 3, m: [{b: 110, c: 120}, {b: 111, c: 121}]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .addMapArray("m")
+          .addNullable("b", MinorType.BIGINT)
+          .addNullable("c", MinorType.BIGINT)
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1L, mapArray())
+        .addRow(2L, mapArray(mapValue(10L, 20L), mapValue(11L, 21L)))
+        .addRow(3L, mapArray(mapValue(110L, 120L), mapValue(111L, 121L)))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
 }

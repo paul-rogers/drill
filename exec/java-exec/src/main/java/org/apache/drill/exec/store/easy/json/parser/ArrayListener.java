@@ -18,18 +18,16 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 /**
- * Represents one level within an array. The first time the parser sees
- * the array element, it will call one of the "Element" methods with the
+ * Represents an array. The first time the parser sees the array element,
+ * it will call the {@link #element(ValueDef)} method with the
  * look-ahead values visible to the parser. Since JSON is flexible, later
  * data shapes may not necessarily follow the first shape. The implementation
  * must handle this or throw an error if not supported.
  * <p>
- * When creating a multi-dimensional array, each array level is built one
- * by one. each will receive the same type information (decreased by one
- * array level.)
- * <p>
- * Then, while parsing, the parser calls events on the start and end of the
- * array, as well as on each element.
+ * Multi-dimensional arrays are handled via a single array listener, with
+ * events as the parser enters and leaves each level. To allow advancing
+ * the array position in the listener, the parser calls events on the start
+ * and end of each element.
  * <p>
  * The array listener is an attribute of a value listener, represent the
  * "arrayness" of that value, if the value allows an array.
@@ -44,15 +42,16 @@ package org.apache.drill.exec.store.easy.json.parser;
  * Three JSON-specific cases warrant attention:
  * <ol>
  * <li>The first occurrence of the array is empty: {@code [ ]}. In this case,
- * the structure parser will ask for an element child by providing the
- * {@link JsonType#EMPTY} type, which is not very useful, but is all that
- * the parser knows. The listener is responsible for implementing some kind of
- * "deferred type" logic to wait and see what kind of element appears
- * later..</li>
+ * the structure parser will defer asking for an element parser (and listener)
+ * until an actual value appears. The array listener is responsible for
+ * implementing some kind of "deferred type" logic to wait and see what
+ * kind of element appears later.</li>
  * <li>The first occurrence of the array has, as its first element, a
  * {@code null} value. The structure parser will ask this listener to create
  * an array child for the {@code null} value, but the listener has no type
- * information. Again, the listener is responsible for type-deferal.</li>
+ * information. Since null values must be recorded (so we know how many
+ * appear in each array), the listener is forced to choose a type. Choose
+ * wisely as there is no way to know what type will appear in the future.</li>
  * <li>A generalized form of the above is that the structure parser only
  * knows what it sees on the first element when it asks for an element
  * child. In a well-formed file, that first token will predict the type
@@ -61,25 +60,17 @@ package org.apache.drill.exec.store.easy.json.parser;
  * could be anything else (a number or an object). The listener, as always
  * is responsible for deciding how to handle type changes.</li>
  * </ol>
- *
- * <h4>Multi-Dimensional Arrays</h4>
- *
- * A multi-dimensional array is one of the form {@code [ [ ... }, that is,
- * the parser returns multiple levels of array start tokens. In this case,
- * listeners are structured as:
- * <ul>
- * <li>{@code ObjectListener} for the enclosing object which has a</li>
- * <li>{@code FieldListener} for the array value which has a</li>
- * <li>{@code ArrayListener} for the array, which has a</li>
- * <li>{@code ValueListener} for the elements. If the array is 1D,
- * the nesting stops here. But if it is 2+D, then the value has a</li>
- * <li>{@code ArrayListener} for the inner array, which has a</li>
- * <li>{@code ValueListener} for the elements. And so on recursively
- * for as many levels as needed or the array.</li>
- * </ul>
  */
 public interface ArrayListener {
 
+  /**
+   * Provide an element listener for the first non-empty value
+   * seen for the array.
+   *
+   * @param valueDef description of the element (without the array
+   * dimensions)
+   * @return a listener to consume values of the array element
+   */
   ValueListener element(ValueDef valueDef);
 
   /**
@@ -87,10 +78,10 @@ public interface ArrayListener {
    * That is, called when the structure parser accepts the {@code [}
    * token.
    *
-   * @param dim the 1-based array depth (dimension). If a null is seen,
+   * @param level the 1-based array depth (dimension). If a null is seen,
    * then the enclosing value listener is considered level 0.
    */
-  void onStart(int dim);
+  void onStart(int level);
 
   /**
    * Called for each element of the array. The array element is represented
@@ -108,5 +99,5 @@ public interface ArrayListener {
    * Called at the end of a set of values for an array. That is, called
    * when the structure parser accepts the {@code ]} token.
    */
-  void onEnd(int dim);
+  void onEnd(int level);
 }

@@ -19,6 +19,12 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
+/**
+ * Value listener for JSON string values. Allows conversion from
+ * other scalar types using the Java {@code toString()} semantics.
+ * Use the "text-mode" hint in a provided schema to get the literal
+ * JSON value.
+ */
 public class VarCharListener extends ScalarListener {
 
   private final boolean classicArrayNulls;

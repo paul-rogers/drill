@@ -23,7 +23,10 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.doubleArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -381,6 +384,42 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
+    loader.close();
+  }
+
+  /**
+   * Cannot shift to a nested array from a repeated scalar.
+   */
+  @Test
+  public void testNestedArray() {
+    String json =
+        "{a: [2, 4]} {a: [[10, 20]]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    try {
+      loader.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("nested array"));
+    }
+    loader.close();
+  }
+
+  /**
+   * Cannot shift to an object from a repeated scalar.
+   */
+  @Test
+  public void testArrayWithObject() {
+    String json =
+        "{a: [2, 4]} {a: {b: 10}}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    try {
+      loader.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("object"));
+    }
     loader.close();
   }
 }

@@ -7,6 +7,9 @@ import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 
+/**
+ * Abstract base class for value (field or element) listeners.
+ */
 public abstract class AbstractValueListener implements ValueListener {
 
   protected final JsonLoaderImpl loader;

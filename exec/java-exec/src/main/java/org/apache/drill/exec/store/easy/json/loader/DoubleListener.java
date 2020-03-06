@@ -19,6 +19,11 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
+/**
+ * Listener for the JSON double type. Allows conversion from other
+ * types. Conversion from Boolean is the usual semantics:
+ * true = 1.0, false = 0.0. Strings are parsed using Java semantics.
+ */
 public class DoubleListener extends ScalarListener {
 
   public DoubleListener(JsonLoaderImpl loader, ScalarWriter writer) {

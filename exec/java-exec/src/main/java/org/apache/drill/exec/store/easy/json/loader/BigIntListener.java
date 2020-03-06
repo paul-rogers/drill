@@ -19,6 +19,14 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
+/**
+ * Listener for JSON integer values. Allows conversion from
+ * Boolean, double and string types. (The conversion from double
+ * is lossy, but perhaps better than failing the query.)
+ * Conversion from Boolean is the usual semantics:
+ * true = 1, false = 0.  Conversion from string uses the Java
+ * integer parsing semantics.
+ */
 public class BigIntListener extends ScalarListener {
 
   public BigIntListener(JsonLoaderImpl loader, ScalarWriter writer) {

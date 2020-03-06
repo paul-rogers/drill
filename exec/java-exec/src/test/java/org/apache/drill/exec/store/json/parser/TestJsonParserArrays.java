@@ -139,12 +139,13 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertNotNull(a.arrayValue);
     ArrayListenerFixture aArray = a.arrayValue;
     assertEquals(1, aArray.valueDef.dimensions());
-    ValueListenerFixture aElement = aArray.element;
-    assertEquals(JsonType.EMPTY, aElement.valueDef.type());
+    assertNull(aArray.element); // Saw no element yet
 
     // See elements, can revise estimate of element type
     // {a: [1, 100]}
     assertTrue(fixture.next());
+    ValueListenerFixture aElement = aArray.element;
+    assertNotNull(aElement);
     assertEquals(2, aElement.valueCount);
     assertEquals(100L, aElement.value);
 

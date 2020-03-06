@@ -27,7 +27,7 @@ public interface JsonLoader {
   /**
    * Read one record of data.
    *
-   * @return <true> if a record was loaded, <false> if EOF.
+   * @return {@code true} if a record was loaded, {@code false} if EOF.
    * @throws UserException for most errors
    * @throws RuntimeException for unexpected errors, most often due
    * to code errors
@@ -36,14 +36,13 @@ public interface JsonLoader {
 
   /**
    * Indicates that a batch is complete. Tells the loader to materialize
-   * any deferred null fields.
+   * any deferred null fields. (See {@link TupleListener} for details.)
    */
   void endBatch();
 
   /**
-   * Releases resources held by this class, but does not close resources
-   * passed into the class, such as the input stream or result set
-   * loader.
+   * Releases resources held by this class including the input stream.
+   * Does not close the result set loader passed into this instance.
    */
   void close();
 }

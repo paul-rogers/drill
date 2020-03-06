@@ -21,6 +21,14 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 
 import com.fasterxml.jackson.core.JsonToken;
 
+/**
+ * Constructs a {@link ValueDef} by looking ahead on the input stream.
+ * Looking ahead is safe because this class only looks at syntactic
+ * tokens such as <code>{</code>, {@code [} or the first value token.
+ * The underlying JSON parser is left with the first value token
+ * as its current token. Pushes other tokens back on the token stack
+ * so they can be re-consumed by the actual parser.
+ */
 public class ValueDefFactory {
 
   private int arrayDims;

@@ -29,16 +29,12 @@ import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
-import org.apache.drill.exec.store.easy.json.loader.UnknownValueListener.UnknownFieldListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.store.easy.json.parserOld.JsonLoaderImpl.JsonOptions;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,7 +101,7 @@ import com.fasterxml.jackson.core.JsonToken;
  * information, rather than as generic Java exception as in the prior version.</li>
  * <li>Moves parse options into a separate {@link JsonOptions} class.</li>
  * <li>Iteration protocol is simpler: simply call {@link #next()} until it returns
- * <tt>false</tt>. Errors are reported out-of-band via an exception.</li>
+ * {@code false}. Errors are reported out-of-band via an exception.</li>
  * <li>The result set loader abstraction is perfectly happy with an empty schema.
  * For this reason, this version (unlike the original) does not make up a dummy
  * column if the schema would otherwise be empty.</li>
@@ -121,7 +117,7 @@ import com.fasterxml.jackson.core.JsonToken;
  * project fields except f; Drill will ignore the inconsistent values in f.</li>
  * <li>Because of this free-wheeling capability, this version does not need a
  * "counting" reader; this same reader handles the case in which no fields are
- * projected for <tt>SEELCT COUNT(*)</tt> queries.</li>
+ * projected for {@code SELECT COUNT(*)} queries.</li>
  * <li>Runs of null values result in a "deferred null state" that patiently
  * waits for an actual value token to appear, and only then "realizes" a parse
  * state for that type.</li>
@@ -230,34 +226,6 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   public void close() {
     parser.close();
   }
-
-  protected ValueListener listenerFor(TupleWriter tupleWriter, String key, ValueDef valueDef) {
-    if (!valueDef.isArray()) {
-      if (valueDef.type().isObject()) {
-        return ObjectValueListener.listenerFor(this, tupleWriter, key, null);
-      } else if (valueDef.type().isUnknown()) {
-        return new UnknownFieldListener(this, tupleWriter, key);
-      } else {
-        return ScalarListener.listenerFor(this, tupleWriter, key, valueDef.type());
-      }
-    } else if (valueDef.dimensions() == 1) {
-      if (valueDef.type().isObject()) {
-        return ObjectArrayValueListener.listenerFor(this, tupleWriter, key, null);
-      } else if (valueDef.type().isUnknown()) {
-        return UnknownArrayListener.listenerFor(this, tupleWriter, key);
-      } else {
-        return AbstractArrayListener.listenerFor(this, tupleWriter, key, valueDef.type());
-      }
-    } else {
-      return addList(key, valueDef);
-    }
-  }
-
-  private ValueListener addList(String key, ValueDef valueDef) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
   public MinorType drillTypeFor(JsonType type) {
     if (options.allTextMode) {
       return MinorType.VARCHAR;
@@ -331,7 +299,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   }
 
   protected UserException typeConversionError(ColumnMetadata schema, ValueDef valueDef) {
-    String type = valueDef.type().name();
+    String type = valueDef.type().name().toLowerCase();
     if (valueDef.isArray()) {
       for (int i = 0; i < valueDef.dimensions(); i++) {
         type += "[]";
