@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.Types;
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
@@ -186,7 +187,7 @@ public class TupleListener implements ObjectListener {
         return arrayListenerFor(key, valueDef.type());
       }
     } else {
-      return addList(key, valueDef);
+      return variantArrayListenerFor(key, valueDef);
     }
   }
 
@@ -210,7 +211,7 @@ public class TupleListener implements ObjectListener {
       }
     case VARIANT:
       if (colSchema.isArray()) {
-        // TODO
+        return variantArrayListenerFor(colSchema);
       } else {
         return variantListenerFor(colSchema);
       }
@@ -220,12 +221,6 @@ public class TupleListener implements ObjectListener {
     // TODO
     throw new IllegalStateException();
   }
-
-  private ValueListener addList(String key, ValueDef valueDef) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
 
   public ScalarListener scalarListenerFor(String key, JsonType jsonType) {
     MinorType colType = loader.drillTypeFor(jsonType);
@@ -338,6 +333,16 @@ public class TupleListener implements ObjectListener {
   private ValueListener variantListenerFor(ColumnMetadata colSchema) {
     int index = tupleWriter.addColumn(colSchema);
     return new VariantListener(loader, tupleWriter.column(index).variant());
+  }
+
+  private ValueListener variantArrayListenerFor(String key, ValueDef valueDef) {
+    return variantArrayListenerFor(
+        MetadataUtils.newVariant(key, DataMode.REPEATED));
+  }
+
+  private ValueListener variantArrayListenerFor(ColumnMetadata colSchema) {
+    int index = tupleWriter.addColumn(colSchema);
+    return new ListListener(loader, tupleWriter.column(index));
   }
 
   public ColumnMetadata providedColumn(String key) {

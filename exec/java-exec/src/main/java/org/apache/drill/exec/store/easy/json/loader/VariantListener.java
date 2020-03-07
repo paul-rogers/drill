@@ -71,6 +71,21 @@ public class VariantListener extends AbstractValueListener {
 
   @Override
   public ObjectListener object() {
-    return new TupleListener(loader, writer.tuple(), null);
+    return new VariantTupleListener(loader, writer);
+  }
+
+  private static class VariantTupleListener extends TupleListener {
+
+    private final VariantWriter writer;
+
+    public VariantTupleListener(JsonLoaderImpl loader, VariantWriter writer) {
+      super(loader, writer.tuple(), null);
+      this.writer = writer;
+    }
+
+    @Override
+    public void onStart() {
+      writer.setType(MinorType.MAP);
+    }
   }
 }

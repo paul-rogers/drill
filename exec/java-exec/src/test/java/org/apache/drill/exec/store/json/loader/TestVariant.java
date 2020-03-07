@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.json.loader;
 
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -87,6 +88,82 @@ public class TestVariant extends BaseJsonLoaderTest {
         .addSingleCol(null)
         .addSingleCol(10L)
         .addSingleCol(mapValue(10L, "foo"))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testScalarList() {
+    String json =
+        "{a: null} {a: []}\n" +
+        // All scalar types
+        "{a: [null, true, 10, 10.5, \"foo\"]}\n" +
+        // One more to ensure that indexes are synced
+        "{a: [false, 20]}";
+    TupleMetadata schema = new SchemaBuilder()
+        .addNullable("a", MinorType.LIST)
+        .build();
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.providedSchema = schema;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedchema = new SchemaBuilder()
+        .addList("a")
+          .addType(MinorType.BIT)
+          .addType(MinorType.BIGINT)
+          .addType(MinorType.FLOAT8)
+          .addType(MinorType.VARCHAR)
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedchema)
+        .addSingleCol(null)
+        .addSingleCol(objArray())
+        .addSingleCol(objArray(null, true, 10L, 10.5D, "foo"))
+        .addSingleCol(objArray(false, 20L))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testObjectList() {
+    String json =
+        "{a: null} {a: []} {a: [null, 10]}\n" +
+        "{a: [{b:  10, c:  20}, {b: 110, c: 120}]}\n" +
+        "{a: [{b: 210, c: 220}, {b: 310, c: 320}]}";
+    TupleMetadata schema = new SchemaBuilder()
+        .addNullable("a", MinorType.LIST)
+        .build();
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.providedSchema = schema;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedchema = new SchemaBuilder()
+        .addList("a")
+          .addType(MinorType.BIGINT)
+          .addMap()
+            .addNullable("b", MinorType.BIGINT)
+            .addNullable("c", MinorType.BIGINT)
+          .  resumeUnion()
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedchema)
+        .addSingleCol(null)
+        .addSingleCol(objArray())
+        .addSingleCol(objArray(null, 10L))
+        .addSingleCol(objArray(
+            objArray(10L, 20L), objArray(110L, 120L)))
+        .addSingleCol(objArray(
+            objArray(210L, 220L), objArray(310L, 320L)))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
