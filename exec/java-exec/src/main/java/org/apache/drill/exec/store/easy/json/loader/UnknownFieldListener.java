@@ -28,10 +28,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Represents a field where we've seen only {@code null} or empty array
- * ({@code []} values. For both, we can postpone type selection until we
- * see a type as we can use Drill's "fill empties" logic to back-fill
- * missing nulls or empty arrays.
+ * Represents a rather odd state: we have seen a value of one or more
+ * {@code null}s or empty arrays ({@code []}), but we have not yet seen a
+ * value that would give us a type. This listener
+ * acts as a placeholder; waiting to see the type, at which point it replaces
+ * itself with the actual typed listener. If a batch completes with only nulls
+ * for this field, then the field becomes a {@code VARCHAR} field. Drill's "fill
+ * empties" logic will back-fill nulls. All values in
+ * subsequent batches will be read in "text mode" for that one field in
+ * order to avoid a schema change.
+ * <p>
+ * Note what this listener does <i>not</i> do: it does not create a nullable
+ * int field per Drill's normal (if less than ideal) semantics. First, JSON
+ * <b>never</b> produces an int field, so nullable int is less than ideal.
+ * Second, nullable int has no basis in reality and so is a poor choice
+ * on that basis.
  * <p>
  * Note that we <i>cannot</i> use this class for an array that
  * contains nulls: {@code [null]}. The null is a value that must be

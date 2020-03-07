@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -63,13 +64,13 @@ public class RowSetComparison {
    * Row set with the expected outcome of a test. This is the "golden"
    * copy defined in the test itself.
    */
-  private RowSet expected;
+  private final RowSet expected;
   /**
    * Some tests wish to ignore certain (top-level) columns. If a
    * mask is provided, then only those columns with a <tt>true</tt>
    * will be verified.
    */
-  private boolean[] mask;
+  private final boolean[] mask;
   /**
    * Floats and doubles do not compare exactly. This MathContext is used
    * to construct BigDecimals of the desired precision.
@@ -81,7 +82,7 @@ public class RowSetComparison {
   * it assumes that tests won't create values that require more than
   * three digits of precision.
   */
-  private double delta = 0.001;
+  private final double delta = 0.001;
 
   /**
    * Tests can skip the first n rows.
@@ -156,16 +157,19 @@ public class RowSetComparison {
    * @param span the number of rows to compare
    * @return this builder
    */
-
   public RowSetComparison span(int span) {
     this.span = span;
     return this;
   }
 
   private void compareSchemasAndCounts(RowSet actual) {
-    assertTrue("Schemas don't match.\n" +
-      "Expected: " + expected.schema().toString() +
-      "\nActual:   " + actual.schema(), expected.schema().isEquivalent(actual.schema()));
+    if (!expected.schema().isEquivalent(actual.schema())) {
+      // Avoid building the error string on every comparison,
+      // only build on failures.
+      fail("Schemas don't match.\n" +
+        "Expected: " + expected.schema().toString() +
+        "\nActual:   " + actual.schema());
+    }
     int testLength = getTestLength();
     int dataLength = offset + testLength;
     assertTrue("Missing expected rows", expected.rowCount() >= dataLength);
@@ -203,7 +207,7 @@ public class RowSetComparison {
   }
 
   /**
-   * Convenience method to verify the actual results, then free memory
+   * Verifies the actual results, then frees memory
    * for both the expected and actual result sets.
    * @param actual the actual results to verify
    */

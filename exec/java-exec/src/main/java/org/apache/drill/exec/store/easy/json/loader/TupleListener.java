@@ -204,21 +204,22 @@ public class TupleListener implements ObjectListener {
       }
     case TUPLE:
       if (colSchema.isArray()) {
-        return objectArrayListenerFor(
-            colSchema.name(), colSchema.tupleSchema());
+        return objectArrayListenerFor(colSchema);
       } else {
-        return objectListenerFor(
-            colSchema.name(), colSchema.tupleSchema());
+        return objectListenerFor(colSchema);
       }
     case VARIANT:
-      break;
+      if (colSchema.isArray()) {
+        // TODO
+      } else {
+        return variantListenerFor(colSchema);
+      }
     default:
       break;
     }
     // TODO
     throw new IllegalStateException();
   }
-
 
   private ValueListener addList(String key, ValueDef valueDef) {
     // TODO Auto-generated method stub
@@ -271,11 +272,19 @@ public class TupleListener implements ObjectListener {
     }
   }
 
+  public ObjectValueListener objectListenerFor(ColumnMetadata providedCol) {
+    return objectListenerFor(providedCol.name(), providedCol.tupleSchema());
+  }
+
   public ObjectValueListener objectListenerFor(String key, TupleMetadata providedSchema) {
     ColumnMetadata colSchema = MetadataUtils.newMap(key);
     int index = tupleWriter.addColumn(colSchema);
     return new ObjectValueListener(loader, colSchema,
         new MapListener(loader, tupleWriter.tuple(index), providedSchema));
+  }
+
+  public ArrayValueListener objectArrayListenerFor(ColumnMetadata providedCol) {
+    return objectArrayListenerFor(providedCol.name(), providedCol.tupleSchema());
   }
 
   public ArrayValueListener objectArrayListenerFor(
@@ -323,6 +332,12 @@ public class TupleListener implements ObjectListener {
     UnknownFieldListener fieldListener = new UnknownFieldListener(this, key);
     fieldListener.array(valueDef);
     return fieldListener;
+  }
+
+
+  private ValueListener variantListenerFor(ColumnMetadata colSchema) {
+    int index = tupleWriter.addColumn(colSchema);
+    return new VariantListener(loader, tupleWriter.column(index).variant());
   }
 
   public ColumnMetadata providedColumn(String key) {

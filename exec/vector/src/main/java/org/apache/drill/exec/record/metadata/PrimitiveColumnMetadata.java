@@ -32,6 +32,8 @@ import org.joda.time.Period;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Primitive (non-map) column. Describes non-nullable, nullable and array types
@@ -49,8 +51,7 @@ import org.joda.time.format.ISODateTimeFormat;
  */
 
 public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
+  private static final Logger logger = LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
 
   public PrimitiveColumnMetadata(MaterializedField schema) {
     super(schema);

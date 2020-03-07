@@ -44,7 +44,6 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * it is cleaner to put the factory methods here rather than in the various
  * writers, as is done in the case of the readers.
  */
-
 @SuppressWarnings("unchecked")
 public class ColumnWriterFactory {
 
@@ -62,7 +61,6 @@ public class ColumnWriterFactory {
     }
 
     // Build a writer for a materialized column.
-
     assert schema.type() == vector.getField().getType().getMinorType();
     assert schema.mode() == vector.getField().getType().getMode();
 
