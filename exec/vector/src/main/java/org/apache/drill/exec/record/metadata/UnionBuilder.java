@@ -89,7 +89,7 @@ public class UnionBuilder implements SchemaContainer {
   }
 
   public VariantColumnMetadata buildColumn() {
-    return new VariantColumnMetadata(name, type, union);
+    return VariantColumnMetadata.variantOf(name, type, union);
   }
 
   public void build() {
@@ -116,5 +116,10 @@ public class UnionBuilder implements SchemaContainer {
   public DictBuilder resumeDict() {
     build();
     return (DictBuilder) parent;
+  }
+
+  public RepeatedListBuilder resumeRepeatedList() {
+    build();
+    return (RepeatedListBuilder) parent;
   }
 }

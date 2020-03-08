@@ -169,15 +169,15 @@ public class MetadataUtils {
   }
 
   public static VariantColumnMetadata newVariant(MaterializedField field, VariantSchema schema) {
-    return new VariantColumnMetadata(field, schema);
+    return VariantColumnMetadata.unionOf(field, schema);
   }
 
   public static VariantColumnMetadata newVariant(String name, DataMode cardinality) {
     switch (cardinality) {
     case OPTIONAL:
-      return new VariantColumnMetadata(name, MinorType.UNION, new VariantSchema());
+      return VariantColumnMetadata.union(name);
     case REPEATED:
-      return new VariantColumnMetadata(name, MinorType.LIST, new VariantSchema());
+      return VariantColumnMetadata.list(name);
     default:
       throw new IllegalArgumentException();
     }

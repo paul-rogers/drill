@@ -150,12 +150,12 @@ public class TupleListener implements ObjectListener {
       return FieldType.TYPED;
     }
     switch (mode) {
-    case ColumnMetadata.JSON_TEXT_MODE:
-      return FieldType.TEXT;
-    case ColumnMetadata.JSON_LITERAL_MODE:
-      return FieldType.JSON;
-    default:
-      return FieldType.TYPED;
+      case ColumnMetadata.JSON_TEXT_MODE:
+        return FieldType.TEXT;
+      case ColumnMetadata.JSON_LITERAL_MODE:
+        return FieldType.JSON;
+      default:
+        return FieldType.TYPED;
     }
   }
 
@@ -193,33 +193,29 @@ public class TupleListener implements ObjectListener {
 
   private ValueListener listenerFor(ColumnMetadata colSchema) {
     switch (colSchema.structureType()) {
-    case DICT:
-      break;
-    case MULTI_ARRAY:
-      break;
-    case PRIMITIVE:
-      if (colSchema.isArray()) {
-        return scalarArrayListenerFor(colSchema);
-      } else {
-        return scalarListenerFor(colSchema);
-      }
-    case TUPLE:
-      if (colSchema.isArray()) {
-        return objectArrayListenerFor(colSchema);
-      } else {
-        return objectListenerFor(colSchema);
-      }
-    case VARIANT:
-      if (colSchema.isArray()) {
-        return variantArrayListenerFor(colSchema);
-      } else {
-        return variantListenerFor(colSchema);
-      }
-    default:
-      break;
+      case MULTI_ARRAY:
+        break;
+      case PRIMITIVE:
+        if (colSchema.isArray()) {
+          return scalarArrayListenerFor(colSchema);
+        } else {
+          return scalarListenerFor(colSchema);
+        }
+      case TUPLE:
+        if (colSchema.isArray()) {
+          return objectArrayListenerFor(colSchema);
+        } else {
+          return objectListenerFor(colSchema);
+        }
+      case VARIANT:
+        if (colSchema.isArray()) {
+          return variantArrayListenerFor(colSchema);
+        } else {
+          return variantListenerFor(colSchema);
+        }
+      default:
     }
-    // TODO
-    throw new IllegalStateException();
+    throw loader.unsupportedType(colSchema);
   }
 
   public ScalarListener scalarListenerFor(String key, JsonType jsonType) {
@@ -238,32 +234,31 @@ public class TupleListener implements ObjectListener {
     ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
         colWriter.array().scalar() : colWriter.scalar();
     switch (writer.schema().type()) {
-    case BIGINT:
-      return new BigIntListener(loader, writer);
-    case BIT:
-      return new BooleanListener(loader, writer);
-    case FLOAT8:
-      return new DoubleListener(loader, writer);
-    case VARCHAR:
-      return new VarCharListener(loader, writer);
-    case DATE:
-    case FLOAT4:
-    case INT:
-    case INTERVAL:
-    case INTERVALDAY:
-    case INTERVALYEAR:
-    case SMALLINT:
-    case TIME:
-    case TIMESTAMP:
-    case VARBINARY:
-    case VARDECIMAL:
-      // TODO: Implement conversions for above
-    default:
-      throw loader.buildError(
-          UserException.internalError(null)
-            .message("Unsupported JSON reader type: %s",
-                writer.schema().type().name()));
-
+      case BIGINT:
+        return new BigIntListener(loader, writer);
+      case BIT:
+        return new BooleanListener(loader, writer);
+      case FLOAT8:
+        return new DoubleListener(loader, writer);
+      case VARCHAR:
+        return new VarCharListener(loader, writer);
+      case DATE:
+      case FLOAT4:
+      case INT:
+      case INTERVAL:
+      case INTERVALDAY:
+      case INTERVALYEAR:
+      case SMALLINT:
+      case TIME:
+      case TIMESTAMP:
+      case VARBINARY:
+      case VARDECIMAL:
+        // TODO: Implement conversions for above
+      default:
+        throw loader.buildError(
+            UserException.internalError(null)
+              .message("Unsupported JSON reader type: %s",
+                  writer.schema().type().name()));
     }
   }
 
@@ -275,7 +270,7 @@ public class TupleListener implements ObjectListener {
     ColumnMetadata colSchema = MetadataUtils.newMap(key);
     int index = tupleWriter.addColumn(colSchema);
     return new ObjectValueListener(loader, colSchema,
-        new MapListener(loader, tupleWriter.tuple(index), providedSchema));
+        new TupleListener(loader, tupleWriter.tuple(index), providedSchema));
   }
 
   public ArrayValueListener objectArrayListenerFor(ColumnMetadata providedCol) {
@@ -290,7 +285,7 @@ public class TupleListener implements ObjectListener {
     return new ObjectArrayValueListener(loader, colSchema,
         new ObjectArrayListener(loader, arrayWriter,
             new ObjectValueListener(loader, colSchema,
-                new MapListener(loader, arrayWriter.tuple(), providedSchema))));
+                new TupleListener(loader, arrayWriter.tuple(), providedSchema))));
   }
 
   public ArrayValueListener arrayListenerFor(String key, JsonType jsonType) {
@@ -299,18 +294,7 @@ public class TupleListener implements ObjectListener {
       ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
       return scalarArrayListenerFor(colSchema);
     }
-    switch (jsonType) {
-    case EMPTY:
-      break;
-    case NULL:
-      break;
-    case OBJECT:
-      break;
-    default:
-      break;
-    }
-    // TODO
-    throw new IllegalStateException();
+    throw loader.unsupportedJsonTypeException(key, jsonType);
   }
 
   public ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
@@ -329,7 +313,6 @@ public class TupleListener implements ObjectListener {
     return fieldListener;
   }
 
-
   private ValueListener variantListenerFor(ColumnMetadata colSchema) {
     int index = tupleWriter.addColumn(colSchema);
     return new VariantListener(loader, tupleWriter.column(index).variant());
@@ -347,21 +330,5 @@ public class TupleListener implements ObjectListener {
 
   public ColumnMetadata providedColumn(String key) {
     return providedSchema == null ? null : providedSchema.metadata(key);
-  }
-
-  public static class RowListener extends TupleListener {
-
-    public RowListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
-        TupleMetadata providedSchema) {
-      super(loader, tupleWriter, providedSchema);
-    }
-  }
-
-  public static class MapListener extends TupleListener {
-
-    public MapListener(JsonLoaderImpl loader, TupleWriter tupleWriter,
-        TupleMetadata providedSchema) {
-      super(loader, tupleWriter, providedSchema);
-    }
   }
 }

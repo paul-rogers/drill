@@ -49,7 +49,6 @@ import org.slf4j.LoggerFactory;
  * should generally be set before invoking code that uses the metadata.</li>
  * </ul>
  */
-
 public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
   private static final Logger logger = LoggerFactory.getLogger(PrimitiveColumnMetadata.class);
 
@@ -103,7 +102,6 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
   public int expectedWidth() {
 
     // If the property is not set, estimate width from the type.
-
     int width = PropertyAccessor.getInt(this, EXPECTED_WIDTH_PROP);
     if (width == 0) {
       width = estimateWidth(majorType());

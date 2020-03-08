@@ -278,6 +278,10 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
       buf.append(", variant: ")
          .append(variantSchema().toString());
     }
+    if (childSchema() != null) {
+      buf.append(", child: ")
+         .append(childSchema().toString());
+    }
     if (tupleSchema() != null) {
       buf.append(", schema: ")
          .append(tupleSchema().toString());

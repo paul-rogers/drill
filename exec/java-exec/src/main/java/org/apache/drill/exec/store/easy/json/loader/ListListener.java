@@ -59,10 +59,6 @@ public class ListListener extends AbstractValueListener {
     }
 
     @Override
-    public void onStart(int level) {
-    }
-
-    @Override
     public void onElementStart() {
       // For list, must say that the entry is non-null to
       // record an empty list. {a: null} vs. {a: []}.

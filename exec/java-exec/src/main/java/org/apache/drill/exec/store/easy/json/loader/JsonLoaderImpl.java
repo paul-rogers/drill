@@ -29,7 +29,6 @@ import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.TupleListener.RowListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -45,7 +44,7 @@ import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Revised JSON loader that is based on the
- * {@link ResultSetLoader} abstraction. Uses the listerner-based
+ * {@link ResultSetLoader} abstraction. Uses the listener-based
  * {@link JsonStructureParser} to walk the JSON tree in a "streaming"
  * fashion, calling events which this class turns into vector write
  * operations. Listeners handle options such as all text mode
@@ -138,7 +137,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   private final ResultSetLoader rsLoader;
   private final JsonLoaderOptions options;
   private final CustomErrorContext errorContext;
-  private final RowListener rowListener;
+  private final TupleListener rowListener;
   private final JsonStructureParser parser;
   private boolean eof;
 
@@ -161,7 +160,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     this.rsLoader = rsLoader;
     this.options = options;
     this.errorContext = errorContext;
-    this.rowListener = new RowListener(this, rsLoader.writer(), providedSchema);
+    this.rowListener = new TupleListener(this, rsLoader.writer(), providedSchema);
     this.parser = new JsonStructureParser(stream, options, rowListener, this);
   }
 
@@ -321,6 +320,20 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .message("Type of JSON token is not compatible with its column")
           .addContext("JSON token type", tokenType)
           .addContext("JSON token", value));
+  }
+
+  public UserException unsupportedType(ColumnMetadata schema) {
+    return buildError(schema,
+        UserException.validationError()
+          .message("JSON reader does not support the provided column type"));
+  }
+
+  public UserException unsupportedJsonTypeException(String key, JsonType jsonType) {
+    return buildError(
+        UserException.dataReadError()
+          .message("JSON reader does not support the JSON data type")
+          .addContext("Field", key)
+          .addContext("JSON type", jsonType.toString()));
   }
 
   protected UserException buildError(ColumnMetadata schema, UserException.Builder builder) {

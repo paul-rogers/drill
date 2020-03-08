@@ -87,7 +87,6 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * to be added empty, then the members to be added one by one. See
  * {@link BuildFromSchema} for the class that builds up a compound structure.
  */
-
 public class ColumnBuilder {
 
   /**
@@ -538,7 +537,6 @@ public class ColumnBuilder {
         columnSchema, vector, dummyElement);
 
     // Create the list vector state that tracks the list vector lifecycle.
-    // For a repeated list, we only care about
 
     final RepeatedListVectorState vectorState = new RepeatedListVectorState(
         arrayWriter, vector);
