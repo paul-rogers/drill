@@ -24,6 +24,10 @@ import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 
+/**
+ * Listener for the List vector writer. A List in Drill is essentially
+ * a repeated Union.
+ */
 public class ListListener extends AbstractValueListener {
 
   private final ObjectWriter listWriter;

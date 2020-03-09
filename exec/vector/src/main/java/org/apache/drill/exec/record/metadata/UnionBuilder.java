@@ -113,6 +113,11 @@ public class UnionBuilder implements SchemaContainer {
     return (UnionBuilder) parent;
   }
 
+  public RepeatedListBuilder resumeList() {
+    build();
+    return (RepeatedListBuilder) parent;
+  }
+
   public DictBuilder resumeDict() {
     build();
     return (DictBuilder) parent;

@@ -29,7 +29,17 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 
 /**
- * Represents a JSON value that holds a RepeatedList (2D array) value
+ * Represents a JSON value that holds a RepeatedList (2D array) value.
+ * The structure is:
+ * <ul>
+ * <li>Value - {@code RepeatedListValueListener}</li>
+ * <li>Array - {@code RepeatedArrayListener}</li>
+ * <li>Value - {@code RepeatedListElementListener} or
+ * {@code ListListener}</li>
+ * <li>Array - Depends on type</li>
+ * <li>Value - Depends on type</li>
+ * <li>Object - If a repeated list of maps</li>
+ * </ul>
  */
 public class RepeatedListValueListener extends AbstractValueListener {
 
@@ -37,40 +47,55 @@ public class RepeatedListValueListener extends AbstractValueListener {
   private final RepeatedArrayListener outerArrayListener;
 
   private RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
-      ArrayListener innerArrayListener) {
+      ValueListener elementListener) {
     super(loader);
     this.repeatedListWriter = writer;
-    ArrayWriter outerArrayWriter = writer.array();
-    ArrayWriter innerArrayWriter = outerArrayWriter.array();
     this.outerArrayListener = new RepeatedArrayListener(loader, writer.schema(),
-        outerArrayWriter,
-        new RepeatedListElementListener(loader,
-            writer.schema(), innerArrayWriter, innerArrayListener));
+        writer.array(), elementListener);
   }
 
+  /**
+   * Create a repeated list listener for a scalar value.
+   */
   public static ValueListener repeatedListFor(JsonLoaderImpl loader, ObjectWriter writer) {
     ColumnMetadata elementSchema = writer.schema().childSchema();
-    ArrayWriter outerArrayWriter = writer.array();
-    ArrayListener innerArrayListener;
-    if (elementSchema.isVariant()) {
-      // Not yet
-      throw new UnsupportedOperationException();
-    } else {
-      innerArrayListener = new ScalarArrayListener(loader, elementSchema,
-          ScalarListener.listenerFor(loader, outerArrayWriter.entry()));
-    }
-    return new RepeatedListValueListener(loader, writer, innerArrayListener);
+     return wrapInnerArray(loader, writer,
+        new ScalarArrayListener(loader, elementSchema,
+            ScalarListener.listenerFor(loader, writer.array().entry())));
   }
 
+  /**
+   * Create a repeated list listener for a Map.
+   */
   public static ValueListener repeatedObjectListFor(JsonLoaderImpl loader,
       ObjectWriter writer, TupleMetadata providedSchema) {
     ArrayWriter outerArrayWriter = writer.array();
     ArrayWriter innerArrayWriter = outerArrayWriter.array();
-    ArrayListener innerArrayListener =
+    return wrapInnerArray(loader, writer,
         new ObjectArrayListener(loader, innerArrayWriter,
             new ObjectValueListener(loader, outerArrayWriter.entry().schema(),
-                new TupleListener(loader, innerArrayWriter.tuple(), providedSchema)));
-    return new RepeatedListValueListener(loader, writer, innerArrayListener);
+                new TupleListener(loader, innerArrayWriter.tuple(), providedSchema))));
+  }
+
+  /**
+   * Given the inner array, wrap it to produce the repeated list.
+   */
+  private static ValueListener wrapInnerArray(JsonLoaderImpl loader, ObjectWriter writer,
+      ArrayListener innerArrayListener) {
+    return new RepeatedListValueListener(loader, writer,
+        new RepeatedListElementListener(loader,
+            writer.schema(), writer.array().array(),
+            innerArrayListener));
+  }
+
+  /**
+   * Create a repeated list listener for a variant. Here, the inner
+   * array is provided by a List (which is a repeated Union.)
+   */
+  public static ValueListener repeatedVariantListFor(JsonLoaderImpl loader,
+      ObjectWriter writer) {
+    return new RepeatedListValueListener(loader, writer,
+        new ListListener(loader, writer.array().entry()));
   }
 
   @Override
@@ -95,7 +120,7 @@ public class RepeatedListValueListener extends AbstractValueListener {
 
     public RepeatedArrayListener(JsonLoaderImpl loader,
         ColumnMetadata colMetadata, ArrayWriter outerArrayWriter,
-        RepeatedListElementListener outerValue) {
+        ValueListener outerValue) {
       super(loader, colMetadata, outerValue);
       this.outerArrayWriter = outerArrayWriter;
     }

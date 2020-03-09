@@ -34,6 +34,7 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -229,9 +230,13 @@ public class TupleListener implements ObjectListener {
     return scalarListenerFor(colSchema);
   }
 
-  public ScalarListener scalarListenerFor(ColumnMetadata colSchema) {
+  private ObjectWriter addFieldWriter(ColumnMetadata colSchema) {
     int index = tupleWriter.addColumn(colSchema);
-    return ScalarListener.listenerFor(loader, tupleWriter.column(index));
+    return tupleWriter.column(index);
+  }
+
+  public ScalarListener scalarListenerFor(ColumnMetadata colSchema) {
+    return ScalarListener.listenerFor(loader, addFieldWriter(colSchema));
   }
 
   public ObjectValueListener objectListenerFor(ColumnMetadata providedCol) {
@@ -240,9 +245,9 @@ public class TupleListener implements ObjectListener {
 
   public ObjectValueListener objectListenerFor(String key, TupleMetadata providedSchema) {
     ColumnMetadata colSchema = MetadataUtils.newMap(key);
-    int index = tupleWriter.addColumn(colSchema);
     return new ObjectValueListener(loader, colSchema,
-        new TupleListener(loader, tupleWriter.tuple(index), providedSchema));
+        new TupleListener(loader, addFieldWriter(colSchema).tuple(),
+            providedSchema));
   }
 
   public ArrayValueListener objectArrayListenerFor(ColumnMetadata providedCol) {
@@ -252,8 +257,7 @@ public class TupleListener implements ObjectListener {
   public ArrayValueListener objectArrayListenerFor(
       String key, TupleMetadata providedSchema) {
     ColumnMetadata colSchema = MetadataUtils.newMapArray(key);
-    int index = tupleWriter.addColumn(colSchema);
-    ArrayWriter arrayWriter = tupleWriter.array(index);
+    ArrayWriter arrayWriter = addFieldWriter(colSchema).array();
     return new ObjectArrayValueListener(loader, colSchema,
         new ObjectArrayListener(loader, arrayWriter,
             new ObjectValueListener(loader, colSchema,
@@ -286,13 +290,11 @@ public class TupleListener implements ObjectListener {
   }
 
   private ValueListener variantListenerFor(ColumnMetadata colSchema) {
-    int index = tupleWriter.addColumn(colSchema);
-    return new VariantListener(loader, tupleWriter.column(index).variant());
+    return new VariantListener(loader, addFieldWriter(colSchema).variant());
   }
 
   private ValueListener variantArrayListenerFor(ColumnMetadata colSchema) {
-    int index = tupleWriter.addColumn(colSchema);
-    return new ListListener(loader, tupleWriter.column(index));
+    return new ListListener(loader, addFieldWriter(colSchema));
   }
 
   private ValueListener repeatedListListenerFor(String key, ValueDef valueDef) {
@@ -306,27 +308,48 @@ public class TupleListener implements ObjectListener {
     return repeatedListListenerFor(colSchema);
   }
 
+  /**
+   * Create a RepeatedList which contains (empty) Map objects using the provided
+   * schema. The map fields are created on the fly from the provided schema.
+   */
   private ValueListener repeatedListOfObjectsListenerFor(String key, ColumnMetadata providedCol) {
     ColumnMetadata colSchema = new RepeatedListBuilder(key)
         .addMapArray()
           .resumeList()
         .buildColumn();
-    int index = tupleWriter.addColumn(colSchema);
     TupleMetadata providedSchema = providedCol == null ? null
         : providedCol.childSchema().tupleSchema();
     return RepeatedListValueListener.repeatedObjectListFor(loader,
-        tupleWriter.column(index), providedSchema);
+        addFieldWriter(colSchema), providedSchema);
+  }
+
+  /**
+   * Create a RepeatedList which contains Unions. (Actually, this is an
+   * array of List objects internally.) The variant is variable, it makes no
+   * sense to specify a schema for the variant. Also, omitting the schema
+   * save a large amount of complexity that will likely never be needed.
+   */
+  private ValueListener repeatedListOfVariantListenerFor(String key) {
+    ColumnMetadata colSchema = new RepeatedListBuilder(key)
+        .addList()
+          .resumeList()
+        .buildColumn();
+    return RepeatedListValueListener.repeatedVariantListFor(loader,
+        addFieldWriter(colSchema));
   }
 
   private ValueListener repeatedListListenerFor(ColumnMetadata colSchema) {
     ColumnMetadata childSchema = colSchema.childSchema();
-    if (childSchema != null && childSchema.isMap()) {
-      return repeatedListOfObjectsListenerFor(colSchema.name(), colSchema);
-    } else {
-      int index = tupleWriter.addColumn(colSchema);
-      return RepeatedListValueListener.repeatedListFor(loader, tupleWriter.column(index));
+    if (childSchema != null) {
+      if (childSchema.isMap()) {
+        return repeatedListOfObjectsListenerFor(colSchema.name(), colSchema);
+      }
+      if (childSchema.isVariant()) {
+        return repeatedListOfVariantListenerFor(colSchema.name());
+      }
     }
-  }
+    return RepeatedListValueListener.repeatedListFor(loader, addFieldWriter(colSchema));
+   }
 
   public ColumnMetadata providedColumn(String key) {
     return providedSchema == null ? null : providedSchema.metadata(key);

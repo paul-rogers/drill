@@ -35,6 +35,9 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 
+/**
+ * Tests repeated lists to form a 2D array of various data types.
+ */
 public class TestRepeatedList extends BaseJsonLoaderTest {
 
   @Test
@@ -249,5 +252,50 @@ public class TestRepeatedList extends BaseJsonLoaderTest {
     loader.close();
   }
 
-  // Variants
+  @Test
+  public void test2DVariantWithSchema() {
+    String json =
+        "{a: []} {a: [[null]]}\n" +
+        "{a: [[true, 10], [20.5, \"foo\"]]}" +
+        "{a: [[{b: 1}, 2], [{b: 3}, \"four\", {b: 5}]]}\n";
+    TupleMetadata schema = new SchemaBuilder()
+        .addRepeatedList("a")
+          .addList()
+            .resumeList()
+          .resumeSchema()
+        .build();
+
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.providedSchema = schema;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addRepeatedList("a")
+          .addList()
+            .addType(MinorType.BIGINT)
+            .addType(MinorType.BIT)
+            .addType(MinorType.VARCHAR)
+            .addType(MinorType.FLOAT8)
+            .addMap()
+               .addNullable("b", MinorType.BIGINT)
+              .resumeUnion()
+            .resumeList()
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(objArray())
+        .addSingleCol(singleObjArray(singleObjArray(null)))
+        .addSingleCol(objArray(
+            objArray(true, 10L),
+            objArray(20.5D, "foo")))
+        .addSingleCol(objArray(
+            objArray(mapValue(1L), 2L),
+            objArray(mapValue(3L), "four", mapValue(5L))))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
 }

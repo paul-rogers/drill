@@ -9,7 +9,8 @@ import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 
 /**
- * Base class for scalar and object arrays.
+ * Base class for scalar and object arrays. Represents the array
+ * behavior of a field.
  */
 public abstract class AbstractArrayListener implements ArrayListener {
 
