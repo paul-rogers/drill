@@ -24,7 +24,6 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -224,27 +223,6 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   @Override // JsonLoader
   public void close() {
     parser.close();
-  }
-  public MinorType drillTypeFor(JsonType type) {
-    if (options.allTextMode) {
-      return MinorType.VARCHAR;
-    }
-    switch (type) {
-    case BOOLEAN:
-      return MinorType.BIT;
-    case FLOAT:
-      return MinorType.FLOAT8;
-    case INTEGER:
-      if (options.readNumbersAsDouble) {
-        return MinorType.FLOAT8;
-      } else {
-        return MinorType.BIGINT;
-      }
-    case STRING:
-      return MinorType.VARCHAR;
-    default:
-      return null;
-    }
   }
 
   @Override // ErrorFactory

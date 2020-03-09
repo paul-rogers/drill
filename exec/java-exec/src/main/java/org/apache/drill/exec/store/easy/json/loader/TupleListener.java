@@ -36,7 +36,6 @@ import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
  * Accepts { name : value ... }
@@ -156,6 +155,11 @@ public class TupleListener implements ObjectListener {
     }
   }
 
+  /**
+   * Add a field not seen before. If a schema is provided, use the provided
+   * column schema to define the column. Else, build the column based on the
+   * look-ahead hints provided by the structure parser.
+   */
   @Override
   public ValueListener addField(String key, ValueDef valueDef) {
     ColumnMetadata colSchema = providedColumn(key);
@@ -166,6 +170,43 @@ public class TupleListener implements ObjectListener {
     }
   }
 
+  public ColumnMetadata providedColumn(String key) {
+    return providedSchema == null ? null : providedSchema.metadata(key);
+  }
+
+  /**
+   * Build a column and its listener based on a provided schema.
+   */
+  private ValueListener listenerFor(ColumnMetadata colSchema) {
+    switch (colSchema.structureType()) {
+      case PRIMITIVE:
+        if (colSchema.isArray()) {
+          return scalarArrayListenerFor(colSchema);
+        } else {
+          return scalarListenerFor(colSchema);
+        }
+      case TUPLE:
+        if (colSchema.isArray()) {
+          return objectArrayListenerFor(colSchema);
+        } else {
+          return objectListenerFor(colSchema);
+        }
+      case VARIANT:
+        if (colSchema.isArray()) {
+          return variantArrayListenerFor(colSchema);
+        } else {
+          return variantListenerFor(colSchema);
+        }
+      case MULTI_ARRAY:
+        return repeatedListListenerFor(colSchema);
+      default:
+    }
+    throw loader.unsupportedType(colSchema);
+  }
+
+  /**
+   * Build a column and its listener based on a look-ahead hint.
+   */
   protected ValueListener listenerFor(String key, ValueDef valueDef) {
     if (!valueDef.isArray()) {
       if (valueDef.type().isUnknown()) {
@@ -196,37 +237,9 @@ public class TupleListener implements ObjectListener {
     }
   }
 
-  private ValueListener listenerFor(ColumnMetadata colSchema) {
-    switch (colSchema.structureType()) {
-      case PRIMITIVE:
-        if (colSchema.isArray()) {
-          return scalarArrayListenerFor(colSchema);
-        } else {
-          return scalarListenerFor(colSchema);
-        }
-      case TUPLE:
-        if (colSchema.isArray()) {
-          return objectArrayListenerFor(colSchema);
-        } else {
-          return objectListenerFor(colSchema);
-        }
-      case VARIANT:
-        if (colSchema.isArray()) {
-          return variantArrayListenerFor(colSchema);
-        } else {
-          return variantListenerFor(colSchema);
-        }
-      case MULTI_ARRAY:
-        return repeatedListListenerFor(colSchema);
-      default:
-    }
-    throw loader.unsupportedType(colSchema);
-  }
-
   public ScalarListener scalarListenerFor(String key, JsonType jsonType) {
-    MinorType colType = loader.drillTypeFor(jsonType);
-    Preconditions.checkArgument(colType != null, "Not a scalar: " + jsonType.name());
-    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.optional(colType));
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key,
+        Types.optional(scalarTypeFor(key, jsonType)));
     return scalarListenerFor(colSchema);
   }
 
@@ -265,12 +278,45 @@ public class TupleListener implements ObjectListener {
   }
 
   public ArrayValueListener arrayListenerFor(String key, JsonType jsonType) {
-    MinorType colType = loader.drillTypeFor(jsonType);
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key,
+        Types.repeated(scalarTypeFor(key, jsonType)));
+    return scalarArrayListenerFor(colSchema);
+  }
+
+  /**
+   * Convert the JSON type, obtained by looking ahead one token, to a Drill
+   * scalar type. Report an error if the JSON type does not map to a Drill
+   * type (which can occur in a context where we expect a scalar, but got
+   * an object or array.)
+   */
+  private MinorType scalarTypeFor(String key, JsonType jsonType) {
+    MinorType colType = drillTypeFor(jsonType);
     if (colType == null) {
       throw loader.unsupportedJsonTypeException(key, jsonType);
     }
-    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
-    return scalarArrayListenerFor(colSchema);
+    return colType;
+  }
+
+  public MinorType drillTypeFor(JsonType type) {
+    if (loader.options().allTextMode) {
+      return MinorType.VARCHAR;
+    }
+    switch (type) {
+    case BOOLEAN:
+      return MinorType.BIT;
+    case FLOAT:
+      return MinorType.FLOAT8;
+    case INTEGER:
+      if (loader.options().readNumbersAsDouble) {
+        return MinorType.FLOAT8;
+      } else {
+        return MinorType.BIGINT;
+      }
+    case STRING:
+      return MinorType.VARCHAR;
+    default:
+      return null;
+    }
   }
 
   public ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
@@ -279,10 +325,18 @@ public class TupleListener implements ObjectListener {
             scalarListenerFor(colSchema)));
   }
 
+  /**
+   * Create a listener when we don't have type information. For the case
+   * {@code null} appears before other values.
+   */
   private ValueListener unknownListenerFor(String key) {
     return new UnknownFieldListener(this, key);
   }
 
+  /**
+   * Create a listener when we don't have type information. For the case
+   * {@code []} appears before other values.
+   */
   private ValueListener unknownArrayListenerFor(String key, ValueDef valueDef) {
     UnknownFieldListener fieldListener = new UnknownFieldListener(this, key);
     fieldListener.array(valueDef);
@@ -298,12 +352,8 @@ public class TupleListener implements ObjectListener {
   }
 
   private ValueListener repeatedListListenerFor(String key, ValueDef valueDef) {
-    MinorType colType = loader.drillTypeFor(valueDef.type());
-    if (colType == null) {
-      throw loader.unsupportedJsonTypeException(key, valueDef.type());
-    }
     ColumnMetadata colSchema = new RepeatedListBuilder(key)
-        .addArray(colType)
+        .addArray(scalarTypeFor(key, valueDef.type()))
         .buildColumn();
     return repeatedListListenerFor(colSchema);
   }
@@ -349,9 +399,5 @@ public class TupleListener implements ObjectListener {
       }
     }
     return RepeatedListValueListener.repeatedListFor(loader, addFieldWriter(colSchema));
-   }
-
-  public ColumnMetadata providedColumn(String key) {
-    return providedSchema == null ? null : providedSchema.metadata(key);
   }
 }
