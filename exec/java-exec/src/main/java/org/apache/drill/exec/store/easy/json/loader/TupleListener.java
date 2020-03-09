@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.Types;
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.record.metadata.RepeatedListBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
@@ -32,12 +31,9 @@ import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.Obje
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -186,15 +182,21 @@ public class TupleListener implements ObjectListener {
       } else {
         return arrayListenerFor(key, valueDef.type());
       }
+    } else if (valueDef.dimensions() == 2) {
+      if (valueDef.type().isUnknown()) {
+        return unknownArrayListenerFor(key, valueDef);
+      } else if (valueDef.type().isObject()) {
+        return repeatedListOfObjectsListenerFor(key);
+      } else {
+        return repeatedListListenerFor(key, valueDef);
+      }
     } else {
-      return variantArrayListenerFor(key, valueDef);
+      throw loader.unsupportedArrayException(key, valueDef.dimensions());
     }
   }
 
   private ValueListener listenerFor(ColumnMetadata colSchema) {
     switch (colSchema.structureType()) {
-      case MULTI_ARRAY:
-        break;
       case PRIMITIVE:
         if (colSchema.isArray()) {
           return scalarArrayListenerFor(colSchema);
@@ -213,6 +215,8 @@ public class TupleListener implements ObjectListener {
         } else {
           return variantListenerFor(colSchema);
         }
+      case MULTI_ARRAY:
+        return repeatedListListenerFor(colSchema);
       default:
     }
     throw loader.unsupportedType(colSchema);
@@ -227,39 +231,7 @@ public class TupleListener implements ObjectListener {
 
   public ScalarListener scalarListenerFor(ColumnMetadata colSchema) {
     int index = tupleWriter.addColumn(colSchema);
-    return scalarListenerFor(tupleWriter.column(index));
-  }
-
-  public ScalarListener scalarListenerFor(ObjectWriter colWriter) {
-    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
-        colWriter.array().scalar() : colWriter.scalar();
-    switch (writer.schema().type()) {
-      case BIGINT:
-        return new BigIntListener(loader, writer);
-      case BIT:
-        return new BooleanListener(loader, writer);
-      case FLOAT8:
-        return new DoubleListener(loader, writer);
-      case VARCHAR:
-        return new VarCharListener(loader, writer);
-      case DATE:
-      case FLOAT4:
-      case INT:
-      case INTERVAL:
-      case INTERVALDAY:
-      case INTERVALYEAR:
-      case SMALLINT:
-      case TIME:
-      case TIMESTAMP:
-      case VARBINARY:
-      case VARDECIMAL:
-        // TODO: Implement conversions for above
-      default:
-        throw loader.buildError(
-            UserException.internalError(null)
-              .message("Unsupported JSON reader type: %s",
-                  writer.schema().type().name()));
-    }
+    return ScalarListener.listenerFor(loader, tupleWriter.column(index));
   }
 
   public ObjectValueListener objectListenerFor(ColumnMetadata providedCol) {
@@ -290,11 +262,11 @@ public class TupleListener implements ObjectListener {
 
   public ArrayValueListener arrayListenerFor(String key, JsonType jsonType) {
     MinorType colType = loader.drillTypeFor(jsonType);
-    if (colType != null) {
-      ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
-      return scalarArrayListenerFor(colSchema);
+    if (colType == null) {
+      throw loader.unsupportedJsonTypeException(key, jsonType);
     }
-    throw loader.unsupportedJsonTypeException(key, jsonType);
+    ColumnMetadata colSchema = MetadataUtils.newScalar(key, Types.repeated(colType));
+    return scalarArrayListenerFor(colSchema);
   }
 
   public ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
@@ -318,14 +290,34 @@ public class TupleListener implements ObjectListener {
     return new VariantListener(loader, tupleWriter.column(index).variant());
   }
 
-  private ValueListener variantArrayListenerFor(String key, ValueDef valueDef) {
-    return variantArrayListenerFor(
-        MetadataUtils.newVariant(key, DataMode.REPEATED));
-  }
-
   private ValueListener variantArrayListenerFor(ColumnMetadata colSchema) {
     int index = tupleWriter.addColumn(colSchema);
     return new ListListener(loader, tupleWriter.column(index));
+  }
+
+  private ValueListener repeatedListListenerFor(String key, ValueDef valueDef) {
+    MinorType colType = loader.drillTypeFor(valueDef.type());
+    if (colType == null) {
+      throw loader.unsupportedJsonTypeException(key, valueDef.type());
+    }
+    ColumnMetadata colSchema = new RepeatedListBuilder(key)
+        .addArray(colType)
+        .buildColumn();
+    return repeatedListListenerFor(colSchema);
+  }
+
+  private ValueListener repeatedListOfObjectsListenerFor(String key) {
+    ColumnMetadata colSchema = new RepeatedListBuilder(key)
+        .addMapArray()
+          .resumeList()
+        .buildColumn();
+    int index = tupleWriter.addColumn(colSchema);
+    return new RepeatedListValueListener(loader, tupleWriter.column(index));
+  }
+
+  private ValueListener repeatedListListenerFor(ColumnMetadata colSchema) {
+    int index = tupleWriter.addColumn(colSchema);
+    return new RepeatedListValueListener(loader, tupleWriter.column(index));
   }
 
   public ColumnMetadata providedColumn(String key) {

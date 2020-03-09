@@ -134,6 +134,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   public ArrayListener array(ValueDef valueDef) {
     if (unknownArray == null) {
       unknownArray = new UnknownArrayListener(this);
+      unknownArray.maxDepth = valueDef.dimensions();
     }
     return unknownArray;
   }
@@ -158,13 +159,12 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   public ValueListener resolveToArray(ValueDef valueDef) {
-    if (valueDef.type().isUnknown() && valueDef.dimensions() == 1) {
+    if (valueDef.type().isUnknown()) {
       logger.warn("Ambiguous type! JSON array field {}" +
           " starts with null element. Assuming repeated VARCHAR.", key);
-      return resolveTo(parentTuple.arrayListenerFor(key, JsonType.STRING));
-    } else {
-      return resolveTo(parentTuple.listenerFor(key, valueDef));
+      valueDef = new ValueDef(JsonType.STRING, valueDef.dimensions());
     }
+    return resolveTo(parentTuple.listenerFor(key, valueDef));
   }
 
   /**
@@ -197,7 +197,16 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
     public void onElementEnd() { }
 
     @Override
-    public void onEnd(int level) { }
+    public void onEnd(int level) {
+
+      // If array depth was more than 1, then we have to record
+      // empty arrays: [[]]. We need a vector to do this, so
+      // force resolution.
+      if (level > 1) {
+        ValueDef arrayDef = new ValueDef(JsonType.UNKNOWN, maxDepth);
+        parent.resolveToArray(arrayDef).array(arrayDef).onEnd(level);
+      }
+    }
 
     /**
      * Saw the first actual element. Swap out the field listener

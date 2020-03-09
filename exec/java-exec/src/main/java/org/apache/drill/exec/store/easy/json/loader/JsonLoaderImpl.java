@@ -336,6 +336,14 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .addContext("JSON type", jsonType.toString()));
   }
 
+  public UserException unsupportedArrayException(String key, int dims) {
+    return buildError(
+        UserException.validationError()
+          .message("JSON reader does not arrays deeper than two levels")
+          .addContext("Field", key)
+          .addContext("Array nesting", dims));
+  }
+
   protected UserException buildError(ColumnMetadata schema, UserException.Builder builder) {
     return buildError(builder
         .addContext("Column", schema.name())

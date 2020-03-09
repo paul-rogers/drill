@@ -35,7 +35,7 @@ public abstract class AbstractArrayListener implements ArrayListener {
   public void onElementEnd() { }
 
   @Override
-  public void onEnd(int end) { }
+  public void onEnd(int level) { }
 
   @Override
   public ValueListener element(ValueDef valueDef) {

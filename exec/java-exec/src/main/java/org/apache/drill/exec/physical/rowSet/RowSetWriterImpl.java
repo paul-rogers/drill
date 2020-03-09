@@ -142,7 +142,6 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
     // For convenience, start a new row after each save.
     // The last (unused) row is abandoned when the batch is full.
-
     if (writerIndex.next()) {
       startRow();
     }

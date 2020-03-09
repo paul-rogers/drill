@@ -19,6 +19,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
@@ -35,6 +37,38 @@ public abstract class ScalarListener extends AbstractValueListener {
     this.writer = writer;
     ColumnMetadata colSchema = writer.schema();
     isArray = colSchema.isArray();
+  }
+
+  public static ScalarListener listenerFor(JsonLoaderImpl loader, ObjectWriter colWriter) {
+    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
+        colWriter.array().scalar() : colWriter.scalar();
+    switch (writer.schema().type()) {
+      case BIGINT:
+        return new BigIntListener(loader, writer);
+      case BIT:
+        return new BooleanListener(loader, writer);
+      case FLOAT8:
+        return new DoubleListener(loader, writer);
+      case VARCHAR:
+        return new VarCharListener(loader, writer);
+      case DATE:
+      case FLOAT4:
+      case INT:
+      case INTERVAL:
+      case INTERVALDAY:
+      case INTERVALYEAR:
+      case SMALLINT:
+      case TIME:
+      case TIMESTAMP:
+      case VARBINARY:
+      case VARDECIMAL:
+        // TODO: Implement conversions for above
+      default:
+        throw loader.buildError(
+            UserException.internalError(null)
+              .message("Unsupported JSON reader type: %s",
+                  writer.schema().type().name()));
+    }
   }
 
   @Override
