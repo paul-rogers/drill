@@ -132,9 +132,13 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
 
   @Override
   public ArrayListener array(ValueDef valueDef) {
+    if (valueDef.dimensions() > 1) {
+
+      // if 2D+ array, then we know enough to choose a Repeated list
+      return resolveToArray(valueDef).array(valueDef);
+    }
     if (unknownArray == null) {
       unknownArray = new UnknownArrayListener(this);
-      unknownArray.maxDepth = valueDef.dimensions();
     }
     return unknownArray;
   }
@@ -179,16 +183,13 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   public static class UnknownArrayListener implements ArrayListener {
 
     private final UnknownFieldListener parent;
-    private int maxDepth;
 
     public UnknownArrayListener(UnknownFieldListener parent) {
       this.parent = parent;
     }
 
     @Override
-    public void onStart(int level) {
-      maxDepth = Math.max(maxDepth, level);
-    }
+    public void onStart() { }
 
     @Override
     public void onElementStart() { }
@@ -197,16 +198,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
     public void onElementEnd() { }
 
     @Override
-    public void onEnd(int level) {
-
-      // If array depth was more than 1, then we have to record
-      // empty arrays: [[]]. We need a vector to do this, so
-      // force resolution.
-      if (level > 1) {
-        ValueDef arrayDef = new ValueDef(JsonType.UNKNOWN, maxDepth);
-        parent.resolveToArray(arrayDef).array(arrayDef).onEnd(level);
-      }
-    }
+    public void onEnd() { }
 
     /**
      * Saw the first actual element. Swap out the field listener
@@ -214,7 +206,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
      */
     @Override
     public ValueListener element(ValueDef valueDef) {
-      ValueDef arrayDef = new ValueDef(valueDef.type(), maxDepth);
+      ValueDef arrayDef = new ValueDef(valueDef.type(), valueDef.dimensions() + 1);
       return parent.resolveToArray(arrayDef)
           .array(arrayDef)
           .element(valueDef);

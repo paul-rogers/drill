@@ -53,26 +53,19 @@ public class ArrayParser extends AbstractElementParser {
    */
   @Override
   public void parse(TokenIterator tokenizer) {
-    parseLevel(1, tokenizer);
-  }
-
-  private void parseLevel(int level, TokenIterator tokenizer) {
-    arrayListener.onStart(level);
+    arrayListener.onStart();
     top: for (;;) {
       // Position: [ (value, )* ^ ?
       JsonToken token = tokenizer.requireNext();
       switch (token) {
         case END_ARRAY:
           break top;
-        case START_ARRAY:
-          parseLevel(level + 1, tokenizer);
-          break;
         default:
           tokenizer.unget(token);
           parseElement(tokenizer);
       }
     }
-    arrayListener.onEnd(level);
+    arrayListener.onEnd();
   }
 
   private void parseElement(TokenIterator tokenizer) {
@@ -85,8 +78,11 @@ public class ArrayParser extends AbstractElementParser {
   }
 
   private void detectElement(TokenIterator tokenizer) {
-    bindElement(arrayListener.element(
-        ValueDefFactory.lookAhead(tokenizer)));
+    addElement(ValueDefFactory.lookAhead(tokenizer));
+  }
+
+  public void addElement(ValueDef valueDef) {
+    bindElement(arrayListener.element(valueDef));
   }
 
   public void bindElement(ValueListener elementListener) {
@@ -98,6 +94,20 @@ public class ArrayParser extends AbstractElementParser {
     arrayListener = newListener;
     if (elementParser != null) {
       elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
+    }
+  }
+
+  /**
+   * Expand the structure of this array given a description of the
+   * look-ahead value. Skip if this is a 1D array of unknown type.
+   * If 2D or greater, then we must create the child array of one
+   * less dimension.
+    */
+  public void expandStructure(ValueDef valueDef) {
+    if (valueDef.dimensions() > 1 || !valueDef.type().isUnknown()) {
+      ValueDef elementDef = new ValueDef(valueDef.type(), valueDef.dimensions() - 1);
+      addElement(elementDef);
+      elementParser.expandStructure(elementDef);
     }
   }
 }

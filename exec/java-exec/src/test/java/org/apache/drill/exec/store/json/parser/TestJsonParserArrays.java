@@ -156,12 +156,12 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
   @Test
   public void test2DArray() {
     final String json =
-        "{a: [ [10, 1], [20, 2]]}\n" +
+        "{a: [[10, 1], [20, 2]]}\n" +
         "{a: [[null]]} {a: [[]]} {a: [null]} {a: null}";
     JsonParserFixture fixture = new JsonParserFixture();
     fixture.open(json);
 
-    // {a: [ [10, 1], [20, 2]]}
+    // {a: [[10, 1], [20, 2]]}
     assertTrue(fixture.next());
 
     // Value of a
@@ -169,51 +169,73 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertEquals(JsonType.INTEGER, a.valueDef.type());
     assertEquals(2, a.valueDef.dimensions());
 
-    // Array for a[][]
+    // Array for a[]
     assertNotNull(a.arrayValue);
-    ArrayListenerFixture array = a.arrayValue;
-    assertEquals(2, array.valueDef.dimensions());
-    assertEquals(3, array.startCount);
-    assertEquals(array.startCount, array.endCount);
+    ArrayListenerFixture outerArr = a.arrayValue;
+    assertEquals(2, outerArr.valueDef.dimensions());
+    assertEquals(1, outerArr.startCount);
+    assertEquals(outerArr.startCount, outerArr.endCount);
+
+    // Value of a[] elements
+    ValueListenerFixture outerElement = outerArr.element;
+    assertEquals(JsonType.INTEGER, outerElement.valueDef.type());
+    assertEquals(1, outerElement.valueDef.dimensions());
+    assertNotNull(outerElement.arrayValue);
+
+    // Array for a[][]
+    assertNotNull(outerElement.arrayValue);
+    ArrayListenerFixture innerArr = outerElement.arrayValue;
+    assertEquals(1, innerArr.valueDef.dimensions());
+    assertEquals(2, innerArr.startCount);
+    assertEquals(innerArr.startCount, innerArr.endCount);
 
     // Value of a[][] elements
-    ValueListenerFixture element = array.element;
-    assertEquals(JsonType.INTEGER, element.valueDef.type());
-    assertEquals(0, element.valueDef.dimensions());
-    assertEquals(4, element.valueCount);
-    assertEquals(0, element.nullCount);
-    assertEquals(2L, element.value);
+    ValueListenerFixture innerElement = innerArr.element;
+    assertEquals(JsonType.INTEGER, innerElement.valueDef.type());
+    assertEquals(0, innerElement.valueDef.dimensions());
+    assertEquals(4, innerElement.valueCount);
+    assertEquals(0, innerElement.nullCount);
+    assertEquals(2L, innerElement.value);
 
     // {a: [[null]]}
     assertTrue(fixture.next());
-    assertEquals(5, array.startCount);
-    assertEquals(array.startCount, array.endCount);
-    assertEquals(4, element.valueCount);
-    assertEquals(1, element.nullCount);
+    assertEquals(2, outerArr.startCount);
+    assertEquals(outerArr.startCount, outerArr.endCount);
+    assertEquals(0, outerElement.nullCount);
+    assertEquals(3, innerArr.startCount);
+    assertEquals(innerArr.startCount, innerArr.endCount);
+    assertEquals(4, innerElement.valueCount);
+    assertEquals(1, innerElement.nullCount);
 
     // {a: [[]]}
     assertTrue(fixture.next());
-    assertEquals(7, array.startCount);
-    assertEquals(array.startCount, array.endCount);
-    assertEquals(4, element.valueCount);
-    assertEquals(1, element.nullCount);
+    assertEquals(3, outerArr.startCount);
+    assertEquals(outerArr.startCount, outerArr.endCount);
+    assertEquals(0, outerElement.nullCount);
+    assertEquals(4, innerArr.startCount);
+    assertEquals(innerArr.startCount, innerArr.endCount);
+    assertEquals(4, innerElement.valueCount);
+    assertEquals(1, innerElement.nullCount);
 
     // {a: [null]}
     assertTrue(fixture.next());
     assertEquals(0, a.nullCount);
-    assertEquals(8, array.startCount);
-    assertEquals(array.startCount, array.endCount);
-    assertEquals(4, element.valueCount);
-    // Fixture is dumb, treats all levels the same
-    assertEquals(2, element.nullCount);
+    assertEquals(4, outerArr.startCount);
+    assertEquals(outerArr.startCount, outerArr.endCount);
+    assertEquals(1, outerElement.nullCount);
+    assertEquals(4, innerArr.startCount);
+    assertEquals(4, innerElement.valueCount);
+    assertEquals(1, innerElement.nullCount);
 
     // {a: null}
     assertTrue(fixture.next());
     assertEquals(1, a.nullCount);
-    assertEquals(8, array.startCount);
-    assertEquals(array.startCount, array.endCount);
-    assertEquals(4, element.valueCount);
-    assertEquals(2, element.nullCount);
+    assertEquals(4, outerArr.startCount);
+    assertEquals(outerArr.startCount, outerArr.endCount);
+    assertEquals(1, outerElement.nullCount);
+    assertEquals(4, innerArr.startCount);
+    assertEquals(4, innerElement.valueCount);
+    assertEquals(1, innerElement.nullCount);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -231,7 +253,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     // the chase to verify proper structure.
     assertEquals(2, fixture.read());
     ValueListenerFixture element =
-        fixture.field("a").arrayValue.element;
+        fixture.field("a").arrayValue.element.arrayValue.element;
     assertEquals(4, element.valueCount);
     assertEquals(2L, element.value);
 
@@ -299,24 +321,39 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertEquals(JsonType.OBJECT, a.valueDef.type());
     assertEquals(2, a.valueDef.dimensions());
 
-    // a[][]
+    // a[]
     assertNotNull(a.arrayValue);
-    ArrayListenerFixture array = a.arrayValue;
-    assertEquals(3, array.startCount);
-    assertEquals(array.startCount, array.endCount);
-    assertEquals(2, array.valueDef.dimensions());
+    ArrayListenerFixture outerArray = a.arrayValue;
+    assertEquals(1, outerArray.startCount);
+    assertEquals(outerArray.startCount, outerArray.endCount);
+    assertEquals(2, outerArray.valueDef.dimensions());
+
+    // Value of each element of a[]
+    assertNotNull(outerArray.element);
+    ValueListenerFixture outerElement = outerArray.element;
+    assertEquals(JsonType.OBJECT, outerElement.valueDef.type());
+    assertEquals(1, outerElement.valueDef.dimensions());
+    assertEquals(0, outerElement.valueCount);
+    assertEquals(0, outerElement.nullCount);
+
+    // a[][]
+    assertNotNull(outerElement.arrayValue);
+    ArrayListenerFixture innerArray = outerElement.arrayValue;
+    assertEquals(2, innerArray.startCount);
+    assertEquals(innerArray.startCount, innerArray.endCount);
+    assertEquals(1, innerArray.valueDef.dimensions());
 
     // Value of each element of a[][]
-    assertNotNull(array.element);
-    ValueListenerFixture element = array.element;
-    assertEquals(JsonType.OBJECT, element.valueDef.type());
-    assertEquals(0, element.valueDef.dimensions());
-    assertEquals(0, element.valueCount);
-    assertEquals(0, element.nullCount);
+    assertNotNull(innerArray.element);
+    ValueListenerFixture innerElement = innerArray.element;
+    assertEquals(JsonType.OBJECT, innerElement.valueDef.type());
+    assertEquals(0, innerElement.valueDef.dimensions());
+    assertEquals(0, innerElement.valueCount);
+    assertEquals(0, innerElement.nullCount);
 
     // Object for a[][] elements
-    assertNotNull(element.objectValue);
-    ObjectListenerFixture elementObj = element.objectValue;
+    assertNotNull(innerElement.objectValue);
+    ObjectListenerFixture elementObj = innerElement.objectValue;
     assertEquals(4, elementObj.startCount);
     assertEquals(elementObj.startCount, elementObj.endCount);
 

@@ -18,16 +18,18 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 /**
- * Represents an array. The first time the parser sees the array element,
+ * Represents one level within array. The first time the parser sees the array element,
  * it will call the {@link #element(ValueDef)} method with the
  * look-ahead values visible to the parser. Since JSON is flexible, later
  * data shapes may not necessarily follow the first shape. The implementation
  * must handle this or throw an error if not supported.
  * <p>
- * Multi-dimensional arrays are handled via a single array listener, with
- * events as the parser enters and leaves each level. To allow advancing
- * the array position in the listener, the parser calls events on the start
- * and end of each element.
+ * When creating a multi-dimensional array, each array level is built one
+ * by one. each will receive the same type information (decreased by one
+ * array level.)
+ * <p>
+ * Then, while parsing, the parser calls events on the start and end of the
+ * array, as well as on each element.
  * <p>
  * The array listener is an attribute of a value listener, represent the
  * "arrayness" of that value, if the value allows an array.
@@ -60,6 +62,22 @@ package org.apache.drill.exec.store.easy.json.parser;
  * could be anything else (a number or an object). The listener, as always
  * is responsible for deciding how to handle type changes.</li>
  * </ol>
+ *
+ * <h4>Multi-Dimensional Arrays</h4>
+ *
+ * A multi-dimensional array is one of the form {@code [ [ ... }, that is,
+ * the parser returns multiple levels of array start tokens. In this case,
+ * listeners are structured as:
+ * <ul>
+ * <li>{@code ObjectListener} for the enclosing object which has a</li>
+ * <li>{@code FieldListener} for the array value which has a</li>
+ * <li>{@code ArrayListener} for the array, which has a</li>
+ * <li>{@code ValueListener} for the elements. If the array is 1D,
+ * the nesting stops here. But if it is 2+D, then the value has a</li>
+ * <li>{@code ArrayListener} for the inner array, which has a</li>
+ * <li>{@code ValueListener} for the elements. And so on recursively
+ * for as many levels as needed or the array.</li>
+ * </ul>
  */
 public interface ArrayListener {
 
@@ -77,11 +95,8 @@ public interface ArrayListener {
    * Called at the entrance to each level (dimension) of an array.
    * That is, called when the structure parser accepts the {@code [}
    * token.
-   *
-   * @param level the 1-based array depth (dimension). If a null is seen,
-   * then the enclosing value listener is considered level 0.
    */
-  void onStart(int level);
+  void onStart();
 
   /**
    * Called for each element of the array. The array element is represented
@@ -99,5 +114,5 @@ public interface ArrayListener {
    * Called at the end of a set of values for an array. That is, called
    * when the structure parser accepts the {@code ]} token.
    */
-  void onEnd(int level);
+  void onEnd();
 }

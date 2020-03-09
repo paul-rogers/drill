@@ -19,6 +19,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -94,4 +96,12 @@ public abstract class ScalarListener extends AbstractValueListener {
   }
 
   protected abstract void setArrayNull();
+
+  @Override
+  public ArrayListener array(ValueDef valueDef) {
+    if (isArray) {
+      valueDef = new ValueDef(valueDef.type(), valueDef.dimensions() + 1);
+    }
+    throw loader.typeConversionError(schema(), valueDef);
+  }
 }

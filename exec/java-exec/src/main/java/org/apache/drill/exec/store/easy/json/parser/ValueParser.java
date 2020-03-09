@@ -179,15 +179,17 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
     objectParser = new ObjectParser(this, listener().object());
   }
 
-  public void addArrayParser(ValueDef valueDef) {
+  private void addArrayParser(ValueDef valueDef) {
     ArrayListener arrayListener = listener().array(valueDef);
-    ValueDef elementDef = new ValueDef(valueDef.type(), 0);
     arrayParser = new ArrayParser(this, arrayListener);
-    if (!elementDef.type().isUnknown()) {
-      arrayParser.bindElement(arrayListener.element(elementDef));
-    }
-    if (elementDef.type().isObject()) {
-      arrayParser.elementParser().addObjectParser();
+    arrayParser.expandStructure(valueDef);
+  }
+
+  public void expandStructure(ValueDef valueDef) {
+    if (valueDef.isArray()) {
+      addArrayParser(valueDef);
+    } else if (valueDef.type().isObject()) {
+      addObjectParser();
     }
   }
 }

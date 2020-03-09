@@ -186,7 +186,7 @@ public class TupleListener implements ObjectListener {
       if (valueDef.type().isUnknown()) {
         return unknownArrayListenerFor(key, valueDef);
       } else if (valueDef.type().isObject()) {
-        return repeatedListOfObjectsListenerFor(key);
+        return repeatedListOfObjectsListenerFor(key, null);
       } else {
         return repeatedListListenerFor(key, valueDef);
       }
@@ -306,18 +306,26 @@ public class TupleListener implements ObjectListener {
     return repeatedListListenerFor(colSchema);
   }
 
-  private ValueListener repeatedListOfObjectsListenerFor(String key) {
+  private ValueListener repeatedListOfObjectsListenerFor(String key, ColumnMetadata providedCol) {
     ColumnMetadata colSchema = new RepeatedListBuilder(key)
         .addMapArray()
           .resumeList()
         .buildColumn();
     int index = tupleWriter.addColumn(colSchema);
-    return new RepeatedListValueListener(loader, tupleWriter.column(index));
+    TupleMetadata providedSchema = providedCol == null ? null
+        : providedCol.childSchema().tupleSchema();
+    return RepeatedListValueListener.repeatedObjectListFor(loader,
+        tupleWriter.column(index), providedSchema);
   }
 
   private ValueListener repeatedListListenerFor(ColumnMetadata colSchema) {
-    int index = tupleWriter.addColumn(colSchema);
-    return new RepeatedListValueListener(loader, tupleWriter.column(index));
+    ColumnMetadata childSchema = colSchema.childSchema();
+    if (childSchema != null && childSchema.isMap()) {
+      return repeatedListOfObjectsListenerFor(colSchema.name(), colSchema);
+    } else {
+      int index = tupleWriter.addColumn(colSchema);
+      return RepeatedListValueListener.repeatedListFor(loader, tupleWriter.column(index));
+    }
   }
 
   public ColumnMetadata providedColumn(String key) {

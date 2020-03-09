@@ -215,11 +215,7 @@ public class ObjectParser extends AbstractElementParser {
     ValueParser fp = new ValueParser(this, key, type);
     ValueDef valueDef = ValueDefFactory.lookAhead(tokenizer);
     fp.bindListener(listener.addField(key, valueDef));
-    if (valueDef.isArray()) {
-      fp.addArrayParser(valueDef);
-    } else if (valueDef.type().isObject()) {
-      fp.addObjectParser();
-    }
+    fp.expandStructure(valueDef);
     return fp;
   }
 }

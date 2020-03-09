@@ -18,6 +18,9 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -25,28 +28,49 @@ import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 
+/**
+ * Represents a JSON value that holds a RepeatedList (2D array) value
+ */
 public class RepeatedListValueListener extends AbstractValueListener {
 
   private final ObjectWriter repeatedListWriter;
   private final RepeatedArrayListener outerArrayListener;
 
-  public RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer) {
+  private RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
+      ArrayListener innerArrayListener) {
     super(loader);
     this.repeatedListWriter = writer;
-    ColumnMetadata elementSchema = writer.schema().childSchema();
     ArrayWriter outerArrayWriter = writer.array();
     ArrayWriter innerArrayWriter = outerArrayWriter.array();
+    this.outerArrayListener = new RepeatedArrayListener(loader, writer.schema(),
+        outerArrayWriter,
+        new RepeatedListElementListener(loader,
+            writer.schema(), innerArrayWriter, innerArrayListener));
+  }
+
+  public static ValueListener repeatedListFor(JsonLoaderImpl loader, ObjectWriter writer) {
+    ColumnMetadata elementSchema = writer.schema().childSchema();
+    ArrayWriter outerArrayWriter = writer.array();
+    ArrayListener innerArrayListener;
     if (elementSchema.isVariant()) {
       // Not yet
       throw new UnsupportedOperationException();
-    } else if (elementSchema.isMap()) {
-      this.outerArrayListener = new RepeatedObjectArrayListener(loader, outerArrayWriter,
-          new ObjectValueListener(loader, outerArrayWriter.entry().schema(),
-              new TupleListener(loader, innerArrayWriter.tuple(), null)));
     } else {
-      this.outerArrayListener = new RepeatedArrayListener(loader, outerArrayWriter,
+      innerArrayListener = new ScalarArrayListener(loader, elementSchema,
           ScalarListener.listenerFor(loader, outerArrayWriter.entry()));
     }
+    return new RepeatedListValueListener(loader, writer, innerArrayListener);
+  }
+
+  public static ValueListener repeatedObjectListFor(JsonLoaderImpl loader,
+      ObjectWriter writer, TupleMetadata providedSchema) {
+    ArrayWriter outerArrayWriter = writer.array();
+    ArrayWriter innerArrayWriter = outerArrayWriter.array();
+    ArrayListener innerArrayListener =
+        new ObjectArrayListener(loader, innerArrayWriter,
+            new ObjectValueListener(loader, outerArrayWriter.entry().schema(),
+                new TupleListener(loader, innerArrayWriter.tuple(), providedSchema)));
+    return new RepeatedListValueListener(loader, writer, innerArrayListener);
   }
 
   @Override
@@ -62,13 +86,18 @@ public class RepeatedListValueListener extends AbstractValueListener {
     return repeatedListWriter.schema();
   }
 
+  /**
+   * Represents the outer array for a repeated (2D) list
+   */
   private static class RepeatedArrayListener extends AbstractArrayListener {
 
-    private final ArrayWriter repeatedListWriter;
+    private final ArrayWriter outerArrayWriter;
 
-    public RepeatedArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter, ValueListener elementListener) {
-      super(loader, arrayWriter.schema(), elementListener);
-      this.repeatedListWriter = arrayWriter;
+    public RepeatedArrayListener(JsonLoaderImpl loader,
+        ColumnMetadata colMetadata, ArrayWriter outerArrayWriter,
+        RepeatedListElementListener outerValue) {
+      super(loader, colMetadata, outerValue);
+      this.outerArrayWriter = outerArrayWriter;
     }
 
     @Override
@@ -77,32 +106,43 @@ public class RepeatedListValueListener extends AbstractValueListener {
     }
 
     @Override
-    public void onStart(int level) {
-      if (level > 2) {
-        loader.unsupportedArrayException(repeatedListWriter.schema().name(), level);
-      }
-    }
-
-    @Override
-    public void onEnd(int level) {
-      if (level == 2) {
-        repeatedListWriter.save();
-      }
+    public void onElementEnd() {
+      outerArrayWriter.save();
     }
   }
 
-  private static class RepeatedObjectArrayListener extends RepeatedArrayListener {
-    protected final ArrayWriter innerArrayWriter;
+  /**
+   * Represents each item in the outer array of a RepeatedList. Such elements should
+   * only be arrays. However, Drill is forgiving if the value happens to be null, which
+   * is defined to be the same as an empty inner array.
+   */
+  private static class RepeatedListElementListener extends AbstractValueListener {
 
-    public RepeatedObjectArrayListener(JsonLoaderImpl loader,
-        ArrayWriter arrayWriter, ValueListener elementListener) {
-      super(loader, arrayWriter, elementListener);
-      this.innerArrayWriter = arrayWriter.array();
-   }
+    private final ColumnMetadata colMetadata;
+    private final ArrayListener innerArrayListener;
+    private final ArrayWriter innerArrayWriter;
+
+    public RepeatedListElementListener(JsonLoaderImpl loader, ColumnMetadata colMetadata,
+        ArrayWriter innerArrayWriter, ArrayListener innerArrayListener) {
+      super(loader);
+      this.colMetadata = colMetadata;
+      this.innerArrayListener = innerArrayListener;
+      this.innerArrayWriter = innerArrayWriter;
+    }
 
     @Override
-    public void onElementEnd() {
+    public ArrayListener array(ValueDef valueDef) {
+      return innerArrayListener;
+    }
+
+    @Override
+    public void onNull() {
       innerArrayWriter.save();
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return colMetadata;
     }
   }
 }

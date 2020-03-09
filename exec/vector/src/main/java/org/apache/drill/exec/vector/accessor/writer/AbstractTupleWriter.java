@@ -262,7 +262,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     if (tupleSchema().column(colName) != null) {
       throw UserException
         .validationError()
-        .message("Duplicate column name: ", colName)
+        .message("Duplicate column name: %s", colName)
         .build(logger);
     }
   }

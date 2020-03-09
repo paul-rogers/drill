@@ -187,7 +187,7 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void onStart(int level) {
+    public void onStart() {
       startCount++;
     }
 
@@ -200,7 +200,7 @@ public class BaseTestJsonParser {
     public void onElementEnd() { }
 
     @Override
-    public void onEnd(int level) {
+    public void onEnd() {
       endCount++;
     }
 

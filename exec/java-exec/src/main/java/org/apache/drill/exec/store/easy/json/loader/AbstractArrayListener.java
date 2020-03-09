@@ -26,7 +26,7 @@ public abstract class AbstractArrayListener implements ArrayListener {
   public ValueListener elementListener() { return elementListener; }
 
   @Override
-  public void onStart(int level) { }
+  public void onStart() { }
 
   @Override
   public void onElementStart() { }
@@ -35,7 +35,7 @@ public abstract class AbstractArrayListener implements ArrayListener {
   public void onElementEnd() { }
 
   @Override
-  public void onEnd(int level) { }
+  public void onEnd() { }
 
   @Override
   public ValueListener element(ValueDef valueDef) {
@@ -50,13 +50,6 @@ public abstract class AbstractArrayListener implements ArrayListener {
 
     public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarListener valueListener) {
       super(loader, colSchema, valueListener);
-    }
-
-    @Override
-    public void onStart(int level) {
-      if (level > 1) {
-        throw loader.typeConversionError(colSchema, "nested array");
-      }
     }
 
     @Override

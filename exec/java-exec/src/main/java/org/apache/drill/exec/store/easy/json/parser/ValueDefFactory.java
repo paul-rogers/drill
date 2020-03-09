@@ -44,7 +44,7 @@ public class ValueDefFactory {
   }
 
   public static ValueDef arrayLookAhead(TokenIterator tokenizer) {
-    ValueDefFactory factory= new ValueDefFactory(tokenizer);
+    ValueDefFactory factory = new ValueDefFactory(tokenizer);
     // Already in an array (saw [), so add one to dimensions
     return new ValueDef(factory.jsonType, factory.arrayDims + 1);
   }

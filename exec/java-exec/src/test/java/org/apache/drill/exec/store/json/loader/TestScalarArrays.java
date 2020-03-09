@@ -400,9 +400,10 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("nested array"));
+      assertTrue(e.getMessage().contains("integer[][]"));
+    } finally {
+      loader.close();
     }
-    loader.close();
   }
 
   /**
@@ -419,7 +420,8 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
       fail();
     } catch (UserException e) {
       assertTrue(e.getMessage().contains("object"));
+    } finally {
+      loader.close();
     }
-    loader.close();
   }
 }
