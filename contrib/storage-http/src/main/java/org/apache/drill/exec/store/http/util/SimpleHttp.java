@@ -66,8 +66,6 @@ public class SimpleHttp {
     client = setupHttpClient();
   }
 
-
-
   public InputStream getInputStream(String urlStr) {
     Request.Builder requestBuilder;
 
