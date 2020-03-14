@@ -35,6 +35,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
  * Having all column nodes derive from this same interface keeps things
  * tidy.
  */
+//Converted
 
 public interface ColumnProjection {
 

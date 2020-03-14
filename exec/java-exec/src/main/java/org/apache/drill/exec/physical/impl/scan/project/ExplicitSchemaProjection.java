@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * the source schema. In this case, we fill in null columns for
  * unmatched projections.
  */
-
+// Converted
 public class ExplicitSchemaProjection extends ReaderLevelProjection {
   private static final Logger logger = LoggerFactory.getLogger(ExplicitSchemaProjection.class);
 

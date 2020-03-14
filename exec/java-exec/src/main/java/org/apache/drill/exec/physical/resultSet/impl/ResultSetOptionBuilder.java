@@ -21,6 +21,7 @@ import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.resultSet.project.RequestedTuple;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;

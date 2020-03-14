@@ -36,6 +36,7 @@ import org.junit.experimental.categories.Category;
  * Tests the basics of the scan operator protocol: error conditions,
  * etc.
  */
+// Converted
 @Category(RowSetTests.class)
 public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
 
@@ -49,7 +50,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
   public void testNoReader() {
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture();
     ScanOperatorExec scan = scanFixture.scanOp;
 
@@ -58,12 +58,10 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     } catch (UserException e) {
 
       // Expected
-
       assertTrue(e.getCause() instanceof ExecutionSetupException);
     }
 
     // Must close the DAG (context and scan operator) even on failures
-
     scanFixture.close();
   }
 
@@ -74,7 +72,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
 
     // Reader which fails on open with a known error message
     // using an exception other than UserException.
-
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
       public boolean open(SchemaNegotiator schemaNegotiator) {
@@ -107,7 +104,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
 
     // Reader which fails on open with a known error message
     // using a UserException.
-
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
       public boolean open(SchemaNegotiator schemaNegotiator) {
@@ -186,7 +182,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     assertTrue(scan.buildSchema());
 
     // EOF
-
     try {
       scan.next();
       fail();
@@ -207,7 +202,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
    * and is spread over two next() calls, so the error is on the
    * third call to the scan operator next().
    */
-
   @Test
   public void testExceptionOnSecondNext() {
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
@@ -226,16 +220,13 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Schema
-
     assertTrue(scan.buildSchema());
 
     // First batch
-
     assertTrue(scan.next());
     scan.batchAccessor().release();
 
     // Fail
-
     try {
       scan.next();
       fail();
@@ -268,16 +259,13 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Schema
-
     assertTrue(scan.buildSchema());
 
     // First batch
-
     assertTrue(scan.next());
     scan.batchAccessor().release();
 
     // Fail
-
     try {
       scan.next();
       fail();
@@ -316,7 +304,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     scan.batchAccessor().release();
 
     // Fail on close of first reader
-
     try {
       scan.next();
       fail();
@@ -358,7 +345,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     scan.batchAccessor().release();
 
     // Fail on close of first reader
-
     try {
       scan.next();
       fail();
@@ -378,7 +364,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
    * early schema. Results in an empty (rather than null)
    * result set.
    */
-
   @Test
   public void testMultiEOFOnFirstBatch() {
     MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
@@ -390,7 +375,6 @@ public class TestScanOperExecBasics extends BaseScanOperatorExecTest {
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // EOF
-
     assertTrue(scan.buildSchema());
     assertTrue(scan.next());
     VectorContainer container = scan.batchAccessor().container();

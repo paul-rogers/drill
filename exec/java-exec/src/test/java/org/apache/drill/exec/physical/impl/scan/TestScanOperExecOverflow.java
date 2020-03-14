@@ -37,6 +37,7 @@ import org.junit.experimental.categories.Category;
 /**
  * Test vector overflow in the context of the scan operator.
  */
+// Converted
 @Category(RowSetTests.class)
 public class TestScanOperExecOverflow extends BaseScanOperatorExecTest {
 

@@ -52,10 +52,12 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+// Converted
 @Category(RowSetTests.class)
 public class TestImplicitColumnProjection extends SubOperatorTest {
 
   @Test
+  // Converted
   public void testImplicitColumnBuilder() {
     {
       // Degenerate case: no file or root

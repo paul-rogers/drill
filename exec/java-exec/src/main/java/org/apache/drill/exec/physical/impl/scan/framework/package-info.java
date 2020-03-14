@@ -103,7 +103,7 @@
  * <li>Level 2: {@link ProjectionPlanner}, {@link ScanProjection} and
  * {@link ScanProjector}.</li>
  * <li>Level 3: {@link ScanProjector}.</li>
- * <li>Level 4: {@link OperatorRecordBatch.SchemaTracker}.</li>
+ * <li>Level 4: {@link SchemaResolver.SchemaTracker}.</li>
  * </ul>
  * <h4>Selection List Processing</h4>
  * A key challenge in the scan operator is mapping of table schemas to the

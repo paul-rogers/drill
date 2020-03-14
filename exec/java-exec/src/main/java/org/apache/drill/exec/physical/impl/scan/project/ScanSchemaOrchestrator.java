@@ -149,6 +149,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * <li>For implicit and null columns, the output vector is identical
  * to the input vector.</li>
  */
+// Converted
 public class ScanSchemaOrchestrator {
 
   public static final int MIN_BATCH_BYTE_SIZE = 256 * 1024;

@@ -64,6 +64,7 @@ import org.junit.experimental.categories.Category;
  * Focuses on the file metadata itself, assumes that other tests have
  * verified the underlying mechanisms.
  */
+//Converted
 @Category(RowSetTests.class)
 public class TestFileScanFramework extends SubOperatorTest {
 

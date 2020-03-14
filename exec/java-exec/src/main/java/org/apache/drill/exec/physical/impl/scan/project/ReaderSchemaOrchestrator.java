@@ -39,6 +39,7 @@ import java.util.List;
  * scan operator manages. Vectors are reused across readers, but via a vector
  * cache. All other state is distinct between readers.
  */
+// Converted
 public class ReaderSchemaOrchestrator implements VectorSource {
 
   private final ScanSchemaOrchestrator scanOrchestrator;
@@ -217,7 +218,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     // Do the table-schema level projection; the final matching
     // of projected columns to available columns.
 
-    TupleMetadata readerSchema = tableLoader.harvestSchema();
+    TupleMetadata readerSchema = tableLoader.outputSchema();
     if (scanOrchestrator.schemaSmoother != null) {
       doSmoothedProjection(readerSchema);
     } else {

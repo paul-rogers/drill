@@ -49,6 +49,7 @@ import org.junit.experimental.categories.Category;
  * parsing; the only bits not tested here is that which is
  * inherently specific to some use case.
  */
+// Reviewed
 @Category(RowSetTests.class)
 public class TestTupleProjection extends BaseTest {
 

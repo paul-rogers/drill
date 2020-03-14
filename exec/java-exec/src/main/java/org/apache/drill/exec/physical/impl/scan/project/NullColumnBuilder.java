@@ -35,7 +35,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * set of non-empty null columns. This class acts as a scan-wide
  * facade around the per-schema null column loader.
  */
-
+// Converted
 public class NullColumnBuilder implements VectorSource {
 
   public static class NullBuilderBuilder {

@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * null column builder, etc.) to the output batch. Thus the columns
  * here are placeholders to be rewritten once more data is available.
  */
+// Converted
 public abstract class AbstractUnresolvedColumn implements ColumnProjection {
 
   /**

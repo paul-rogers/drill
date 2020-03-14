@@ -27,6 +27,7 @@ import org.apache.drill.exec.record.MaterializedField;
  * Resolved value for a metadata column (implicit file or partition column.) Resolution
  * here means identifying a value for the column.
  */
+// Converted
 public abstract class MetadataColumn extends ResolvedColumn implements ConstantColumnSpec {
 
   private final MaterializedField schema;

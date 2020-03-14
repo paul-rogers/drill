@@ -58,6 +58,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
  * @see {@link ImplicitColumnExplorer}, the class from which this class
  * evolved
  */
+// Converted
 public class ReaderLevelProjection {
 
   /**

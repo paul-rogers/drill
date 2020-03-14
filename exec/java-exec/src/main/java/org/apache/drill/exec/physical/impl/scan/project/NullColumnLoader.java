@@ -56,7 +56,7 @@ import org.apache.drill.exec.record.metadata.MetadataUtils;
  * The above rules eliminate "trivia" schema changes, but can still result in
  * "hard" schema changes if a required type is replaced by a nullable type.
  */
-
+// Converted
 public class NullColumnLoader extends StaticColumnLoader {
 
   public interface NullColumnSpec {

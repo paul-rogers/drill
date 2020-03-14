@@ -25,6 +25,7 @@ import org.apache.drill.exec.physical.impl.scan.project.VectorSource;
  * columns are "synthetic" added by the scan framework itself
  * rather than "organic" coming from the scanned table.
  */
+// Converted
 public class FileMetadataColumn extends MetadataColumn {
 
   private final FileMetadataColumnDefn defn;

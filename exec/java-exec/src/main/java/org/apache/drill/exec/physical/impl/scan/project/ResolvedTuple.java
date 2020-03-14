@@ -112,7 +112,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * adding a level of cardinality computation to create the proper number of
  * "inner" values.
  */
-
+// Converted
 public abstract class ResolvedTuple implements VectorSource {
 
   /**

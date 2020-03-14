@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
  * this class abstracts out the schema logic. This allows a variety
  * of solutions as needed for different readers.
  */
+// Converted
 public class ShimBatchReader implements RowBatchReader, NegotiatorListener {
   static final Logger logger = LoggerFactory.getLogger(ShimBatchReader.class);
 

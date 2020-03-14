@@ -46,7 +46,7 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
  * details of another, supporting class, then tests for that class
  * appear elsewhere.
  */
-
+// Converted
 public class BaseScanOperatorExecTest extends SubOperatorTest {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseScanOperatorExecTest.class);
 

@@ -132,6 +132,10 @@ public class MetadataUtils {
     return new MapColumnMetadata(field, fromFields(field.getChildren()));
   }
 
+  public static MapColumnMetadata newMap(String name) {
+    return newMap(name, new TupleSchema());
+  }
+
   public static MapColumnMetadata newMap(String name, TupleMetadata schema) {
     return new MapColumnMetadata(name, DataMode.REQUIRED, (TupleSchema) schema);
   }
@@ -250,5 +254,58 @@ public class MetadataUtils {
       default:
         return false;
     }
+  }
+
+  public static ColumnMetadata newDynamic(String name) {
+    return new DynamicColumn(name);
+  }
+
+  public static ColumnMetadata wildcard() {
+    return DynamicColumn.WILDCARD_COLUMN;
+  }
+
+  public static boolean isWildcard(ColumnMetadata col) {
+    return col.isDynamic() &&
+           col.name().equals(DynamicColumn.WILDCARD);
+  }
+
+  public static ColumnMetadata cloneMapWithSchema(ColumnMetadata source,
+      TupleMetadata members) {
+    return new MapColumnMetadata(source.name(), source.mode(), (TupleSchema) members);
+  }
+
+  public static ColumnMetadata diffMap(ColumnMetadata map, ColumnMetadata other) {
+    TupleMetadata diff = diffTuple(map.tupleSchema(), other.tupleSchema());
+    if (!diff.isEmpty()) {
+      return MetadataUtils.cloneMapWithSchema(map, diff);
+    } else {
+      return null;
+    }
+  }
+
+  public static TupleMetadata diffTuple(TupleMetadata base,
+      TupleMetadata subtend) {
+    TupleMetadata diff = new TupleSchema();
+    for (ColumnMetadata col : base) {
+      ColumnMetadata other = subtend.metadata(col.name());
+      if (other == null) {
+        diff.addColumn(col);
+      } else if (col.isMap()) {
+        ColumnMetadata mapDiff = diffMap(col, other);
+        if (mapDiff != null) {
+          diff.addColumn(mapDiff);
+        }
+      }
+    }
+    return diff;
+  }
+
+  public static boolean hasDynamicColumns(TupleMetadata schema) {
+    for (ColumnMetadata col : schema) {
+      if (col.isDynamic()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

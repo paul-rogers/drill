@@ -62,6 +62,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * @See {AbstractScanFramework} for details.
  */
+// Converted
 public class FileScanFramework extends ManagedScanFramework {
   private static final Logger logger = LoggerFactory.getLogger(FileScanFramework.class);
 

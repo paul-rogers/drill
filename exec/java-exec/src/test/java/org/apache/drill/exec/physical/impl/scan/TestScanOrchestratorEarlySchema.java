@@ -59,6 +59,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   /**
    * Test SELECT * from an early-schema table of (a, b)
    */
+  // Converted
   @Test
   public void testEarlySchemaWildcard() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
@@ -140,6 +141,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * Test SELECT a, b FROM table(a, b)
    */
   @Test
+  // Converted
   public void testEarlySchemaSelectAll() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -233,6 +235,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * c will be null
    */
   @Test
+  // Converted
   public void testEarlySchemaSelectExtra() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -283,6 +286,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * c will be null of type VARCHAR
    */
   @Test
+  // Converted
   public void testEarlySchemaSelectExtraCustomType() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -338,6 +342,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * Test SELECT a FROM table(a, b)
    */
   @Test
+  // Converted
   public void testEarlySchemaSelectSubset() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -389,6 +394,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * Test SELECT - FROM table(a, b)
    */
   @Test
+  // Converted
   public void testEarlySchemaSelectNone() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -458,6 +464,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * Test SELECT * from an early-schema table of () (that is,
    * a schema that consists of zero columns.
    */
+  // Converted
   @Test
   public void testEmptySchema() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
@@ -498,6 +505,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * a schema that consists of zero columns.
    */
   @Test
+  // Converted
   public void testEmptySchemaExtra() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -548,6 +556,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * <tt>(a : BIGINT, b: VARCHAR)</tt>
    */
   @Test
+  // Obsolete
   public void testTypeSmoothingExplicit() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
     TupleMetadata table1Schema = new SchemaBuilder()
@@ -655,6 +664,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * separated by a different table) results in no schema change.
    */
   @Test
+  // Obsolete
   public void testTypeSmoothing() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
 
@@ -748,6 +758,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   }
 
   @Test
+  // Obsolete
   public void testModeSmoothing() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
     builder.enableSchemaSmoothing(true);
@@ -857,6 +868,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
    * reordering.
    */
   @Test
+  // Converted
   public void testColumnReordering() {
 
     ScanOrchestratorBuilder builder = new MockScanBuilder();

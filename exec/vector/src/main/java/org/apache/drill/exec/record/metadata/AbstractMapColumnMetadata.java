@@ -123,4 +123,10 @@ public abstract class AbstractMapColumnMetadata extends AbstractColumnMetadata {
    * @return type string representation
    */
   protected abstract String internalTypeString();
+
+  @Override
+  protected void appendContents(StringBuilder buf) {
+    buf.append(", schema: ")
+       .append(tupleSchema().toString());
+  }
 }

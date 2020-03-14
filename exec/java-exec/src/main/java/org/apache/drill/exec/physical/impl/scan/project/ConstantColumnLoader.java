@@ -42,7 +42,7 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * of the columns: it only cares that the columns are of type
  * nullable Varchar and that the values are in the column nodes.
  */
-
+// Converted
 public class ConstantColumnLoader extends StaticColumnLoader {
 
   public interface ConstantColumnSpec {

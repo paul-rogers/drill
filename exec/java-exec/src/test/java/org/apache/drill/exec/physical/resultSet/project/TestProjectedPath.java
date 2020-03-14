@@ -34,6 +34,7 @@ import org.junit.Test;
  * to see if the projection path is consistent with the type. Tests here
  * verify the consistency checks.
  */
+// Reviewed
 public class TestProjectedPath {
 
   // INT is a proxy for all scalar columns.

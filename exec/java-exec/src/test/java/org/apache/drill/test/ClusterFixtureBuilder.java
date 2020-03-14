@@ -89,7 +89,6 @@ public class ClusterFixtureBuilder {
     // TypeSafe gets unhappy about a leading slash, but other functions
     // require it. Silently discard the leading slash if given to
     // preserve the test writer's sanity.
-
     configBuilder.resource(ClusterFixture.trimSlash(configResource));
     return this;
   }
@@ -214,7 +213,6 @@ public class ClusterFixtureBuilder {
     usingZk = true;
 
     // Using ZK. Turn refresh wait back on.
-
     return configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
   }
 
@@ -236,7 +234,6 @@ public class ClusterFixtureBuilder {
     usingZk = true;
 
     // Using ZK. Turn refresh wait back on.
-
     configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
     return this;
   }

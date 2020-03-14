@@ -34,6 +34,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * along with a serialized record batch; each operator must rediscover
  * it after deserialization.
  */
+//Converted
 public abstract class ResolvedColumn implements ColumnProjection {
 
   private final VectorSource source;

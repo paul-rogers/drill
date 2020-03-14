@@ -112,6 +112,7 @@ import org.slf4j.LoggerFactory;
  * <li>The reader then releases its resources.</li>
  * </ul>
  */
+// Converted
 public class ManagedScanFramework implements ScanOperatorEvents {
   static final Logger logger = LoggerFactory.getLogger(ManagedScanFramework.class);
 

@@ -40,6 +40,7 @@ import org.junit.experimental.categories.Category;
  * Test "late schema" readers: those like JSON that discover their schema
  * as they read data.
  */
+// Converted
 @Category(RowSetTests.class)
 public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
 
@@ -47,7 +48,6 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * "Late schema" reader, meaning that the reader does not know the schema on
    * open, but must "discover" it when reading data.
    */
-
   private static class MockLateSchemaReader extends BaseMockBatchReader {
 
     public boolean returnDataOnFirst;
@@ -56,7 +56,6 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
     public boolean open(SchemaNegotiator schemaNegotiator) {
 
       // No schema or file, just build the table loader.
-
       tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
@@ -70,7 +69,6 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
       } else if (batchCount == 1) {
 
         // On first batch, pretend to discover the schema.
-
         RowSetLoader rowSet = tableLoader.writer();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         rowSet.addColumn(a);
@@ -94,46 +92,38 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * The purpose is to validate the most basic life-cycle steps before trying
    * more complex variations.
    */
-
   @Test
   public void testLateSchemaLifecycle() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
-
     assertFalse(reader.openCalled);
 
     // First batch: build schema. The reader does not help: it returns an
     // empty first batch.
-
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertEquals(1, reader.batchCount);
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Create the expected result.
-
     SingleRowSet expected = makeExpected(20);
     RowSetComparison verifier = new RowSetComparison(expected);
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 
     // Next call, return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -145,38 +135,32 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
   public void testLateSchemaLifecycleNoSchemaBatch() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
     // Create the scan operator
-
     BaseScanFixtureBuilder builder = simpleBuilder(reader);
     builder.enableSchemaBatch = false;
     ScanFixture scanFixture = builder.build();
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
-
     assertFalse(reader.openCalled);
 
     // Create the expected result.
 
     // First batch with data.
-
     assertTrue(scan.next());
     RowSetUtilities.verify(makeExpected(0),
         fixture.wrap(scan.batchAccessor().container()));
 
     // Second batch.
-
     assertTrue(scan.next());
     RowSetUtilities.verify(makeExpected(20),
         fixture.wrap(scan.batchAccessor().container()));
 
      // EOF
-
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -188,22 +172,18 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * Test the case that a late scan operator is closed before
    * the first reader is opened.
    */
-
   @Test
   public void testLateSchemaEarlyClose() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
 
     // Reader never opened.
-
     scanFixture.close();
     assertFalse(reader.openCalled);
     assertEquals(0, reader.batchCount);
@@ -214,27 +194,22 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * Test the case that a late schema reader is closed after discovering
    * schema, before any calls to next().
    */
-
   @Test
   public void testLateSchemaEarlyReaderClose() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Get the schema as above.
-
     assertTrue(scan.buildSchema());
 
     // No lookahead batch created.
-
     scanFixture.close();
     assertEquals(1, reader.batchCount);
     assertTrue(reader.closeCalled);
@@ -244,27 +219,22 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * Test the case that a late schema reader is closed before
    * consuming the look-ahead batch used to infer schema.
    */
-
   @Test
   public void testLateSchemaEarlyCloseWithData() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Get the schema as above.
-
     assertTrue(scan.buildSchema());
 
     // Lookahead batch created.
-
     scanFixture.close();
     assertEquals(1, reader.batchCount);
     assertTrue(reader.closeCalled);
@@ -274,46 +244,38 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
    * Test a late-schema source that has no file information.
    * (Like a Hive or JDBC data source.)
    */
-
   @Test
   public void testLateSchemaLifecycleNoFile() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
-
     assertFalse(reader.openCalled);
 
     // First batch: build schema. The reader helps: it returns an
     // empty first batch.
-
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertEquals(1, reader.batchCount);
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Create the expected result.
-
     SingleRowSet expected = makeExpected(20);
     RowSetComparison verifier = new RowSetComparison(expected);
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 
     // Next call, return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -325,22 +287,18 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
   public void testLateSchemaNoData() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 0;
     reader.returnDataOnFirst = false;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
-
     assertFalse(reader.openCalled);
 
     // First batch: EOF.
-
     assertFalse(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertTrue(reader.closeCalled);
@@ -351,23 +309,19 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
   public void testLateSchemaDataOnFirst() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 1;
     reader.returnDataOnFirst = true;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // Standard startup
-
     assertFalse(reader.openCalled);
 
     // First batch: build schema. The reader helps: it returns an
     // empty first batch.
-
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertEquals(1, reader.batchCount);
@@ -378,12 +332,10 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 
     // Next call, return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -397,7 +349,6 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
   * split the first batch into two: one with schema only, another with
   * data.
   */
-
  @Test
  public void testNonEmptyFirstBatch() {
    SingleRowSet expected = makeExpected();
@@ -411,7 +362,6 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
 
    // First batch. The reader returns a non-empty batch. The scan
    // operator strips off the schema and returns just that.
-
    assertTrue(scan.buildSchema());
    assertEquals(1, reader.batchCount);
    assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
@@ -420,26 +370,22 @@ public class TestScanOperExecLateSchema extends BaseScanOperatorExecTest {
 
    // Second batch. Returns the "look-ahead" batch returned by
    // the reader earlier.
-
    assertTrue(scan.next());
    assertEquals(1, reader.batchCount);
    RowSetUtilities.verify(expected,
      fixture.wrap(scan.batchAccessor().container()));
 
    // Third batch, normal case.
-
    assertTrue(scan.next());
    assertEquals(2, reader.batchCount);
    RowSetUtilities.verify(makeExpected(20),
      fixture.wrap(scan.batchAccessor().container()));
 
    // EOF
-
    assertFalse(scan.next());
    assertTrue(reader.closeCalled);
    assertEquals(0, scan.batchAccessor().rowCount());
 
    scanFixture.close();
  }
-
 }

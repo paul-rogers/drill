@@ -48,6 +48,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * filled in by the scan projector (assuming, of course, that "c"
  * is nullable or an array.)
  */
+// Converted
 public class SchemaNegotiatorImpl implements SchemaNegotiator {
 
   public interface NegotiatorListener {

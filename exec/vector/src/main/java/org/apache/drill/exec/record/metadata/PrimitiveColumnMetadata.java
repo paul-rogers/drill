@@ -95,7 +95,7 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
   }
 
   @Override
-  public ColumnMetadata.StructureType structureType() { return ColumnMetadata.StructureType.PRIMITIVE; }
+  public ColumnMetadata.StructureType structureType() { return StructureType.PRIMITIVE; }
 
   @Override
   public int expectedWidth() {

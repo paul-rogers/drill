@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+// Converted
 @Category(RowSetTests.class)
 public class TestImplicitColumnParser extends SubOperatorTest {
 

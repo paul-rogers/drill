@@ -27,7 +27,7 @@ import org.apache.hadoop.fs.Path;
  * that is not also part of the selection root. That is, if selection root is
  * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
  */
-
+// Converted
 public class FileMetadata {
 
   private final Path filePath;

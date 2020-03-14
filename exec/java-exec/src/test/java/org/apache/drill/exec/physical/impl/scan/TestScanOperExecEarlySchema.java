@@ -35,13 +35,13 @@ import org.junit.experimental.categories.Category;
  * Test "early schema" readers: those that can declare a schema at
  * open time.
  */
+// Converted
 @Category(RowSetTests.class)
 public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
 
   /**
    * Mock reader that returns no schema and no records.
    */
-
   private static class MockNullEarlySchemaReader extends BaseMockBatchReader {
 
     @Override
@@ -60,12 +60,10 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
   public void testEarlySchemaLifecycle() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 1;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
@@ -73,29 +71,24 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     RowSetComparison verifier = new RowSetComparison(expected);
 
     // First batch: return schema.
-
     assertTrue(scan.buildSchema());
     assertEquals(0, reader.batchCount);
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Next call, return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Next again: no-op
-
     assertFalse(scan.next());
     scanFixture.close();
 
     // Close again: no-op
-
     scan.close();
   }
 
@@ -103,12 +96,10 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
   public void testEarlySchemaLifecycleNoSchemaBatch() {
 
     // Create a mock reader, return one batch with data.
-
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 1;
 
     // Create the scan operator
-
     BaseScanFixtureBuilder builder = simpleBuilder(reader);
     builder.enableSchemaBatch = false;
     ScanFixture scanFixture = builder.build();
@@ -118,22 +109,18 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     RowSetComparison verifier = new RowSetComparison(expected);
 
     // First batch: return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Next again: no-op
-
     assertFalse(scan.next());
     scanFixture.close();
 
     // Close again: no-op
-
     scan.close();
   }
 
@@ -155,12 +142,10 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
   public void testEarlySchemaDataWithEof() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
-
     MockEarlySchemaReader3 reader = new MockEarlySchemaReader3();
     reader.batchLimit = 1;
 
     // Create the scan operator
-
     ScanFixture scanFixture = simpleFixture(reader);
     ScanOperatorExec scan = scanFixture.scanOp;
 
@@ -168,27 +153,22 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     RowSetComparison verifier = new RowSetComparison(expected);
 
     // First batch: return schema.
-
     assertTrue(scan.buildSchema());
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Next call, return with data.
-
     assertTrue(scan.next());
     verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().container()));
 
     // EOF
-
     assertFalse(scan.next());
     assertEquals(0, scan.batchAccessor().rowCount());
 
     // Next again: no-op
-
     assertFalse(scan.next());
     scanFixture.close();
 
     // Close again: no-op
-
     scan.close();
   }
 
@@ -205,7 +185,6 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // EOF
-
     assertFalse(scan.buildSchema());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -224,7 +203,6 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
 
     // EOF. Returns a single empty batch with early schema
     // in order to provide an empty result set.
-
     assertTrue(scan.next());
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());
@@ -241,7 +219,6 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
    * Test normal case with multiple readers. These return
    * the same schema, so no schema change.
    */
-
   @Test
   public void testMultipleReaders() {
     MockNullEarlySchemaReader nullReader = new MockNullEarlySchemaReader();
@@ -257,20 +234,17 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     ScanOperatorExec scan = scanFixture.scanOp;
 
     // First batch, schema only.
-
     assertTrue(scan.buildSchema());
     assertEquals(1, scan.batchAccessor().schemaVersion());
     scan.batchAccessor().release();
 
     // Second batch.
-
     assertTrue(scan.next());
     assertEquals(1, reader1.batchCount);
     assertEquals(1, scan.batchAccessor().schemaVersion());
     verifyBatch(0, scan.batchAccessor().container());
 
     // Third batch.
-
     assertTrue(scan.next());
     assertEquals(2, reader1.batchCount);
     assertEquals(1, scan.batchAccessor().schemaVersion());
@@ -278,7 +252,6 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
 
     // Second reader. First batch includes data, no special first-batch
     // handling for the second reader.
-
     assertFalse(reader1.closeCalled);
     assertFalse(reader2.openCalled);
     assertTrue(scan.next());
@@ -289,14 +262,12 @@ public class TestScanOperExecEarlySchema extends BaseScanOperatorExecTest {
     verifyBatch(100, scan.batchAccessor().container());
 
     // Second batch from second reader.
-
     assertTrue(scan.next());
     assertEquals(2, reader2.batchCount);
     assertEquals(1, scan.batchAccessor().schemaVersion());
     verifyBatch(120, scan.batchAccessor().container());
 
     // EOF
-
     assertFalse(scan.next());
     assertTrue(reader2.closeCalled);
     assertEquals(0, scan.batchAccessor().rowCount());

@@ -43,6 +43,7 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.test.OperatorFixture;
 
+// Converted
 public class ScanTestUtils {
 
   // Default file metadata column names; primarily for testing.
@@ -101,7 +102,7 @@ public class ScanTestUtils {
 
   public static class ScanFixture {
 
-    private OperatorContext opContext;
+    private final OperatorContext opContext;
     public ScanOperatorExec scanOp;
 
     public ScanFixture(OperatorContext opContext, ScanOperatorExec scanOp) {

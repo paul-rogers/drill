@@ -51,7 +51,7 @@ package org.apache.drill.exec.physical.impl.scan.framework;
  * from any method. A <tt>UserException</tt> is preferred to provide
  * detailed information about the source of the problem.
  */
-
+// Converted
 public interface ManagedReader<T extends SchemaNegotiator> {
 
   /**

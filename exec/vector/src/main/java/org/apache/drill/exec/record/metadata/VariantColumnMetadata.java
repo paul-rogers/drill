@@ -184,4 +184,10 @@ public class VariantColumnMetadata extends AbstractColumnMetadata {
           .setMode(DataMode.OPTIONAL)
           .build());
   }
+
+  @Override
+  protected void appendContents(StringBuilder buf) {
+    buf.append(", variant: ")
+       .append(variantSchema().toString());
+  }
 }

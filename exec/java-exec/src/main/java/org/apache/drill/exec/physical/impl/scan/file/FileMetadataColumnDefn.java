@@ -27,7 +27,7 @@ import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumn;
  * Provides the static definition, along
  * with the name set for the implicit column in the session options for the query.
  */
-
+// Converted
 public class FileMetadataColumnDefn {
   public final ImplicitFileColumn defn;
   public final String colName;

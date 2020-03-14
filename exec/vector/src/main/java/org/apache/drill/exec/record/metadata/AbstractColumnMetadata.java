@@ -148,9 +148,10 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
   public boolean isMultiList() { return false; }
 
   @Override
-  public boolean isDict() {
-    return false;
-  }
+  public boolean isDict() { return false; }
+
+  @Override
+  public boolean isDynamic() { return false; }
 
   @Override
   public TupleMetadata tupleSchema() { return null; }
@@ -274,18 +275,7 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
         .append(getClass().getSimpleName())
         .append(" ")
         .append(schema().toString(false));
-    if (variantSchema() != null) {
-      buf.append(", variant: ")
-         .append(variantSchema().toString());
-    }
-    if (childSchema() != null) {
-      buf.append(", child: ")
-         .append(childSchema().toString());
-    }
-    if (tupleSchema() != null) {
-      buf.append(", schema: ")
-         .append(tupleSchema().toString());
-    }
+    appendContents(buf);
     if (hasProperties()) {
       buf.append(", properties: ")
         .append(properties());
@@ -294,6 +284,8 @@ public abstract class AbstractColumnMetadata extends AbstractPropertied implemen
         .append("]")
         .toString();
   }
+
+  protected void appendContents(StringBuilder buf) { }
 
   @JsonProperty("type")
   @Override

@@ -97,6 +97,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
  * in the scan, with which types. Today this is a strong guideline.
  * Future versions may enforce this rule.
  */
+// Converted
 public interface SchemaNegotiator {
 
   OperatorContext context();

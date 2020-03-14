@@ -43,7 +43,6 @@ import io.netty.buffer.DrillBuf;
  * Test of the "legacy" scan batch writers to ensure that the revised
  * set follows the same semantics as the original set.
  */
-
 @Category(RowSetTests.class)
 public class TestScanBatchWriters extends SubOperatorTest {
 
@@ -59,23 +58,19 @@ public class TestScanBatchWriters extends SubOperatorTest {
     OperatorContext opContext = fixture.newOperatorContext(scanConfig);
 
     // Setup: normally done by ScanBatch
-
     VectorContainer container = new VectorContainer(fixture.allocator());
     OutputMutator output = new ScanBatch.Mutator(opContext, fixture.allocator(), container);
     DrillBuf buffer = opContext.getManagedBuffer();
 
     // One-time setup
-
     try (VectorContainerWriter writer = new VectorContainerWriter(output)) {
 
       // Per-batch
-
       writer.allocate();
       writer.reset();
       BaseWriter.MapWriter map = writer.rootAsMap();
 
       // Write one record (10, "Fred", [100, 110, 120] )
-
       map.integer("a").writeInt(10);
       byte[] bytes = "Fred".getBytes("UTF-8");
       buffer.setBytes(0, bytes, 0, bytes.length);
@@ -88,7 +83,6 @@ public class TestScanBatchWriters extends SubOperatorTest {
         list.endList();
 
         // Write another record: (20, "Wilma", [])
-
         writer.setPosition(1);
         map.integer("a").writeInt(20);
         bytes = "Wilma".getBytes("UTF-8");
@@ -97,14 +91,12 @@ public class TestScanBatchWriters extends SubOperatorTest {
         writer.setValueCount(2);
 
         // Wrap-up done by ScanBatch
-
         container.setRecordCount(2);
         container.buildSchema(SelectionVectorMode.NONE);
 
         RowSet rowSet = fixture.wrap(container);
 
         // Expected
-
         TupleMetadata schema = new SchemaBuilder()
             .addNullable("a", MinorType.INT)
             .addNullable("b", MinorType.VARCHAR)

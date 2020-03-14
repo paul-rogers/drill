@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * Parses the implicit file metadata columns out of a project list,
  * and marks them for special handling by the file metadata manager.
  */
-
+// Converted
 public class FileMetadataColumnsParser implements ScanProjectionParser {
   private static final Logger logger = LoggerFactory.getLogger(FileMetadataColumnsParser.class);
 

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// Converted
 /**
  * Provides run-time semantic analysis of the projection list for the
  * scan operator. The project list can include table columns and a

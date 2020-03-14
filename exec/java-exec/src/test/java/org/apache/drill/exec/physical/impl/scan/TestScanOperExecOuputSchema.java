@@ -45,6 +45,7 @@ import org.junit.experimental.categories.Category;
  * defines the schema to be output from the scan operator, and forces
  * conversions between reader and output data types.
  */
+// Converted
 @Category(RowSetTests.class)
 public class TestScanOperExecOuputSchema extends BaseScanOperatorExecTest {
 

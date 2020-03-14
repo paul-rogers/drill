@@ -62,6 +62,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * <p>
  * This is the successor to {@link org.apache.drill.exec.store.ColumnExplorer}.
  */
+// Converted
 public class ImplicitColumnManager implements MetadataManager, ReaderProjectionResolver, VectorSource {
 
   /**
@@ -77,7 +78,7 @@ public class ImplicitColumnManager implements MetadataManager, ReaderProjectionR
     private List<Path> files;
 
     /**
-     * Historically Drill will expand parition columns (dir0, dir1, ...)
+     * Historically Drill will expand partition columns (dir0, dir1, ...)
      * when the project list includes a wildcard.
      */
     protected boolean useLegacyWildcardExpansion = true;

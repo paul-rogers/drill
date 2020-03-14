@@ -135,6 +135,7 @@ import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTes
  * @see {@link ImplicitColumnExplorer}, the class from which this class
  * evolved
  */
+// Converted
 public class ScanLevelProjection {
 
   /**
@@ -406,7 +407,7 @@ public class ScanLevelProjection {
       }
       rootProjection = Projections.build(outputProj);
     }
-    readerProjection = ProjectionFilter.filterFor(
+    readerProjection = ProjectionFilter.providedSchemaFilter(
         rootProjection, readerSchema, errorContext);
   }
 
