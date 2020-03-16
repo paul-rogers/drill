@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -26,13 +25,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 @JsonTypeName("http-sub-scan")
@@ -103,17 +102,16 @@ public class HttpSubScan extends AbstractBase implements SubScan {
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-      .add("tableSpec", tableSpec)
-      .add("columns", columns)
-      .add("config", config)
+    return new PlanStringBuilder(this)
+      .field("tableSpec", tableSpec)
+      .field("columns", columns)
+      .field("config", config)
       .toString();
   }
 
   @Override
   public int hashCode() {
-    return Arrays.hashCode(
-      new Object[]{tableSpec, columns, config});
+    return Objects.hash(tableSpec,columns,config);
   }
 
   @Override

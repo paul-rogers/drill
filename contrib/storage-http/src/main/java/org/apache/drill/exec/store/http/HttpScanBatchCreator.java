@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.http;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -28,7 +29,6 @@ import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,12 +41,9 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
     Preconditions.checkArgument(children == null || children.isEmpty());
 
     HttpStoragePluginConfig config = subScan.config();
-    List<RecordReader> readers = Lists.newArrayList();
-    List<SchemaPath> columns;
+    List<RecordReader> readers = new ArrayList<>();
 
-    if ((columns = subScan.columns()) == null) {
-      columns = GroupScan.ALL_COLUMNS;
-    }
+    List<SchemaPath> columns = subScan.columns() == null ? GroupScan.ALL_COLUMNS : subScan.columns();
     readers.add(new HttpRecordReader(context, columns, config, subScan));
 
     return new ScanBatch(subScan, context, readers);

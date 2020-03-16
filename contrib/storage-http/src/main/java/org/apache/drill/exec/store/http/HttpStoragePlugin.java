@@ -24,7 +24,6 @@ import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import java.io.IOException;
 
@@ -54,18 +53,13 @@ public class HttpStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public DrillbitContext getContext() {
-    return context;
-  }
-
-  @Override
   public boolean supportsRead() {
     return true;
   }
 
   @Override
   public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    HttpScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HttpScanSpec>() {});
+    HttpScanSpec scanSpec = selection.getListWith(context.getLpPersistence().getMapper(), new TypeReference<HttpScanSpec>() {});
     return new HttpGroupScan(engineConfig, scanSpec, null);
   }
 }

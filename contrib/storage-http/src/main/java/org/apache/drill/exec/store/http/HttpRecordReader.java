@@ -18,6 +18,7 @@
 
 package org.apache.drill.exec.store.http;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
@@ -45,8 +46,9 @@ public class HttpRecordReader extends JSONRecordReader {
   /**
    * Executes the HTTP request and returns an InputStream to the retrieved data
    * @return InputStream the InputStream containing the data
+   * @throws UserException Throws a UserException if unable to return an open InputStream.
    */
-  private InputStream getInputStream() {
+  private InputStream getInputStream() throws UserException {
     String url = subScan.getFullURL();
     return http.getInputStream(url);
   }

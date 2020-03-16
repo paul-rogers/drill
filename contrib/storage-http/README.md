@@ -33,8 +33,8 @@ The `connection` can accept the following options:
 .  The format is:
 ```json
 headers: {
-   "key1":, "Value1",
-   "key2", "Value2"
+   "key1": "Value1",
+   "key2": "Value2"
 }
 ```
 * `authType`: If your API requires authentication, specify the authentication type. At the time of implementation, the plugin only supports basic authentication, however, the
@@ -74,45 +74,44 @@ FROM <plugin>.<connection>.<arguments>
 The API sunrise-sunset.org returns data in the following format:
 
  ```json
-   {
-         "results":
-         {
-           "sunrise":"7:27:02 AM",
-           "sunset":"5:05:55 PM",
-           "solar_noon":"12:16:28 PM",
-           "day_length":"9:38:53",
-           "civil_twilight_begin":"6:58:14 AM",
-           "civil_twilight_end":"5:34:43 PM",
-           "nautical_twilight_begin":"6:25:47 AM",
-           "nautical_twilight_end":"6:07:10 PM",
-           "astronomical_twilight_begin":"5:54:14 AM",
-           "astronomical_twilight_end":"6:38:43 PM"
-         },
-          "status":"OK"
-       }
-   }
+ "results":
+ {
+   "sunrise":"7:27:02 AM",
+   "sunset":"5:05:55 PM",
+   "solar_noon":"12:16:28 PM",
+   "day_length":"9:38:53",
+   "civil_twilight_begin":"6:58:14 AM",
+   "civil_twilight_end":"5:34:43 PM",
+   "nautical_twilight_begin":"6:25:47 AM",
+   "nautical_twilight_end":"6:07:10 PM",
+   "astronomical_twilight_begin":"5:54:14 AM",
+   "astronomical_twilight_end":"6:38:43 PM"
+ },
+  "status":"OK"
+}
 ```
 To query this API, set the configuration as follows:
 
 ```json
-{
+
  {
    "type": "http",
    "cacheResults": false,
    "enabled": true,
-   "timeout" 5,
+   "timeout": 5,
    "connections": {
      "sunrise": {
        "url": "https://api.sunrise-sunset.org/",
-       "method": "get",
+       "method": "GET",
        "headers": null,
        "authType": "none",
        "userName": null,
        "password": null,
        "postBody": null
      }
-   },
+   }
 }
+
 ```
 Then, to execute a query:
 ```sql
@@ -138,11 +137,11 @@ To connect Drill to JIRA Cloud, use the following configuration:
 {
   "type": "http",
   "cacheResults": false,
-  "timeout" 5,
+  "timeout": 5,
   "connections": {
     "sunrise": {
       "url": "https://api.sunrise-sunset.org/",
-      "method": "get",
+      "method": "GET",
       "headers": null,
       "authType": "none",
       "userName": null,
@@ -151,7 +150,7 @@ To connect Drill to JIRA Cloud, use the following configuration:
     },
     "jira": {
       "url": "https://<project>.atlassian.net/rest/api/3/",
-      "method": "get",
+      "method": "GET",
       "headers": {
         "Accept": "application/json"
       },
@@ -212,7 +211,8 @@ ORDER BY issue_count DESC
  3. This plugin does not implement filter pushdowns. Filter pushdown has the potential to improve performance.
  
  4. This plugin only reads JSON responses. Future functionality may include the ability to parse XML, CSV or other common rest responses.
-  
+ 
+ 5. At this time `POST` bodies can only be in the format of KV pairs. Some APIs accept JSON based `POST` bodies and this is not currently supported.
 
 
 

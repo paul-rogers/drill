@@ -17,6 +17,7 @@
  */
 
 package org.apache.drill.exec.store.http;
+
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -29,11 +30,14 @@ import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 import okio.Okio;
 import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.shaded.guava.com.google.common.io.Files;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -61,12 +65,13 @@ import java.util.concurrent.TimeUnit;
 public class TestHttpPlugin extends ClusterTest {
   private static final Logger logger = LoggerFactory.getLogger(TestHttpPlugin.class);
 
-  private final String TEST_JSON_RESPONSE = "{\"results\":{\"sunrise\":\"6:13:58 AM\",\"sunset\":\"5:59:55 PM\",\"solar_noon\":\"12:06:56 PM\",\"day_length\":\"11:45:57\"," +
-    "\"civil_twilight_begin\":\"5:48:14 AM\",\"civil_twilight_end\":\"6:25:38 PM\",\"nautical_twilight_begin\":\"5:18:16 AM\",\"nautical_twilight_end\":\"6:55:36 PM\",\"astronomical_twilight_begin\":\"4:48:07 AM\",\"astronomical_twilight_end\":\"7:25:45 PM\"},\"status\":\"OK\"}";
+  private static String TEST_JSON_RESPONSE;
 
   @BeforeClass
   public static void setup() throws Exception {
     startCluster(ClusterFixture.builder(dirTestWatcher));
+
+    TEST_JSON_RESPONSE = Files.asCharSource(DrillFileUtils.getResourceAsFile("/data/response.json"), Charsets.UTF_8).read();
 
     dirTestWatcher.copyResourceToRoot(Paths.get("data/"));
 
@@ -76,14 +81,14 @@ public class TestHttpPlugin extends ClusterTest {
     headers.put("header1", "value1");
     headers.put("header2", "value2");
 
-    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8091/", "get", headers, "basic", "user", "pass",null);
+    HttpAPIConfig mockConfig = new HttpAPIConfig("http://localhost:8091/", "GET", headers, "basic", "user", "pass",null);
 
-    HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "get", null, null, null, null, null);
+    HttpAPIConfig sunriseConfig = new HttpAPIConfig("https://api.sunrise-sunset.org/", "GET", null, null, null, null, null);
 
     HttpAPIConfig stockConfig = new HttpAPIConfig("https://api.worldtradingdata.com/api/v1/stock?symbol=SNAP,TWTR,VOD" +
       ".L&api_token=zuHlu2vZaehdZN6GmJdTiVlp7xgZn6gl6sfgmI4G6TY4ej0NLOzvy0TUl4D4", "get", null, null, null, null, null);
 
-    HttpAPIConfig mockPostConfig = new HttpAPIConfig("http://localhost:8091/", "post", headers, null, null, null,"key1=value1\nkey2=value2");
+    HttpAPIConfig mockPostConfig = new HttpAPIConfig("http://localhost:8091/", "POST", headers, null, null, null,"key1=value1\nkey2=value2");
 
     Map<String, HttpAPIConfig> configs = new HashMap<>();
     configs.put("stock", stockConfig);

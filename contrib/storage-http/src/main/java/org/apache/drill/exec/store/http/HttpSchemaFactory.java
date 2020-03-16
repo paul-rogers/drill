@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractSchemaFactory;
@@ -77,16 +76,13 @@ public class HttpSchemaFactory extends AbstractSchemaFactory {
 
     @Override
     public AbstractSchema getSubSchema(String name) {
-      try {
-        if (!plugin.getConfig().connections().containsKey(name)) {
-          throw UserException
-            .connectionError()
-            .message("API '{}' does not exist in HTTP Storage plugin '{}'", name, getName())
-            .build(logger);
-        }
+      if (plugin.getConfig().connections().containsKey(name)) {
         return getSubSchemaKnownExists(name);
-      } catch (Exception e) {
-        throw new DrillRuntimeException(e);
+      } else {
+        throw UserException
+          .connectionError()
+          .message("API '{}' does not exist in HTTP Storage plugin '{}'", name, getName())
+          .build(logger);
       }
     }
 

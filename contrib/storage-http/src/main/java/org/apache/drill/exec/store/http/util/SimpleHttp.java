@@ -26,8 +26,8 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import org.apache.drill.exec.util.DirectoryUtils;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.store.http.HttpAPIConfig;
 import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
@@ -69,30 +69,24 @@ public class SimpleHttp {
   public InputStream getInputStream(String urlStr) {
     Request.Builder requestBuilder;
 
+    requestBuilder = new Request.Builder().url(urlStr);
+
     // The configuration does not allow for any other request types other than POST and GET.
-    if (apiConfig.method().equals("get")) {
-      // Handle GET requests
-      requestBuilder = new Request.Builder().url(urlStr);
-    } else {
+    if (apiConfig.method().equals("POST")) {
       // Handle POST requests
       FormBody.Builder formBodyBuilder = buildPostBody();
-      requestBuilder = new Request.Builder()
-        .url(urlStr)
-        .post(formBodyBuilder.build());
+      requestBuilder.post(formBodyBuilder.build());
     }
 
     // Add headers to request
     if (apiConfig.headers() != null) {
       for (Map.Entry<String, String> entry : apiConfig.headers().entrySet()) {
-        String key = entry.getKey();
-        String value = entry.getValue();
-        requestBuilder.addHeader(key, value);
+        requestBuilder.addHeader(entry.getKey(), entry.getValue());
       }
     }
 
     // Build the request object
     Request request = requestBuilder.build();
-    logger.debug("Headers: {}", request.headers());
 
     try {
       // Execute the request
@@ -166,18 +160,14 @@ public class SimpleHttp {
     String drillTempDir;
 
     try {
-      if (context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR) != null) {
-        drillTempDir = context.getOptions().getOption(ExecConstants.DRILL_TMP_DIR).string_val;
-      } else {
-        drillTempDir = System.getenv("DRILL_TMP_DIR");
-      }
+      drillTempDir = DirectoryUtils.getDrillTempDirectory(context);
+
       File cacheDirectory = new File(drillTempDir);
       if (cacheDirectory == null) {
         logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
       } else {
         Cache cache = new Cache(cacheDirectory, cacheSize);
         logger.debug("Caching HTTP Query Results at: {}", drillTempDir);
-
         builder.cache(cache);
       }
     } catch (Exception e) {
@@ -192,10 +182,10 @@ public class SimpleHttp {
    *
    * and creates the appropriate headers.
    *
-   * @return FormBodu.Builder The populated formbody builder
+   * @return FormBody.Builder The populated formbody builder
    */
   private FormBody.Builder buildPostBody() {
-    final Pattern postBpdyPattern = Pattern.compile("^.+=.+$");
+    final Pattern postBodyPattern = Pattern.compile("^.+=.+$");
 
     FormBody.Builder formBodyBuilder = new FormBody.Builder();
     String[] lines = apiConfig.postBody().split("\\r?\\n");
@@ -203,7 +193,7 @@ public class SimpleHttp {
 
       // If the string is in the format key=value split it,
       // Otherwise ignore
-      if (postBpdyPattern.matcher(line).find()) {
+      if (postBodyPattern.matcher(line).find()) {
         //Split into key/value
         String[] parts = line.split("=");
         formBodyBuilder.add(parts[0], parts[1]);
@@ -220,13 +210,11 @@ public class SimpleHttp {
 
     public BasicAuthInterceptor(String user, String password) {
       credentials = Credentials.basic(user, password);
-      logger.debug("Intercepting request adding creds: {}", credentials);
     }
 
     @NotNull
     @Override
     public Response intercept(Chain chain) throws IOException {
-      logger.debug("Adding headers post intercept{}", credentials);
       // Get the existing request
       Request request = chain.request();
 

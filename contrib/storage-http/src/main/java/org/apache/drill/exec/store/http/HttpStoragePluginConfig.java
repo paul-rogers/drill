@@ -17,11 +17,10 @@
  */
 package org.apache.drill.exec.store.http;
 
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.apache.drill.shaded.guava.com.google.common.base.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +33,6 @@ import java.util.Optional;
 
 @JsonTypeName(HttpStoragePluginConfig.NAME)
 public class HttpStoragePluginConfig extends StoragePluginConfigBase {
-  private static final Logger logger = LoggerFactory.getLogger(HttpStoragePluginConfig.class);
 
   public static final String NAME = "http";
 
@@ -48,15 +46,14 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public HttpStoragePluginConfig(@JsonProperty("cacheResults") boolean cacheResults,
                                  @JsonProperty("connections") Map<String, HttpAPIConfig> connections,
                                  @JsonProperty("timeout") int timeout) {
-    logger.debug("Initialize HttpStoragePluginConfig {}", connections);
     this.cacheResults = cacheResults;
 
-    if (connections != null) {
+    if (connections == null) {
+      this.connections = new HashMap<>();
+    } else {
       Map<String, HttpAPIConfig> caseInsensitiveAPIs = CaseInsensitiveMap.newHashMap();
       Optional.of(connections).ifPresent(caseInsensitiveAPIs::putAll);
       this.connections = caseInsensitiveAPIs;
-    } else {
-      this.connections = new HashMap<>();
     }
 
     this.timeout = timeout;
@@ -75,8 +72,17 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   }
 
   @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+      .field("connections", connections)
+      .field("cacheResults", cacheResults)
+      .field("timeout", timeout)
+      .toString();
+  }
+
+  @Override
   public int hashCode() {
-    return Objects.hashCode(cacheResults, connections);
+    return Objects.hashCode(cacheResults, connections, timeout);
   }
 
   @JsonProperty("cacheResults")

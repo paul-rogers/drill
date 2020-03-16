@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
+import org.apache.drill.common.PlanStringBuilder;
 
 @JsonTypeName("http-scan-spec")
 public class HttpScanSpec {
@@ -62,11 +62,11 @@ public class HttpScanSpec {
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-      .add("schemaName", schemaName)
-      .add("database", database)
-      .add("tableName", tableName)
-      .add("config", config)
+    return new PlanStringBuilder(this)
+      .field("schemaName", schemaName)
+      .field("database", database)
+      .field("tableName", tableName)
+      .field("config", config)
       .toString();
   }
 }

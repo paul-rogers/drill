@@ -19,13 +19,17 @@
 package org.apache.drill.exec.store.http;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
+import org.apache.drill.common.PlanStringBuilder;
+import org.apache.parquet.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
 public class HttpAPIConfig {
+  private static final Logger logger = LoggerFactory.getLogger(HttpAPIConfig.class);
 
   private final String url;
 
@@ -49,12 +53,24 @@ public class HttpAPIConfig {
                        @JsonProperty("password") String password,
                        @JsonProperty("postBody") String postBody) {
 
-    // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
-    if (method.toLowerCase().equals("get") || method.toLowerCase().equals("post")) {
-      this.method = method.toLowerCase();
-    } else {
-      this.method = "get";
+    if (method == null) {
+      method = "GET";
     }
+
+    // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
+    switch (method) {
+      case "get":
+      case "GET":
+      case "post":
+      case "POST":
+        this.method = method.toUpperCase();
+        break;
+      default:
+        // Case for null or other HTTP Request types
+        logger.warn("HTTP/REST Plugin only supports GET and POST requests. Current config for {} uses method {}.", url, method);
+        this.method = "GET";
+    }
+
     this.headers = headers;
 
     // Put a trailing slash on the URL if it is missing
@@ -66,13 +82,10 @@ public class HttpAPIConfig {
 
     // Get the authentication method. Future functionality will include OAUTH2 authentication but for now
     // Accept either basic or none.  The default is none.
-    this.authType = (authType == null || authType.isEmpty()) ? "none" : authType;
+    this.authType = Strings.isNullOrEmpty(authType) ? "none" : authType;
     this.userName = userName;
     this.password = password;
     this.postBody = postBody;
-
-    // Validate the authentication type
-
   }
 
   @JsonProperty("url")
@@ -104,14 +117,14 @@ public class HttpAPIConfig {
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-      .add("url", url)
-      .add("method", method)
-      .add("headers", headers)
-      .add("authType", authType)
-      .add("username", userName)
-      .add("password", password)
-      .add("postBody", postBody)
+    return new PlanStringBuilder(this)
+      .field("url", url)
+      .field("method", method)
+      .field("headers", headers)
+      .field("authType", authType)
+      .field("username", userName)
+      .field("password", password)
+      .field("postBody", postBody)
       .toString();
   }
 

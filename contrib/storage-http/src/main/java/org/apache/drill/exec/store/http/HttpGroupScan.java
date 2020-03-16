@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.http;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -25,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.expression.SchemaPath;
 
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -33,17 +33,15 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
+import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 
 @JsonTypeName("http-scan")
 public class HttpGroupScan extends AbstractGroupScan {
-  private static final Logger logger = LoggerFactory.getLogger(HttpGroupScan.class);
 
-  private List<SchemaPath> columns;
+  private final List<SchemaPath> columns;
   private final HttpScanSpec httpScanSpec;
   private final HttpStoragePluginConfig config;
 
@@ -63,6 +61,13 @@ public class HttpGroupScan extends AbstractGroupScan {
     config = that.config();
     httpScanSpec = that.httpScanSpec();
     columns = that.getColumns();
+  }
+
+  public HttpGroupScan(HttpGroupScan that, List<SchemaPath> columns) {
+    super("no-user");
+    this.columns = columns;
+    this.config = that.config;
+    this.httpScanSpec = that.httpScanSpec;
   }
 
   @JsonCreator
@@ -88,7 +93,8 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public void applyAssignments(List<DrillbitEndpoint> endpoints) {
-    logger.debug("HttpGroupScan applyAssignments");
+    // No filter pushdowns yet, so this method does nothing
+    return;
   }
 
   @Override
@@ -104,15 +110,12 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public SubScan getSpecificScan(int minorFragmentId) {
-    logger.debug("HttpGroupScan getSpecificScan");
     return new HttpSubScan(config, httpScanSpec, columns);
   }
 
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
-    logger.debug("HttpGroupScan clone {}", columns);
-    HttpGroupScan newScan = new HttpGroupScan(this);
-    newScan.columns = columns;
+    HttpGroupScan newScan = new HttpGroupScan(this, columns);
     return newScan;
   }
 
@@ -129,26 +132,28 @@ public class HttpGroupScan extends AbstractGroupScan {
 
   @Override
   public ScanStats getScanStats() {
-    int colCount = columns.size();
     int estRowCount = 1;
-    int estDataSize = estRowCount * 200 * colCount;
-    int estCpuCost = 1;
+
+    int rowWidth = 200;
+    if (columns.size() == 0) { rowWidth = 100; }
+
+    int estDataSize = estRowCount * 200 * rowWidth;
+    int estCpuCost = DrillCostBase.PROJECT_CPU_COST;
     return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT,estRowCount, estCpuCost, estDataSize);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-      .add("httpScanSpec", httpScanSpec)
-      .add("columns", columns)
-      .add("httpStoragePluginConfig", config)
+    return new PlanStringBuilder(this)
+      .field("httpScanSpec", httpScanSpec)
+      .field("columns", columns)
+      .field("httpStoragePluginConfig", config)
       .toString();
   }
 
   @Override
   public int hashCode() {
-    return Arrays.hashCode(
-      new Object[]{httpScanSpec, columns, config});
+    return Objects.hash(httpScanSpec, columns, config);
   }
 
   @Override
