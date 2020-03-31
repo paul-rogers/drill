@@ -40,6 +40,9 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
 
   public final boolean cacheResults;
 
+  /**
+   * Timeout in seconds.
+   */
   public int timeout;
 
   @JsonCreator

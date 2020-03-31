@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
@@ -147,6 +148,11 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
     public JsonLoaderBuilder providedSchema(TupleMetadata providedSchema) {
       this.providedSchema = providedSchema;
+      return this;
+    }
+
+    public JsonLoaderBuilder standardOptions(OptionSet optionSet) {
+      this.options = new JsonLoaderOptions(optionSet);
       return this;
     }
 
@@ -292,8 +298,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   @Override // ErrorFactory
   public RuntimeException ioException(IOException e) {
     throw buildError(
-        UserException.dataReadError(e)
-          .addContext(errorContext));
+        UserException.dataReadError(e));
   }
 
   @Override // ErrorFactory

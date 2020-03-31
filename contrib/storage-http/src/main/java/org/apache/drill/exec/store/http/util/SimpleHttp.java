@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.store.http.HttpAPIConfig;
 import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
@@ -51,24 +52,25 @@ public class SimpleHttp {
   private static final Logger logger = LoggerFactory.getLogger(SimpleHttp.class);
 
   private final OkHttpClient client;
-
   private final HttpStoragePluginConfig config;
-
   private final HttpAPIConfig apiConfig;
-
   private final File tempDir;
+  private final CustomErrorContext errorContext;
 
-  public SimpleHttp(HttpStoragePluginConfig config, File tempDir, String connectionName) {
+  public SimpleHttp(HttpStoragePluginConfig config, File tempDir,
+      String connectionName, CustomErrorContext errorContext) {
     this.config = config;
     this.tempDir = tempDir;
     this.apiConfig = config.connections().get(connectionName);
-    client = setupHttpClient();
+    this.client = setupHttpClient();
+    this.errorContext = errorContext;
   }
 
   public InputStream getInputStream(String urlStr) {
     Request.Builder requestBuilder;
 
-    requestBuilder = new Request.Builder().url(urlStr);
+    requestBuilder = new Request.Builder()
+        .url(urlStr);
 
     // The configuration does not allow for any other request types other than POST and GET.
     if (apiConfig.method().equals("POST")) {
@@ -98,8 +100,8 @@ public class SimpleHttp {
         throw UserException
           .dataReadError()
           .message("Error retrieving data from HTTP Storage Plugin: " + response.code() + " " + response.message())
-          .addContext("URL", urlStr)
           .addContext("Response code", response.code())
+          .addContext(errorContext)
           .build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
@@ -111,7 +113,7 @@ public class SimpleHttp {
       throw UserException
         .dataReadError(e)
         .message("Error retrieving data from HTTP Storage Plugin: %s", e.getMessage())
-        .addContext("URL Requested" + urlStr)
+        .addContext(errorContext)
         .build(logger);
     }
   }
@@ -160,6 +162,7 @@ public class SimpleHttp {
         .message("Could not create the HTTP cache directory")
         .addContext("Path", cacheDirectory.getAbsolutePath())
         .addContext("Please check the temp directory or disable HTTP caching.")
+        .addContext(errorContext)
         .build(logger);
     }
     try {
@@ -171,6 +174,7 @@ public class SimpleHttp {
         .message("Could not create the HTTP cache")
         .addContext("Path", cacheDirectory.getAbsolutePath())
         .addContext("Please check the temp directory or disable HTTP caching.")
+        .addContext(errorContext)
         .build(logger);
     }
   }

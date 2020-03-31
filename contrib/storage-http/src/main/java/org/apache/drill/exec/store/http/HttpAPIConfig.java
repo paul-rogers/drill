@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.drill.exec.store.http;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -55,15 +54,15 @@ public class HttpAPIConfig {
 
     if (method == null) {
       method = "GET";
+    } else {
+      method = method.toUpperCase();
     }
 
     // Get the request method.  Only accept GET and POST requests.  Anything else will default to GET.
     switch (method) {
-      case "get":
       case "GET":
-      case "post":
       case "POST":
-        this.method = method.toUpperCase();
+        this.method = method;
         break;
       default:
         // Case for null or other HTTP Request types

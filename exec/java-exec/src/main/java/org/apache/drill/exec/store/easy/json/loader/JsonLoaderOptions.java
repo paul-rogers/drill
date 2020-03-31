@@ -18,7 +18,7 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureOptions;
 
 /**
@@ -46,7 +46,7 @@ public class JsonLoaderOptions extends JsonStructureOptions {
 
   public JsonLoaderOptions() { }
 
-  public JsonLoaderOptions(OptionManager options) {
+  public JsonLoaderOptions(OptionSet options) {
     super(options);
     this.readNumbersAsDouble = options.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
   }
