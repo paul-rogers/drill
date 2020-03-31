@@ -20,13 +20,24 @@ package org.apache.drill.exec.store.http;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.ChildErrorContext;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ReaderFactory;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedScanFramework.ScanFrameworkBuilder;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
@@ -36,16 +47,64 @@ public class HttpScanBatchCreator implements BatchCreator<HttpSubScan> {
   private static final Logger logger = LoggerFactory.getLogger(HttpScanBatchCreator.class);
 
   @Override
-  public ScanBatch getBatch(ExecutorFragmentContext context, HttpSubScan subScan, List<RecordBatch> children) throws ExecutionSetupException {
-    logger.debug("getBatch called");
-    Preconditions.checkArgument(children == null || children.isEmpty());
+  public CloseableRecordBatch getBatch(ExecutorFragmentContext context, HttpSubScan subScan, List<RecordBatch> children) throws ExecutionSetupException {
+    Preconditions.checkArgument(children.isEmpty());
 
-    HttpStoragePluginConfig config = subScan.config();
-    List<RecordReader> readers = new ArrayList<>();
-
-    List<SchemaPath> columns = subScan.columns() == null ? GroupScan.ALL_COLUMNS : subScan.columns();
-    readers.add(new HttpRecordReader(context, columns, config, subScan));
-
-    return new ScanBatch(subScan, context, readers);
+    try {
+      ScanFrameworkBuilder builder = createBuilder(context.getOptions(), subScan);
+      return builder.buildScanOperator(context, subScan);
+    } catch (UserException e) {
+      // Rethrow user exceptions directly
+      throw e;
+    } catch (Throwable e) {
+      // Wrap all others
+      throw new ExecutionSetupException(e);
+    }
   }
-}
+
+  private ScanFrameworkBuilder createBuilder(OptionManager options,
+      HttpSubScan subScan) {
+    HttpStoragePluginConfig config = subScan.config();
+    ScanFrameworkBuilder builder = new ScanFrameworkBuilder();
+    builder.projection(subScan.columns());
+    builder.setUserName(subScan.getUserName());
+
+    // Provide custom error context
+    builder.errorContext(
+        new ChildErrorContext(builder.errorContext()) {
+          @Override
+          public void addContext(UserException.Builder builder) {
+            builder.addContext("URL", subScan.getFullURL());
+          }
+        });
+
+    // Reader
+    ReaderFactory readerFactory = new HttpReaderFactory(config, subScan);
+    builder.setReaderFactory(readerFactory);
+    builder.nullType(Types.optional(MinorType.VARCHAR));
+    return builder;
+  }
+
+  private static class HttpReaderFactory implements ReaderFactory {
+
+    private final HttpStoragePluginConfig config;
+    private final HttpSubScan subScan;
+    private int count;
+
+    public HttpReaderFactory(HttpStoragePluginConfig config, HttpSubScan subScan) {
+      this.config = config;
+      this.subScan = subScan;
+    }
+
+    @Override
+    public void bind(ManagedScanFramework framework) { }
+
+    @Override
+    public ManagedReader<SchemaNegotiator> next() {
+      if (count++ == 0) {
+        return new HttpBatchReader(config, subScan);
+      } else {
+        return null;
+      }
+    }
+  }}

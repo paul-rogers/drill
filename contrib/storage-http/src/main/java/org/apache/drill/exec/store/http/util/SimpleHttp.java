@@ -17,6 +17,21 @@
  */
 package org.apache.drill.exec.store.http.util;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.store.http.HttpAPIConfig;
+import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import okhttp3.Cache;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
@@ -26,27 +41,11 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import org.apache.drill.exec.util.DirectoryUtils;
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.store.http.HttpAPIConfig;
-import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-
 
 /**
- * This class performs the actual HTTP requests for the HTTP Storage Plugin. The core method is the getInputStream()
- * method which accepts a url and opens an InputStream with that URL's contents.
+ * Performs the actual HTTP requests for the HTTP Storage Plugin. The core
+ * method is the getInputStream() method which accepts a url and opens an
+ * InputStream with that URL's contents.
  */
 public class SimpleHttp {
   private static final Logger logger = LoggerFactory.getLogger(SimpleHttp.class);
@@ -55,13 +54,13 @@ public class SimpleHttp {
 
   private final HttpStoragePluginConfig config;
 
-  private final FragmentContext context;
-
   private final HttpAPIConfig apiConfig;
 
-  public SimpleHttp(HttpStoragePluginConfig config, FragmentContext context, String connectionName) {
+  private final File tempDir;
+
+  public SimpleHttp(HttpStoragePluginConfig config, File tempDir, String connectionName) {
     this.config = config;
-    this.context = context;
+    this.tempDir = tempDir;
     this.apiConfig = config.connections().get(connectionName);
     client = setupHttpClient();
   }
@@ -99,8 +98,8 @@ public class SimpleHttp {
         throw UserException
           .dataReadError()
           .message("Error retrieving data from HTTP Storage Plugin: " + response.code() + " " + response.message())
-          .addContext("URL: ", urlStr)
-          .addContext("Response code: ", response.code())
+          .addContext("URL", urlStr)
+          .addContext("Response code", response.code())
           .build(logger);
       }
       logger.debug("HTTP Request for {} successful.", urlStr);
@@ -112,13 +111,13 @@ public class SimpleHttp {
       throw UserException
         .dataReadError(e)
         .message("Error retrieving data from HTTP Storage Plugin: %s", e.getMessage())
-        .addContext("URL Requested:" + urlStr)
+        .addContext("URL Requested" + urlStr)
         .build(logger);
     }
   }
 
   /**
-   * Function configures the OkHTTP3 server object with configuration info from the user.
+   * Configures the OkHTTP3 server object with configuration info from the user.
    *
    * @return OkHttpClient configured server
    */
@@ -147,39 +146,40 @@ public class SimpleHttp {
   }
 
   /**
-   * This function accepts a Builder object as input and configures response caching. In order for
-   * caching to work, the DRILL_TMP_DIR variable must be set either as a system environment variable or in the
-   * Drill configurations.
-   * <p>
-   * The function will attempt to get the DRILL_TMP_DIR from these places, and if it cannot, it will issue a warning in the logger.
+   * Configures response caching using a provided temp directory.
    *
-   * @param builder Builder the Builder object to which the cacheing is to be configured
+   * @param builder
+   *          Builder the Builder object to which the caching is to be
+   *          configured
    */
   private void setupCache(Builder builder) {
     int cacheSize = 10 * 1024 * 1024;   // TODO Add cache size in MB to config
-    String drillTempDir;
-
+    File cacheDirectory = new File(tempDir, "http-cache");
+    if (!cacheDirectory.mkdirs()) {
+      throw UserException.dataWriteError()
+        .message("Could not create the HTTP cache directory")
+        .addContext("Path", cacheDirectory.getAbsolutePath())
+        .addContext("Please check the temp directory or disable HTTP caching.")
+        .build(logger);
+    }
     try {
-      drillTempDir = DirectoryUtils.getDrillTempDirectory(context);
-
-      File cacheDirectory = new File(drillTempDir);
-      if (cacheDirectory == null) {
-        logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
-      } else {
-        Cache cache = new Cache(cacheDirectory, cacheSize);
-        logger.debug("Caching HTTP Query Results at: {}", drillTempDir);
-        builder.cache(cache);
-      }
+      Cache cache = new Cache(cacheDirectory, cacheSize);
+      logger.debug("Caching HTTP Query Results at: {}", cacheDirectory);
+      builder.cache(cache);
     } catch (Exception e) {
-      logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
+      throw UserException.dataWriteError(e)
+        .message("Could not create the HTTP cache")
+        .addContext("Path", cacheDirectory.getAbsolutePath())
+        .addContext("Please check the temp directory or disable HTTP caching.")
+        .build(logger);
     }
   }
 
   /**
-   * This function accepts text from a post body in the format:
-   * key1=value1
-   * key2=value2
-   *
+   * Accepts text from a post body in the format:<br>
+   * {@code key1=value1}<br>
+   * {@code key2=value2}
+   * <p>
    * and creates the appropriate headers.
    *
    * @return FormBody.Builder The populated formbody builder
@@ -203,7 +203,7 @@ public class SimpleHttp {
   }
 
   /**
-   * This class intercepts requests and adds authentication headers to the request
+   * Intercepts requests and adds authentication headers to the request
    */
   public static class BasicAuthInterceptor implements Interceptor {
     private final String credentials;
