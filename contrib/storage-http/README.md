@@ -19,8 +19,10 @@ To configure the plugin, create a new storage plugin, and add the following conf
 ```
 The options are:
 * `type`:  This should be `http`
-* `cacheResults`:  Enable caching of the HTTP responses
+* `cacheResults`:  Enable caching of the HTTP responses.  Defaults to `false`
 * `timeout`:  Sets the response timeout in seconds. Defaults to `0` which is no timeout. 
+* `connections`:  This field contains the details for individual connections. See the section *Configuring API Connections for Details*.
+
 
 ### Configuring the API Connections
 The HTTP Storage plugin allows you to configure multiple APIS which you can query directly from this plugin. To do so, first add a `connections` parameter to the configuration
