@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.http.util;
 
+import okhttp3.Authenticator;
 import okhttp3.Cache;
 import okhttp3.Credentials;
 import okhttp3.FormBody;
@@ -26,11 +27,13 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import okhttp3.Route;
 import org.apache.drill.exec.util.DirectoryUtils;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.store.http.HttpAPIConfig;
 import org.apache.drill.exec.store.http.HttpStoragePluginConfig;
+import org.apache.parquet.Strings;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +41,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.Proxy;
+import java.net.URL;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -124,6 +131,7 @@ public class SimpleHttp {
    */
   private OkHttpClient setupHttpClient() {
     Builder builder = new OkHttpClient.Builder();
+    URL proxyURL;
 
     // Set up the HTTP Cache.   Future possibilities include making the cache size and retention configurable but
     // right now it is on or off.  The writer will write to the Drill temp directory if it is accessible and
@@ -138,10 +146,55 @@ public class SimpleHttp {
       builder.addInterceptor(new BasicAuthInterceptor(apiConfig.userName(), apiConfig.password()));
     }
 
-    // Set timeout
+    // Set timeouts
     builder.connectTimeout(config.timeout(), TimeUnit.SECONDS);
     builder.writeTimeout(config.timeout(), TimeUnit.SECONDS);
     builder.readTimeout(config.timeout(), TimeUnit.SECONDS);
+
+    /* Set the proxy configuration
+    First we are going to check the linux environment variables for proxy info.
+     */
+
+    // The default proxy type is http
+    Proxy.Type proxyType = Proxy.Type.HTTP;
+
+    if (!Strings.isNullOrEmpty(config.proxyType())) {
+      switch (config.proxyType()) {
+        case "direct":
+          proxyType = Proxy.Type.DIRECT;
+          break;
+        case "socks":
+          proxyType = Proxy.Type.SOCKS;
+          break;
+        case "http":
+          proxyType = Proxy.Type.HTTP;
+          break;
+      }
+    }
+
+    String proxyUrlString = getProxyURLFromSystemEnvironment();
+    try {
+      if (! Strings.isNullOrEmpty(proxyUrlString)) {
+        proxyURL = new URL(proxyUrlString);
+        // TODO Break up the URL
+
+
+      }
+
+    } catch (MalformedURLException e) {
+      logger.warn("Proxy from environment {} is malformed", proxyUrlString);
+    }
+
+
+
+    if (! Strings.isNullOrEmpty(config.proxyHost())) {
+      builder.proxy(new Proxy(proxyType, new InetSocketAddress(config.proxyHost(), config.proxyPort())));
+    }
+
+    // Set the authenticator if the user supplied a proxy username and password
+    if( !(Strings.isNullOrEmpty(config.proxyUsername()) || Strings.isNullOrEmpty(config.proxyPassword()))) {
+      builder.proxyAuthenticator(getProxyAuthenticator());
+    }
 
     return builder.build();
   }
@@ -174,6 +227,42 @@ public class SimpleHttp {
       logger.warn("HTTP Storage plugin caching requires the DRILL_TMP_DIR to be configured. Please either set DRILL_TMP_DIR or disable HTTP caching.");
     }
   }
+
+  /**
+   * Create a proxy authenticator object from the configuration specified in the configuration.
+   * @return the proxy authenticator
+   */
+  private Authenticator getProxyAuthenticator() {
+    return new Authenticator() {
+      @Override public Request authenticate(Route route, Response response) throws IOException {
+        String credential = Credentials.basic(config.proxyUsername(), config.proxyPassword());
+        return response.request().newBuilder()
+          .header("Proxy-Authorization", credential)
+          .build();
+      }
+    };
+  }
+
+  private String getProxyURLFromSystemEnvironment() {
+    Map<String, String> env = System.getenv();
+    String proxyUrl = null;
+    if (env.containsKey("HTTP_PROXY")) {
+      proxyUrl = env.get("HTTP_PROXY");
+    } else if (env.containsKey("http_proxy")) {
+      proxyUrl = env.get("http_proxy");
+    } else if (env.containsKey("HTTPS_PROXY")) {
+      proxyUrl = env.get("HTTPS_PROXY");
+    } else if(env.containsKey("https_proxy")) {
+      proxyUrl = env.get("https_proxy");
+    } else if (env.containsKey("all_proxy")) {
+      proxyUrl = env.get("all_proxy");
+    } else if (env.containsKey("ALL_PROXY")) {
+      proxyUrl = env.get("ALL_PROXY");
+    }
+
+    return proxyUrl;
+  }
+
 
   /**
    * This function accepts text from a post body in the format:

@@ -96,7 +96,7 @@ public class TestHttpPlugin extends ClusterTest {
     configs.put("mock", mockConfig);
     configs.put("mockpost", mockPostConfig);
 
-    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs, 2);
+    HttpStoragePluginConfig mockStorageConfigWithWorkspace = new HttpStoragePluginConfig(false, configs, 2, "", 80, "", "", "");
     mockStorageConfigWithWorkspace.setEnabled(true);
     pluginRegistry.put("api", mockStorageConfigWithWorkspace);
   }
