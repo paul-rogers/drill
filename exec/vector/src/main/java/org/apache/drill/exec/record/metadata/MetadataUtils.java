@@ -132,10 +132,6 @@ public class MetadataUtils {
     return new MapColumnMetadata(field, fromFields(field.getChildren()));
   }
 
-  public static MapColumnMetadata newMap(String name) {
-    return newMap(name, new TupleSchema());
-  }
-
   public static MapColumnMetadata newMap(String name, TupleMetadata schema) {
     return new MapColumnMetadata(name, DataMode.REQUIRED, (TupleSchema) schema);
   }

@@ -300,9 +300,9 @@ public class TestProjectionFilter {
         ProjectionFilter.definedSchemaFilter(schema, EmptyErrorContext.INSTANCE)
         instanceof SchemaProjectionFilter);
 
-    assertSame(ProjectionFilter.PROJECT_ALL,
+    assertTrue(
         ProjectionFilter.providedSchemaFilter(Projections.projectAll(), schema,
-            EmptyErrorContext.INSTANCE));
+            EmptyErrorContext.INSTANCE) instanceof CompoundProjectionFilter);
     assertSame(ProjectionFilter.PROJECT_NONE,
         ProjectionFilter.providedSchemaFilter(Projections.projectNone(), schema,
             EmptyErrorContext.INSTANCE));
