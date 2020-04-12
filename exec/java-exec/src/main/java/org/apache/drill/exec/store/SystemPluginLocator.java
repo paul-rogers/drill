@@ -28,7 +28,6 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.scanner.persistence.AnnotatedClassDescriptor;
 import org.apache.drill.exec.planner.logical.StoragePlugins;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,13 +84,13 @@ public class SystemPluginLocator implements ConnectorLocator {
     for (Constructor<?> constructor : aClass.getConstructors()) {
       Class<?>[] parameterTypes = constructor.getParameterTypes();
 
-      if (parameterTypes.length != 1 || parameterTypes[0] != DrillbitContext.class) {
+      if (parameterTypes.length != 1 || parameterTypes[0] != StoragePluginContext.class) {
         logger.trace("Not matching constructor for {}. Expecting constructor with one parameter for DrillbitContext class.",
             annotatedClass.getClassName());
         continue;
       }
 
-      Object instance = constructor.newInstance(context.drillbitContext());
+      Object instance = constructor.newInstance(context.pluginContext());
       if (!(instance instanceof StoragePlugin)) {
         logger.debug("Created instance of {} does not implement StoragePlugin interface.", annotatedClass.getClassName());
         continue;

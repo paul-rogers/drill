@@ -69,7 +69,7 @@ public class HiveSchemaFactory extends AbstractSchemaFactory {
     this.plugin = plugin;
 
     isHS2DoAsSet = hiveConf.getBoolVar(ConfVars.HIVE_SERVER2_ENABLE_DOAS);
-    isDrillImpersonationEnabled = plugin.getContext().getConfig().getBoolean(ExecConstants.IMPERSONATION_ENABLED);
+    isDrillImpersonationEnabled = plugin.pluginContext().config().getBoolean(ExecConstants.IMPERSONATION_ENABLED);
 
     try {
       processUserMetastoreClient =

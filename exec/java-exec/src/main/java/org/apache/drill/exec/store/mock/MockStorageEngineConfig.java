@@ -17,14 +17,17 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import java.util.Objects;
+
+import org.apache.drill.common.PlanStringBuilder;
+import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(MockStorageEngineConfig.NAME)
-public class MockStorageEngineConfig extends StoragePluginConfigBase {
+public class MockStorageEngineConfig extends StoragePluginConfig {
   public static final String NAME = "mock";
   public static final MockStorageEngineConfig INSTANCE = new MockStorageEngineConfig("mock:///");
 
@@ -49,16 +52,18 @@ public class MockStorageEngineConfig extends StoragePluginConfigBase {
     }
 
     MockStorageEngineConfig that = (MockStorageEngineConfig) o;
-
-    if (url != null ? !url.equals(that.url) : that.url != null) {
-      return false;
-    }
-
-    return true;
+    return Objects.equals(url, that.url);
   }
 
   @Override
   public int hashCode() {
-    return url != null ? url.hashCode() : 0;
+    return Objects.hashCode(url);
+  }
+
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+        .field("url", url)
+        .toString();
   }
 }

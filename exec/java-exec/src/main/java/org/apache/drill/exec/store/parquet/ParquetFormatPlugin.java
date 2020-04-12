@@ -30,14 +30,12 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractFileGroupScan;
 import org.apache.drill.exec.physical.base.AbstractWriter;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.impl.WriterRecordBatch;
@@ -47,10 +45,10 @@ import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.dfs.BasicFormatMatcher;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -89,19 +87,19 @@ public class ParquetFormatPlugin implements FormatPlugin {
       Pattern.compile(".*/" + ParquetFileWriter.PARQUET_METADATA_FILE));
   private static final List<MagicString> MAGIC_STRINGS = Collections.singletonList(new MagicString(0, ParquetFileWriter.MAGIC));
 
-  private final DrillbitContext context;
+  private final StoragePluginContext context;
   private final Configuration fsConf;
   private final ParquetFormatMatcher formatMatcher;
   private final ParquetFormatConfig config;
   private final StoragePluginConfig storageConfig;
   private final String name;
 
-  public ParquetFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public ParquetFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
       StoragePluginConfig storageConfig){
     this(name, context, fsConf, storageConfig, new ParquetFormatConfig());
   }
 
-  public ParquetFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public ParquetFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
       StoragePluginConfig storageConfig, ParquetFormatConfig formatConfig){
     this.context = context;
     this.config = formatConfig;
@@ -121,8 +119,9 @@ public class ParquetFormatPlugin implements FormatPlugin {
     return config;
   }
 
-  public DrillbitContext getContext() {
-    return this.context;
+  @Override
+  public StoragePluginContext pluginContext() {
+    return context;
   }
 
   @Override
@@ -183,27 +182,16 @@ public class ParquetFormatPlugin implements FormatPlugin {
   }
 
   @Override
-  public AbstractFileGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns) throws IOException {
-    return getGroupScan(userName, selection, columns, (OptionManager) null);
-  }
-
-  @Override
-  public AbstractFileGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns, OptionManager options) throws IOException {
-    return getGroupScan(userName, selection, columns, options, null);
-  }
-
-  @Override
-  public AbstractFileGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, OptionManager options, MetadataProviderManager metadataProviderManager) throws IOException {
+  public AbstractFileGroupScan getGroupScan(ScanRequest scanRequest, FileSelection selection) throws IOException {
     ParquetReaderConfig readerConfig = ParquetReaderConfig.builder()
         .withFormatConfig(getConfig())
-        .withOptions(options)
+        .withOptions(scanRequest.options())
         .build();
-    ParquetGroupScan parquetGroupScan = new ParquetGroupScan(userName, selection, this, columns, readerConfig, metadataProviderManager);
+    ParquetGroupScan parquetGroupScan = new ParquetGroupScan(scanRequest, selection, this, readerConfig);
     if (parquetGroupScan.getEntries().isEmpty()) {
       // If ParquetGroupScan does not contain any entries, it means selection directories are empty and
       // metadata cache files are invalid, return schemaless scan
-      return new SchemalessScan(userName, parquetGroupScan.getSelectionRoot());
+      return new SchemalessScan(scanRequest.userName(), parquetGroupScan.getSelectionRoot());
     }
     return parquetGroupScan;
   }
@@ -235,6 +223,7 @@ public class ParquetFormatPlugin implements FormatPlugin {
     return storageConfig;
   }
 
+  @Override
   public String getName(){
     return name;
   }

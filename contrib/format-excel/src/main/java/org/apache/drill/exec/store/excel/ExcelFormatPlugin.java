@@ -29,8 +29,8 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchem
 
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.hadoop.conf.Configuration;
@@ -57,7 +57,7 @@ public class ExcelFormatPlugin extends EasyFormatPlugin<ExcelFormatConfig> {
     }
   }
 
-  public ExcelFormatPlugin(String name, DrillbitContext context,
+  public ExcelFormatPlugin(String name, StoragePluginContext context,
                          Configuration fsConf, StoragePluginConfig storageConfig,
                          ExcelFormatConfig formatConfig) {
     super(name, easyConfig(fsConf, formatConfig), context, storageConfig, formatConfig);

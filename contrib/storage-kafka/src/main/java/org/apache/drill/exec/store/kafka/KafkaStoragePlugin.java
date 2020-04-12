@@ -21,29 +21,26 @@ import java.io.IOException;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.kafka.schema.KafkaSchemaFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 public class KafkaStoragePlugin extends AbstractStoragePlugin {
-
   private static final Logger logger = LoggerFactory.getLogger(KafkaStoragePlugin.class);
+
   private final KafkaSchemaFactory kafkaSchemaFactory;
   private final KafkaStoragePluginConfig config;
   private final KafkaAsyncCloser closer;
 
-  public KafkaStoragePlugin(KafkaStoragePluginConfig config, DrillbitContext context, String name) {
+  public KafkaStoragePlugin(KafkaStoragePluginConfig config, StoragePluginContext context, String name) {
     super(context, name);
     logger.debug("Initializing {}", KafkaStoragePlugin.class.getName());
     this.config = config;
@@ -72,10 +69,8 @@ public class KafkaStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    KafkaScanSpec kafkaScanSpec = selection.getListWith(new ObjectMapper(),
-        new TypeReference<KafkaScanSpec>() {
-        });
+  public AbstractGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    KafkaScanSpec kafkaScanSpec = scanRequest.selection(KafkaScanSpec.class);
     return new KafkaGroupScan(this, kafkaScanSpec, null);
   }
 

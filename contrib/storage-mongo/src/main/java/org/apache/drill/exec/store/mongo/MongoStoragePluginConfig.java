@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.mongo;
 
 import java.util.List;
 
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -79,5 +80,12 @@ public class MongoStoragePluginConfig extends StoragePluginConfig {
 
   public String getConnection() {
     return connection;
+  }
+
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+        .field("connection", connection)
+        .toString();
   }
 }

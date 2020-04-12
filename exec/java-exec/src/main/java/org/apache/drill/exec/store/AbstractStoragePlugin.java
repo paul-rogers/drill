@@ -32,7 +32,7 @@ import org.apache.drill.exec.planner.PlannerPhase;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.SessionOptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 
 /**
@@ -41,23 +41,44 @@ import org.apache.drill.exec.store.dfs.FormatPlugin;
  */
 public abstract class AbstractStoragePlugin implements StoragePlugin {
 
+  protected final StoragePluginContext pluginContext;
   protected final DrillbitContext context;
   private final String name;
 
-  protected AbstractStoragePlugin(DrillbitContext inContext, String inName) {
-    this.context = inContext;
+  /**
+   * @deprecated Change plugin constructor to use StoragePluginContext
+   */
+  @Deprecated
+  protected AbstractStoragePlugin(DrillbitContext context, String inName) {
+    this.context = context;
+    this.pluginContext = null;
+    this.name = inName == null ? null : inName.toLowerCase();
+  }
+
+  protected AbstractStoragePlugin(StoragePluginContext pluginContext, String inName) {
+    this.context = null;
+    this.pluginContext = pluginContext;
     this.name = inName == null ? null : inName.toLowerCase();
   }
 
   @Override
-  public boolean supportsRead() {
-    return false;
-  }
+  public String getName() { return name; }
 
   @Override
-  public boolean supportsWrite() {
-    return false;
-  }
+  public boolean supportsRead() { return false; }
+
+  @Override
+  public boolean supportsWrite() { return false; }
+
+  /**
+   * @deprecated use {@link #pluginContext()} instead. {@code DrillbitContext}
+   * is too complex for plugins, will not be available in future versions.
+   */
+  @Deprecated
+  public DrillbitContext getContext() { return context; }
+
+  @Override
+  public StoragePluginContext pluginContext() { return pluginContext; }
 
   /**
    * @deprecated Marking for deprecation in next major version release. Use
@@ -107,41 +128,52 @@ public abstract class AbstractStoragePlugin implements StoragePlugin {
     }
   }
 
+  @Deprecated
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, SessionOptionManager options) throws IOException {
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
+    throw new UnsupportedOperationException("Physical scan is not supported by '" + getName() + "' storage plugin.");
+  }
+
+  @Deprecated
+  @Override
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns) throws IOException {
     return getPhysicalScan(userName, selection);
   }
 
+  @Deprecated
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, SessionOptionManager options, MetadataProviderManager metadataProviderManager) throws IOException {
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
+      OptionSet options) throws IOException {
+    return getPhysicalScan(userName, selection);
+  }
+
+  @Deprecated
+  @Override
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
+      OptionSet options, MetadataProviderManager metadataProviderManager) throws IOException {
     return getPhysicalScan(userName, selection, options);
   }
 
+  @Deprecated
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    return getPhysicalScan(userName, selection, AbstractGroupScan.ALL_COLUMNS);
-  }
-
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns, SessionOptionManager options) throws IOException {
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
+      List<SchemaPath> columns, OptionSet options) throws IOException {
     return getPhysicalScan(userName, selection, columns);
   }
 
+  @Deprecated
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns, SessionOptionManager options, MetadataProviderManager metadataProviderManager) throws IOException {
+  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
+      List<SchemaPath> columns, OptionSet options,
+      MetadataProviderManager metadataProviderManager) throws IOException {
     return getPhysicalScan(userName, selection, columns, options);
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns) throws IOException {
-    throw new UnsupportedOperationException("Physical scan is not supported by '" + getName() + "' storage plugin.");
+  public AbstractGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    return getPhysicalScan(scanRequest.userName(), scanRequest.jsonOptions(),
+        scanRequest.columns(), scanRequest.options(), scanRequest.metadataProviderManager());
   }
-
-  @Override
-  public void start() throws IOException { }
-
-  @Override
-  public void close() throws Exception { }
 
   @Override
   public FormatPlugin getFormatPlugin(FormatPluginConfig config) {
@@ -149,12 +181,5 @@ public abstract class AbstractStoragePlugin implements StoragePlugin {
   }
 
   @Override
-  public String getName() {
-    return name;
-  }
-
-  public DrillbitContext getContext() {
-    return context;
-  }
-
+  public void close() throws Exception { }
 }

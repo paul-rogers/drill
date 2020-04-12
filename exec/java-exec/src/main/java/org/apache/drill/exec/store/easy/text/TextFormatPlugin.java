@@ -27,13 +27,11 @@ import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.exceptions.ChildErrorContext;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
@@ -47,9 +45,11 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.metadata.Propertied;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
@@ -200,11 +200,11 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     }
   }
 
-  public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
+  public TextFormatPlugin(String name, StoragePluginContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
      this(name, context, fsConf, storageConfig, new TextFormatConfig());
   }
 
-  public TextFormatPlugin(String name, DrillbitContext context,
+  public TextFormatPlugin(String name, StoragePluginContext context,
       Configuration fsConf, StoragePluginConfig config,
       TextFormatConfig formatPluginConfig) {
     super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
@@ -227,21 +227,13 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, MetadataProviderManager metadataProviderManager)
-      throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot, metadataProviderManager);
-  }
-
-  @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, OptionManager options,
-      MetadataProviderManager metadataProviderManager) throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns,
-        selection.selectionRoot,
+  public AbstractGroupScan getGroupScan(ScanRequest scanRequest,
+      FileSelection selection) throws IOException {
+    OptionSet options = scanRequest.options();
+    return new EasyGroupScan(scanRequest, selection, this,
         // Some paths provide a null option manager. In that case, default to a
         // min width of 1; just like the base class.
-        options == null ? 1 : (int) options.getLong(ExecConstants.MIN_READER_WIDTH_KEY), metadataProviderManager);
+        options == null ? 1 : (int) options.getLong(ExecConstants.MIN_READER_WIDTH_KEY));
   }
 
   @Override

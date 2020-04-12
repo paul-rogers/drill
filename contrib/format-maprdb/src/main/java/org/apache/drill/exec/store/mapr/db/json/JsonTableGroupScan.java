@@ -69,6 +69,8 @@ import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.metastore.metadata.TableMetadataProvider;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.ojai.store.QueryCondition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -83,7 +85,7 @@ import com.mapr.db.scan.ScanRange;
 
 @JsonTypeName("maprdb-json-scan")
 public class JsonTableGroupScan extends MapRDBGroupScan implements IndexGroupScan {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonTableGroupScan.class);
+  static final Logger logger = LoggerFactory.getLogger(JsonTableGroupScan.class);
 
   public static final int STAR_COLS = 100;
   public static final String TABLE_JSON = "json";
@@ -662,7 +664,7 @@ public class JsonTableGroupScan extends MapRDBGroupScan implements IndexGroupSca
   public boolean isDistributed() {
     // getMaxParallelizationWidth gets information about all regions to scan and is expensive.
     // This option is meant to be used only for unit tests.
-    boolean useNumRegions = storagePlugin.getContext().getConfig().getBoolean(PluginConstants.JSON_TABLE_USE_NUM_REGIONS_FOR_DISTRIBUTION_PLANNING);
+    boolean useNumRegions = storagePlugin.pluginContext().config().getBoolean(PluginConstants.JSON_TABLE_USE_NUM_REGIONS_FOR_DISTRIBUTION_PLANNING);
     double fullTableSize;
 
     if (useNumRegions) {
@@ -673,7 +675,7 @@ public class JsonTableGroupScan extends MapRDBGroupScan implements IndexGroupSca
     // bottleneck, estimate degree of parallelization using stats instead of actually getting information
     // about all regions.
     double rowCount, rowSize;
-    double scanRangeSize = storagePlugin.getContext().getConfig().getInt(PluginConstants.JSON_TABLE_SCAN_SIZE_MB) * 1024 * 1024;
+    double scanRangeSize = storagePlugin.pluginContext().config().getInt(PluginConstants.JSON_TABLE_SCAN_SIZE_MB) * 1024 * 1024;
 
     if (scanSpec.getIndexDesc() != null) {
       String idxIdentifier = stats.buildUniqueIndexIdentifier(scanSpec.getIndexDesc().getPrimaryTablePath(), scanSpec.getIndexName());

@@ -22,17 +22,14 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 
 public class HBaseStoragePlugin extends AbstractStoragePlugin {
@@ -44,7 +41,7 @@ public class HBaseStoragePlugin extends AbstractStoragePlugin {
 
   private final String name;
 
-  public HBaseStoragePlugin(HBaseStoragePluginConfig storeConfig, DrillbitContext context, String name)
+  public HBaseStoragePlugin(HBaseStoragePluginConfig storeConfig, StoragePluginContext context, String name)
       throws IOException {
     super(context, name);
     this.schemaFactory = new HBaseSchemaFactory(this, name);
@@ -59,9 +56,9 @@ public class HBaseStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public HBaseGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    HBaseScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<HBaseScanSpec>() {});
-    return new HBaseGroupScan(userName, this, scanSpec, null);
+  public HBaseGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    HBaseScanSpec scanSpec = scanRequest.selection(HBaseScanSpec.class);
+    return new HBaseGroupScan(scanRequest.userName(), this, scanSpec, null);
   }
 
   @Override
@@ -89,7 +86,7 @@ public class HBaseStoragePlugin extends AbstractStoragePlugin {
   }
 
   /**
-   * An internal class which serves the key in a map of {@link HBaseStoragePlugin} => {@link Connection}.
+   * Key in a map of {@link HBaseStoragePlugin} => {@link Connection}.
    */
   class HBaseConnectionKey {
 

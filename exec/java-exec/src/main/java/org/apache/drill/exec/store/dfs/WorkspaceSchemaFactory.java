@@ -40,7 +40,6 @@ import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.Table;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
@@ -107,7 +106,6 @@ public class WorkspaceSchemaFactory {
   private final String schemaName;
   private final FileSystemPlugin plugin;
   private final ObjectMapper mapper;
-  private final LogicalPlanPersistence logicalPlanPersistence;
   private final Path wsPath;
 
   private final FormatPluginOptionExtractor optionExtractor;
@@ -118,13 +116,12 @@ public class WorkspaceSchemaFactory {
       String storageEngineName,
       WorkspaceConfig config,
       List<FormatMatcher> formatMatchers,
-      LogicalPlanPersistence logicalPlanPersistence,
+      ObjectMapper mapper,
       ScanResult scanResult) throws ExecutionSetupException {
-    this.logicalPlanPersistence = logicalPlanPersistence;
+    this.mapper = mapper;
     this.fsConf = plugin.getFsConf();
     this.plugin = plugin;
     this.config = config;
-    this.mapper = logicalPlanPersistence.getMapper();
     this.fileMatchers = Lists.newArrayList();
     this.dirMatchers = Lists.newArrayList();
     this.storageEngineName = storageEngineName;
@@ -397,7 +394,7 @@ public class WorkspaceSchemaFactory {
 
     private View getView(DotDrillFile f) throws IOException {
       assert f.getType() == DotDrillType.VIEW;
-      return f.getView(logicalPlanPersistence);
+      return f.getView(mapper);
     }
 
     @Override
@@ -591,43 +588,33 @@ public class WorkspaceSchemaFactory {
       return FileSystemConfig.NAME;
     }
 
-    @Override
-    public DrillTable create(TableInstance key) {
-      try {
-        final FileSelection fileSelection = FileSelection.create(getFS(), config.getLocation(), key.sig.getName(), config.allowAccessOutsideWorkspace());
+    public class FileSelectionInspector {
+      private final TableInstance key;
+      private final DrillFileSystem fs;
+      public final FileSelection fileSelection;
+      public final boolean hasDirectories;
+      private FileSelection newSelection;
+      public FormatMatcher formatMatch;
+
+      public FileSelectionInspector(TableInstance key) throws IOException {
+        this.key = key;
+        this.fs = getFS();
+        this.fileSelection = FileSelection.create(fs, config.getLocation(), key.sig.getName(), config.allowAccessOutsideWorkspace());
         if (fileSelection == null) {
-          return null;
+          this.hasDirectories = false;
+        } else {
+          this.hasDirectories = fileSelection.containsDirectories(fs);
         }
+      }
 
-        boolean hasDirectories = fileSelection.containsDirectories(getFS());
-
-        if (key.sig.getParams().size() > 0) {
-          FileSelection newSelection = detectEmptySelection(fileSelection, hasDirectories);
-
-          if (newSelection.isEmptyDirectory()) {
-            return new DynamicDrillTable(plugin, storageEngineName, schemaConfig.getUserName(), fileSelection);
-          }
-
-          FormatPluginConfig formatConfig = optionExtractor.createConfigForTable(key);
-          FormatSelection selection = new FormatSelection(formatConfig, newSelection);
-          DrillTable drillTable = new DynamicDrillTable(plugin, storageEngineName, schemaConfig.getUserName(), selection);
-          setMetadataProviderManager(drillTable, key.sig.getName());
-
-          List<TableParamDef> commonParams = key.sig.getCommonParams();
-          if (commonParams.isEmpty()) {
-            return drillTable;
-          }
-          // extract only common parameters related values
-          List<Object> paramValues = key.params.subList(key.params.size() - commonParams.size(), key.params.size());
-          return applyFunctionParameters(drillTable, commonParams, paramValues);
-        }
-
-        if (hasDirectories) {
+      protected DrillTable matchFormat() throws IOException {
+         if (hasDirectories) {
           for (final FormatMatcher matcher : dirMatchers) {
             try {
               DrillTable table = matcher.isReadable(getFS(), fileSelection, plugin, storageEngineName, schemaConfig);
-              setMetadataProviderManager(table, key.sig.getName());
               if (table != null) {
+                formatMatch = matcher;
+                setMetadataProviderManager(table, key.sig.getName());
                 return table;
               }
             } catch (IOException e) {
@@ -636,20 +623,42 @@ public class WorkspaceSchemaFactory {
           }
         }
 
-        FileSelection newSelection = detectEmptySelection(fileSelection, hasDirectories);
+        newSelection = detectEmptySelection(fileSelection, hasDirectories);
         if (newSelection.isEmptyDirectory()) {
           return new DynamicDrillTable(plugin, storageEngineName, schemaConfig.getUserName(), fileSelection);
         }
 
         for (final FormatMatcher matcher : fileMatchers) {
           DrillTable table = matcher.isReadable(getFS(), newSelection, plugin, storageEngineName, schemaConfig);
-          setMetadataProviderManager(table, key.sig.getName());
           if (table != null) {
+            formatMatch = matcher;
+            setMetadataProviderManager(table, key.sig.getName());
             return table;
           }
         }
         return null;
+      }
 
+      public FileSelection selection() {
+        return newSelection != null ? newSelection : fileSelection;
+      }
+    }
+
+    @Override
+    public DrillTable create(TableInstance key) {
+      try {
+        FileSelectionInspector inspector = new FileSelectionInspector(key);
+        if (inspector.fileSelection == null) {
+          return null;
+        }
+
+        DrillTable table = inspector.matchFormat();
+
+        if (key.sig.getParams().size() == 0) {
+          return table;
+        } else {
+          return parseTableFunction(key, inspector, table);
+        }
       } catch (AccessControlException e) {
         if (!schemaConfig.getIgnoreAuthErrors()) {
           logger.debug(e.getMessage());
@@ -660,8 +669,32 @@ public class WorkspaceSchemaFactory {
       } catch (IOException e) {
         logger.debug("Failed to create DrillTable with root {} and name {}", config.getLocation(), key, e);
       }
-
       return null;
+    }
+
+    private DrillTable parseTableFunction(TableInstance key,
+        FileSelectionInspector inspector, DrillTable table) {
+      FileSelection newSelection = inspector.selection();
+
+      if (newSelection.isEmptyDirectory()) {
+        return new DynamicDrillTable(plugin, storageEngineName, schemaConfig.getUserName(),
+            inspector.fileSelection);
+      }
+
+      FormatPluginConfig baseConfig = inspector.formatMatch == null
+          ? null : inspector.formatMatch.getFormatPlugin().getConfig();
+      FormatPluginConfig formatConfig = optionExtractor.createConfigForTable(key, mapper, baseConfig);
+      FormatSelection selection = new FormatSelection(formatConfig, newSelection);
+      DrillTable drillTable = new DynamicDrillTable(plugin, storageEngineName, schemaConfig.getUserName(), selection);
+      setMetadataProviderManager(drillTable, key.sig.getName());
+
+      List<TableParamDef> commonParams = key.sig.getCommonParams();
+      if (commonParams.isEmpty()) {
+        return drillTable;
+      }
+      // extract only common parameters related values
+      List<Object> paramValues = key.params.subList(key.params.size() - commonParams.size(), key.params.size());
+      return applyFunctionParameters(drillTable, commonParams, paramValues);
     }
 
     /**
@@ -701,7 +734,7 @@ public class WorkspaceSchemaFactory {
 
         if (schemaConfig.getOption(ExecConstants.METASTORE_ENABLED).bool_val) {
           try {
-            MetastoreRegistry metastoreRegistry = plugin.getContext().getMetastoreRegistry();
+            MetastoreRegistry metastoreRegistry = plugin.pluginContext().metastoreRegistry();
             TableInfo tableInfo = TableInfo.builder()
                 .storagePlugin(plugin.getName())
                 .workspace(schemaName)

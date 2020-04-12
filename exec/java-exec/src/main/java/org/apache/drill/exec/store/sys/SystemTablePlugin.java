@@ -19,22 +19,19 @@ package org.apache.drill.exec.store.sys;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.planner.logical.DrillTable;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.SystemPlugin;
 import org.apache.drill.exec.store.pojo.PojoDataType;
 
@@ -50,11 +47,11 @@ public class SystemTablePlugin extends AbstractStoragePlugin {
   private final SystemSchema schema;
 
   @SuppressWarnings("unused") // used in StoragePluginRegistryImpl to dynamically init system plugins
-  public SystemTablePlugin(DrillbitContext context) {
+  public SystemTablePlugin(StoragePluginContext context) {
     this(SystemTablePluginConfig.INSTANCE, context, SYS_SCHEMA_NAME);
   }
 
-  public SystemTablePlugin(SystemTablePluginConfig config, DrillbitContext context, String name) {
+  public SystemTablePlugin(SystemTablePluginConfig config, StoragePluginContext context, String name) {
     super(context, name);
     this.config = config;
     this.schema = new SystemSchema(this);
@@ -71,8 +68,8 @@ public class SystemTablePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns) {
-    SystemTable table = selection.getWith(getContext().getLpPersistence().getMapper(), SystemTable.class);
+  public AbstractGroupScan getPhysicalScan(ScanRequest scanRequest) {
+    SystemTable table = scanRequest.selection(SystemTable.class);
     return new SystemTableScan(table, this);
   }
 

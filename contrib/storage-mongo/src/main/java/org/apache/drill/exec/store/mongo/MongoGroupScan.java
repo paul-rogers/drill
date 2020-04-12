@@ -532,7 +532,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
     watch.start();
 
     Map<String, DrillbitEndpoint> endpointMap = Maps.newHashMap();
-    for (DrillbitEndpoint endpoint : storagePlugin.getContext().getBits()) {
+    for (DrillbitEndpoint endpoint : storagePlugin.pluginContext().drillbits()) {
       endpointMap.put(endpoint.getAddress(), endpoint);
       logger.debug("Endpoint address: {}", endpoint.getAddress());
     }

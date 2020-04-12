@@ -212,7 +212,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
   @Override
   protected Collection<CoordinationProtos.DrillbitEndpoint> getDrillbits() {
-    return hiveStoragePlugin.getContext().getBits();
+    return hiveStoragePlugin.pluginContext().drillbits();
   }
 
   @Override

@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.dfs;
 
 import static java.util.Collections.unmodifiableMap;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -33,18 +34,24 @@ import org.apache.drill.exec.store.dfs.WorkspaceSchemaFactory.TableInstance;
 import org.apache.drill.exec.store.table.function.TableParamDef;
 import org.apache.drill.exec.store.table.function.TableSignature;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Describes the options for a format plugin
  * extracted from the FormatPluginConfig subclass
  */
 final class FormatPluginOptionsDescriptor {
-  private static final Logger logger = org.slf4j.LoggerFactory.getLogger(FormatPluginOptionsDescriptor.class);
+  private static final Logger logger = LoggerFactory.getLogger(FormatPluginOptionsDescriptor.class);
 
-  final Class<? extends FormatPluginConfig> pluginConfigClass;
-  final String typeName;
+  private final Class<? extends FormatPluginConfig> pluginConfigClass;
+  private final String typeName;
   private final Map<String, TableParamDef> functionParamsByName;
 
   /**
@@ -79,6 +86,8 @@ final class FormatPluginOptionsDescriptor {
     this.functionParamsByName = unmodifiableMap(paramsByName);
   }
 
+  public String getTypeName() { return typeName; }
+
   /**
    * Returns the table function signature for this format plugin config class.
    *
@@ -86,7 +95,7 @@ final class FormatPluginOptionsDescriptor {
    * @param tableParameters common table parameters to be included
    * @return the signature
    */
-  TableSignature getTableSignature(String tableName, List<TableParamDef> tableParameters) {
+  protected TableSignature getTableSignature(String tableName, List<TableParamDef> tableParameters) {
     return TableSignature.of(tableName, tableParameters, params());
   }
 
@@ -100,7 +109,7 @@ final class FormatPluginOptionsDescriptor {
   /**
    * @return a readable String of the parameters and their names
    */
-  String presentParams() {
+  protected String presentParams() {
     StringBuilder sb = new StringBuilder("(");
     List<TableParamDef> params = params();
     for (int i = 0; i < params.size(); i++) {
@@ -114,62 +123,158 @@ final class FormatPluginOptionsDescriptor {
     return sb.toString();
   }
 
-  /**
-   * Creates an instance of the FormatPluginConfig based on the passed parameters.
-   *
-   * @param t the signature and the parameters passed to the table function
-   * @return the corresponding config
-   */
-  FormatPluginConfig createConfigForTable(TableInstance t) {
-    List<TableParamDef> formatParams = t.sig.getSpecificParams();
-    // Exclude common params values, leave only format related params
-    List<Object> formatParamsValues = t.params.subList(0, t.params.size() - t.sig.getCommonParams().size());
+  public class ConfigCreator {
+    final TableInstance t;
+    final FormatPluginConfig baseConfig;
+    final List<TableParamDef> formatParams;
+    final List<Object> formatParamsValues;
+    final ObjectMapper mapper;
 
-    // Per the constructor, the first param is always "type"
-    TableParamDef typeParamDef = formatParams.get(0);
-    Object typeParam = formatParamsValues.get(0);
-    if (!typeParamDef.getName().equals("type")
-        || typeParamDef.getType() != String.class
-        || !(typeParam instanceof String)
-        || !typeName.equalsIgnoreCase((String)typeParam)) {
-      // if we reach here, there's a bug as all signatures generated start with a type parameter
-      throw UserException.parseError()
-          .message(
-              "This function signature is not supported: %s\n"
-              + "expecting %s",
-              t.presentParams(), this.presentParams())
-          .addContext("table", t.sig.getName())
-          .build(logger);
+    public ConfigCreator(TableInstance table, ObjectMapper mapper, FormatPluginConfig baseConfig) {
+      this.t = table;
+      this.mapper = mapper;
+
+      // Abundance of caution: if the base is not of the correct
+      // type, just ignore it to avoid introducing new errors.
+      // Drill prior to 1.18 didn't use a base config.
+      if (baseConfig == null || baseConfig.getClass() != pluginConfigClass) {
+        this.baseConfig = null;
+      } else {
+        this.baseConfig = baseConfig;
+      }
+      formatParams = t.sig.getSpecificParams();
+      // Exclude common params values, leave only format related params
+      formatParamsValues = t.params.subList(0, t.params.size() - t.sig.getCommonParams().size());
     }
-    FormatPluginConfig config;
-    try {
-      config = pluginConfigClass.newInstance();
-    } catch (InstantiationException | IllegalAccessException e) {
-      throw UserException.parseError(e)
-          .message(
-              "configuration for format of type %s can not be created (class: %s)",
-              this.typeName, pluginConfigClass.getName())
-          .addContext("table", t.sig.getName())
-          .build(logger);
+
+    public FormatPluginConfig createNewStyle() {
+      verifyType();
+      ObjectNode configObject = makeConfigNode();
+      applyParams(configObject);
+      return nodeToConfig(configObject);
     }
-    for (int i = 1; i < formatParamsValues.size(); i++) {
+
+    private ObjectNode makeConfigNode() {
+      if (baseConfig == null) {
+        return mapper.createObjectNode();
+      } else {
+        return mapper.valueToTree(baseConfig);
+      }
+    }
+
+    private void applyParams(ObjectNode configObject) {
+      for (int i = 1; i < formatParamsValues.size(); i++) {
+        applyParam(configObject, i);
+      }
+    }
+
+    private void applyParam(ObjectNode configObject, int i) {
       Object param = formatParamsValues.get(i);
       if (param == null) {
         // when null is passed, we leave the default defined in the config class
-        continue;
+        return;
       }
       if (param instanceof String) {
         // normalize Java literals, ex: \t, \n, \r
         param = StringEscapeUtils.unescapeJava((String) param);
       }
       TableParamDef paramDef = formatParams.get(i);
-      TableParamDef expectedParamDef = this.functionParamsByName.get(paramDef.getName());
+      JsonNode value = mapper.convertValue(param, JsonNode.class);
+      configObject.replace(paramDef.getName(), value);
+    }
+
+    private FormatPluginConfig nodeToConfig(ObjectNode configObject) {
+      try {
+        return mapper.readerFor(pluginConfigClass).readValue(configObject);
+      } catch (IOException e) {
+        String jsonConfig;
+        try {
+          jsonConfig = mapper.writeValueAsString(configObject);
+        } catch (JsonProcessingException e1) {
+          jsonConfig = "unavailable: " + e1.getMessage();
+        }
+        throw UserException.parseError(e)
+          .message(
+              "configuration for format of type %s can not be created (class: %s)",
+              typeName, pluginConfigClass.getName())
+          .addContext("table", t.sig.getName())
+          .addContext("JSON confuration", jsonConfig)
+          .build(logger);
+      }
+    }
+
+    /**
+     * Creates a format plugin config in the style prior to
+     * Drill 1.8: binds parameters to public, mutable fields.
+     * However, this causes issues: fields should be immutable (DRILL-7612, DRILL-6672).
+     * Also, this style does not allow retaining some fields
+     * while customizing others. (DRILL-6168).
+     * @return
+     */
+    public FormatPluginConfig createOldStyle() {
+      verifyType();
+      FormatPluginConfig config = configInstance();
+      bindParams(config);
+      return config;
+    }
+
+    public void verifyType() {
+
+      // Per the constructor, the first param is always "type"
+      TableParamDef typeParamDef = formatParams.get(0);
+      Object typeParam = formatParamsValues.get(0);
+      if (!typeParamDef.getName().equals("type")
+          || typeParamDef.getType() != String.class
+          || !(typeParam instanceof String)
+          || !typeName.equalsIgnoreCase((String)typeParam)) {
+        // if we reach here, there's a bug as all signatures generated start with a type parameter
+        throw UserException.parseError()
+            .message(
+                "This function signature is not supported: %s\n"
+                + "expecting %s",
+                t.presentParams(), presentParams())
+            .addContext("table", t.sig.getName())
+            .build(logger);
+      }
+    }
+
+    public FormatPluginConfig configInstance() {
+      try {
+        return pluginConfigClass.newInstance();
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw UserException.parseError(e)
+            .message(
+                "configuration for format of type %s can not be created (class: %s)",
+                typeName, pluginConfigClass.getName())
+            .addContext("table", t.sig.getName())
+            .build(logger);
+      }
+    }
+
+    private void bindParams(FormatPluginConfig config) {
+      for (int i = 1; i < formatParamsValues.size(); i++) {
+        bindParam(config, i);
+      }
+    }
+
+    private void bindParam(FormatPluginConfig config, int i) {
+      Object param = formatParamsValues.get(i);
+      if (param == null) {
+        // when null is passed, we leave the default defined in the config class
+        return;
+      }
+      if (param instanceof String) {
+        // normalize Java literals, ex: \t, \n, \r
+        param = StringEscapeUtils.unescapeJava((String) param);
+      }
+      TableParamDef paramDef = formatParams.get(i);
+      TableParamDef expectedParamDef = functionParamsByName.get(paramDef.getName());
       if (expectedParamDef == null || expectedParamDef.getType() != paramDef.getType()) {
         throw UserException.parseError()
         .message(
             "The parameters provided are not applicable to the type specified:\n"
                 + "provided: %s\nexpected: %s",
-            t.presentParams(), this.presentParams())
+            t.presentParams(), presentParams())
         .addContext("table", t.sig.getName())
         .build(logger);
       }
@@ -196,7 +301,18 @@ final class FormatPluginOptionsDescriptor {
             .build(logger);
       }
     }
-    return config;
+  }
+
+  /**
+   * Creates an instance of the FormatPluginConfig based on the passed parameters.
+   *
+   * @param t the signature and the parameters passed to the table function
+   * @param mapper
+   * @return the corresponding config
+   */
+  FormatPluginConfig createConfigForTable(TableInstance t, ObjectMapper mapper, FormatPluginConfig baseConfig) {
+    ConfigCreator configCreator = new ConfigCreator(t, mapper, baseConfig);
+    return configCreator.createNewStyle();
   }
 
   @Override

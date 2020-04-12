@@ -31,9 +31,9 @@ import org.apache.calcite.sql.SqlDialectFactoryImpl;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +47,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
   private final SqlDialect dialect;
   private final DrillJdbcConvention convention;
 
-  public JdbcStoragePlugin(JdbcStorageConfig config, DrillbitContext context, String name) {
+  public JdbcStoragePlugin(JdbcStorageConfig config, StoragePluginContext context, String name) {
     super(context, name);
     this.config = config;
     this.dataSource = initDataSource(config);

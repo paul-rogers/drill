@@ -20,14 +20,10 @@ package org.apache.drill.exec.store.kudu;
 import java.io.IOException;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.kudu.client.KuduClient;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class KuduStoragePlugin extends AbstractStoragePlugin {
 
@@ -36,7 +32,7 @@ public class KuduStoragePlugin extends AbstractStoragePlugin {
 
   private final KuduClient client;
 
-  public KuduStoragePlugin(KuduStoragePluginConfig configuration, DrillbitContext context, String name)
+  public KuduStoragePlugin(KuduStoragePluginConfig configuration, StoragePluginContext context, String name)
       throws IOException {
     super(context, name);
     this.schemaFactory = new KuduSchemaFactory(this, name);
@@ -59,8 +55,8 @@ public class KuduStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public KuduGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    KuduScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<KuduScanSpec>() {});
+  public KuduGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    KuduScanSpec scanSpec = scanRequest.selection(KuduScanSpec.class);
     return new KuduGroupScan(this, scanSpec, null);
   }
 

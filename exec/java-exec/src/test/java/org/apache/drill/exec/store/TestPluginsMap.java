@@ -96,18 +96,6 @@ public class TestPluginsMap extends BasePluginRegistryTest {
     assertFalse(entry1.hasInstance());
     entry1.close(); // No-op
 
-    // Failure on start
-    StoragePluginFixtureConfig config2 = new StoragePluginFixtureConfig("crash-start");
-    PluginHandle entry2 = new PluginHandle("p2", config2, connector);
-    try {
-      entry2.plugin();
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-    assertFalse(entry2.hasInstance());
-    entry2.close(); // No-op
-
     // Failure on close
     StoragePluginFixtureConfig config3 = new StoragePluginFixtureConfig("crash-close");
     PluginHandle entry3 = new PluginHandle("p3", config3, connector);

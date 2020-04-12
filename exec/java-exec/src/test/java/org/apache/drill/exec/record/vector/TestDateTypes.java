@@ -39,7 +39,8 @@ import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-/* Tests the existing date types. Simply using date types
+/**
+ * Tests the existing date types. Simply using date types
  * by casting from VarChar, performing basic functions and converting
  * back to VarChar.
  */

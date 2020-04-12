@@ -29,21 +29,61 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
-import org.apache.drill.exec.server.options.SessionOptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 
-/** Interface for all implementations of the storage plugins. Different implementations of the storage
- * formats will implement methods that indicate if Drill can write or read its tables from that format,
- * if there are optimizer rules specific for the format, getting a storage config. etc.
+import com.fasterxml.jackson.core.type.TypeReference;
+
+/**
+ * Interface for all implementations of the storage plugins. Different
+ * implementations of the storage formats implement methods that indicate
+ * if Drill can write or read its tables from that format, if there are
+ * optimizer rules specific for the format, getting a storage config. etc.
+ * <p>
+ * The plugin is created on first use in each Drillbit. The plugin should
+ * perform initialization in the constructor. The plugin lives
+ * for the life of the Drillbit (or sometimes shorter if the corresponding
+ * config is removed.) A plugin instance holds a config: there will be one
+ * instance per config. Drill calls the {@code close()} method when a
+ * plugin instance expires from the plugin registry.
  */
 public interface StoragePlugin extends SchemaFactory, AutoCloseable {
 
-  String getName();
+  public interface ScanRequest {
 
-  /**
-   * Initialize the storage plugin. The storage plugin will not be used until this method is called.
-   */
-  void start() throws IOException;
+    /**
+     * User whom to impersonate when when reading the contents as part of Scan.
+     */
+    String userName();
+
+    /**
+     * The configured storage engine specific selection.
+     */
+    JSONOptions jsonOptions();
+
+    <T> T selection(Class<T> selClass);
+    <T> T selection(TypeReference<T> selType);
+
+    /**
+     * The configured storage engine specific selection.
+     */
+    List<SchemaPath> columns();
+
+    /**
+     * Session options. (Optional.)
+     * @return
+     */
+    OptionSet options();
+
+    /**
+     * Manager for handling metadata providers
+     */
+    MetadataProviderManager metadataProviderManager();
+  }
+
+  StoragePluginContext pluginContext();
+
+  String getName();
 
   /**
    * Indicates if Drill can read the table from this format.
@@ -76,7 +116,9 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param userName User whom to impersonate when when reading the contents as part of Scan.
    * @param selection The configured storage engine specific selection.
    * @return The physical scan operator for the particular GroupScan (read) node.
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
    */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException;
 
   /**
@@ -86,9 +128,11 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param selection The configured storage engine specific selection.
    * @param options (optional) session options
    * @return The physical scan operator for the particular GroupScan (read) node.
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
    */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      SessionOptionManager options) throws IOException;
+      OptionSet options) throws IOException;
 
   /**
    * Get the physical scan operator for the particular GroupScan (read) node.
@@ -98,9 +142,11 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param options         (optional) session options
    * @param providerManager manager for handling metadata providers
    * @return The physical scan operator for the particular GroupScan (read) node.
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
    */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      SessionOptionManager options, MetadataProviderManager providerManager) throws IOException;
+      OptionSet options, MetadataProviderManager providerManager) throws IOException;
 
   /**
    * Get the physical scan operator for the particular GroupScan (read) node.
@@ -109,7 +155,9 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param selection The configured storage engine specific selection.
    * @param columns (optional) The list of column names to scan from the data source.
    * @return The physical scan operator for the particular GroupScan (read) node.
-  */
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
+   */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
       List<SchemaPath> columns) throws IOException;
 
@@ -121,9 +169,11 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param columns (optional) The list of column names to scan from the data source.
    * @param options (optional) session options
    * @return The physical scan operator for the particular GroupScan (read) node.
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
    */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      List<SchemaPath> columns, SessionOptionManager options) throws IOException;
+      List<SchemaPath> columns, OptionSet options) throws IOException;
 
   /**
    * Get the physical scan operator for the particular GroupScan (read) node.
@@ -134,9 +184,19 @@ public interface StoragePlugin extends SchemaFactory, AutoCloseable {
    * @param options         (optional) session options
    * @param providerManager manager for handling metadata providers
    * @return The physical scan operator for the particular GroupScan (read) node.
+   * @deprecated Use {@link #getPhysicalScan(ScanRequest)} instead
    */
+  @Deprecated
   AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      List<SchemaPath> columns, SessionOptionManager options, MetadataProviderManager providerManager) throws IOException;
+      List<SchemaPath> columns, OptionSet options, MetadataProviderManager providerManager) throws IOException;
+
+  /**
+   * Get the physical scan operator for the particular GroupScan (read) node.
+   *
+   * @param scanRequest description of the scan to build
+   * @return The physical scan operator for the particular GroupScan (read) node.
+   */
+  AbstractGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException;
 
   /**
    * Allows to get the format plugin for current storage plugin based on appropriate format plugin config usage.

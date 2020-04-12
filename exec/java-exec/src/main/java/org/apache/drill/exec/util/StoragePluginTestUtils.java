@@ -118,8 +118,7 @@ public class StoragePluginTestUtils {
     psvConfig.fieldDelimiter = '|';
     newFormats.put("psv", psvConfig);
 
-    SequenceFileFormatConfig seqConfig = new SequenceFileFormatConfig();
-    seqConfig.extensions = ImmutableList.of("seq");
+    SequenceFileFormatConfig seqConfig = new SequenceFileFormatConfig(ImmutableList.of("seq"));
     newFormats.put("sequencefile", seqConfig);
 
     TextFormatPlugin.TextFormatConfig csvhtestConfig = new TextFormatPlugin.TextFormatConfig();

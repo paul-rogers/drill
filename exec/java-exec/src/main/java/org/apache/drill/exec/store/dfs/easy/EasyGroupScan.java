@@ -46,6 +46,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
@@ -110,25 +111,24 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
   }
 
   public EasyGroupScan(
-      String userName,
+      ScanRequest scanRequest,
       FileSelection selection,
-      EasyFormatPlugin<?> formatPlugin,
-      List<SchemaPath> columns,
-      Path selectionRoot,
-      MetadataProviderManager metadataProviderManager
+      EasyFormatPlugin<?> formatPlugin
       ) throws IOException {
-    super(userName, columns, ValueExpressions.BooleanExpression.TRUE);
+    super(scanRequest.userName(), scanRequest.columns(),
+        ValueExpressions.BooleanExpression.TRUE);
     this.selection = Preconditions.checkNotNull(selection);
     this.formatPlugin = Preconditions.checkNotNull(formatPlugin,
         "Unable to load format plugin for provided format config.");
     this.columns = columns == null ? ALL_COLUMNS : columns;
-    this.selectionRoot = selectionRoot;
+    this.selectionRoot = selection.selectionRoot;
+    MetadataProviderManager metadataProviderManager = scanRequest.metadataProviderManager();
     if (metadataProviderManager == null) {
       // use file system metadata provider without specified schema and statistics
       metadataProviderManager = new FileSystemMetadataProviderManager();
     }
     DrillFileSystem fs =
-        ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+        ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(scanRequest.userName()), formatPlugin.getFsConf());
 
     this.metadataProvider = tableMetadataProviderBuilder(metadataProviderManager)
         .withSelection(selection)
@@ -140,15 +140,12 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
   }
 
   public EasyGroupScan(
-      String userName,
+      ScanRequest scanRequest,
       FileSelection selection,
       EasyFormatPlugin<?> formatPlugin,
-      List<SchemaPath> columns,
-      Path selectionRoot,
-      int minWidth,
-      MetadataProviderManager metadataProvider
+      int minWidth
       ) throws IOException {
-    this(userName, selection, formatPlugin, columns, selectionRoot, metadataProvider);
+    this(scanRequest, selection, formatPlugin);
 
     // Set the minimum width of this reader. Primarily used for testing
     // to force parallelism even for small test files.
@@ -182,7 +179,7 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
   private void initFromSelection(FileSelection selection, EasyFormatPlugin<?> formatPlugin) throws IOException {
     final DrillFileSystem dfs = ImpersonationUtil.createFileSystem(getUserName(), formatPlugin.getFsConf());
     this.selection = selection;
-    BlockMapBuilder b = new BlockMapBuilder(dfs, formatPlugin.getContext().getBits());
+    BlockMapBuilder b = new BlockMapBuilder(dfs, formatPlugin.pluginContext().drillbits());
     chunks = b.generateFileWork(selection.getStatuses(dfs), formatPlugin.isBlockSplittable());
     maxWidth = chunks.size();
     endpointAffinities = AffinityCreator.getAffinityMap(chunks);

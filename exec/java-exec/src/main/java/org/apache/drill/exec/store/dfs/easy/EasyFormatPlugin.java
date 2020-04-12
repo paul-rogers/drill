@@ -46,12 +46,13 @@ import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.StatisticsRecordWriter;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.dfs.BasicFormatMatcher;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -59,7 +60,6 @@ import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.FormatMatcher;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.shaded.guava.com.google.common.base.Functions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -149,14 +149,14 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
   private final String name;
   private final EasyFormatConfig easyConfig;
-  private final DrillbitContext context;
+  private final StoragePluginContext context;
   private final StoragePluginConfig storageConfig;
   protected final T formatConfig;
 
   /**
    * Legacy constructor.
    */
-  protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  protected EasyFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
       StoragePluginConfig storageConfig, T formatConfig, boolean readable, boolean writable,
       boolean blockSplittable,
       boolean compressible, List<String> extensions, String defaultName) {
@@ -186,7 +186,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * by the user in the Drill web console. Holds user-defined options
    */
 
-  protected EasyFormatPlugin(String name, EasyFormatConfig config, DrillbitContext context,
+  protected EasyFormatPlugin(String name, EasyFormatConfig config, StoragePluginContext context,
       StoragePluginConfig storageConfig, T formatConfig) {
     this.name = name;
     this.easyConfig = config;
@@ -204,7 +204,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public Configuration getFsConf() { return easyConfig.fsConf; }
 
   @Override
-  public DrillbitContext getContext() { return context; }
+  public StoragePluginContext pluginContext() { return context; }
 
   public EasyFormatConfig easyConfig() { return easyConfig; }
 
@@ -469,15 +469,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   }
 
   @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns)
-      throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot, null);
-  }
-
-  @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, MetadataProviderManager metadataProviderManager) throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot, metadataProviderManager);
+  public AbstractGroupScan getGroupScan(ScanRequest scanRequest, FileSelection selection) throws IOException {
+    return new EasyGroupScan(scanRequest, selection, this);
   }
 
   @Override

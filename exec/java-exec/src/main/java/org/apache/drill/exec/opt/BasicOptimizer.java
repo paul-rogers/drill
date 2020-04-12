@@ -53,6 +53,7 @@ import org.apache.drill.exec.physical.config.WindowPOP;
 import org.apache.drill.exec.planner.common.DrillUnnestRelBase;
 import org.apache.drill.exec.rpc.UserClientConnection;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.ScanRequestImpl;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.StoragePluginRegistry.PluginException;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -204,7 +205,8 @@ public class BasicOptimizer extends Optimizer {
       try {
         final StoragePlugin storagePlugin = queryContext.getStorage().getPluginByConfig(config);
         final String user = userSession.getSession().getCredentials().getUserName();
-        return storagePlugin.getPhysicalScan(user, scan.getSelection(), userSession.getSession().getOptions());
+        return storagePlugin.getPhysicalScan(
+            new ScanRequestImpl(storagePlugin, user, scan.getSelection(), userSession.getSession().getOptions()));
       } catch (IOException | PluginException e) {
         throw new OptimizerException("Failure while attempting to retrieve storage engine.", e);
       }

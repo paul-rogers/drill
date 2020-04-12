@@ -30,15 +30,13 @@ import java.util.regex.Pattern;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -54,17 +52,17 @@ public class MockStorageEngine extends AbstractStoragePlugin {
   private final MockStorageEngineConfig configuration;
   private final MockSchema schema;
 
-  public MockStorageEngine(MockStorageEngineConfig configuration, DrillbitContext context, String name) {
+  public MockStorageEngine(MockStorageEngineConfig configuration, StoragePluginContext context, String name) {
     super(context, name);
     this.configuration = configuration;
     this.schema = new MockSchema(this, name);
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns)
+  public AbstractGroupScan getPhysicalScan(ScanRequest scanRequest)
       throws IOException {
 
-    List<MockTableDef.MockScanEntry> readEntries = selection.getListWith(new ObjectMapper(),
+    List<MockTableDef.MockScanEntry> readEntries = scanRequest.selection(
         new TypeReference<ArrayList<MockTableDef.MockScanEntry>>() {
         });
 

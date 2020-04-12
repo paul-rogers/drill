@@ -18,8 +18,10 @@
 package org.apache.drill.exec.store.hbase;
 
 import java.util.Map;
+import java.util.Objects;
 
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import org.apache.drill.common.PlanStringBuilder;
+import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
@@ -30,29 +32,30 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 
 @JsonTypeName(HBaseStoragePluginConfig.NAME)
-public class HBaseStoragePluginConfig extends StoragePluginConfigBase implements DrillHBaseConstants {
+public class HBaseStoragePluginConfig extends StoragePluginConfig implements DrillHBaseConstants {
   private static final Logger logger = LoggerFactory.getLogger(HBaseStoragePluginConfig.class);
 
-  private Map<String, String> config;
+  public static final String NAME = "hbase";
+
+  private final Map<String, String> config;
+  private final boolean sizeCalculatorEnabled;
 
   @JsonIgnore
   private Configuration hbaseConf;
 
-  @JsonIgnore
-  private Boolean sizeCalculatorEnabled;
-
-  public static final String NAME = "hbase";
-
   @JsonCreator
-  public HBaseStoragePluginConfig(@JsonProperty("config") Map<String, String> props, @JsonProperty("size.calculator.enabled") Boolean sizeCalculatorEnabled) {
-    this.config = props;
-    if (config == null) {
-      config = Maps.newHashMap();
+  public HBaseStoragePluginConfig(
+      @JsonProperty("config") Map<String, String> props,
+      @JsonProperty("size.calculator.enabled") Boolean sizeCalculatorEnabled) {
+    if (props == null) {
+      this.config = ImmutableMap.of();
+    } else {
+      this.config = ImmutableMap.copyOf(props);
     }
     // TODO: Config-based information should reside in the
     // storage plugin instance, not here.
@@ -67,7 +70,7 @@ public class HBaseStoragePluginConfig extends StoragePluginConfigBase implements
 
   @JsonProperty
   public Map<String, String> getConfig() {
-    return ImmutableMap.copyOf(config);
+    return config;
   }
 
   @JsonProperty("size.calculator.enabled")
@@ -83,12 +86,13 @@ public class HBaseStoragePluginConfig extends StoragePluginConfigBase implements
       return false;
     }
     HBaseStoragePluginConfig that = (HBaseStoragePluginConfig) o;
-    return config.equals(that.config);
+    return Objects.equals(config, that.config) &&
+           Objects.equals(sizeCalculatorEnabled, that.sizeCalculatorEnabled);
   }
 
   @Override
   public int hashCode() {
-    return this.config != null ? this.config.hashCode() : 0;
+    return Objects.hash(config, sizeCalculatorEnabled);
   }
 
   @JsonIgnore
@@ -121,4 +125,11 @@ public class HBaseStoragePluginConfig extends StoragePluginConfigBase implements
     getHBaseConf().setInt(HBASE_ZOOKEEPER_PORT, zookeeperPort);
   }
 
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+        .field("config", config)
+        .field("sizeCalculatorEnabled", sizeCalculatorEnabled)
+        .toString();
+  }
 }

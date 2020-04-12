@@ -86,11 +86,6 @@ public class FileSystemConfig extends StoragePluginConfig {
   }
 
   @Override
-  public String getValue(String key) {
-    return config == null ? null : config.get(key);
-  }
-
-  @Override
   public int hashCode() {
     return Objects.hash(connection, config, formats, workspaces);
   }

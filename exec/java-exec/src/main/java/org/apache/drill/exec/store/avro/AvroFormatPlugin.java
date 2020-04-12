@@ -23,8 +23,8 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.hadoop.conf.Configuration;
@@ -37,7 +37,7 @@ public class AvroFormatPlugin extends EasyFormatPlugin<AvroFormatConfig> {
   public static final String DEFAULT_NAME = "avro";
 
   public AvroFormatPlugin(String name,
-                          DrillbitContext context,
+                          StoragePluginContext context,
                           Configuration fsConf,
                           StoragePluginConfig storageConfig,
                           AvroFormatConfig formatConfig) {
@@ -51,7 +51,7 @@ public class AvroFormatPlugin extends EasyFormatPlugin<AvroFormatConfig> {
     config.blockSplittable = true;
     config.compressible = false;
     config.supportsProjectPushdown = true;
-    config.extensions = formatConfig.extensions;
+    config.extensions = formatConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
     config.readerOperatorType = CoreOperatorType.AVRO_SUB_SCAN_VALUE;

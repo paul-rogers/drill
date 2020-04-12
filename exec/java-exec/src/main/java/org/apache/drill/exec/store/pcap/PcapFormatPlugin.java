@@ -27,7 +27,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.drill.exec.store.pcap.PcapBatchReader.PcapReaderConfig;
@@ -50,7 +50,7 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
     }
   }
 
-  public PcapFormatPlugin(String name, DrillbitContext context,
+  public PcapFormatPlugin(String name, StoragePluginContext context,
                            Configuration fsConf, StoragePluginConfig storageConfig,
                            PcapFormatConfig formatConfig) {
     super(name, easyConfig(fsConf, formatConfig), context, storageConfig, formatConfig);

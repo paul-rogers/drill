@@ -17,14 +17,17 @@
  */
 package org.apache.drill.exec.store.kudu;
 
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import java.util.Objects;
+
+import org.apache.drill.common.PlanStringBuilder;
+import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(KuduStoragePluginConfig.NAME)
-public class KuduStoragePluginConfig extends StoragePluginConfigBase {
+public class KuduStoragePluginConfig extends StoragePluginConfig {
 
   public static final String NAME = "kudu";
 
@@ -41,10 +44,7 @@ public class KuduStoragePluginConfig extends StoragePluginConfigBase {
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((masterAddresses == null) ? 0 : masterAddresses.hashCode());
-    return result;
+    return Objects.hash(masterAddresses);
   }
 
   @Override
@@ -59,16 +59,13 @@ public class KuduStoragePluginConfig extends StoragePluginConfigBase {
       return false;
     }
     KuduStoragePluginConfig other = (KuduStoragePluginConfig) obj;
-    if (masterAddresses == null) {
-      if (other.masterAddresses != null) {
-        return false;
-      }
-    } else if (!masterAddresses.equals(other.masterAddresses)) {
-      return false;
-    }
-    return true;
+    return Objects.equals(masterAddresses, other.masterAddresses);
   }
 
-
-
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+        .field("master addresses", masterAddresses)
+        .toString();
+  }
 }

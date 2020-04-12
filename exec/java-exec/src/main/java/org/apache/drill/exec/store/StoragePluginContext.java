@@ -15,7 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.common.logical;
+package org.apache.drill.exec.store;
 
-public abstract class FormatPluginConfigBase implements FormatPluginConfig {
+import java.util.Collection;
+
+import org.apache.drill.common.scanner.persistence.ScanResult;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.metastore.MetastoreRegistry;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.typesafe.config.Config;
+
+public interface StoragePluginContext {
+
+  ObjectMapper objectMapper();
+
+  ScanResult classpathScan();
+
+  Config config();
+
+  MetastoreRegistry metastoreRegistry();
+
+  Collection<DrillbitEndpoint> drillbits();
 }

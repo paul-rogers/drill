@@ -26,7 +26,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.ClusterStatus;
@@ -43,12 +42,16 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.typesafe.config.Config;
 
 /**
  * Computes size of each region for given table.
  */
 public class TableStatsCalculator {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableStatsCalculator.class);
+  private static final Logger logger = LoggerFactory.getLogger(TableStatsCalculator.class);
 
   public static final long DEFAULT_ROW_COUNT = 1024L * 1024L; // 1 million rows
 
@@ -57,7 +60,7 @@ public class TableStatsCalculator {
   private static final int DEFAULT_SAMPLE_SIZE = 100;
 
   // Maps each region to its size in bytes.
-  private Map<byte[], Long> sizeMap = null;
+  private Map<byte[], Long> sizeMap;
 
   private int avgRowSizeInBytes = 1;
 
@@ -73,7 +76,7 @@ public class TableStatsCalculator {
    * @param config drill configuration
    * @param storageConfig Hbase storage configuration
    */
-  public TableStatsCalculator(Connection connection, HBaseScanSpec hbaseScanSpec, DrillConfig config, HBaseStoragePluginConfig storageConfig) throws IOException {
+  public TableStatsCalculator(Connection connection, HBaseScanSpec hbaseScanSpec, Config config, HBaseStoragePluginConfig storageConfig) throws IOException {
     TableName tableName = TableName.valueOf(hbaseScanSpec.getTableName());
     try (Admin admin = connection.getAdmin();
          Table table = connection.getTable(tableName);
@@ -160,7 +163,7 @@ public class TableStatsCalculator {
     return config.isSizeCalculatorEnabled();
   }
 
-  private int rowsToSample(DrillConfig config) {
+  private int rowsToSample(Config config) {
     return config.hasPath(DRILL_EXEC_HBASE_SCAN_SAMPLE_ROWS_COUNT) ?
       config.getInt(DRILL_EXEC_HBASE_SCAN_SAMPLE_ROWS_COUNT) : DEFAULT_SAMPLE_SIZE;
   }
@@ -170,7 +173,7 @@ public class TableStatsCalculator {
    */
   public long getRegionSizeInBytes(byte[] regionId) {
     if (sizeMap == null) {
-      return (long) avgRowSizeInBytes * estimatedRowCount;
+      return avgRowSizeInBytes * estimatedRowCount;
     } else {
       Long size = sizeMap.get(regionId);
       if (size == null) {

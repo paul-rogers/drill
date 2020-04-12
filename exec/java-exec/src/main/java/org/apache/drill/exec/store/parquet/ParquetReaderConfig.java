@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.ParquetReadOptions;
 
@@ -153,7 +153,7 @@ public class ParquetReaderConfig {
 
     private ParquetFormatConfig formatConfig;
     private Configuration conf;
-    private OptionManager options;
+    private OptionSet options;
 
     public Builder withFormatConfig(ParquetFormatConfig formatConfig) {
       this.formatConfig = formatConfig;
@@ -165,7 +165,7 @@ public class ParquetReaderConfig {
       return this;
     }
 
-    public Builder withOptions(OptionManager options) {
+    public Builder withOptions(OptionSet options) {
       this.options = options;
       return this;
     }
@@ -196,7 +196,5 @@ public class ParquetReaderConfig {
 
       return readerConfig;
     }
-
   }
-
 }

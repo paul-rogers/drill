@@ -19,15 +19,13 @@ package org.apache.drill.exec.store.ischema;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.SystemPlugin;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
@@ -35,7 +33,6 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -47,11 +44,11 @@ public class InfoSchemaStoragePlugin extends AbstractStoragePlugin {
   private final InfoSchemaConfig config;
 
   @SuppressWarnings("unused") // used in StoragePluginRegistryImpl to dynamically init system plugins
-  public InfoSchemaStoragePlugin(DrillbitContext context) {
+  public InfoSchemaStoragePlugin(StoragePluginContext context) {
     this(InfoSchemaConfig.INSTANCE, context, InfoSchemaConstants.IS_SCHEMA_NAME);
   }
 
-  public InfoSchemaStoragePlugin(InfoSchemaConfig config, DrillbitContext context, String name) {
+  public InfoSchemaStoragePlugin(InfoSchemaConfig config, StoragePluginContext context, String name) {
     super(context, name);
     this.config = config;
   }
@@ -62,8 +59,8 @@ public class InfoSchemaStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public InfoSchemaGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns) {
-    InfoSchemaTableType table = selection.getWith(getContext().getLpPersistence().getMapper(),  InfoSchemaTableType.class);
+  public InfoSchemaGroupScan getPhysicalScan(ScanRequest scanRequest) {
+    InfoSchemaTableType table = scanRequest.selection(InfoSchemaTableType.class);
     return new InfoSchemaGroupScan(table);
   }
 

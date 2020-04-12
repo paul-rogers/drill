@@ -23,9 +23,9 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
@@ -40,12 +40,13 @@ public class PcapngFormatPlugin extends EasyFormatPlugin<PcapngFormatConfig> {
 
   public static final String DEFAULT_NAME = "pcapng";
 
-  public PcapngFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public PcapngFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
                             StoragePluginConfig storagePluginConfig) {
     this(name, context, fsConf, storagePluginConfig, new PcapngFormatConfig());
   }
 
-  public PcapngFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config, PcapngFormatConfig formatPluginConfig) {
+  public PcapngFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
+      StoragePluginConfig config, PcapngFormatConfig formatPluginConfig) {
     super(name, context, fsConf, config, formatPluginConfig, true,
         false, false, true,
         formatPluginConfig.getExtensions(), DEFAULT_NAME);

@@ -43,6 +43,7 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
@@ -111,29 +112,26 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     init();
   }
 
-  public ParquetGroupScan(String userName,
+  public ParquetGroupScan(ScanRequest scanRequest,
                           FileSelection selection,
                           ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
-                          ParquetReaderConfig readerConfig,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
-    this(userName, selection, formatPlugin, columns, readerConfig, ValueExpressions.BooleanExpression.TRUE, metadataProviderManager);
+                          ParquetReaderConfig readerConfig) throws IOException {
+    this(scanRequest, selection, formatPlugin, readerConfig, ValueExpressions.BooleanExpression.TRUE);
   }
 
-  public ParquetGroupScan(String userName,
+  public ParquetGroupScan(ScanRequest scanRequest,
                           FileSelection selection,
                           ParquetFormatPlugin formatPlugin,
-                          List<SchemaPath> columns,
                           ParquetReaderConfig readerConfig,
-                          LogicalExpression filter,
-                          MetadataProviderManager metadataProviderManager) throws IOException {
-    super(userName, columns, new ArrayList<>(), readerConfig, filter);
+                          LogicalExpression filter) throws IOException {
+    super(scanRequest.userName(), scanRequest.columns(), new ArrayList<>(), readerConfig, filter);
 
     this.formatPlugin = formatPlugin;
     this.formatConfig = formatPlugin.getConfig();
     this.cacheFileRoot = selection.getCacheFileRoot();
 
-    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(scanRequest.userName()), formatPlugin.getFsConf());
+    MetadataProviderManager metadataProviderManager = scanRequest.metadataProviderManager();
     if (metadataProviderManager == null) {
       // use file system metadata provider without specified schema and statistics
       metadataProviderManager = new FileSystemMetadataProviderManager();
@@ -285,7 +283,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   @Override
   protected Collection<DrillbitEndpoint> getDrillbits() {
-    return formatPlugin.getContext().getBits();
+    return formatPlugin.pluginContext().drillbits();
   }
 
   @Override

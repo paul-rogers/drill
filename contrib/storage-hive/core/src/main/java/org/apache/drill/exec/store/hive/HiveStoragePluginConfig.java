@@ -18,16 +18,20 @@
 package org.apache.drill.exec.store.hive;
 
 import java.util.Map;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+
+import org.apache.drill.common.PlanStringBuilder;
+import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.common.collect.ImmutableMap;
 
 @JsonTypeName(HiveStoragePluginConfig.NAME)
-public class HiveStoragePluginConfig extends StoragePluginConfigBase {
+public class HiveStoragePluginConfig extends StoragePluginConfig {
 
   public static final String NAME = "hive";
 
@@ -38,7 +42,7 @@ public class HiveStoragePluginConfig extends StoragePluginConfigBase {
                                  // previously two names were allowed due to incorrectly written ser / der logic
                                  // allowing to use both during deserialization for backward compatibility
                                  @JsonAlias("config") Map<String, String> configProps) {
-    this.configProps = configProps;
+    this.configProps = configProps == null ? ImmutableMap.of() : ImmutableMap.copyOf(configProps);
   }
 
   @JsonProperty
@@ -48,7 +52,7 @@ public class HiveStoragePluginConfig extends StoragePluginConfigBase {
 
   @Override
   public int hashCode() {
-    return configProps != null ? configProps.hashCode() : 0;
+    return Objects.hash(configProps);
   }
 
   @Override
@@ -61,12 +65,13 @@ public class HiveStoragePluginConfig extends StoragePluginConfigBase {
     }
 
     HiveStoragePluginConfig that = (HiveStoragePluginConfig) o;
-
-    if (configProps != null ? !configProps.equals(that.configProps) : that.configProps != null) {
-      return false;
-    }
-
-    return true;
+    return Objects.equals(configProps, that.configProps);
   }
 
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+        .field("config", configProps)
+        .toString();
+  }
 }

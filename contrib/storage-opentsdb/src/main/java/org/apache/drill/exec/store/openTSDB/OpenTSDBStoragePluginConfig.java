@@ -20,15 +20,17 @@ package org.apache.drill.exec.store.openTSDB;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import org.apache.drill.common.logical.StoragePluginConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
 @JsonTypeName(OpenTSDBStoragePluginConfig.NAME)
-public class OpenTSDBStoragePluginConfig extends StoragePluginConfigBase {
+public class OpenTSDBStoragePluginConfig extends StoragePluginConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(OpenTSDBStoragePluginConfig.class);
 
@@ -64,13 +66,13 @@ public class OpenTSDBStoragePluginConfig extends StoragePluginConfigBase {
 
   @Override
   public int hashCode() {
-    return connection != null ? connection.hashCode() : 0;
+    return Objects.hash(connection);
   }
 
   @Override
   public String toString() {
-    return "OpenTSDBStoragePluginConfig{" +
-            "connection='" + connection + '\'' +
-            '}';
+    return new PlanStringBuilder(this)
+        .field("connection", connection)
+        .toString();
   }
 }

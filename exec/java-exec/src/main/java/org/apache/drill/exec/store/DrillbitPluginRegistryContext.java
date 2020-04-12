@@ -17,10 +17,14 @@
  */
 package org.apache.drill.exec.store;
 
+import java.util.Collection;
+
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.scanner.persistence.ScanResult;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.metastore.MetastoreRegistry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jasonclawson.jackson.dataformat.hocon.HoconFactory;
@@ -29,7 +33,8 @@ import com.jasonclawson.jackson.dataformat.hocon.HoconFactory;
  * Implementation of the storage registry context which obtains the
  * needed resources from the {@code DrillbitContext}.
  */
-public class DrillbitPluginRegistryContext implements PluginRegistryContext {
+public class DrillbitPluginRegistryContext
+    implements PluginRegistryContext, StoragePluginContext {
 
   private final DrillbitContext drillbitContext;
   private final ObjectMapper mapper;
@@ -54,7 +59,7 @@ public class DrillbitPluginRegistryContext implements PluginRegistryContext {
   }
 
   @Override
-  public ObjectMapper mapper() {
+  public ObjectMapper objectMapper() {
     return mapper;
   }
 
@@ -71,5 +76,20 @@ public class DrillbitPluginRegistryContext implements PluginRegistryContext {
   @Override
   public DrillbitContext drillbitContext() {
     return drillbitContext;
+  }
+
+  @Override
+  public StoragePluginContext pluginContext() {
+     return this;
+  }
+
+  @Override
+  public MetastoreRegistry metastoreRegistry() {
+    return drillbitContext.getMetastoreRegistry();
+  }
+
+  @Override
+  public Collection<DrillbitEndpoint> drillbits() {
+    return drillbitContext.getBits();
   }
 }

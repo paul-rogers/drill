@@ -17,13 +17,10 @@
  */
 package org.apache.drill.exec.store.openTSDB;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.openTSDB.client.services.ServiceImpl;
 import org.apache.drill.exec.store.openTSDB.schema.OpenTSDBSchemaFactory;
 
@@ -36,7 +33,7 @@ public class OpenTSDBStoragePlugin extends AbstractStoragePlugin {
 
   private final ServiceImpl db;
 
-  public OpenTSDBStoragePlugin(OpenTSDBStoragePluginConfig configuration, DrillbitContext context,
+  public OpenTSDBStoragePlugin(OpenTSDBStoragePluginConfig configuration, StoragePluginContext context,
       String name) throws IOException {
     super(context, name);
     this.schemaFactory = new OpenTSDBSchemaFactory(this, getName());
@@ -55,9 +52,8 @@ public class OpenTSDBStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public OpenTSDBGroupScan getPhysicalScan(String userName, JSONOptions selection) throws IOException {
-    OpenTSDBScanSpec scanSpec = selection.getListWith(new ObjectMapper(), new TypeReference<OpenTSDBScanSpec>() {
-    });
+  public OpenTSDBGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    OpenTSDBScanSpec scanSpec = scanRequest.selection(OpenTSDBScanSpec.class);
     return new OpenTSDBGroupScan(this, scanSpec, null);
   }
 

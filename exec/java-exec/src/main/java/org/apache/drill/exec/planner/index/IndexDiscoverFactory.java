@@ -21,6 +21,8 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.common.DrillScanRelBase;
 import org.apache.drill.exec.planner.physical.ScanPrel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.calcite.rel.RelNode;
 
 import java.lang.reflect.Constructor;
@@ -29,19 +31,20 @@ import java.lang.reflect.Constructor;
  * With this factory, we allow user to load a different indexDiscover class to obtain index information
  */
 public class IndexDiscoverFactory {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(IndexDiscoverFactory.class);
+  static final Logger logger = LoggerFactory.getLogger(IndexDiscoverFactory.class);
   static final String INDEX_DISCOVER_CLASS_KEY = "index.discoverClass";
   static final String INDEX_DISCOVER_CONFIG_KEY = "index.meta";
 
+  @SuppressWarnings("unchecked")
   public static IndexDiscover getIndexDiscover(StoragePluginConfig config,
                                                GroupScan inScan, RelNode scanRel,
                                                Class<? extends IndexDiscover> targetIndexDiscoverClass) {
-    Class discoverClass = targetIndexDiscoverClass;
+    Class<?> discoverClass = targetIndexDiscoverClass;
 
     try {
       if (config != null ) {
         String discoverClassName = config.getValue(INDEX_DISCOVER_CLASS_KEY);
-        if(discoverClassName!= null && discoverClassName != "") {
+        if (discoverClassName!= null && discoverClassName != "") {
           discoverClass = Class.forName(discoverClassName);
         }
       }
@@ -50,7 +53,8 @@ public class IndexDiscoverFactory {
     }
     Constructor<? extends IndexDiscoverBase> constructor;
     try {
-      constructor = getConstructor(discoverClass,
+      constructor = getConstructor(
+          (Class<? extends IndexDiscoverBase>) discoverClass,
           scanRel);
       IndexDiscoverBase idxDiscover = constructor.newInstance(inScan, scanRel);
       if((targetIndexDiscoverClass != null) && (discoverClass != targetIndexDiscoverClass)) {
@@ -64,12 +68,11 @@ public class IndexDiscoverFactory {
     return null;
   }
 
-  private static Constructor<? extends IndexDiscoverBase> getConstructor(Class discoverClass,RelNode scanRel) throws Exception {
+  private static Constructor<? extends IndexDiscoverBase> getConstructor(Class<? extends IndexDiscoverBase> discoverClass,RelNode scanRel) throws Exception {
     if (scanRel instanceof DrillScanRelBase) {
       return discoverClass.getConstructor(GroupScan.class, DrillScanRelBase.class);
     } else {
       return discoverClass.getConstructor(GroupScan.class, ScanPrel.class);
     }
   }
-
 }

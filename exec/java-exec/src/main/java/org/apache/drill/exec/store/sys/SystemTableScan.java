@@ -98,13 +98,13 @@ public class SystemTableScan extends AbstractGroupScan implements SubScan {
   // If distributed, the scan needs to happen on every node.
   @Override
   public int getMaxParallelizationWidth() {
-    return table.isDistributed() ? plugin.getContext().getBits().size() : 1;
+    return table.isDistributed() ? plugin.pluginContext().drillbits().size() : 1;
   }
 
   // If distributed, the scan needs to happen on every node.
   @Override
   public int getMinParallelizationWidth() {
-    return table.isDistributed() ? plugin.getContext().getBits().size() : 1;
+    return table.isDistributed() ? plugin.pluginContext().drillbits().size() : 1;
   }
 
   @Override
@@ -151,7 +151,7 @@ public class SystemTableScan extends AbstractGroupScan implements SubScan {
   public List<EndpointAffinity> getOperatorAffinity() {
     if (table.isDistributed()) {
       final List<EndpointAffinity> affinities = Lists.newArrayList();
-      final Collection<DrillbitEndpoint> bits = plugin.getContext().getBits();
+      final Collection<DrillbitEndpoint> bits = plugin.pluginContext().drillbits();
       final double affinityPerNode = 1d / bits.size();
       for (final DrillbitEndpoint endpoint : bits) {
         affinities.add(new EndpointAffinity(endpoint, affinityPerNode, true, /* maxWidth = */ 1));

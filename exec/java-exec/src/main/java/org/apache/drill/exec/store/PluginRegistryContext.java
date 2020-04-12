@@ -30,9 +30,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public interface PluginRegistryContext {
   DrillConfig config();
-  ObjectMapper mapper();
+  ObjectMapper objectMapper();
   ObjectMapper hoconMapper();
   ScanResult classpathScan();
+  StoragePluginContext pluginContext();
 
   // TODO: Remove this here and from StoragePlugin constructors.
   // DrillbitContext is too complex and intimate to expose to

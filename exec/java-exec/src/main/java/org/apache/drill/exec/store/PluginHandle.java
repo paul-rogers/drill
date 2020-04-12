@@ -149,19 +149,6 @@ public class PluginHandle {
         .addContext("Plugin class", connector.connectorClass().getName())
         .build(logger);
     }
-    try {
-      plugin.start();
-    } catch (UserException e) {
-      plugin = null;
-      throw e;
-    } catch (Exception e) {
-      plugin = null;
-      throw UserException.dataReadError(e)
-        .addContext("Failed to start storage plugin")
-        .addContext("Plugin name", name)
-        .addContext("Plugin class", connector.connectorClass().getName())
-        .build(logger);
-    }
     return plugin;
   }
 

@@ -160,7 +160,7 @@ public class PcapBatchReader implements ManagedReader<FileSchemaNegotiator> {
     public PcapReaderConfig(PcapFormatPlugin plugin) {
       this.plugin = plugin;
       this.config = plugin.getConfig();
-      this.sessionizeTCPStreams = config.sessionizeTCPStreams;
+      this.sessionizeTCPStreams = config.getSessionizeTCPStreams();
     }
   }
 
@@ -340,7 +340,6 @@ public class PcapBatchReader implements ManagedReader<FileSchemaNegotiator> {
   }
 
   private boolean getNextPacket(RowSetLoader rowWriter) {
-    Packet packet = new Packet();
     try {
       if (validBytes == buffer.length) {
         // shift data and read more. This is the common case.

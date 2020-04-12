@@ -28,9 +28,9 @@ import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.mongo.schema.MongoSchemaFactory;
 import org.apache.drill.shaded.guava.com.google.common.cache.Cache;
@@ -60,7 +60,7 @@ public class MongoStoragePlugin extends AbstractStoragePlugin {
 
   public MongoStoragePlugin(
       MongoStoragePluginConfig mongoConfig,
-      DrillbitContext context,
+      StoragePluginContext context,
       String name) throws ExecutionSetupException {
     super(context, name);
     this.mongoConfig = mongoConfig;

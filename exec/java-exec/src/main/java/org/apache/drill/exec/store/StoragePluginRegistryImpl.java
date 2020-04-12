@@ -481,7 +481,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
 
   @Override
   public String encode(StoragePluginConfig config) {
-    ObjectMapper mapper = context.mapper();
+    ObjectMapper mapper = context.objectMapper();
     try {
       return mapper.writer()
           .forType(config.getClass())
@@ -503,7 +503,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
     // We don't control the format of the input JSON, so an
     // error could occur.
     try {
-      return context.mapper().reader()
+      return context.objectMapper().reader()
           .forType(StoragePluginConfig.class)
           .readValue(json);
     } catch (IOException e) {
@@ -922,7 +922,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
 
   @Override
   public ObjectMapper mapper() {
-    return context.mapper();
+    return context.objectMapper();
   }
 
   @Override

@@ -59,5 +59,4 @@ public class TestMongoFilterPushDown extends MongoTestBase {
         .expectsNumRecords(9)
         .go();
   }
-
 }

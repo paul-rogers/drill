@@ -155,7 +155,7 @@ public class KafkaGroupScan extends AbstractGroupScan {
    */
   private void init() {
     partitionWorkMap = Maps.newHashMap();
-    Collection<DrillbitEndpoint> endpoints = kafkaStoragePlugin.getContext().getBits();
+    Collection<DrillbitEndpoint> endpoints = kafkaStoragePlugin.pluginContext().drillbits();
     Map<String, DrillbitEndpoint> endpointMap = endpoints.stream()
       .collect(Collectors.toMap(
         DrillbitEndpoint::getAddress,

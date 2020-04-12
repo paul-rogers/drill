@@ -18,7 +18,6 @@
 
 package org.apache.drill.exec.store.hdf5;
 
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.types.TypeProtos;
@@ -29,11 +28,14 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanB
 
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.shaded.guava.com.google.common.io.Files;
 import org.apache.hadoop.conf.Configuration;
+
+import com.typesafe.config.Config;
+
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.hdf5.HDF5BatchReader.HDF5ReaderConfig;
 
@@ -44,14 +46,11 @@ public class HDF5FormatPlugin extends EasyFormatPlugin<HDF5FormatConfig> {
 
   public static final String DEFAULT_NAME = "hdf5";
 
-  private final DrillbitContext context;
-
-  public HDF5FormatPlugin(String name, DrillbitContext context,
+  public HDF5FormatPlugin(String name, StoragePluginContext context,
                           Configuration fsConf,
                           StoragePluginConfig storageConfig,
                           HDF5FormatConfig formatConfig) {
     super(name, easyConfig(fsConf, formatConfig), context, storageConfig, formatConfig);
-    this.context = context;
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, HDF5FormatConfig pluginConfig) {
@@ -100,7 +99,7 @@ public class HDF5FormatPlugin extends EasyFormatPlugin<HDF5FormatConfig> {
    * @return drill temporary directory path
    */
   protected File getTmpDir() {
-    DrillConfig config = context.getConfig();
+    Config config = pluginContext().config();
     String drillTempDir;
     if (config.hasPath(ExecConstants.DRILL_TMP_DIR)) {
       drillTempDir = config.getString(ExecConstants.DRILL_TMP_DIR);

@@ -40,8 +40,8 @@ import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.Propertied;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.log.LogBatchReader.LogReaderConfig;
@@ -71,7 +71,7 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     }
   }
 
-  public LogFormatPlugin(String name, DrillbitContext context,
+  public LogFormatPlugin(String name, StoragePluginContext context,
                          Configuration fsConf, StoragePluginConfig storageConfig,
                          LogFormatConfig formatConfig) {
     super(name, easyConfig(fsConf, formatConfig), context, storageConfig, formatConfig);

@@ -203,7 +203,7 @@ public class HiveScan extends AbstractGroupScan {
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
     final Map<String, DrillbitEndpoint> endpointMap = new HashMap<>();
-    for (final DrillbitEndpoint endpoint : hiveStoragePlugin.getContext().getBits()) {
+    for (final DrillbitEndpoint endpoint : hiveStoragePlugin.pluginContext().drillbits()) {
       endpointMap.put(endpoint.getAddress(), endpoint);
       logger.debug("Endpoint address: {}", endpoint.getAddress());
     }

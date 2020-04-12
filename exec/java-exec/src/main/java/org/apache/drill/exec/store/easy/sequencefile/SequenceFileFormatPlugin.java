@@ -27,9 +27,10 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -42,12 +43,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 
 public class SequenceFileFormatPlugin extends EasyFormatPlugin<SequenceFileFormatConfig> {
-  public SequenceFileFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public SequenceFileFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
                                   StoragePluginConfig storageConfig) {
-    this(name, context, fsConf, storageConfig, new SequenceFileFormatConfig());
+    this(name, context, fsConf, storageConfig, new SequenceFileFormatConfig(null));
   }
 
-  public SequenceFileFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public SequenceFileFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
                                   StoragePluginConfig storageConfig, SequenceFileFormatConfig formatConfig) {
     super(name, context, fsConf, storageConfig, formatConfig,
       true, false, /* splittable = */ true, /* compressible = */ true,
@@ -60,9 +61,9 @@ public class SequenceFileFormatPlugin extends EasyFormatPlugin<SequenceFileForma
   }
 
   @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns)
+  public AbstractGroupScan getGroupScan(ScanRequest scanRequest, FileSelection selection)
     throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot, null);
+    return new EasyGroupScan(scanRequest, selection, this);
   }
 
   @Override

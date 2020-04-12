@@ -20,35 +20,28 @@ package org.apache.drill.exec.store.hive;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.commons.lang3.StringEscapeUtils;
 
-import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
-import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.planner.sql.logical.ConvertHiveParquetScanToDrillParquetScan;
 import org.apache.drill.exec.planner.sql.logical.HivePushPartitionFilterIntoScan;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 import org.apache.drill.exec.store.hive.schema.HiveSchemaFactory;
@@ -59,10 +52,11 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.transport.TTransportException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HiveStoragePlugin extends AbstractStoragePlugin {
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HiveStoragePlugin.class);
+  private static final Logger logger = LoggerFactory.getLogger(HiveStoragePlugin.class);
 
   public static final String HIVE_MAPRDB_FORMAT_PLUGIN_NAME = "hive-maprdb";
 
@@ -70,7 +64,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
   private HiveSchemaFactory schemaFactory;
   private final HiveConf hiveConf;
 
-  public HiveStoragePlugin(HiveStoragePluginConfig config, DrillbitContext context, String name) throws ExecutionSetupException {
+  public HiveStoragePlugin(HiveStoragePluginConfig config, StoragePluginContext context, String name) throws ExecutionSetupException {
     super(context, name);
     this.config = config;
     this.hiveConf = HiveUtilities.generateHiveConf(config.getConfigProps());
@@ -87,22 +81,12 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public HiveScan getPhysicalScan(String userName, JSONOptions selection, SessionOptionManager options) throws IOException {
-    return getPhysicalScan(userName, selection, AbstractGroupScan.ALL_COLUMNS, options);
-  }
-
-  @Override
-  public HiveScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns) throws IOException {
-    return getPhysicalScan(userName, selection, columns, null);
-  }
-
-  @Override
-  public HiveScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns, SessionOptionManager options) throws IOException {
-    HiveReadEntry hiveReadEntry = selection.getListWith(new ObjectMapper(), new TypeReference<HiveReadEntry>(){});
+  public HiveScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    HiveReadEntry hiveReadEntry = scanRequest.selection(HiveReadEntry.class);
     try {
       Map<String, String> confProperties = new HashMap<>();
-      if (options != null) {
-        String value = StringEscapeUtils.unescapeJava(options.getString(ExecConstants.HIVE_CONF_PROPERTIES));
+      if (scanRequest.options() != null) {
+        String value = StringEscapeUtils.unescapeJava(scanRequest.options().getString(ExecConstants.HIVE_CONF_PROPERTIES));
         logger.trace("[{}] is set to {}.", ExecConstants.HIVE_CONF_PROPERTIES, value);
         try {
           Properties properties = new Properties();
@@ -119,7 +103,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
         }
       }
 
-      return new HiveScan(userName, hiveReadEntry, this, columns, null, confProperties);
+      return new HiveScan(scanRequest.userName(), hiveReadEntry, this, scanRequest.columns(), null, confProperties);
     } catch (ExecutionSetupException e) {
       throw new IOException(e);
     }

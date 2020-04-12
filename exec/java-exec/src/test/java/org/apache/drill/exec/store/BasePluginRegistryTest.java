@@ -34,7 +34,9 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.planner.logical.StoragePlugins;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.metastore.MetastoreRegistry;
 import org.apache.drill.test.BaseDirTestWatcher;
 import org.apache.drill.test.BaseTest;
 import org.apache.drill.test.OperatorFixture;
@@ -51,7 +53,8 @@ public class BasePluginRegistryTest extends BaseTest {
 
   protected static final String RESOURCE_BASE = "plugins/";
 
-  protected class PluginRegistryContextFixture implements PluginRegistryContext {
+  protected class PluginRegistryContextFixture
+        implements PluginRegistryContext, StoragePluginContext {
 
     private final DrillConfig drillConfig;
     private final ScanResult classpathScan;
@@ -68,7 +71,7 @@ public class BasePluginRegistryTest extends BaseTest {
     public DrillConfig config() { return drillConfig; }
 
     @Override
-    public ObjectMapper mapper() { return mapper; }
+    public ObjectMapper objectMapper() { return mapper; }
 
     @Override
     public ScanResult classpathScan() { return classpathScan; }
@@ -79,7 +82,22 @@ public class BasePluginRegistryTest extends BaseTest {
     public DrillbitContext drillbitContext() { return null; }
 
     @Override
+    public StoragePluginContext pluginContext() { return this; }
+
+    @Override
     public ObjectMapper hoconMapper() { return mapper; }
+
+    @Override
+    public MetastoreRegistry metastoreRegistry() {
+      assert false; // Not used in these tests
+      return null;
+    }
+
+    @Override
+    public Collection<DrillbitEndpoint> drillbits() {
+      assert false; // Not used in these tests
+      return null;
+    }
   }
 
   public static class StoragePluginFixtureConfig extends StoragePluginConfig {
@@ -118,17 +136,10 @@ public class BasePluginRegistryTest extends BaseTest {
     private final StoragePluginFixtureConfig config;
     private int closeCount;
 
-    public StoragePluginFixture(StoragePluginFixtureConfig config, DrillbitContext inContext, String inName) {
+    public StoragePluginFixture(StoragePluginFixtureConfig config, StoragePluginContext inContext, String inName) {
       super(inContext, inName);
       this.config = config;
       if (config.mode().equals("crash-ctor")) {
-        throw new IllegalStateException();
-      }
-    }
-
-    @Override
-    public void start() {
-      if (config.mode().equals("crash-start")) {
         throw new IllegalStateException();
       }
     }

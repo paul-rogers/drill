@@ -35,9 +35,9 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
@@ -66,7 +66,7 @@ public class HttpdLogFormatPlugin extends EasyFormatPlugin<HttpdLogFormatConfig>
   private static final String PLUGIN_EXTENSION = "httpd";
   private static final int VECTOR_MEMORY_ALLOCATION = 4095;
 
-  public HttpdLogFormatPlugin(final String name, final DrillbitContext context, final Configuration fsConf,
+  public HttpdLogFormatPlugin(final String name, final StoragePluginContext context, final Configuration fsConf,
                               final StoragePluginConfig storageConfig, final HttpdLogFormatConfig formatConfig) {
 
     super(name, context, fsConf, storageConfig, formatConfig, true, false, true, true,

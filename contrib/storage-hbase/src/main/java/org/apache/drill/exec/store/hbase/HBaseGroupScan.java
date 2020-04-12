@@ -153,7 +153,7 @@ public class HBaseGroupScan extends AbstractGroupScan implements DrillHBaseConst
          RegionLocator locator = conn.getRegionLocator(tableName)) {
       this.hTableDesc = admin.getTableDescriptor(tableName);
       List<HRegionLocation> regionLocations = locator.getAllRegionLocations();
-      statsCalculator = new TableStatsCalculator(conn, hbaseScanSpec, storagePlugin.getContext().getConfig(), storagePluginConfig);
+      statsCalculator = new TableStatsCalculator(conn, hbaseScanSpec, storagePlugin.pluginContext().config(), storagePluginConfig);
 
       boolean foundStartRegion = false;
       regionsToScan = new TreeMap<>();
@@ -180,7 +180,7 @@ public class HBaseGroupScan extends AbstractGroupScan implements DrillHBaseConst
     watch.reset();
     watch.start();
     Map<String, DrillbitEndpoint> endpointMap = new HashMap<>();
-    for (DrillbitEndpoint ep : storagePlugin.getContext().getBits()) {
+    for (DrillbitEndpoint ep : storagePlugin.pluginContext().drillbits()) {
       endpointMap.put(ep.getAddress(), ep);
     }
 

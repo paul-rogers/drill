@@ -18,8 +18,8 @@
 package org.apache.drill.exec.store.mock;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 
 import java.io.IOException;
 
@@ -39,7 +39,7 @@ public class MockBreakageStorage extends MockStorageEngine {
 
   private boolean breakRegister;
 
-  public MockBreakageStorage(MockBreakageStorageEngineConfig configuration, DrillbitContext context, String name) {
+  public MockBreakageStorage(MockBreakageStorageEngineConfig configuration, StoragePluginContext context, String name) {
     super(configuration, context, name);
     breakRegister = false;
   }

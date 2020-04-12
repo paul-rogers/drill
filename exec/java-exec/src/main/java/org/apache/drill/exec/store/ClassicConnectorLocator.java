@@ -194,19 +194,32 @@ public class ClassicConnectorLocator implements ConnectorLocator {
       constuctorsFor(Class<? extends StoragePlugin> plugin) {
     Map<Class<? extends StoragePluginConfig>, Constructor<? extends StoragePlugin>> ctors = new IdentityHashMap<>();
     for (Constructor<?> c : plugin.getConstructors()) {
-      Class<?>[] params = c.getParameterTypes();
-      if (params.length != 3
-          || !StoragePluginConfig.class.isAssignableFrom(params[0])
-          || params[1] != DrillbitContext.class
-          || params[2] != String.class) {
+      Class<? extends StoragePluginConfig> configClass = constructorFor(c);
+      if (configClass == null) {
         logger.debug("Skipping StoragePlugin constructor {} for plugin class {} since it doesn't implement a "
             + "constructor(StoragePluginConfig, DrillbitContext, String)", c, plugin);
         continue;
       }
-      Class<? extends StoragePluginConfig> configClass = (Class<? extends StoragePluginConfig>) params[0];
       ctors.put(configClass, (Constructor<? extends StoragePlugin>) c);
     }
     return ctors;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Class<? extends StoragePluginConfig> constructorFor(Constructor<?> ctor) {
+    Class<?>[] params = ctor.getParameterTypes();
+    if (params.length != 3) {
+      return null;
+    }
+    if (!StoragePluginConfig.class.isAssignableFrom(params[0])
+        || params[2] != String.class) {
+      return null;
+    }
+    if(params[1] != DrillbitContext.class &&
+       params[1] != StoragePluginContext.class) {
+      return null;
+    }
+    return (Class<? extends StoragePluginConfig>) params[0];
   }
 
   @Override
@@ -271,10 +284,13 @@ public class ClassicConnectorLocator implements ConnectorLocator {
           pluginConfig.getClass().getName()));
     }
     try {
-      plugin = constructor.newInstance(pluginConfig, context.drillbitContext(), name);
-      plugin.start();
+      if (constructor.getParameterTypes()[2] == DrillbitContext.class) {
+        plugin = constructor.newInstance(pluginConfig, context.drillbitContext(), name);
+      } else {
+        plugin = constructor.newInstance(pluginConfig, context.pluginContext(), name);
+      }
       return plugin;
-    } catch (ReflectiveOperationException | IOException e) {
+    } catch (ReflectiveOperationException e) {
       Throwable t = e instanceof InvocationTargetException ? ((InvocationTargetException) e).getTargetException() : e;
       if (t instanceof ExecutionSetupException) {
         throw ((ExecutionSetupException) t);

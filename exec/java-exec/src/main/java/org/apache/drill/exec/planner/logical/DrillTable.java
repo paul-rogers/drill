@@ -18,6 +18,7 @@
 package org.apache.drill.exec.planner.logical;
 
 import java.io.IOException;
+import java.util.Objects;
 
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -36,7 +37,9 @@ import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.metastore.metadata.TableMetadataProvider;
 import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.SessionOptionManager;
+import org.apache.drill.exec.store.ScanRequestImpl;
 import org.apache.drill.exec.store.StoragePlugin;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.util.ImpersonationUtil;
@@ -50,7 +53,7 @@ public abstract class DrillTable implements Table {
   private final StoragePlugin plugin;
   private final String userName;
   private GroupScan scan;
-  private SessionOptionManager options;
+  private OptionSet options;
   private MetadataProviderManager metadataProviderManager;
 
   /**
@@ -115,7 +118,8 @@ public abstract class DrillTable implements Table {
       if (selection instanceof FileSelection && ((FileSelection) selection).isEmptyDirectory()) {
         this.scan = new SchemalessScan(userName, ((FileSelection) selection).getSelectionRoot());
       } else {
-        this.scan = plugin.getPhysicalScan(userName, new JSONOptions(selection), options, metadataProviderManager);
+        this.scan = plugin.getPhysicalScan(
+            new ScanRequestImpl(plugin, userName, new JSONOptions(selection), options, metadataProviderManager));
       }
     }
     return scan;
@@ -192,13 +196,7 @@ public abstract class DrillTable implements Table {
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((selection == null) ? 0 : selection.hashCode());
-    result = prime * result + ((storageEngineConfig == null) ? 0 : storageEngineConfig.hashCode());
-    result = prime * result + ((storageEngineName == null) ? 0 : storageEngineName.hashCode());
-    result = prime * result + ((userName == null) ? 0 : userName.hashCode());
-    return result;
+    return Objects.hash(selection, storageEngineConfig, storageEngineName, userName);
   }
 
   @Override
@@ -206,42 +204,13 @@ public abstract class DrillTable implements Table {
     if (this == obj) {
       return true;
     }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
+    if (obj == null || getClass() != obj.getClass()) {
       return false;
     }
     DrillTable other = (DrillTable) obj;
-    if (selection == null) {
-      if (other.selection != null) {
-        return false;
-      }
-    } else if (!selection.equals(other.selection)) {
-      return false;
-    }
-    if (storageEngineConfig == null) {
-      if (other.storageEngineConfig != null) {
-        return false;
-      }
-    } else if (!storageEngineConfig.equals(other.storageEngineConfig)) {
-      return false;
-    }
-    if (storageEngineName == null) {
-      if (other.storageEngineName != null) {
-        return false;
-      }
-    } else if (!storageEngineName.equals(other.storageEngineName)) {
-      return false;
-    }
-    if (userName == null) {
-      if (other.userName != null) {
-        return false;
-      }
-    } else if (!userName.equals(other.userName)) {
-      return false;
-    }
-    return true;
+    return Objects.equals(selection, other.selection) &&
+           Objects.equals(storageEngineConfig, other.storageEngineConfig) &&
+           Objects.equals(storageEngineName, other.storageEngineName) &&
+           Objects.equals(userName, other.userName);
   }
-
 }

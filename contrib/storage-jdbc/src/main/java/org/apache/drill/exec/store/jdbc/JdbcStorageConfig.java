@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -102,5 +105,17 @@ public class JdbcStorageConfig extends StoragePluginConfig {
         Objects.equals(username, that.username) &&
         Objects.equals(password, that.password) &&
         Objects.equals(sourceParameters, that.sourceParameters);
+  }
+
+  @Override
+  public String toString() {
+    return new PlanStringBuilder(this)
+      .field("url", url)
+      .field("driver", driver)
+      .field("user name", username)
+      .field("password", password == null ? null : StringUtils.repeat('*', password.length()))
+      .field("source parameters", sourceParameters)
+      .field("case insensitive table names", caseInsensitiveTableNames)
+      .toString();
   }
 }

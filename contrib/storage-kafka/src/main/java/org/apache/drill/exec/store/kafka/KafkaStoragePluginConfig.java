@@ -20,8 +20,8 @@ package org.apache.drill.exec.store.kafka;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.StringJoiner;
 
+import org.apache.drill.common.PlanStringBuilder;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,8 +68,8 @@ public class KafkaStoragePluginConfig extends StoragePluginConfig {
 
   @Override
   public String toString() {
-    return new StringJoiner(", ", KafkaStoragePluginConfig.class.getSimpleName() + "[", "]")
-      .add("kafkaConsumerProps=" + kafkaConsumerProps)
-      .toString();
+    return new PlanStringBuilder(this)
+        .field("kafka Consumer Props", kafkaConsumerProps)
+        .toString();
   }
 }

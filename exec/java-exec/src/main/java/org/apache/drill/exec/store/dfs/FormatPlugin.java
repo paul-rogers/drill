@@ -21,23 +21,22 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.AbstractWriter;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.planner.common.DrillStatsTable.TableStatistics;
-import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.StoragePlugin.ScanRequest;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 /**
- * Similar to a storage engine but built specifically to work within a FileSystem context.
+ * Similar to a storage engine but built specifically to work within a
+ * FileSystem context.
  */
 public interface FormatPlugin {
 
@@ -58,24 +57,7 @@ public interface FormatPlugin {
 
   Set<StoragePluginOptimizerRule> getOptimizerRules();
 
-  AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns) throws IOException;
-
-  default AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, OptionManager options) throws IOException {
-    return getGroupScan(userName, selection, columns);
-  }
-
-  default AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, MetadataProviderManager metadataProviderManager) throws IOException {
-    return getGroupScan(userName, selection, columns);
-  }
-
-  default AbstractGroupScan getGroupScan(String userName, FileSelection selection,
-      List<SchemaPath> columns, OptionManager options,
-      MetadataProviderManager metadataProvider) throws IOException {
-    return getGroupScan(userName, selection, columns, metadataProvider);
-  }
+  AbstractGroupScan getGroupScan(ScanRequest scanRequest, FileSelection selection) throws IOException;
 
   boolean supportsStatistics();
 
@@ -86,6 +68,6 @@ public interface FormatPlugin {
   FormatPluginConfig getConfig();
   StoragePluginConfig getStorageConfig();
   Configuration getFsConf();
-  DrillbitContext getContext();
+  StoragePluginContext pluginContext();
   String getName();
 }

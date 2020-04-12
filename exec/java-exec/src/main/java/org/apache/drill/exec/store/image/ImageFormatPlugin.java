@@ -27,9 +27,9 @@ import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
-import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
@@ -42,13 +42,13 @@ public class ImageFormatPlugin extends EasyFormatPlugin<ImageFormatConfig> {
 
   private final static String DEFAULT_NAME = "image";
 
-  public ImageFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public ImageFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
                            StoragePluginConfig storageConfig) {
     super(name, context, fsConf, storageConfig, new ImageFormatConfig(), true, false, false, false,
         Collections.<String>emptyList(), DEFAULT_NAME);
   }
 
-  public ImageFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+  public ImageFormatPlugin(String name, StoragePluginContext context, Configuration fsConf,
                            StoragePluginConfig storageConfig, ImageFormatConfig formatConfig) {
     super(name, context, fsConf, storageConfig, formatConfig, true, false, false, false,
         formatConfig.getExtensions(), DEFAULT_NAME);

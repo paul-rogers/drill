@@ -86,7 +86,7 @@ public class KuduGroupScan extends AbstractGroupScan {
 
   private void init() {
     String tableName = kuduScanSpec.getTableName();
-    Collection<DrillbitEndpoint> endpoints = kuduStoragePlugin.getContext().getBits();
+    Collection<DrillbitEndpoint> endpoints = kuduStoragePlugin.pluginContext().drillbits();
     Map<String,DrillbitEndpoint> endpointMap = Maps.newHashMap();
     for (DrillbitEndpoint endpoint : endpoints) {
       endpointMap.put(endpoint.getAddress(), endpoint);

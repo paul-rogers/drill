@@ -28,21 +28,16 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.drill.common.JSONOptions;
-import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
-import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.ClassPathFileSystem;
 import org.apache.drill.exec.store.LocalSyncableFileSystem;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePluginContext;
 import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
@@ -52,6 +47,7 @@ import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * A Storage engine associated with a Hadoop FileSystem Implementation. Examples
@@ -77,12 +73,10 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
   private final Map<FormatPluginConfig, FormatPlugin> formatPluginsByConfig;
   private final FileSystemConfig config;
   private final Configuration fsConf;
-  private final LogicalPlanPersistence lpPersistance;
 
-  public FileSystemPlugin(FileSystemConfig config, DrillbitContext context, String name) throws ExecutionSetupException {
+  public FileSystemPlugin(FileSystemConfig config, StoragePluginContext context, String name) throws ExecutionSetupException {
     super(context, name);
     this.config = config;
-    this.lpPersistance = context.getLpPersistence();
 
     try {
       fsConf = new Configuration();
@@ -113,7 +107,7 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
         for (Map.Entry<String, WorkspaceConfig> space : config.getWorkspaces().entrySet()) {
           factories.add(new WorkspaceSchemaFactory(
               this, space.getKey(), name, space.getValue(), matchers,
-              context.getLpPersistence(), context.getClasspathScan()));
+              context.objectMapper(), context.classpathScan()));
         }
       }
 
@@ -121,7 +115,7 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
       if (noWorkspace || !config.getWorkspaces().containsKey(DEFAULT_WS_NAME)) {
         factories.add(new WorkspaceSchemaFactory(this, DEFAULT_WS_NAME, name,
             WorkspaceConfig.DEFAULT, matchers,
-            context.getLpPersistence(), context.getClasspathScan()));
+            context.objectMapper(), context.classpathScan()));
       }
 
       this.schemaFactory = new FileSystemSchemaFactory(name, factories);
@@ -185,8 +179,8 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
    * @param context the drillbit context
    * @return a new FormatCreator instance
    */
-  protected FormatCreator newFormatCreator(FileSystemConfig config, DrillbitContext context, Configuration fsConf) {
-    return new FormatCreator(context, fsConf, config, context.getClasspathScan());
+  protected FormatCreator newFormatCreator(FileSystemConfig config, StoragePluginContext context, Configuration fsConf) {
+    return new FormatCreator(context, fsConf, config);
   }
 
   @Override
@@ -200,33 +194,10 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
   }
 
   @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      SessionOptionManager options) throws IOException {
-    return getPhysicalScan(userName, selection, AbstractGroupScan.ALL_COLUMNS,
-        options, null);
-  }
-
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      SessionOptionManager options, MetadataProviderManager metadataProviderManager) throws IOException {
-    return getPhysicalScan(userName, selection, AbstractGroupScan.ALL_COLUMNS,
-        options, metadataProviderManager);
-  }
-
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      List<SchemaPath> columns) throws IOException {
-    return getPhysicalScan(userName, selection, columns, null, null);
-  }
-
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection,
-      List<SchemaPath> columns, SessionOptionManager options,
-      MetadataProviderManager metadataProviderManager) throws IOException {
-    FormatSelection formatSelection = selection.getWith(lpPersistance.getMapper(), FormatSelection.class);
+  public AbstractGroupScan getPhysicalScan(ScanRequest scanRequest) throws IOException {
+    FormatSelection formatSelection = scanRequest.selection(FormatSelection.class);
     FormatPlugin plugin = getFormatPlugin(formatSelection.getFormat());
-    return plugin.getGroupScan(userName, formatSelection.getSelection(), columns,
-        options, metadataProviderManager);
+    return plugin.getGroupScan(scanRequest, formatSelection.getSelection());
   }
 
   @Override
@@ -250,7 +221,7 @@ public class FileSystemPlugin extends AbstractStoragePlugin {
   @Override
   public FormatPlugin getFormatPlugin(FormatPluginConfig config) {
     if (config instanceof NamedFormatPluginConfig) {
-      return formatCreator.getFormatPluginByName(((NamedFormatPluginConfig) config).name);
+      return formatCreator.getFormatPluginByName(((NamedFormatPluginConfig) config).getName());
     }
 
     FormatPlugin plugin = formatPluginsByConfig.get(config);
