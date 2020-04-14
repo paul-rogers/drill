@@ -26,11 +26,11 @@ import java.util.List;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestExtendedTypes extends BaseTestQuery {
+
   @BeforeClass
   public static void setupTestFiles() {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector", "complex"));
@@ -44,8 +44,8 @@ public class TestExtendedTypes extends BaseTestQuery {
     final String newTable = "TestExtendedTypes/newjson";
 
     try {
-      testNoResult(String.format("ALTER SESSION SET `%s` = 'json'", ExecConstants.OUTPUT_FORMAT_VALIDATOR.getOptionName()));
-      testNoResult(String.format("ALTER SESSION SET `%s` = true", ExecConstants.JSON_EXTENDED_TYPES.getOptionName()));
+      alterSession(ExecConstants.OUTPUT_FORMAT_OPTION, "json");
+      alterSession(ExecConstants.JSON_EXTENDED_TYPES_KEY, true);
 
       // create table
       test("create table dfs.tmp.`%s` as select * from cp.`%s`", newTable, originalFile);
@@ -57,8 +57,8 @@ public class TestExtendedTypes extends BaseTestQuery {
       final byte[] newData = Files.readAllBytes(dirTestWatcher.getDfsTestTmpDir().toPath().resolve(Paths.get(newTable, "0_0_0.json")));
       assertEquals(new String(originalData), new String(newData));
     } finally {
-      resetSessionOption(ExecConstants.OUTPUT_FORMAT_VALIDATOR.getOptionName());
-      resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES.getOptionName());
+      resetSessionOption(ExecConstants.OUTPUT_FORMAT_OPTION);
+      resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES_KEY);
     }
   }
 
@@ -67,8 +67,8 @@ public class TestExtendedTypes extends BaseTestQuery {
     final String originalFile = "vector/complex/mongo_extended.json";
 
     try {
-      testNoResult(String.format("ALTER SESSION SET `%s` = 'json'", ExecConstants.OUTPUT_FORMAT_VALIDATOR.getOptionName()));
-      testNoResult(String.format("ALTER SESSION SET `%s` = true", ExecConstants.JSON_EXTENDED_TYPES.getOptionName()));
+      alterSession(ExecConstants.OUTPUT_FORMAT_OPTION, "json");
+      alterSession(ExecConstants.JSON_EXTENDED_TYPES_KEY, true);
 
       int actualRecordCount = testSql(String.format("select * from cp.`%s`", originalFile));
       assertEquals(
@@ -78,10 +78,10 @@ public class TestExtendedTypes extends BaseTestQuery {
       List<QueryDataBatch> resultList = testSqlWithResults(String.format("select * from dfs.`%s`", originalFile));
       String actual = getResultString(resultList, ",");
       String expected = "drill_timestamp_millies,bin,bin1\n2015-07-07 03:59:43.488,drill,drill\n";
-      Assert.assertEquals(expected, actual);
+      assertEquals(expected, actual);
     } finally {
-      resetSessionOption(ExecConstants.OUTPUT_FORMAT_VALIDATOR.getOptionName());
-      resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES.getOptionName());
+      resetSessionOption(ExecConstants.OUTPUT_FORMAT_OPTION);
+      resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES_KEY);
     }
   }
 }

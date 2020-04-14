@@ -90,7 +90,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 
 public class WorkspaceSchemaFactory {
@@ -122,8 +121,8 @@ public class WorkspaceSchemaFactory {
     this.fsConf = plugin.getFsConf();
     this.plugin = plugin;
     this.config = config;
-    this.fileMatchers = Lists.newArrayList();
-    this.dirMatchers = Lists.newArrayList();
+    this.fileMatchers = new ArrayList<>();
+    this.dirMatchers = new ArrayList<>();
     this.storageEngineName = storageEngineName;
     this.schemaName = schemaName;
     this.wsPath = new Path(config.getLocation());
@@ -548,7 +547,7 @@ public class WorkspaceSchemaFactory {
     public CreateTableEntry createStatsTable(String tableName) {
       ensureNotStatsTable(tableName);
       final String statsTableName = getStatsTableName(tableName);
-      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.DEFAULT_NAME);
+      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.PLUGIN_NAME);
       return createOrAppendToTable(statsTableName, formatPlugin, Collections.emptyList(),
           StorageStrategy.DEFAULT);
     }
@@ -557,7 +556,7 @@ public class WorkspaceSchemaFactory {
     public CreateTableEntry appendToStatsTable(String tableName) {
       ensureNotStatsTable(tableName);
       final String statsTableName = getStatsTableName(tableName);
-      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.DEFAULT_NAME);
+      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.PLUGIN_NAME);
       return createOrAppendToTable(statsTableName, formatPlugin, Collections.emptyList(),
           StorageStrategy.DEFAULT);
     }

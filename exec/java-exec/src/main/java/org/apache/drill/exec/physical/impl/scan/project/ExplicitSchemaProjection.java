@@ -307,7 +307,7 @@ public class ExplicitSchemaProjection extends ReaderLevelProjection {
       if (child.isTuple()) {
         members.add(resolveMapMembers(members, child));
       } else {
-        members.add(outputTuple.nullBuilder.add(child.name()));
+        members.add(members.nullBuilder.add(child.name()));
       }
     }
     return mapCol;

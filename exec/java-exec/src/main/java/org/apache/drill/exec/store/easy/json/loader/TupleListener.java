@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
@@ -37,6 +38,8 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import jersey.repackaged.com.google.common.base.Preconditions;
 
 /**
  * Accepts { name : value ... }

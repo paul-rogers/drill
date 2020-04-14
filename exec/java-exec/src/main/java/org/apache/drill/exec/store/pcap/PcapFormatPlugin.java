@@ -23,7 +23,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchem
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.proto.UserBitShared;
@@ -72,12 +72,12 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
   }
 
   @Override
-  public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(EasySubScan scan, OptionManager options) {
+  public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(EasySubScan scan, OptionSet options) {
     return new PcapBatchReader(new PcapReaderConfig(this));
   }
 
   @Override
-  protected FileScanBuilder frameworkBuilder(OptionManager options, EasySubScan scan) {
+  protected FileScanBuilder frameworkBuilder(OptionSet options, EasySubScan scan) {
     FileScanBuilder builder = new FileScanBuilder();
     builder.setReaderFactory(new PcapReaderFactory(new PcapReaderConfig(this)));
     initScanBuilder(builder, scan);
