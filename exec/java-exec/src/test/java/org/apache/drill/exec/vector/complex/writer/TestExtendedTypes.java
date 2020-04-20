@@ -26,9 +26,11 @@ import java.util.List;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
+import org.apache.drill.exec.vector.complex.writer.TestJsonReader.TestWrapper;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+// TODO: Move to JSON reader package after code review
 public class TestExtendedTypes extends BaseTestQuery {
 
   @BeforeClass
@@ -36,8 +38,13 @@ public class TestExtendedTypes extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector", "complex"));
   }
 
+  // TODO: This test cannot be run in Eclipse due to mocking
   @Test
   public void checkReadWriteExtended() throws Exception {
+    runBoth(() -> doCheckReadWriteExtended());
+  }
+
+  private void doCheckReadWriteExtended() throws Exception {
     mockUtcDateTimeZone();
 
     final String originalFile = "vector/complex/extended.json";
@@ -64,6 +71,10 @@ public class TestExtendedTypes extends BaseTestQuery {
 
   @Test
   public void testMongoExtendedTypes() throws Exception {
+    runBoth(() -> doTestMongoExtendedTypes());
+  }
+
+  private void doTestMongoExtendedTypes() throws Exception {
     final String originalFile = "vector/complex/mongo_extended.json";
 
     try {
@@ -82,6 +93,29 @@ public class TestExtendedTypes extends BaseTestQuery {
     } finally {
       resetSessionOption(ExecConstants.OUTPUT_FORMAT_OPTION);
       resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES_KEY);
+    }
+  }
+
+  private void enableV2Reader(boolean enable) throws Exception {
+    alterSession(ExecConstants.ENABLE_V2_JSON_READER_KEY, enable);
+  }
+
+  private void resetV2Reader() throws Exception {
+    resetSessionOption(ExecConstants.ENABLE_V2_JSON_READER_KEY);
+  }
+
+  public interface TestWrapper {
+    void apply() throws Exception;
+  }
+
+  public void runBoth(TestWrapper wrapper) throws Exception {
+    try {
+      enableV2Reader(false);
+      wrapper.apply();
+      enableV2Reader(true);
+      wrapper.apply();
+    } finally {
+      resetV2Reader();
     }
   }
 }

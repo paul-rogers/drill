@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import java.util.function.Consumer;
+
 /**
  * Represents a JSON object, either a direct object field, or level
  * within an array. That is:
@@ -66,11 +68,7 @@ public interface ValueListener {
    * such as when a field starts null and resolves to some concrete
    * type.
    */
-  interface ValueHost {
-    void bindListener(ValueListener listener);
-  }
-
-  void bind(ValueHost host);
+  void bind(Consumer<ValueListener> host);
 
   /**
    * Called on parsing a {@code null} value for the field. Called whether

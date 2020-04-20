@@ -17,8 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener.ValueHost;
+import java.util.function.Consumer;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -39,94 +38,20 @@ import com.fasterxml.jackson.core.JsonToken;
  * Listeners can enforce one type only, or can be more flexible and
  * allow multiple types.
  */
-public class ValueParser extends AbstractElementParser implements ValueHost {
-
-  private interface ValueHandler {
-    void accept(TokenIterator tokenizer, JsonToken token);
-  }
-
-  /**
-   * Parses <code>true | false | null | integer | float | string |<br>
-   *              embedded-object</code>
-   * <p>
-   * Forwards the result as a typed value.
-   */
-  public class TypedValueHandler implements ValueHandler {
-
-    @Override
-    public void accept(TokenIterator tokenizer, JsonToken token) {
-      switch (token) {
-        case VALUE_TRUE:
-          listener.onBoolean(true);
-          break;
-        case VALUE_FALSE:
-          listener.onBoolean(false);
-          break;
-        case VALUE_NUMBER_INT:
-          listener.onInt(tokenizer.longValue());
-          break;
-        case VALUE_NUMBER_FLOAT:
-          listener.onFloat(tokenizer.doubleValue());
-          break;
-        case VALUE_STRING:
-          listener.onString(tokenizer.stringValue());
-          break;
-        case VALUE_EMBEDDED_OBJECT:
-          listener.onEmbeddedObject(tokenizer.stringValue());
-        default:
-          // Won't get here: the Jackson parser catches
-          // errors.
-          throw errorFactory().syntaxError(token);
-      }
-    }
-  }
-
-  /**
-   * Parses <code>true | false | null | integer | float | string |<br>
-   *              embedded-object</code>
-   * <p>
-   * Forwards the result as a string.
-   */
-  public class TextValueHandler implements ValueHandler {
-
-    @Override
-    public void accept(TokenIterator tokenizer, JsonToken token) {
-      switch (token) {
-        case VALUE_EMBEDDED_OBJECT:
-        case VALUE_FALSE:
-        case VALUE_TRUE:
-        case VALUE_NUMBER_FLOAT:
-        case VALUE_NUMBER_INT:
-        case VALUE_STRING:
-          listener.onString(tokenizer.textValue());
-          break;
-
-        default:
-          // Won't get here: the Jackson parser catches
-          // errors.
-          throw errorFactory().syntaxError(token);
-      }
-    }
-  }
+public abstract class ValueParser extends AbstractElementParser implements Consumer<ValueListener> {
 
   private final String key;
-  protected final ValueHandler valueHandler;
-  private ValueListener listener;
+  protected ValueListener listener;
   private ObjectParser objectParser;
   private ArrayParser arrayParser;
 
-  public ValueParser(ElementParser parent, String key, FieldType type) {
+  public ValueParser(AbstractElementParser parent, String key) {
     super(parent);
     this.key = key;
-    if (type == FieldType.TEXT || structParser().options().allTextMode) {
-      valueHandler = new TextValueHandler();
-    } else {
-      valueHandler = new TypedValueHandler();
-    }
   }
 
   @Override
-  public void bindListener(ValueListener listener) {
+  public void accept(ValueListener listener) {
     this.listener = listener;
     listener.bind(this);
     if (arrayParser != null) {
@@ -171,9 +96,11 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
       break;
 
     default:
-      valueHandler.accept(tokenizer, token);
+      parseValue(tokenizer, token);
     }
   }
+
+  protected abstract void parseValue(TokenIterator tokenizer, JsonToken token);
 
   public void addObjectParser() {
     objectParser = new ObjectParser(this, listener().object());
@@ -190,6 +117,78 @@ public class ValueParser extends AbstractElementParser implements ValueHost {
       addArrayParser(valueDef);
     } else if (valueDef.type().isObject()) {
       addObjectParser();
+    }
+  }
+
+  /**
+   * Parses <code>true | false | null | integer | float | string |<br>
+   *              embedded-object</code>
+   * <p>
+   * Forwards the result as a typed value.
+   */
+  public static class TypedValueParser extends ValueParser {
+
+    public TypedValueParser(AbstractElementParser parent, String key) {
+      super(parent, key);
+    }
+
+    @Override
+    public void parseValue(TokenIterator tokenizer, JsonToken token) {
+      switch (token) {
+        case VALUE_TRUE:
+          listener.onBoolean(true);
+          break;
+        case VALUE_FALSE:
+          listener.onBoolean(false);
+          break;
+        case VALUE_NUMBER_INT:
+          listener.onInt(tokenizer.longValue());
+          break;
+        case VALUE_NUMBER_FLOAT:
+          listener.onFloat(tokenizer.doubleValue());
+          break;
+        case VALUE_STRING:
+          listener.onString(tokenizer.stringValue());
+          break;
+        case VALUE_EMBEDDED_OBJECT:
+          listener.onEmbeddedObject(tokenizer.stringValue());
+        default:
+          // Won't get here: the Jackson parser catches
+          // errors.
+          throw errorFactory().syntaxError(token);
+      }
+    }
+  }
+
+  /**
+   * Parses <code>true | false | null | integer | float | string |<br>
+   *              embedded-object</code>
+   * <p>
+   * Forwards the result as a string.
+   */
+  public static class TextValueParser extends ValueParser {
+
+    public TextValueParser(AbstractElementParser parent, String key) {
+      super(parent, key);
+    }
+
+    @Override
+    public void parseValue(TokenIterator tokenizer, JsonToken token) {
+      switch (token) {
+        case VALUE_EMBEDDED_OBJECT:
+        case VALUE_FALSE:
+        case VALUE_TRUE:
+        case VALUE_NUMBER_FLOAT:
+        case VALUE_NUMBER_INT:
+        case VALUE_STRING:
+          listener.onString(tokenizer.textValue());
+          break;
+
+        default:
+          // Won't get here: the Jackson parser catches
+          // errors.
+          throw errorFactory().syntaxError(token);
+      }
     }
   }
 }

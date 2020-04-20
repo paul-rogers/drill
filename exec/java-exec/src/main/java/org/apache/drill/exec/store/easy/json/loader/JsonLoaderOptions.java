@@ -45,11 +45,18 @@ public class JsonLoaderOptions extends JsonStructureOptions {
    */
   public boolean classicArrayNulls;
 
+  /**
+   * Enable support for Mongo-style extended types:<br>
+   * <code> { field: { "$type": value }, ... }<?code>
+   */
+  public boolean enableExtendedTypes;
+
   public JsonLoaderOptions() { }
 
   public JsonLoaderOptions(OptionSet options) {
     super(options);
     this.readNumbersAsDouble = options.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
     this.unionEnabled = options.getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);
+    this.enableExtendedTypes = options.getBoolean(ExecConstants.JSON_EXTENDED_TYPES_KEY);
   }
 }

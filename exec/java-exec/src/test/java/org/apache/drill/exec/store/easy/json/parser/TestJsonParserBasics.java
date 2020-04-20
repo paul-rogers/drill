@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.HashSet;
 
 import org.apache.drill.categories.RowSetTests;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;

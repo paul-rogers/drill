@@ -25,15 +25,18 @@ public abstract class AbstractElementParser implements ElementParser {
   final JsonStructureParser structParser;
   private final ElementParser parent;
 
-  public AbstractElementParser(ElementParser parent) {
+  public AbstractElementParser(AbstractElementParser parent) {
     this.parent = parent;
     this.structParser = parent.structParser();
   }
 
-  @Override
+  public AbstractElementParser(JsonStructureParser structParser) {
+    this.parent = null;
+    this.structParser = structParser;
+  }
+
   public ElementParser parent() { return parent; }
 
-  @Override
   public JsonStructureParser structParser() { return structParser; }
 
   protected ErrorFactory errorFactory() {

@@ -425,4 +425,26 @@ public class TestRepeatedList extends BaseJsonLoaderTest {
     assertNull(loader.next());
     loader.close();
   }
+
+  @Test
+  public void testForced2DArrayResolve() {
+    String json =
+        "{a: null} {a: []} {a: [[]]}";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addRepeatedList("a")
+          .addArray(MinorType.VARCHAR)
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(objArray())
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
 }

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import java.util.function.Consumer;
+
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
@@ -54,7 +56,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
 
   protected final TupleListener parentTuple;
   protected final String key;
-  protected ValueHost host;
+  protected Consumer<ValueListener> host;
   private UnknownArrayListener unknownArray;
 
   public UnknownFieldListener(TupleListener parentTuple, String key) {
@@ -65,7 +67,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   @Override
-  public void bind(ValueHost host) {
+  public void bind(Consumer<ValueListener> host) {
     this.host = host;
   }
 
@@ -105,7 +107,8 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
 
   @Override
   public ObjectListener object() {
-    return resolveTo(parentTuple.objectListenerForValue(key)).object();
+    return resolveTo(parentTuple.resolveField(key,
+        new ValueDef(JsonType.OBJECT))).object();
   }
 
   /**
@@ -115,19 +118,15 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
    */
   protected ValueListener resolveScalar(JsonType type) {
     if (unknownArray == null) {
-      return resolveTo(parentTuple.scalarListenerForValue(key, type));
+      return resolveTo(parentTuple.resolveField(key,
+          new ValueDef(type)));
     } else {
 
       // Saw {a: []}, {a: 10}. Since we infer that 10 is a
       // single-element array, resolve to an array, then send
       // the value to the element.
-      return unknownArray.element(new ValueDef(type, 0));
+      return unknownArray.element(new ValueDef(type));
     }
-  }
-
-  @Override
-  protected ColumnMetadata schema() {
-    throw new IllegalStateException("Unknown column has no schema");
   }
 
   @Override
@@ -144,7 +143,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   protected ValueListener resolveTo(ValueListener newListener) {
-    host.bindListener(newListener);
+    host.accept(newListener);
     loader.removeNullMarker(this);
     return newListener;
   }
@@ -154,11 +153,10 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
     if (unknownArray == null) {
       logger.warn("Ambiguous type! JSON field {}" +
           " contains all nulls. Assuming VARCHAR.", key);
-      resolveTo(parentTuple.scalarListenerForValue(key, JsonType.STRING));
+      resolveTo(parentTuple.resolveField(key,
+          new ValueDef(JsonType.STRING)));
     } else {
-      logger.warn("Ambiguous type! JSON array field {}" +
-          " contains all empty arrays. Assuming repeated VARCHAR.", key);
-      resolveTo(parentTuple.scalarArrayListenerForValue(key, JsonType.STRING));
+      resolveToArray(new ValueDef(JsonType.STRING, 1));
     }
   }
 
@@ -168,7 +166,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
           " starts with null element. Assuming repeated VARCHAR.", key);
       valueDef = new ValueDef(JsonType.STRING, valueDef.dimensions());
     }
-    return resolveTo(parentTuple.listenerForValue(key, valueDef));
+    return resolveTo(parentTuple.resolveField(key, valueDef));
   }
 
   /**

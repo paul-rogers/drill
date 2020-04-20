@@ -29,10 +29,10 @@ public class JsonValueParser extends AbstractElementParser {
   private final ValueListener listener;
   private final StringBuilder json = new StringBuilder();
 
-  protected JsonValueParser(ElementParser parent, String key,
+  protected JsonValueParser(AbstractElementParser parent, String key,
       ValueListener listener) {
     super(parent);
-     this.listener = listener;
+    this.listener = listener;
   }
 
   @Override
@@ -48,12 +48,12 @@ public class JsonValueParser extends AbstractElementParser {
     String textValue = tokenizer.textValue();
     switch (token) {
       case START_ARRAY:
-        json.append(textValue);
+        json.append(token.asString());
         parseArrayTail(tokenizer);
         break;
 
       case START_OBJECT:
-        json.append(textValue);
+        json.append(token.asString());
         parseObjectTail(tokenizer);
         break;
 
@@ -72,12 +72,11 @@ public class JsonValueParser extends AbstractElementParser {
   public void parseArrayTail(TokenIterator tokenizer) {
 
     // Accept value* ]
-
     boolean first = true;
     for (;;) {
       JsonToken token = tokenizer.requireNext();
       if (token == JsonToken.END_ARRAY) {
-        json.append(tokenizer.textValue());
+        json.append(token.asString());
         return;
       }
       if (! first) {
@@ -91,12 +90,11 @@ public class JsonValueParser extends AbstractElementParser {
   public void parseObjectTail(TokenIterator tokenizer) {
 
     // Accept (field: value)* }
-
     boolean first = true;
     for (;;) {
       JsonToken token = tokenizer.requireNext();
       if (token == JsonToken.END_OBJECT) {
-        json.append(tokenizer.textValue());
+        json.append(token.asString());
         return;
       }
       if (! first) {

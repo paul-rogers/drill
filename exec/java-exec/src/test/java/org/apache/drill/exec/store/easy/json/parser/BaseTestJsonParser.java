@@ -30,6 +30,7 @@ import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
@@ -109,7 +110,7 @@ public class BaseTestJsonParser {
     int nullCount;
     int valueCount;
     Object value;
-    ValueHost host;
+    Consumer<ValueListener> host;
     ObjectListenerFixture objectValue;
     ArrayListenerFixture arrayValue;
 
@@ -168,7 +169,7 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void bind(ValueHost host) {
+    public void bind(Consumer<ValueListener> host) {
       this.host = host;
     }
   }
@@ -212,6 +213,29 @@ public class BaseTestJsonParser {
     }
   }
 
+  enum FieldType {
+
+    /**
+     * Parse the JSON object according to its type.
+     */
+    TYPED,
+
+    /**
+     * The field is to be treated as "all-text". Used when the parser-level
+     * setting for {@code allTextMode} is {@code false}; allows per-field
+     * overrides to, perhaps, ride over inconsistent scalar types for a
+     * single field. The listener will receive only strings.
+     */
+    TEXT,
+
+    /**
+     * Parse the value, and all its children, as JSON.
+     * That is, converts the parsed JSON back into a
+     * JSON string. The listener will receive only strings.
+     */
+    JSON
+  }
+
   protected static class ObjectListenerFixture implements ObjectListener {
 
     final Map<String, ValueListenerFixture> fields = new HashMap<>();
@@ -231,19 +255,21 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public FieldType fieldType(String key) {
-      if (projectFilter != null && !projectFilter.contains(key)) {
-        return FieldType.IGNORE;
+    public ElementParser onField(FieldDefn fieldDefn) {
+      if (projectFilter != null && !projectFilter.contains(fieldDefn.key())) {
+        return fieldDefn.fieldFactory().ignoredFieldParser();
       }
-      return fieldType;
-    }
-
-    @Override
-    public ValueListener addField(String key, ValueDef valueDef) {
-      assertFalse(fields.containsKey(key));
-      ValueListenerFixture field = makeField(key, valueDef);
-      fields.put(key, field);
-      return field;
+      assertFalse(fields.containsKey(fieldDefn.key()));
+      ValueListenerFixture fieldListener = new ValueListenerFixture(fieldDefn.lookahead());
+      fields.put(fieldDefn.key(), fieldListener);
+      switch (fieldType) {
+      case JSON:
+        return fieldDefn.fieldFactory().jsonTextParser(fieldDefn, fieldListener);
+      case TEXT:
+        return fieldDefn.fieldFactory().textValueParser(fieldDefn, fieldListener);
+      default:
+        return fieldDefn.fieldFactory().valueParser(fieldDefn, fieldListener);
+      }
     }
 
     public ValueListenerFixture makeField(String key, ValueDef valueDef) {

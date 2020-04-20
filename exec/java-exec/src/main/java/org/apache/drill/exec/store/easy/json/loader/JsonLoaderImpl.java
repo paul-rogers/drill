@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.store.easy.json.loader.mongo.ExtendedTypeFieldFactory;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
@@ -132,7 +133,7 @@ import com.fasterxml.jackson.core.JsonToken;
  * </ul>
  */
 public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
-  protected static final Logger logger = LoggerFactory.getLogger(JsonLoaderImpl.class);
+  private static final Logger logger = LoggerFactory.getLogger(JsonLoaderImpl.class);
 
   public static class JsonLoaderBuilder {
     private ResultSetLoader rsLoader;
@@ -297,6 +298,17 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     parser.close();
   }
 
+  public FieldFactory fieldFactoryFor(TupleListener tupleListener) {
+    FieldFactory factory = new SimpleFieldFactory(tupleListener);
+    if (options.enableExtendedTypes) {
+      factory = new ExtendedTypeFieldFactory(tupleListener, factory);
+    }
+    if (tupleListener.providedSchema() != null) {
+      factory = new ProvidedFieldFactory(tupleListener, factory);
+    }
+    return factory;
+  }
+
   @Override // ErrorFactory
   public RuntimeException parseError(String msg, JsonParseException e) {
     throw buildError(
@@ -365,7 +377,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .addContext("JSON token type", tokenType));
   }
 
-  protected UserException dataConversionError(ColumnMetadata schema, String tokenType, String value) {
+  public UserException dataConversionError(ColumnMetadata schema, String tokenType, String value) {
     return buildError(schema,
         UserException.dataReadError()
           .message("Type of JSON token is not compatible with its column")

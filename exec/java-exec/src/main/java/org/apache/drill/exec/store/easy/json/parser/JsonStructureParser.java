@@ -129,6 +129,7 @@ public class JsonStructureParser {
   private final ErrorFactory errorFactory;
   private final TokenIterator tokenizer;
   private final RootParser rootState;
+  private final FieldParserFactory fieldFactory;
   private int errorRecoveryCount;
 
   /**
@@ -169,11 +170,13 @@ public class JsonStructureParser {
     } else {
       rootState = makeCustomRoot(builder.messageParser);
     }
+    fieldFactory = new FieldParserFactory(this);
   }
 
   public JsonStructureOptions options() { return options; }
   public ErrorFactory errorFactory() { return errorFactory; }
   public ObjectListener rootListener() { return rootListener; }
+  public FieldParserFactory fieldFactory() { return fieldFactory; }
 
   private RootParser makeCustomRoot(MessageParser messageParser) {
     try {

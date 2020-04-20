@@ -52,7 +52,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
     // Replace the listener with a new one
     ValueListenerFixture a2 = new ValueListenerFixture(new ValueDef(JsonType.BOOLEAN, a.valueDef.dimensions()));
-    a.host.bindListener(a2);
+    a.host.accept(a2);
     assertSame(a.host, a2.host);
 
     assertTrue(fixture.next());
@@ -120,7 +120,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
     private ValueListenerFixture replaceWith(ValueListenerFixture newListener) {
       parent.fields.put(key, newListener);
-      host.bindListener(newListener);
+      host.accept(newListener);
       return newListener;
     }
   }

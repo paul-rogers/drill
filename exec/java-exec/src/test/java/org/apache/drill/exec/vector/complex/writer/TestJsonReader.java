@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
  * <li><tt>TestJsonReaderQuery</tt></li>
  * </ul>
  */
+//TODO: Move to JSON reader package after code review
 @Category(RowSetTests.class)
 public class TestJsonReader extends BaseTestQuery {
   private static final Logger logger = LoggerFactory.getLogger(TestJsonReader.class);
@@ -64,30 +65,7 @@ public class TestJsonReader extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector","complex", "writer"));
   }
 
-  private void enableV2Reader(boolean enable) throws Exception {
-    alterSession(ExecConstants.ENABLE_V2_JSON_READER_KEY, enable);
-  }
-
-  private void resetV2Reader() throws Exception {
-    resetSessionOption(ExecConstants.ENABLE_V2_JSON_READER_KEY);
-  }
-
-  public interface TestWrapper {
-    void apply() throws Exception;
-  }
-
-  public void runBoth(TestWrapper wrapper) throws Exception {
-    try {
-      enableV2Reader(false);
-      wrapper.apply();
-      enableV2Reader(true);
-      wrapper.apply();
-    } finally {
-      resetV2Reader();
-    }
-  }
-
-   @Test
+  @Test
   public void schemaChange() throws Exception {
     runBoth(() -> doSchemaChange());
   }
@@ -558,6 +536,29 @@ public class TestJsonReader extends BaseTestQuery {
 
     } finally {
       resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
+    }
+  }
+
+  private void enableV2Reader(boolean enable) throws Exception {
+    alterSession(ExecConstants.ENABLE_V2_JSON_READER_KEY, enable);
+  }
+
+  private void resetV2Reader() throws Exception {
+    resetSessionOption(ExecConstants.ENABLE_V2_JSON_READER_KEY);
+  }
+
+  public interface TestWrapper {
+    void apply() throws Exception;
+  }
+
+  public void runBoth(TestWrapper wrapper) throws Exception {
+    try {
+      enableV2Reader(false);
+      wrapper.apply();
+      enableV2Reader(true);
+      wrapper.apply();
+    } finally {
+      resetV2Reader();
     }
   }
 }

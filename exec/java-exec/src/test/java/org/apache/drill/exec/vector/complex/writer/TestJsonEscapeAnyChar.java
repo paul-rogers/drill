@@ -46,27 +46,9 @@ public class TestJsonEscapeAnyChar extends ClusterTest {
     FileUtils.writeStringToFile(testFile, JSON_DATA);
   }
 
-  public void runBoth(TestWrapper wrapper) throws Exception {
-    try {
-      enableV2Reader(false);
-      wrapper.apply();
-      enableV2Reader(true);
-      wrapper.apply();
-    } finally {
-      resetV2Reader();
-    }
-  }
-
   @Test
   public void testwithOptionEnabled() throws Exception {
-    try {
-      enableV2Reader(false);
-      doTestWithOptionEnabled();
-      enableV2Reader(true);
-      doTestWithOptionEnabled();
-    } finally {
-      resetV2Reader();
-    }
+    runBoth(() -> doTestWithOptionEnabled());
   }
 
   private void doTestWithOptionEnabled() throws Exception {
@@ -85,14 +67,7 @@ public class TestJsonEscapeAnyChar extends ClusterTest {
   }
   @Test
   public void testwithOptionDisabled() throws Exception {
-    try {
-      enableV2Reader(false);
-      doTestWithOptionDisabled();
-      enableV2Reader(true);
-      doTestWithOptionDisabled();
-    } finally {
-      resetV2Reader();
-    }
+    runBoth(() -> doTestWithOptionDisabled());
   }
 
   private void doTestWithOptionDisabled() throws Exception {
@@ -110,6 +85,17 @@ public class TestJsonEscapeAnyChar extends ClusterTest {
 
   private void resetJsonReaderEscapeAnyChar() {
     client.alterSession(ExecConstants.JSON_READER_ESCAPE_ANY_CHAR, false);
+  }
+
+  public void runBoth(TestWrapper wrapper) throws Exception {
+    try {
+      enableV2Reader(false);
+      wrapper.apply();
+      enableV2Reader(true);
+      wrapper.apply();
+    } finally {
+      resetV2Reader();
+    }
   }
 
   private void enableV2Reader(boolean enable) throws Exception {

@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser.TypedValueParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -86,14 +86,14 @@ public class ArrayParser extends AbstractElementParser {
   }
 
   public void bindElement(ValueListener elementListener) {
-    elementParser = new ValueParser(this, "[]", FieldType.TYPED);
-    elementParser.bindListener(elementListener);
+    elementParser = new TypedValueParser(this, "[]");
+    elementParser.accept(elementListener);
   }
 
   public void bindListener(ArrayListener newListener) {
     arrayListener = newListener;
     if (elementParser != null) {
-      elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
+      elementParser.accept(arrayListener.element(ValueDef.UNKNOWN));
     }
   }
 

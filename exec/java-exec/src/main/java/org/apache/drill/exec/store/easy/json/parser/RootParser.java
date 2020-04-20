@@ -24,12 +24,15 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * The root parsers are special: they must detect EOF. Drill supports
+ * Root parsers detect overall structure including EOF. Drill supports
  * top-level objects either enclosed in an array (which forms legal
  * JSON), or as a series JSON objects (which is a common, if not
- * entirely legal, form of JSON.)
+ * entirely legal, form of JSON.) "Message parsers" act as root parsers
+ * which parse down into a REST response (say) to locate the data
+ * portion which must be {@code null}, a single JSON object, or an
+ * array of objects.
  */
-public abstract class RootParser implements ElementParser {
+public abstract class RootParser {
   protected static final Logger logger = LoggerFactory.getLogger(RootParser.class);
 
   private final JsonStructureParser structParser;
@@ -37,15 +40,10 @@ public abstract class RootParser implements ElementParser {
 
   public RootParser(JsonStructureParser structParser) {
     this.structParser = structParser;
-    this.rootObject = new ObjectParser(this, structParser.rootListener());
+    this.rootObject = new ObjectParser(structParser);
   }
 
   public abstract boolean parseRoot(TokenIterator tokenizer);
-
-  @Override
-  public void parse(TokenIterator tokenizer) {
-    throw new UnsupportedOperationException();
-  }
 
   protected boolean parseRootObject(JsonToken token, TokenIterator tokenizer) {
     // Position: ^ ?
@@ -70,12 +68,6 @@ public abstract class RootParser implements ElementParser {
   protected ErrorFactory errorFactory() {
     return structParser.errorFactory();
   }
-
-  @Override
-  public ElementParser parent() { return null; }
-
-  @Override
-  public JsonStructureParser structParser() { return structParser; }
 
   public static class RootObjectParser extends RootParser {
 

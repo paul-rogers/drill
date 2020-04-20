@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.calcite.model.JsonType;
-
 /**
  * Represents events on a object value. The object value may be a top-level
  * field or may be the element of an array. The listener gets an event when
@@ -35,7 +33,7 @@ import org.apache.calcite.model.JsonType;
  * is structured like a list of tuples, if the initial value is not {@code null},
  * and if initial arrays are not empty. The structure parser cannot see
  * into the future beyond the first field value; the value listener for each
- * field must handle "type-deferal" if needed to handle missing or null
+ * field must handle "type-deferral" if needed to handle missing or null
  * values. That is, type-consistency is a semantic task handled by the listener,
  * not a syntax task handled by the parser.
  *
@@ -54,33 +52,50 @@ import org.apache.calcite.model.JsonType;
  */
 public interface ObjectListener {
 
-  enum FieldType {
+  /**
+   * Describes a new field within an object. Allows the listener to control
+   * how to handle the field: as unprojected, parsed as a typed field, as
+   * text, as JSON, or as a custom parser.
+   */
+  public interface FieldDefn {
 
     /**
-     * The field is unprojected, ignore its content. No value listener
-     * is created.
+     * Returns the field name.
      */
-    IGNORE,
+    String key();
 
     /**
-     * Parse the JSON object according to its type.
+     * Returns the options passed to the structure parser to, say, allow forcing
+     * "all-text mode".
      */
-    TYPED,
+    JsonStructureOptions options();
 
     /**
-     * The field is to be treated as "all-text". Used when the parser-level
-     * setting for {@code allTextMode} is {@code false}; allows per-field
-     * overrides to, perhaps, ride over inconsistent scalar types for a
-     * single field. The listener will receive only strings.
+     * Returns a factory to create standard field parsers.
      */
-    TEXT,
+    FieldParserFactory fieldFactory();
 
     /**
-     * Parse the value, and all its children, as JSON.
-     * That is, converts the parsed JSON back into a
-     * JSON string. The listener will receive only strings.
+     * Looks ahead to guess the field type based on JSON tokens.
      */
-    JSON
+    ValueDef lookahead();
+
+    /**
+     * Token stream which allows a custom parser to look ahead
+     * as needed. The caller must "unget" all tokens to leave the
+     * tokenizer at the present location. Note that the underlying
+     * Jackson parser will return text for the last token consumed,
+     * even if tokens are unwound using the token iterator, so do not
+     * look ahead past the first field name or value; on look ahead
+     * over "static" tokens such as object and array start characters.
+     */
+    TokenIterator tokenizer();
+
+    /**
+     * Returns the parent parser which is needed to construct standard
+     * parsers.
+     */
+    ElementParser parent();
   }
 
   /**
@@ -90,42 +105,38 @@ public interface ObjectListener {
   void onStart();
 
   /**
-   * Called by the structure parser when it first sees a new field for
-   * and object to determine how to parse the field.
-   * If not projected, the structure parser will not
-   * ask for a value listener and will insert a "dummy" parser that will
-   * free-wheel over any value of that field. As a result, unprojected
-   * fields can not cause type errors: they are invisible as long as
-   * they are syntactically valid.
-   * <p>
-   * The {@link FieldType#JSON} type says to parse the entire field, and
-   * its children, as a JSON string. The parser will ask for a value
-   * listener to accept the JSON text.
-   *
-   * @param key the object field name
-   * @return how the field should be parsed
-   */
-  FieldType fieldType(String key);
-
-  /**
    * The structure parser has just encountered a new field for this
-   * object. The {@link #fieldType(String)} indicated that the field is
-   * to be projected. This method performs any setup needed to handle the
-   * field, then returns a value listener to receive events for the
+   * object. This method returns a parser for the field, along with
+   * an optional listener to handle events within the field. THe field typically
+   * uses a value parser create by the {@link FieldParserFactory} class.
+   * However, special cases (such as Mongo extended types) can create a
+   * custom parser.
+   * <p>
+   * If the field is not projected, the method should return a dummy parser
+   * from {@link FieldParserFactory#ignoredFieldParser()}.
+   * <p>
+   * A normal field will respond to the structure of the JSON file as it
+   * appears. The associated value listener receives events for the
    * field value. The value listener may be asked to create additional
    * structure, such as arrays or nested objects.
+   * <p>
+   * Parse position: <code>{ ... field : ^ ?</code> for a newly-seen field.
+   * Constructs a value parser and its listeners by looking ahead
+   * some number of tokens to "sniff" the type of the value. For
+   * example:
+   * <ul>
+   * <li>{@code foo: <value>} - Field value</li>
+   * <li>{@code foo: [ <value> ]} - 1D array value</li>
+   * <li>{@code foo: [ [<value> ] ]} - 2D array value</li>
+   * <li>Etc.</li>
+   * </ul>
+   * <p>
+   * There are two cases in which no type estimation is possible:
    *
-   * @param key the field name
-   * @param valueDef a description of the field as inferred by looking
-   * ahead some number of tokens in the input JSON. Provides both a data
-   * type and array depth (dimensions.) If the type is
-   * {@link JsonType#NONE EMPTY}, then the field is an empty array.
-   * If the type is {@link JsonType#NULL NULL}, then the value is null. In these
-   * cases, the listener can replace itself when an actual value appears
-   * later
-   * @return a listener to receive events for the newly-created field
+   * @param field description of the field, including the field name
+   * @return a parser for the newly-created field
    */
-  ValueListener addField(String key, ValueDef valueDef);
+  ElementParser onField(FieldDefn field);
 
   /**
    * Called at the end of a set of values for an object. That is, called

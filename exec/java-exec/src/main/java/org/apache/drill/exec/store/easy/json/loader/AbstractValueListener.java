@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import java.util.function.Consumer;
+
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
@@ -36,7 +38,7 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   @Override
-  public void bind(ValueHost host) { }
+  public void bind(Consumer<ValueListener> host) { }
 
   @Override
   public void onBoolean(boolean value) {
@@ -77,5 +79,7 @@ public abstract class AbstractValueListener implements ValueListener {
     return loader.typeConversionError(schema(), jsonType);
   }
 
-  protected abstract ColumnMetadata schema();
+  protected ColumnMetadata schema() {
+    throw new IllegalStateException("Unknown column has no schema");
+  }
 }

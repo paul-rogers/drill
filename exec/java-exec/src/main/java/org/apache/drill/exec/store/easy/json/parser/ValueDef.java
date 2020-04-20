@@ -59,10 +59,14 @@ public class ValueDef {
   }
 
   public static final ValueDef UNKNOWN_ARRAY = new ValueDef(JsonType.UNKNOWN, 1);
-  public static final ValueDef UNKNOWN = new ValueDef(JsonType.UNKNOWN, 0);
+  public static final ValueDef UNKNOWN = new ValueDef(JsonType.UNKNOWN);
 
   private final int arrayDims;
   private final JsonType type;
+
+  public ValueDef(JsonType type) {
+    this(type, 0);
+  }
 
   public ValueDef(JsonType type, int dims) {
     this.type = type;
