@@ -30,4 +30,7 @@ package org.apache.drill.exec.store.easy.json.loader.mongo;
 public interface ExtendedTypeNames {
   String TYPE_PREFIX = "$";
   String LONG = "$numberLong";
+  String DECIMAL = "$numberDecimal";
+  String DOUBLE = "$numberDouble";
+  String INT = "$numberInt";
 }

@@ -4,6 +4,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.apache.drill.test.rowSet.RowSetUtilities.dec;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 
 import org.apache.drill.common.exceptions.UserException;
@@ -11,11 +12,39 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.BaseJsonLoaderTest.JsonLoaderFixture;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 
 public class TestExtendedTypes extends BaseJsonLoaderTest {
+
+  @Test
+  public void testInt() {
+    String json =
+        "{ a: { \"$numberInt\": 10 } }\n" +
+        "{ a: null }\n" +
+        "{ a: { \"$numberInt\": \"30\" } }\n" +
+        "{ a: 40 }\n" +
+        "{ a: \"50\" }";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INT)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(10)
+        .addSingleCol(null)
+        .addRow(30)
+        .addRow(40)
+        .addRow(50)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
 
   @Test
   public void testLong() {
@@ -24,7 +53,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         "{ a: null }\n" +
         "{ a: { \"$numberLong\": \"30\" } }\n" +
         "{ a: 40 }\n" +
-        "{ a: \"50\" }\n";
+        "{ a: \"50\" }";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -35,11 +64,83 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         .addNullable("a", MinorType.BIGINT)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(10)
+        .addRow(10L)
         .addSingleCol(null)
-        .addRow(30)
-        .addRow(40)
-        .addRow(50)
+        .addRow(30L)
+        .addRow(40L)
+        .addRow(50L)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testDecimal() {
+    String json =
+        "{ a: { \"$numberDecimal\": 10 } }\n" +
+        "{ a: null }\n" +
+        "{ a: { \"$numberDecimal\": \"30\" } }\n" +
+        "{ a: { \"$numberDecimal\": 40.2345 } }\n" +
+        "{ a: 60 }\n" +
+        "{ a: \"70.890\" }\n" +
+        "{ a: 80.765 }";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARDECIMAL)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(dec("10"))
+        .addSingleCol(null)
+        .addRow(dec("30"))
+        .addRow(dec("40.2345"))
+        .addRow(dec("60"))
+        .addRow(dec("70.89"))
+        .addRow(dec("80.765"))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testDouble() {
+    String json =
+        "{ a: { \"$numberDouble\": 10 } }\n" +
+        "{ a: null }\n" +
+        "{ a: { \"$numberDouble\": \"30\" } }\n" +
+        "{ a: { \"$numberDouble\": 40.125 } }\n" +
+        "{ a: 60 }\n" +
+        "{ a: \"70.125\" }\n" +
+        "{ a: 80.375 }\n" +
+        "{ a: { \"$numberDouble\": \"-Infinity\" } }\n" +
+        "{ a: { \"$numberDouble\": \"Infinity\" } }\n" +
+        "{ a: { \"$numberDouble\": \"NaN\" } }";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.FLOAT8)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(10D)
+        .addSingleCol(null)
+        .addRow(30D)
+        .addRow(40.125D)
+        .addRow(60D)
+        .addRow(70.125D)
+        .addRow(80.375D)
+        .addRow(Double.NEGATIVE_INFINITY)
+        .addRow(Double.POSITIVE_INFINITY)
+        .addRow(Double.NaN)
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

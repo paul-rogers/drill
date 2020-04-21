@@ -75,6 +75,12 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     switch (key) {
     case ExtendedTypeNames.LONG:
       return numberLongParser(fieldDefn);
+    case ExtendedTypeNames.DECIMAL:
+      return numberDecimalParser(fieldDefn);
+    case ExtendedTypeNames.DOUBLE:
+      return numberDoubleParser(fieldDefn);
+    case ExtendedTypeNames.INT:
+      return numberIntParser(fieldDefn);
     default:
       return null;
     }
@@ -84,6 +90,27 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     return new MongoSimpleValueParser(ExtendedTypeNames.LONG,
         new Int64ValueListener(loader(),
             defineColumn(fieldDefn.key(), MinorType.BIGINT)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser numberDecimalParser(FieldDefn fieldDefn) {
+    return new MongoSimpleValueParser(ExtendedTypeNames.DECIMAL,
+        new DecimalValueListener(loader(),
+            defineColumn(fieldDefn.key(), MinorType.VARDECIMAL)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser numberDoubleParser(FieldDefn fieldDefn) {
+    return new MongoSimpleValueParser(ExtendedTypeNames.DOUBLE,
+        new DoubleValueListener(loader(),
+            defineColumn(fieldDefn.key(), MinorType.FLOAT8)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser numberIntParser(FieldDefn fieldDefn) {
+    return new MongoSimpleValueParser(ExtendedTypeNames.INT,
+        new Int32ValueListener(loader(),
+            defineColumn(fieldDefn.key(), MinorType.INT)),
         fieldDefn.errorFactory());
   }
 
