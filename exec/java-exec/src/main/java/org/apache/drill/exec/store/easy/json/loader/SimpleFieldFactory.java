@@ -1,16 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class SimpleFieldFactory extends BaseFieldFactory {
@@ -19,16 +36,17 @@ public class SimpleFieldFactory extends BaseFieldFactory {
     super(tupleListener);
   }
 
-  @Override
-  public FieldType fieldType(String key) {
-    return FieldType.TYPED;
-  }
-
   /**
    * Build a column and its listener based on a look-ahead hint.
    */
   @Override
-  public ValueListener addField(String key, ValueDef valueDef) {
+  public ElementParser addField(FieldDefn fieldDefn) {
+    return fieldDefn.fieldFactory().valueParser(fieldDefn, listenerFor(fieldDefn));
+  }
+
+  private ValueListener listenerFor(FieldDefn fieldDefn) {
+    String key = fieldDefn.key();
+    ValueDef valueDef = fieldDefn.lookahead();
     if (valueDef.type().isUnknown()) {
       return listenerForUnknown(key, valueDef);
     } else {

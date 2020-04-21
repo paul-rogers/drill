@@ -20,9 +20,10 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 public class ProvidedFieldFactory extends BaseFieldFactory {
@@ -30,26 +31,6 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
   public ProvidedFieldFactory(TupleListener tupleListener, FieldFactory child) {
     super(tupleListener, child);
     Preconditions.checkArgument(tupleListener.providedSchema() != null);
-  }
-
-  @Override
-  public FieldType fieldType(String key) {
-    ColumnMetadata providedCol = providedColumn(key);
-    if (providedCol == null) {
-      return child.fieldType(key);
-    }
-    String mode = providedCol.property(JsonLoader.JSON_MODE);
-    if (mode == null) {
-      return FieldType.TYPED;
-    }
-    switch (mode) {
-      case JsonLoader.JSON_TEXT_MODE:
-        return FieldType.TEXT;
-      case JsonLoader.JSON_LITERAL_MODE:
-        return FieldType.JSON;
-      default:
-        return FieldType.TYPED;
-    }
   }
 
   public ColumnMetadata providedColumn(String key) {
@@ -62,51 +43,71 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
    * accurately reflects the structure of the JSON being parsed.
    */
   @Override
-  public ValueListener addField(String key, ValueDef valueDef) {
-    ColumnMetadata providedCol = providedColumn(key);
+  public ElementParser addField(FieldDefn fieldDefn) {
+    ColumnMetadata providedCol = providedColumn(fieldDefn.key());
     if (providedCol == null) {
-      return child.addField(key, valueDef);
+      return child.addField(fieldDefn);
     }
+    return parserFor(fieldDefn, providedCol, listenerFor(fieldDefn, providedCol));
+  }
+
+  public ElementParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
+    FieldParserFactory parserFactory = fieldDefn.fieldFactory();
+    String mode = providedCol.property(JsonLoader.JSON_MODE);
+    if (mode == null) {
+      return parserFactory.valueParser(fieldDefn, fieldListener);
+    }
+    switch (mode) {
+      case JsonLoader.JSON_TEXT_MODE:
+        return parserFactory.textValueParser(fieldDefn, fieldListener);
+      case JsonLoader.JSON_LITERAL_MODE:
+        return parserFactory.jsonTextParser(fieldDefn, fieldListener);
+      default:
+        return parserFactory.valueParser(fieldDefn, fieldListener);
+    }
+  }
+
+  public ValueListener listenerFor(FieldDefn fieldDefn, ColumnMetadata providedCol) {
     switch (providedCol.structureType()) {
 
-    case PRIMITIVE: {
-      ColumnMetadata colSchema = providedCol.copy();
-      if (providedCol.isArray()) {
-        return scalarArrayListenerFor(colSchema);
-      } else {
-        return scalarListenerFor(colSchema);
+      case PRIMITIVE: {
+        ColumnMetadata colSchema = providedCol.copy();
+        if (providedCol.isArray()) {
+          return scalarArrayListenerFor(colSchema);
+        } else {
+          return scalarListenerFor(colSchema);
+        }
       }
-    }
 
-    case TUPLE: {
-      // Propagate the provided map schema into the object
-      // listener as a provided tuple schema.
-      ColumnMetadata colSchema = providedCol.cloneEmpty();
-      TupleMetadata providedSchema = providedCol.tupleSchema();
-      if (providedCol.isArray()) {
-        return objectArrayListenerFor(colSchema, providedSchema);
-      } else {
-        return objectListenerFor(colSchema, providedSchema);
+      case TUPLE: {
+        // Propagate the provided map schema into the object
+        // listener as a provided tuple schema.
+        ColumnMetadata colSchema = providedCol.cloneEmpty();
+        TupleMetadata providedSchema = providedCol.tupleSchema();
+        if (providedCol.isArray()) {
+          return objectArrayListenerFor(colSchema, providedSchema);
+        } else {
+          return objectListenerFor(colSchema, providedSchema);
+        }
       }
-    }
 
-    case VARIANT: {
-      // A variant can contain multiple types. The schema does not
-      // declare the types; rather they are discovered by the reader.
-      // That is, there is no VARIANT<INT, DOUBLE>, there is just VARIANT.
-      ColumnMetadata colSchema = providedCol.cloneEmpty();
-      if (providedCol.isArray()) {
-        return variantArrayListenerFor(colSchema);
-      } else {
-        return variantListenerFor(colSchema);
+      case VARIANT: {
+        // A variant can contain multiple types. The schema does not
+        // declare the types; rather they are discovered by the reader.
+        // That is, there is no VARIANT<INT, DOUBLE>, there is just VARIANT.
+        ColumnMetadata colSchema = providedCol.cloneEmpty();
+        if (providedCol.isArray()) {
+          return variantArrayListenerFor(colSchema);
+        } else {
+          return variantListenerFor(colSchema);
+        }
       }
-    }
 
-    case MULTI_ARRAY:
-      return multiDimArrayListenerForSchema(providedCol);
+      case MULTI_ARRAY:
+        return multiDimArrayListenerForSchema(providedCol);
 
-    default:
-      throw loader().unsupportedType(providedCol);
+      default:
+        throw loader().unsupportedType(providedCol);
     }
   }
 

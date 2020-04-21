@@ -19,7 +19,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 
 /**
  * Extensible mechanism to build fields for a JSON object (a Drill
@@ -28,20 +29,13 @@ import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
 public interface FieldFactory {
 
   /**
-   * Return the field (parser) type for a projected field.
-   *
-   * @see ObjectListener#fieldType(String)
-   */
-  FieldType fieldType(String key);
-
-  /**
    * Add a field. Called only for projected fields. May add a "deferred"
    * undefined field if the value type is undefined. Such fields are added
    * to the underlying row or map at a later time.
    *
    * @see ObjectListener#addField(String, ValueDef)
    */
-  ValueListener addField(String key, ValueDef valueDef);
+  ElementParser addField(FieldDefn fieldDefn);
 
   /**
    * Resolve a field to concrete vector. Called from the above, or when

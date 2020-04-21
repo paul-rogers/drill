@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import java.util.function.Consumer;
-
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
@@ -118,9 +117,6 @@ public class TupleListener implements ObjectListener {
     this.fieldFactory = loader.fieldFactoryFor(this);
   }
 
-  @Override
-  public void bind(Consumer<ObjectListener> host) { }
-
   public JsonLoaderImpl loader() { return loader; }
 
   public TupleWriter writer() { return tupleWriter; }
@@ -134,22 +130,12 @@ public class TupleListener implements ObjectListener {
   public void onEnd() { }
 
   @Override
-  public FieldType fieldType(String key) {
-    if (tupleWriter.isProjected(key)) {
-      return fieldFactory.fieldType(key);
+  public ElementParser onField(FieldDefn field) {
+    if (!tupleWriter.isProjected(field.key())) {
+      return field.fieldFactory().ignoredFieldParser();
     } else {
-      return FieldType.IGNORE;
+      return fieldFactory.addField(field);
     }
-  }
-
-  /**
-   * Add a field not seen before. If a schema is provided, use the provided
-   * column schema to define the column. Else, build the column based on the
-   * look-ahead hints provided by the structure parser.
-   */
-  @Override
-  public ValueListener addField(String key, ValueDef valueDef) {
-    return fieldFactory.addField(key, valueDef);
   }
 
   /**

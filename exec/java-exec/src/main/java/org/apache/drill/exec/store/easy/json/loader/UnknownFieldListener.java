@@ -19,7 +19,6 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import java.util.function.Consumer;
 
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;

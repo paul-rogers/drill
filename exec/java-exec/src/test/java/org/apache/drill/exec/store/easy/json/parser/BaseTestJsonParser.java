@@ -41,6 +41,10 @@ import com.fasterxml.jackson.core.JsonToken;
 
 public class BaseTestJsonParser {
 
+  /**
+   * Retain to the error type and error message so they
+   * can be verified in a test.
+   */
   @SuppressWarnings("serial")
   protected static class JsonErrorFixture extends RuntimeException {
     String errorType;
@@ -254,13 +258,16 @@ public class BaseTestJsonParser {
       endCount++;
     }
 
+    /**
+     * Create a new field listener depending on the test setup.
+     */
     @Override
     public ElementParser onField(FieldDefn fieldDefn) {
       if (projectFilter != null && !projectFilter.contains(fieldDefn.key())) {
         return fieldDefn.fieldFactory().ignoredFieldParser();
       }
       assertFalse(fields.containsKey(fieldDefn.key()));
-      ValueListenerFixture fieldListener = new ValueListenerFixture(fieldDefn.lookahead());
+      ValueListenerFixture fieldListener = makeField(fieldDefn.key(), fieldDefn.lookahead());
       fields.put(fieldDefn.key(), fieldListener);
       switch (fieldType) {
       case JSON:
@@ -283,6 +290,10 @@ public class BaseTestJsonParser {
     }
   }
 
+  /**
+   * Wrapper around the JsonStructure parser to hold all the knick-knacks
+   * needed for a test.
+   */
   protected static class JsonParserFixture {
     JsonStructureParserBuilder builder;
     JsonStructureOptions options = new JsonStructureOptions();
