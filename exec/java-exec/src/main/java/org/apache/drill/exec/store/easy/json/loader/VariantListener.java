@@ -20,7 +20,10 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Listener for a UNION type column which maps each JSON type to
@@ -42,26 +45,40 @@ public class VariantListener extends AbstractValueListener {
   }
 
   @Override
-  public void onNull() { }
-
-  @Override
-  public void onBoolean(boolean value) {
-    writer.scalar(MinorType.BIT).setBoolean(value);
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    switch (token) {
+      case VALUE_NULL:
+        writer.setNull();
+        break;
+      case VALUE_TRUE:
+        writer.scalar(MinorType.BIT).setBoolean(true);
+        break;
+      case VALUE_FALSE:
+        writer.scalar(MinorType.BIT).setBoolean(false);
+        break;
+      case VALUE_NUMBER_INT:
+        writer.scalar(MinorType.BIGINT).setLong(tokenizer.longValue());
+        break;
+      case VALUE_NUMBER_FLOAT:
+        writer.scalar(MinorType.FLOAT8).setDouble(tokenizer.doubleValue());
+        break;
+      case VALUE_STRING:
+        writer.scalar(MinorType.VARCHAR).setString(tokenizer.stringValue());
+        break;
+      default:
+        // Won't get here: the Jackson parser catches
+        // errors.
+        throw tokenizer.invalidValue(token);
+    }
   }
 
   @Override
-  public void onInt(long value) {
-    writer.scalar(MinorType.BIGINT).setLong(value);
-  }
-
-  @Override
-  public void onFloat(double value) {
-    writer.scalar(MinorType.FLOAT8).setDouble(value);
-  }
-
-  @Override
-  public void onString(String value) {
-    writer.scalar(MinorType.VARCHAR).setString(value);
+  public void onText(String value) {
+    if (value == null) {
+      writer.setNull();
+    } else {
+      writer.scalar(MinorType.VARCHAR).setString(value);
+    }
   }
 
   @Override

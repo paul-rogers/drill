@@ -19,10 +19,13 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Listener for the List vector writer. A List in Drill is essentially
@@ -40,7 +43,11 @@ public class ListListener extends AbstractValueListener {
   }
 
   @Override
-  public void onNull() { }
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    if (token != JsonToken.VALUE_NULL) {
+      super.onValue(token, tokenizer);
+    }
+  }
 
   @Override
   protected ColumnMetadata schema() {

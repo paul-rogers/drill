@@ -22,11 +22,14 @@ import java.util.function.Consumer;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Represents a rather odd state: we have seen a value of one or more
@@ -71,37 +74,10 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   @Override
-  public void onNull() {
-    if (unknownArray != null) {
-      // An array, must resolve to some type.
-      resolveScalar(JsonType.NULL).onNull();
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    if (token != JsonToken.VALUE_NULL || unknownArray != null) {
+      resolveScalar(ValueDef.jsonTypeFor(token)).onValue(token, tokenizer);
     }
-    // Else ignore: still don't know what this is
-  }
-
-  @Override
-  public void onBoolean(boolean value) {
-    resolveScalar(JsonType.BOOLEAN).onBoolean(value);
-  }
-
-  @Override
-  public void onInt(long value) {
-    resolveScalar(JsonType.INTEGER).onInt(value);
-  }
-
-  @Override
-  public void onFloat(double value) {
-    resolveScalar(JsonType.FLOAT).onFloat(value);
-  }
-
-  @Override
-  public void onString(String value) {
-    resolveScalar(JsonType.STRING).onString(value);
-  }
-
-  @Override
-  public void onEmbeddedObject(String value) {
-    resolveScalar(JsonType.EMBEDDED_OBJECT).onEmbeddedObject(value);
   }
 
   @Override
@@ -117,8 +93,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
    */
   protected ValueListener resolveScalar(JsonType type) {
     if (unknownArray == null) {
-      return resolveTo(parentTuple.resolveField(key,
-          new ValueDef(type)));
+      return resolveTo(parentTuple.resolveField(key, new ValueDef(type)));
     } else {
 
       // Saw {a: []}, {a: 10}. Since we infer that 10 is a

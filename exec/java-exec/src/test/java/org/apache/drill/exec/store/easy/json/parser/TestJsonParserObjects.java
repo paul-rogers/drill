@@ -52,12 +52,12 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
     assertEquals(JsonType.STRING, name.valueDef.type());
-    assertEquals("fred", name.value);
+    assertEquals("fred", name.lastValue);
 
     assertTrue(fixture.next());
     assertEquals(2, fixture.rootObject.startCount);
     assertEquals(fixture.rootObject.startCount, fixture.rootObject.endCount);
-    assertEquals("barney", name.value);
+    assertEquals("barney", name.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -80,7 +80,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
-    assertEquals("fred", name.value);
+    assertEquals("fred", name.lastValue);
 
     assertTrue(fixture.next());
     assertEquals(1, cust.nullCount);
@@ -120,7 +120,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
-    assertEquals("fred", name.value);
+    assertEquals("fred", name.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -143,17 +143,17 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertNotNull(cust.objectValue);
     ObjectListenerFixture custObj = cust.objectValue;
     ValueListenerFixture name = custObj.field("name");
-    assertEquals("fred", name.value);
+    assertEquals("fred", name.lastValue);
 
     assertTrue(fixture.next());
     assertEquals(1, cust.valueCount);
-    assertEquals(123L, cust.value);
+    assertEquals(123L, cust.lastValue);
 
     assertTrue(fixture.next());
     assertNotNull(cust.objectValue);
     assertEquals(2, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
-    assertEquals("barney", name.value);
+    assertEquals("barney", name.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();

@@ -17,7 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Value listener for JSON string values. Allows conversion from
@@ -35,23 +39,42 @@ public class VarCharListener extends ScalarListener {
   }
 
   @Override
-  public void onBoolean(boolean value) {
-    writer.setString(Boolean.toString(value));
-  }
-
-  @Override
-  public void onInt(long value) {
-    writer.setString(Long.toString(value));
-  }
-
-  @Override
-  public void onFloat(double value) {
-    writer.setString(Double.toString(value));
-  }
-
-  @Override
-  public void onString(String value) {
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    String value;
+    switch (token) {
+      case VALUE_NULL:
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = Boolean.TRUE.toString();
+        break;
+      case VALUE_FALSE:
+        value = Boolean.FALSE.toString();
+        break;
+      case VALUE_NUMBER_INT:
+        value = Long.toString(tokenizer.longValue());
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = Double.toString(tokenizer.doubleValue());
+        break;
+      case VALUE_STRING:
+        value = tokenizer.stringValue();
+        break;
+      default:
+        // Won't get here: the Jackson parser catches
+        // errors.
+        throw tokenizer.invalidValue(token);
+    }
     writer.setString(value);
+  }
+
+  @Override
+  public void onText(String value) {
+    if (value == null) {
+      writer.setNull();
+    } else {
+      writer.setString(value);
+    }
   }
 
   @Override

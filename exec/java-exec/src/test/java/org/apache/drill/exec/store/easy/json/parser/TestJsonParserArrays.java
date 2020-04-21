@@ -65,7 +65,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertEquals(0, aElement.valueDef.dimensions());
     assertNull(aElement.arrayValue);
     assertEquals(2, aElement.valueCount);
-    assertEquals(100L, aElement.value);
+    assertEquals(100L, aElement.lastValue);
     assertEquals(0, aElement.nullCount);
 
     // {a: [null]}
@@ -120,7 +120,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertEquals(1, aArray.valueDef.dimensions());
     ValueListenerFixture aElement = aArray.element;
     assertEquals(2, aElement.valueCount);
-    assertEquals(100L, aElement.value);
+    assertEquals(100L, aElement.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -150,7 +150,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     ValueListenerFixture aElement = aArray.element;
     assertNotNull(aElement);
     assertEquals(2, aElement.valueCount);
-    assertEquals(100L, aElement.value);
+    assertEquals(100L, aElement.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -198,7 +198,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     assertEquals(0, innerElement.valueDef.dimensions());
     assertEquals(4, innerElement.valueCount);
     assertEquals(0, innerElement.nullCount);
-    assertEquals(2L, innerElement.value);
+    assertEquals(2L, innerElement.lastValue);
 
     // {a: [[null]]}
     assertTrue(fixture.next());
@@ -258,7 +258,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     ValueListenerFixture element =
         fixture.field("a").arrayValue.element.arrayValue.element;
     assertEquals(4, element.valueCount);
-    assertEquals(2L, element.value);
+    assertEquals(2L, element.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -303,7 +303,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     // b field within a[]{}
     ValueListenerFixture b = elementObj.field("b");
     assertEquals(2, b.valueCount);
-    assertEquals("barney", b.value);
+    assertEquals("barney", b.lastValue);
 
     assertFalse(fixture.next());
     fixture.close();
@@ -363,7 +363,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     // b field within a[][]{}
     ValueListenerFixture b = elementObj.field("b");
     assertEquals(4, b.valueCount);
-    assertEquals("betty", b.value);
+    assertEquals("betty", b.lastValue);
 
     assertFalse(fixture.next());
   }
@@ -390,10 +390,9 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
     // Everything populated
 
     assertEquals(2, a.arrayValue.element.valueCount);
-    assertEquals(11L, a.arrayValue.element.value);
+    assertEquals(11L, a.arrayValue.element.lastValue);
     assertEquals(1, a.objectValue.startCount);
-    assertEquals("fred", a.objectValue.field("b").value);
-    assertEquals(20.5D, a.value);
+    assertEquals("fred", a.objectValue.field("b").lastValue);
     assertEquals(1, a.nullCount);
 
     fixture.close();

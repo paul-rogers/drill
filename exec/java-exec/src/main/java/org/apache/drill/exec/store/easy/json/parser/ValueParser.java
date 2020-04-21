@@ -91,10 +91,6 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
       arrayParser.parse(tokenizer);
       break;
 
-    case VALUE_NULL:
-      listener.onNull();
-      break;
-
     default:
       parseValue(tokenizer, token);
     }
@@ -134,29 +130,7 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
 
     @Override
     public void parseValue(TokenIterator tokenizer, JsonToken token) {
-      switch (token) {
-        case VALUE_TRUE:
-          listener.onBoolean(true);
-          break;
-        case VALUE_FALSE:
-          listener.onBoolean(false);
-          break;
-        case VALUE_NUMBER_INT:
-          listener.onInt(tokenizer.longValue());
-          break;
-        case VALUE_NUMBER_FLOAT:
-          listener.onFloat(tokenizer.doubleValue());
-          break;
-        case VALUE_STRING:
-          listener.onString(tokenizer.stringValue());
-          break;
-        case VALUE_EMBEDDED_OBJECT:
-          listener.onEmbeddedObject(tokenizer.stringValue());
-        default:
-          // Won't get here: the Jackson parser catches
-          // errors.
-          throw errorFactory().syntaxError(token);
-      }
+      listener.onValue(token, tokenizer);
     }
   }
 
@@ -174,21 +148,8 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
 
     @Override
     public void parseValue(TokenIterator tokenizer, JsonToken token) {
-      switch (token) {
-        case VALUE_EMBEDDED_OBJECT:
-        case VALUE_FALSE:
-        case VALUE_TRUE:
-        case VALUE_NUMBER_FLOAT:
-        case VALUE_NUMBER_INT:
-        case VALUE_STRING:
-          listener.onString(tokenizer.textValue());
-          break;
-
-        default:
-          // Won't get here: the Jackson parser catches
-          // errors.
-          throw errorFactory().syntaxError(token);
-      }
+        listener.onText(
+            token == JsonToken.VALUE_NULL ? null : tokenizer.textValue());
     }
   }
 }

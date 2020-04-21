@@ -12,7 +12,6 @@ import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

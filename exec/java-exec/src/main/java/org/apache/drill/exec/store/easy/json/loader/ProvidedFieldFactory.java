@@ -26,6 +26,12 @@ import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+/**
+ * Create a Drill field listener based on a provided schema. The schema
+ * takes precedence over the JSON syntax: the schema is expected to
+ * accurately describe what will occur for this field in the JSON
+ * input.
+ */
 public class ProvidedFieldFactory extends BaseFieldFactory {
 
   public ProvidedFieldFactory(TupleListener tupleListener, FieldFactory child) {

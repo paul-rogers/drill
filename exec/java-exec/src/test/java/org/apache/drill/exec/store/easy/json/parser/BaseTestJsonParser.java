@@ -113,7 +113,8 @@ public class BaseTestJsonParser {
     final ValueDef valueDef;
     int nullCount;
     int valueCount;
-    Object value;
+    JsonToken lastToken;
+    Object lastValue;
     Consumer<ValueListener> host;
     ObjectListenerFixture objectValue;
     ArrayListenerFixture arrayValue;
@@ -123,38 +124,47 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void onNull() {
-      nullCount++;
+    public void onValue(JsonToken token, TokenIterator tokenizer) {
+      lastToken = token;
+      valueCount++;
+      switch (token) {
+        case VALUE_NULL:
+          lastValue = null;
+          nullCount++;
+          valueCount--;
+          break;
+        case VALUE_TRUE:
+          lastValue = true;
+          break;
+        case VALUE_FALSE:
+          lastValue = false;
+          break;
+        case VALUE_NUMBER_INT:
+          lastValue = tokenizer.longValue();
+          break;
+        case VALUE_NUMBER_FLOAT:
+          lastValue = tokenizer.doubleValue();
+          break;
+        case VALUE_STRING:
+          lastValue = tokenizer.stringValue();
+          break;
+        case VALUE_EMBEDDED_OBJECT:
+          lastValue = tokenizer.stringValue();
+          break;
+        default:
+          // Won't get here: the Jackson parser catches
+          // errors.
+          throw tokenizer.invalidValue(token);
+      }
     }
 
     @Override
-    public void onBoolean(boolean value) {
-      this.value = value;
-      valueCount++;
-    }
-
-    @Override
-    public void onInt(long value) {
-      this.value = value;
-      valueCount++;
-    }
-
-    @Override
-    public void onFloat(double value) {
-      this.value = value;
-      valueCount++;
-    }
-
-    @Override
-    public void onString(String value) {
-      this.value = value;
-      valueCount++;
-    }
-
-    @Override
-    public void onEmbeddedObject(String value) {
-      this.value = value;
-      valueCount++;
+    public void onText(String value) {
+      lastToken = null;
+      lastValue = value;
+      if (value == null) {
+        nullCount++;
+      }
     }
 
     @Override
@@ -346,7 +356,7 @@ public class BaseTestJsonParser {
         if (value == null) {
           expectedNullCount++;
         } else {
-          assertEquals(value, valueListener.value);
+          assertEquals(value, valueListener.lastValue);
         }
         assertEquals(expectedNullCount, valueListener.nullCount);
       }

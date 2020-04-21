@@ -19,6 +19,8 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import java.util.function.Consumer;
 
+import com.fasterxml.jackson.core.JsonToken;
+
 /**
  * Represents a JSON object, either a direct object field, or level
  * within an array. That is:
@@ -70,55 +72,15 @@ public interface ValueListener {
    */
   void bind(Consumer<ValueListener> host);
 
-  /**
-   * Called on parsing a {@code null} value for the field. Called whether
-   * the field is parsed as all-text or as typed values.
-   */
-  void onNull();
+  void onValue(JsonToken token, TokenIterator tokenizer);
 
   /**
-   * Called for the JSON {@code true} or {@code false} values when parsing
-   * the field as a typed field.
+   * Called when a parser converts a JSON structure to text rather
+   * than delivering the token directly.
    *
-   * @param value the Boolean value of the parsed token
+   * @param value the string value of the parsed token or structure
    */
-  void onBoolean(boolean value);
-
-  /**
-   * Called for JSON integer values when parsing the field as a typed
-   * field.
-   *
-   * @param value the integer value of the parsed token
-   */
-  void onInt(long value);
-
-  /**
-   * Called for JSON float values when parsing the field as a typed
-   * field.
-   *
-   * @param value the float value of the parsed token
-   */
-  void onFloat(double value);
-
-  /**
-   * Called for JSON string values when parsing the field as a typed
-   * field, and for all non-null scalar values when parsed in
-   * all-text mode
-   *
-   * @param value the string value of the parsed token
-   */
-  void onString(String value);
-
-  /**
-   * Called for embedded object values when parsing the field as a typed
-   * field.
-   * <p>
-   * Note: This method is for completeness with the entire set of JSON
-   * value tokens. It is not currently supported in Drill.
-   *
-   * @param value the string value of the parsed token
-   */
-  void onEmbeddedObject(String value);
+  void onText(String value);
 
   /**
    * The parser has encountered a object value for the field for the first

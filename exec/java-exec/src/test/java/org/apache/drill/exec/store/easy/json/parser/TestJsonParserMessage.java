@@ -70,7 +70,7 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertEquals(JsonType.INTEGER, a.valueDef.type());
     assertEquals(2, fixture.read());
     assertEquals(1, a.nullCount);
-    assertEquals(100L, a.value);
+    assertEquals(100L, a.lastValue);
     fixture.close();
   }
 
@@ -101,7 +101,7 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertEquals(JsonType.INTEGER, a.valueDef.type());
     assertEquals(2, fixture.read());
     assertEquals(1, a.nullCount);
-    assertEquals(100L, a.value);
+    assertEquals(100L, a.lastValue);
     fixture.close();
   }
 
@@ -120,7 +120,7 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertEquals(JsonType.INTEGER, a.valueDef.type());
     assertEquals(2, fixture.read());
     assertEquals(1, a.nullCount);
-    assertEquals(100L, a.value);
+    assertEquals(100L, a.lastValue);
     fixture.close();
   }
 

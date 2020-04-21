@@ -29,6 +29,8 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import com.fasterxml.jackson.core.JsonToken;
+
 @Category(RowSetTests.class)
 public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
@@ -56,10 +58,10 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertSame(a.host, a2.host);
 
     assertTrue(fixture.next());
-    assertEquals(Boolean.TRUE, a2.value);
+    assertEquals(Boolean.TRUE, a2.lastValue);
     assertTrue(fixture.next());
     assertEquals(0, a2.nullCount);
-    assertEquals(Boolean.FALSE, a2.value);
+    assertEquals(Boolean.FALSE, a2.lastValue);
     fixture.close();
   }
 
@@ -73,14 +75,15 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     }
 
     @Override
-    public void onInt(long value) {
-      ValueListenerFixture newParent = parent.replace();
-      newParent.array(ValueDef.UNKNOWN_ARRAY);
-      newParent.arrayValue.element(ValueDef.UNKNOWN);
-      newParent.arrayValue.element.onInt(value);
+    public void onValue(JsonToken token, TokenIterator tokenizer) {
+      if (token == JsonToken.VALUE_NULL) {
+        super.onValue(token, tokenizer);
+      } else {
+        parent.replace().arrayValue.element.onValue(token, tokenizer);
+      }
     }
-
   }
+
   private static class SwapperListenerFixture extends ValueListenerFixture {
 
     private final ObjectListenerFixture parent;
@@ -94,8 +97,12 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     }
 
     @Override
-    public void onInt(long value) {
-      replace().onInt(value);
+    public void onValue(JsonToken token, TokenIterator tokenizer) {
+      if (token == JsonToken.VALUE_NULL) {
+        super.onValue(token, tokenizer);
+      } else {
+        replace().onValue(token, tokenizer);
+      }
     }
 
     @Override
@@ -150,12 +157,12 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a2 = fixture.field("a");
     assertNotSame(a, a2);
-    assertEquals(2L, a2.value);
+    assertEquals(2L, a2.lastValue);
     assertEquals(0, a2.nullCount);
     assertEquals(1, a2.valueCount);
 
     assertTrue(fixture.next());
-    assertEquals(3L, a2.value);
+    assertEquals(3L, a2.lastValue);
 
     fixture.close();
   }
@@ -188,7 +195,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
     assertTrue(fixture.next());
     ValueListenerFixture b = a2.objectValue.field("b");
-    assertEquals(3L, b.value);
+    assertEquals(3L, b.lastValue);
 
     fixture.close();
   }
@@ -232,7 +239,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertEquals(0, a2.arrayValue.startCount);
     assertEquals(1, a2.arrayValue.endCount); // End on new one
     assertEquals(2, a2.arrayValue.element.valueCount);
-    assertEquals(20L, a2.arrayValue.element.value);
+    assertEquals(20L, a2.arrayValue.element.lastValue);
 
     // Check stability again
     // {a: [30, 40]}
@@ -240,7 +247,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertSame(a2, fixture.field("a"));
     assertEquals(1, a2.arrayValue.startCount);
     assertEquals(4, a2.arrayValue.element.valueCount);
-    assertEquals(40L, a2.arrayValue.element.value);
+    assertEquals(40L, a2.arrayValue.element.lastValue);
 
     fixture.close();
   }
@@ -279,7 +286,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertEquals(JsonType.INTEGER, a2.arrayValue.element.valueDef.type());
     assertEquals(0, a2.arrayValue.element.valueDef.dimensions());
     assertEquals(2, a2.arrayValue.element.valueCount);
-    assertEquals(20L, a2.arrayValue.element.value);
+    assertEquals(20L, a2.arrayValue.element.lastValue);
 
     // Ensure things are stable
     // {a: [30, 40]}
@@ -287,7 +294,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     assertSame(a2, fixture.field("a"));
     assertEquals(2, a2.arrayValue.startCount);
     assertEquals(4, a2.arrayValue.element.valueCount);
-    assertEquals(40L, a2.arrayValue.element.value);
+    assertEquals(40L, a2.arrayValue.element.lastValue);
 
     fixture.close();
   }

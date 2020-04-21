@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Listener for JSON Boolean fields. Allows conversion from numeric
@@ -31,22 +34,36 @@ public class BooleanListener extends ScalarListener {
   }
 
   @Override
-  public void onBoolean(boolean value) {
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    boolean value;
+    switch (token) {
+      case VALUE_NULL:
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = true;
+        break;
+      case VALUE_FALSE:
+        value = false;
+        break;
+      case VALUE_NUMBER_INT:
+        value = tokenizer.longValue() != 0;
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = tokenizer.doubleValue() != 0;
+        break;
+      case VALUE_STRING:
+        parseString(tokenizer.stringValue());
+        return;
+      default:
+        // Won't get here: the Jackson parser catches
+        // errors.
+        throw tokenizer.invalidValue(token);
+    }
     writer.setBoolean(value);
   }
 
-  @Override
-  public void onInt(long value) {
-    writer.setBoolean(value != 0);
-  }
-
-  @Override
-  public void onFloat(double value) {
-    writer.setBoolean(value != 0);
-  }
-
-  @Override
-  public void onString(String value) {
+  private void parseString(String value) {
     value = value.trim();
     if (value.isEmpty()) {
       setNull();

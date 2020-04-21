@@ -170,4 +170,8 @@ public class TokenIterator {
       throw errorFactory.typeError(e);
     }
   }
+
+  public RuntimeException invalidValue(JsonToken token) {
+    return errorFactory.structureError("Unexpected JSON value: " + token.name());
+  }
 }

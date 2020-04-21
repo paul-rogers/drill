@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.HashSet;
@@ -69,10 +70,10 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertEquals(JsonType.BOOLEAN, a.valueDef.type());
     assertEquals(0, a.valueDef.dimensions());
     assertEquals(0, a.nullCount);
-    assertEquals(Boolean.TRUE, a.value);
+    assertEquals(Boolean.TRUE, a.lastValue);
     assertEquals(2, fixture.read());
     assertEquals(1, a.nullCount);
-    assertEquals(Boolean.FALSE, a.value);
+    assertNull(a.lastValue);
     fixture.close();
   }
 
@@ -84,9 +85,11 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertEquals(2, fixture.read());
+    assertTrue(fixture.next());
+    assertEquals(100L, a.lastValue);
+    assertEquals(1, fixture.read());
     assertEquals(1, a.nullCount);
-    assertEquals(100L, a.value);
+    assertNull(a.lastValue);
     fixture.close();
   }
 
@@ -98,10 +101,12 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.FLOAT, a.valueDef.type());
-    assertEquals(2, fixture.read());
+    assertTrue(fixture.next());
+    assertEquals(100.5D, a.lastValue);
+    assertEquals(1, fixture.read());
     assertEquals(1, a.nullCount);
     assertEquals(2, a.valueCount);
-    assertEquals(100.5D, a.value);
+    assertNull(a.lastValue);
     fixture.close();
   }
 
@@ -115,9 +120,12 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.FLOAT, a.valueDef.type());
-    assertEquals(2, fixture.read());
+    assertEquals(Double.NaN, a.lastValue);
+    assertTrue(fixture.next());
+    assertEquals(Double.POSITIVE_INFINITY, a.lastValue);
+    assertEquals(1, fixture.read());
     assertEquals(3, a.valueCount);
-    assertEquals(Double.NEGATIVE_INFINITY, a.value);
+    assertEquals(Double.NEGATIVE_INFINITY, a.lastValue);
     fixture.close();
   }
 
@@ -129,10 +137,13 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.STRING, a.valueDef.type());
-    assertEquals(2, fixture.read());
+    assertEquals("", a.lastValue);
+    assertTrue(fixture.next());
+    assertEquals("hi", a.lastValue);
+    assertEquals(1, fixture.read());
     assertEquals(1, a.nullCount);
     assertEquals(2, a.valueCount);
-    assertEquals("hi", a.value);
+    assertNull(a.lastValue);
     fixture.close();
   }
 
@@ -144,11 +155,11 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.STRING, a.valueDef.type());
-    assertEquals("hi", a.value);
+    assertEquals("hi", a.lastValue);
     assertTrue(fixture.next());
-    assertEquals(10L, a.value);
+    assertEquals(10L, a.lastValue);
     assertTrue(fixture.next());
-    assertEquals(10.5D, a.value);
+    assertEquals(10.5D, a.lastValue);
     assertFalse(fixture.next());
     fixture.close();
   }
@@ -165,10 +176,10 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
 
     ValueListenerFixture name = fixture.field("name");
     assertEquals(3, name.valueCount);
-    assertEquals("Wilma", name.value);
+    assertEquals("Wilma", name.lastValue);
     ValueListenerFixture balance = fixture.field("balance");
     assertEquals(2, balance.valueCount);
-    assertEquals(500.00D, balance.value);
+    assertEquals(500.00D, balance.lastValue);
     fixture.close();
   }
 
@@ -192,11 +203,11 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     fixture.open(json);
     assertEquals(1, fixture.read());
     ValueListenerFixture a = fixture.field("a");
-    assertEquals(10L, a.value);
+    assertEquals(10L, a.lastValue);
     ValueListenerFixture b = fixture.field("b");
-    assertEquals(20L, b.value);
+    assertEquals(20L, b.lastValue);
     ValueListenerFixture c = fixture.field("c");
-    assertEquals(30L, c.value);
+    assertEquals(30L, c.lastValue);
     fixture.close();
   }
 
@@ -212,7 +223,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertEquals(3, fixture.read());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(3, a.valueCount);
-    assertEquals(30L, a.value);
+    assertEquals(30L, a.lastValue);
     fixture.close();
   }
 
@@ -227,7 +238,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertEquals(3, fixture.read());
     ValueListenerFixture bob = fixture.field("Bob");
     assertEquals(3, bob.valueCount);
-    assertEquals(30L, bob.value);
+    assertEquals(30L, bob.lastValue);
     fixture.close();
   }
 
@@ -246,7 +257,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertEquals(1, fixture.rootObject.fields.size());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(2, a.valueCount);
-    assertEquals(2L, a.value);
+    assertEquals(2L, a.lastValue);
     fixture.close();
   }
 

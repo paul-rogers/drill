@@ -30,6 +30,10 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
+/**
+ * Create Drill field listeners based on the observed look-ahead
+ * tokens in JSON.
+ */
 public class SimpleFieldFactory extends BaseFieldFactory {
 
   public SimpleFieldFactory(TupleListener tupleListener) {

@@ -76,11 +76,6 @@ public abstract class ScalarListener extends AbstractValueListener {
   @Override
   public ColumnMetadata schema() { return writer.schema(); }
 
-  @Override
-  public void onNull() {
-    setNull();
-  }
-
   protected void setNull() {
     try {
       if (isArray) {

@@ -40,7 +40,7 @@ public class JsonValueParser extends AbstractElementParser {
     JsonToken token = tokenizer.requireNext();
     json.setLength(0);
     parseValue(tokenizer, token);
-    listener.onString(json.toString());
+    listener.onText(json.toString());
     json.setLength(0);
   }
 

@@ -294,7 +294,7 @@ public class TestObjects extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("integer"));
+      assertTrue(e.getMessage().contains("JSON token type: VALUE_NUMBER_INT"));
     }
     loader.close();
   }

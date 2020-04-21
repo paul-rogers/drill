@@ -25,10 +25,13 @@ import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.Object
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Represents a JSON value that holds a RepeatedList (2D array) value.
@@ -127,7 +130,11 @@ public class RepeatedListValueListener extends AbstractValueListener {
   }
 
   @Override
-  public void onNull() { }
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    if (token != JsonToken.VALUE_NULL) {
+      super.onValue(token, tokenizer);
+    }
+  }
 
   @Override
   protected ColumnMetadata schema() {
@@ -184,8 +191,12 @@ public class RepeatedListValueListener extends AbstractValueListener {
     }
 
     @Override
-    public void onNull() {
-      innerArrayWriter.save();
+    public void onValue(JsonToken token, TokenIterator tokenizer) {
+      if (token == JsonToken.VALUE_NULL) {
+        innerArrayWriter.save();
+      } else {
+        super.onValue(token, tokenizer);
+      }
     }
 
     @Override

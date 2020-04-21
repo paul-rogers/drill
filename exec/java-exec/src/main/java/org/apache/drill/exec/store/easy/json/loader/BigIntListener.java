@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Listener for JSON integer values. Allows conversion from
@@ -34,22 +37,36 @@ public class BigIntListener extends ScalarListener {
   }
 
   @Override
-  public void onBoolean(boolean value) {
-    writer.setLong(value ? 1 : 0);
-  }
-
-  @Override
-  public void onInt(long value) {
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    long value;
+    switch (token) {
+      case VALUE_NULL:
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = 1;
+        break;
+      case VALUE_FALSE:
+        value = 0;
+        break;
+      case VALUE_NUMBER_INT:
+        value = tokenizer.longValue();
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = Math.round(tokenizer.doubleValue());
+        break;
+      case VALUE_STRING:
+        parseString(tokenizer.stringValue());
+        return;
+      default:
+        // Won't get here: the Jackson parser catches
+        // errors.
+        throw tokenizer.invalidValue(token);
+    }
     writer.setLong(value);
   }
 
-  @Override
-  public void onFloat(double value) {
-    writer.setLong(Math.round(value));
-  }
-
-  @Override
-  public void onString(String value) {
+  private void parseString(String value) {
     value = value.trim();
     if (value.isEmpty()) {
       setNull();

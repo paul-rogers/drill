@@ -23,8 +23,11 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Abstract base class for value (field or array element) listeners.
@@ -41,28 +44,13 @@ public abstract class AbstractValueListener implements ValueListener {
   public void bind(Consumer<ValueListener> host) { }
 
   @Override
-  public void onBoolean(boolean value) {
-    throw typeConversionError("Boolean");
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    throw typeConversionError(token.name());
   }
 
   @Override
-  public void onInt(long value) {
-    throw typeConversionError("integer");
-  }
-
-  @Override
-  public void onFloat(double value) {
-    throw typeConversionError("float");
-  }
-
-  @Override
-  public void onString(String value) {
-    throw typeConversionError("string");
-  }
-
-  @Override
-  public void onEmbeddedObject(String value) {
-    throw typeConversionError("object");
+  public void onText(String value) {
+    throw typeConversionError("text");
   }
 
   @Override

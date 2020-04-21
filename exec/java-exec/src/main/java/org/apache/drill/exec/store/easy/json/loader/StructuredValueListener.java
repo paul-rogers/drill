@@ -22,9 +22,12 @@ import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.Object
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Base class for structured value listeners: arrays and objects.
@@ -42,10 +45,14 @@ public abstract class StructuredValueListener extends AbstractValueListener {
   @Override
   public ColumnMetadata schema() { return colSchema; }
 
-  // Ignore array nulls: {a: null} is the same as omitting
-  // array column a: an array of zero elements
   @Override
-  public void onNull() { }
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    // Ignore array nulls: {a: null} is the same as omitting
+    // array column a: an array of zero elements
+    if (token != JsonToken.VALUE_NULL) {
+      super.onValue(token, tokenizer);
+    }
+  }
 
   /**
    * Abstract base class for array values which hold a nested array
@@ -83,23 +90,13 @@ public abstract class StructuredValueListener extends AbstractValueListener {
     }
 
     @Override
-    public void onBoolean(boolean value) {
-      elementListener().onBoolean(value);
+    public void onValue(JsonToken token, TokenIterator tokenizer) {
+      elementListener().onValue(token, tokenizer);
     }
 
     @Override
-    public void onInt(long value) {
-      elementListener().onInt(value);
-    }
-
-    @Override
-    public void onFloat(double value) {
-      elementListener().onFloat(value);
-    }
-
-    @Override
-    public void onString(String value) {
-      elementListener().onString(value);
+    public void onText(String value) {
+      elementListener().onText(value);
     }
   }
 
