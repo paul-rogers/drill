@@ -33,4 +33,5 @@ public interface ExtendedTypeNames {
   String DECIMAL = "$numberDecimal";
   String DOUBLE = "$numberDouble";
   String INT = "$numberInt";
+  String DATE = "$date";
 }

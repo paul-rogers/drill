@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractValueListener;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -28,5 +29,10 @@ public abstract class MongoValueListener extends AbstractValueListener {
   public MongoValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader);
     this.writer = writer;
+  }
+
+  @Override
+  protected ColumnMetadata schema() {
+    return writer.schema();
   }
 }

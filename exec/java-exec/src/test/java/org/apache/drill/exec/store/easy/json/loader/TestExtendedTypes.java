@@ -4,6 +4,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.TimeZone;
+
 import static org.apache.drill.test.rowSet.RowSetUtilities.dec;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 
@@ -141,6 +149,46 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         .addRow(Double.NEGATIVE_INFINITY)
         .addRow(Double.POSITIVE_INFINITY)
         .addRow(Double.NaN)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testDate() {
+    LocalDateTime local = LocalDateTime.of(2020, 4, 21, 11, 22, 33);
+    Instant instant = local.atZone(ZoneId.systemDefault()).toInstant();
+    long ts = instant.toEpochMilli();
+    String utc = DateTimeFormatter.ISO_INSTANT.format(instant);
+    long localTs = ts + TimeZone.getDefault().getOffset(ts);
+    String json =
+        // V1 string, V2 relaxed
+        "{ a: { \"$date\": \"" + utc + "\" } }\n" +
+        // V1 "shell mode"
+        "{ a: { \"$date\": " + ts + " } }\n" +
+        "{ a: null }\n" +
+        // V2 canonical
+        "{ a: { \"$date\": { \"$numberLong\": " + ts + " } } }\n" +
+        // Harmless extensions, only valid after the above
+        "{ a: " + ts + " }\n" +
+        "{ a: \"" + utc + "\" }";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.TIMESTAMP)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(localTs)
+        .addRow(localTs)
+        .addSingleCol(null)
+        .addRow(localTs)
+        .addRow(localTs)
+        .addRow(localTs)
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

@@ -17,32 +17,30 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class BaseMongoValueParser implements ElementParser {
+/**
+ * Parsers a Mongo date in the
+ * <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#date">V1</a> format:<pre><code>
+ * { "$date": "&lt;date>" }</code></pre> and in the
+ * <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Date">V2</a> formats:<pre><code>
+ * {"$date": {"$numberLong": "&lt;millis>"}
+ * {"$date": "&lt;ISO-8601 Date/Time Format>"}</code></pre>
+ */
+public class MongoDateValueParser extends BaseMongoValueParser {
 
-  protected final MongoValueListener listener;
-  private final ErrorFactory errorFactory;
-
-  public BaseMongoValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
-    this.listener = listener;
-    this.errorFactory = errorFactory;
+  public MongoDateValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
+    super(listener, errorFactory);
   }
 
-  protected abstract String typeName();
+  @Override
+  protected String typeName() { return ExtendedTypeNames.DATE; }
 
-  /**
-   * Parse a value in extended form:<pre><code>
-   * {"$type": value}</code</pre>.
-   * <p>
-   * Uses the given type name. Can parse an entire field,
-   * or a subfield, as in the V2 date format.
-   */
-  protected void parseExtended(TokenIterator tokenizer, String typeName) {
+  @Override
+  public void parse(TokenIterator tokenizer) {
 
     JsonToken token = tokenizer.requireNext();
 
@@ -68,27 +66,27 @@ public abstract class BaseMongoValueParser implements ElementParser {
     // Field name must be correct
     token = tokenizer.requireNext();
     if (token != JsonToken.FIELD_NAME ||
-        !tokenizer.textValue().equals(typeName)) {
+        !tokenizer.textValue().equals(ExtendedTypeNames.DATE)) {
       throw syntaxError("{ ^\"%s\": scalar}");
     }
 
-    // Value must be a scalar
+    // If value is an object, assume V2 canonical format.
     token = tokenizer.requireNext();
-    if (!token.isScalarValue()) {
+    if (token == JsonToken.START_OBJECT) {
+      tokenizer.unget(token);
+      parseExtended(tokenizer, ExtendedTypeNames.LONG);
+
+    // Otherwise, Value must be a scalar
+    } else if (token.isScalarValue()) {
+      listener.onValue(token, tokenizer);
+    } else {
       throw syntaxError("{\"%s\": ^scalar }");
     }
-    listener.onValue(token, tokenizer);
 
     // Must be no other fields
     token = tokenizer.requireNext();
     if (token != JsonToken.END_OBJECT) {
       throw syntaxError("{\"%s\": scalar ^}");
     }
-  }
-
-  protected RuntimeException syntaxError(String syntax) {
-    return errorFactory.structureError(
-        String.format("Expected <%s> for extended type %s.",
-            String.format(syntax, typeName()), typeName()));
   }
 }
