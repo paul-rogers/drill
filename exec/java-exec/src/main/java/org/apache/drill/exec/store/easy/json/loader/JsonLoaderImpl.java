@@ -300,11 +300,11 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
   public FieldFactory fieldFactoryFor(TupleListener tupleListener) {
     FieldFactory factory = new SimpleFieldFactory(tupleListener);
-    if (options.enableExtendedTypes) {
-      factory = new ExtendedTypeFieldFactory(tupleListener, factory);
-    }
     if (tupleListener.providedSchema() != null) {
       factory = new ProvidedFieldFactory(tupleListener, factory);
+    }
+    if (options.enableExtendedTypes) {
+      factory = new ExtendedTypeFieldFactory(tupleListener, factory);
     }
     return factory;
   }

@@ -17,22 +17,16 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
+import org.apache.drill.exec.store.easy.json.loader.AbstractValueListener;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
-public abstract class BaseMongoValueParser implements ElementParser {
+public abstract class MongoValueListener extends AbstractValueListener {
 
-  private final ErrorFactory errorFactory;
+  protected final ScalarWriter writer;
 
-  public BaseMongoValueParser(ErrorFactory errorFactory) {
-    this.errorFactory = errorFactory;
-  }
-
-  protected abstract String typeName();
-
-  protected RuntimeException syntaxError(String syntax) {
-    return errorFactory.structureError(
-        String.format("Expected <%s> for extended type %s.",
-            String.format(syntax, typeName()), typeName()));
+  public MongoValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+    super(loader);
+    this.writer = writer;
   }
 }

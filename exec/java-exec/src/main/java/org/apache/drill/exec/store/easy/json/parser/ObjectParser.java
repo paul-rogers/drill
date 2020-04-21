@@ -227,5 +227,10 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
 
     @Override
     public ElementParser parent() { return ObjectParser.this; }
+
+    @Override
+    public ErrorFactory errorFactory() {
+      return structParser.errorFactory();
+    }
   }
 }

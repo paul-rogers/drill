@@ -96,6 +96,8 @@ public interface ObjectListener {
      * parsers.
      */
     ElementParser parent();
+
+    ErrorFactory errorFactory();
   }
 
   /**

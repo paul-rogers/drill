@@ -17,15 +17,18 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.BaseFieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.FieldFactory;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener;
-import org.apache.drill.exec.store.easy.json.loader.mongo.ExtendedTypeObjectListener.ExtendedTypeFieldListener;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldType;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
@@ -34,44 +37,101 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
   }
 
   @Override
-  public FieldType fieldType(String key) {
-    return child.fieldType(key);
-  }
-
-  @Override
-  public ValueListener addField(String key, ValueDef valueDef) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  public ObjectValueListener becomeMap(String key) {
-    return objectListenerFor(key);
-  }
-
-  public boolean isExtendedTypeName(String key) {
-    // TODO: If this is a performance issue, replace with a
-    // static map of contructors.
-    switch (key) {
-      case ExtendedTypeNames.LONG:
-        return true;
-      default:
-        return false;
+  public ElementParser addField(FieldDefn fieldDefn) {
+    ElementParser parser = buildExtendedTypeParser(fieldDefn);
+    if (parser == null) {
+      return child.addField(fieldDefn);
+    } else {
+      return parser;
     }
   }
 
-  public ValueListener extendedTypeListenerFor(String key) {
-    return new ExtendedTypeFieldListener(
-        extendedObjectListenerFor(key));
+  private ElementParser buildExtendedTypeParser(FieldDefn fieldDefn) {
+
+    // Extended types are objects: { "$type": ... }
+
+    TokenIterator tokenizer = fieldDefn.tokenizer();
+    JsonToken token1 = tokenizer.requireNext();
+    if (token1 != JsonToken.START_OBJECT) {
+      tokenizer.unget(token1);
+      return null;
+    }
+
+    JsonToken token2 = tokenizer.requireNext();
+    tokenizer.unget(token2);
+    tokenizer.unget(token1);
+    if (token2 != JsonToken.FIELD_NAME) {
+      return null;
+    }
+
+    String key = tokenizer.textValue().trim();
+    if (!key.startsWith(ExtendedTypeNames.TYPE_PREFIX)) {
+      return null;
+    }
+    return parserFor(fieldDefn, key);
   }
 
-  private ExtendedTypeObjectListener extendedObjectListenerFor(String key) {
-    // TODO: If this is a performance issue, replace with a
-    // static map of contructors.
+  private ElementParser parserFor(FieldDefn fieldDefn, String key) {
     switch (key) {
-      case ExtendedTypeNames.LONG:
-        return new Int64ObjectListener(tupleListener, key);
-      default:
-        throw new IllegalStateException("Unexpected extended type: " + key);
+    case ExtendedTypeNames.LONG:
+      return numberLongParser(fieldDefn);
+    default:
+      return null;
     }
   }
+
+  private ElementParser numberLongParser(FieldDefn fieldDefn) {
+    return new MongoSimpleValueParser(ExtendedTypeNames.LONG,
+        new Int64ValueListener(loader(),
+            defineColumn(fieldDefn.key(), MinorType.BIGINT)),
+        fieldDefn.errorFactory());
+  }
+
+  protected ScalarWriter defineColumn(String key, MinorType type) {
+    return tupleListener.fieldwriterFor(
+        MetadataUtils.newScalar(key, type, DataMode.OPTIONAL))
+        .scalar();
+  }
+
+//  @Override
+//  public FieldType fieldType(String key) {
+//    return child.fieldType(key);
+//  }
+//
+//  @Override
+//  public ValueListener addField(String key, ValueDef valueDef) {
+//    // TODO Auto-generated method stub
+//    return null;
+//  }
+//
+//  public ObjectValueListener becomeMap(String key) {
+//    return objectListenerFor(key);
+//  }
+//
+//  public boolean isExtendedTypeName(String key) {
+//    // TODO: If this is a performance issue, replace with a
+//    // static map of contructors.
+//    switch (key) {
+//      case ExtendedTypeNames.LONG:
+//        return true;
+//      default:
+//        return false;
+//    }
+//  }
+//
+//  public ValueListener extendedTypeListenerFor(String key) {
+//    return new ExtendedTypeFieldListener(
+//        extendedObjectListenerFor(key));
+//  }
+//
+//  private ExtendedTypeObjectListener extendedObjectListenerFor(String key) {
+//    // TODO: If this is a performance issue, replace with a
+//    // static map of contructors.
+//    switch (key) {
+//      case ExtendedTypeNames.LONG:
+//        return new Int64ObjectListener(tupleListener, key);
+//      default:
+//        throw new IllegalStateException("Unexpected extended type: " + key);
+//    }
+//  }
 }
