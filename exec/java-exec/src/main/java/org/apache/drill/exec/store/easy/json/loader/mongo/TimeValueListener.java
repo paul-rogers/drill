@@ -17,17 +17,24 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import java.math.BigDecimal;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
+import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class DecimalValueListener extends ExtendedValueListener {
+/**
+ * Drill-specific extension to allow times only.
+ */
+public class TimeValueListener extends ExtendedValueListener {
 
-  public DecimalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  private static final DateTimeFormatter TIME_FORMAT = DateUtility.buildFormatter("HH:mm:ss");
+
+  public TimeValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
@@ -37,13 +44,12 @@ public class DecimalValueListener extends ExtendedValueListener {
       case VALUE_NULL:
         writer.setNull();
         break;
-      case VALUE_NUMBER_INT:
-      case VALUE_NUMBER_FLOAT:
       case VALUE_STRING:
         try {
-          writer.setDecimal(new BigDecimal(tokenizer.textValue()));
-        } catch (NumberFormatException e) {
-          throw loader.dataConversionError(schema(), "DECIMAL", tokenizer.textValue());
+          LocalTime localTime = LocalTime.parse(tokenizer.stringValue(), TIME_FORMAT);
+          writer.setInt((int) ((localTime.toNanoOfDay() + 500_000L) / 1_000_000L)); // round to milliseconds
+        } catch (Exception e) {
+          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
         }
         break;
       default:

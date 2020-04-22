@@ -45,8 +45,8 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
   private ObjectParser objectParser;
   private ArrayParser arrayParser;
 
-  public ValueParser(AbstractElementParser parent, String key) {
-    super(parent);
+  public ValueParser(JsonStructureParser structParser, String key) {
+    super(structParser);
     this.key = key;
   }
 
@@ -99,13 +99,16 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
   protected abstract void parseValue(TokenIterator tokenizer, JsonToken token);
 
   public void addObjectParser() {
-    objectParser = new ObjectParser(this, listener().object());
+    objectParser = new ObjectParser(structParser, listener().object());
   }
 
   private void addArrayParser(ValueDef valueDef) {
-    ArrayListener arrayListener = listener().array(valueDef);
-    arrayParser = new ArrayParser(this, arrayListener);
+    addArrayParser(listener().array(valueDef));
     arrayParser.expandStructure(valueDef);
+  }
+
+  private void addArrayParser(ArrayListener arrayListener) {
+    arrayParser = new ArrayParser(structParser, arrayListener);
   }
 
   public void expandStructure(ValueDef valueDef) {
@@ -124,8 +127,8 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
    */
   public static class TypedValueParser extends ValueParser {
 
-    public TypedValueParser(AbstractElementParser parent, String key) {
-      super(parent, key);
+    public TypedValueParser(JsonStructureParser structParser, String key) {
+      super(structParser, key);
     }
 
     @Override
@@ -142,8 +145,8 @@ public abstract class ValueParser extends AbstractElementParser implements Consu
    */
   public static class TextValueParser extends ValueParser {
 
-    public TextValueParser(AbstractElementParser parent, String key) {
-      super(parent, key);
+    public TextValueParser(JsonStructureParser structParser, String key) {
+      super(structParser, key);
     }
 
     @Override

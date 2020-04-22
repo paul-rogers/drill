@@ -25,13 +25,13 @@ import com.fasterxml.jackson.core.JsonToken;
 /**
  * Parsers a binary. Ignores the subtype field.</pre>
  */
-public class MongoBinaryValueParser extends BaseMongoValueParser {
+public class MongoBinaryValueParser extends BaseExtendedValueParser {
 
   protected static final String BINARY_HINT =
       "{\"$binary\": {base64: (\"<payload>\", subType: \"<t>\" }) | " +
         "(\"<payload>\", \"$type\": \"<t>\") }";
 
-  public MongoBinaryValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
+  public MongoBinaryValueParser(ExtendedValueListener listener, ErrorFactory errorFactory) {
     super(listener, errorFactory);
   }
 

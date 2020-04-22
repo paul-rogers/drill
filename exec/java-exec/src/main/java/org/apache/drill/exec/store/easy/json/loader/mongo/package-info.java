@@ -40,16 +40,21 @@
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#numberdecimal">
  * Decimal (V1)</a>, translated to a Drill {@code VARDECIMAL}.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Decimal128">
- * Decimal128</a>, translated to a Drill {@code VARDECIMAL}, but limited to the
+ * Decimal128 (V2)</a>, translated to a Drill {@code VARDECIMAL}, but limited to the
  * supported DECIMAL range.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Document">
- * Document</a> which is translated to a Drill {@code MAP}.</li>
+ * Document</a> which is translated to a Drill {@code MAP}. The map fields must be consistent
+ * across documents: same names and types. (This is a restriction of Maps in Drill's
+ * relational data model.) Field names cannot be the same as any of the extended type
+ * names.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Double">
  * Double, translated to a Drill {@code FLOAT8}.</a></li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Int64">
  * Int64</a>, translated to a Drill {@code BIGINT}.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Int32">
  * Int32</a>, translated to a Drill {@code INT}.</li>
+ * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.ObjectId">
+ * Object ID</a>, translated to a Drill {@code VARCHAR}.</li>
  * </ul>
  * Unsupported types:
  * <ul>
@@ -74,12 +79,26 @@
  * not represent a Drill type. If they appear in data, they will be translated to a
  * Drill map.
  * <p>
- * Question: ObjectID
+ * Drill defines a few "extended extended" types:
+ * <ul>
+ * <li>Date ({@code $dateDay}) - a date-only field in the form {@code YYYY-MM-DD} which
+ * maps to a Drill {@code DATE} vector.</li>
+ * <li>Time ({@code $time}) - a time-only field in the form {@code HH:MM:SS.SSS} which
+ * maps to a Drill {@code TIME} vector.</li>
+ * <li>Interval ({@code $interval}) - a date/time interval in ISO format which maps
+ * to a Drill {@code INTERVAL} vector.</a>
+ * </ul>
  * <p>
  * Drill extends the extended types to allow null values in the usual way. Drill
  * accepts normal "un-extended" JSON in the same file, but doing so can lead to ambiguities
  * (see below.)
  * <p>
+ * Once Drill defines a field as an extended type, parsing rules are tighter than
+ * for normal "non-extended" types. For example an extended double will not convert
+ * from a Boolean or float value.
+ *
+ * <h4>Provided Schema</h4>
+ *
  * If used with a provided schema, then:
  * <ul>
  * <li>If the first field is in canonical format (with a type), then the extended

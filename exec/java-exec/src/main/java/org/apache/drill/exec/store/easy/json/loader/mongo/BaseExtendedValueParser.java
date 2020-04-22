@@ -23,14 +23,14 @@ import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class BaseMongoValueParser implements ElementParser {
+public abstract class BaseExtendedValueParser implements ElementParser {
 
   protected static final String SCALAR_HINT = "{\"%s\": scalar}";
 
-  protected final MongoValueListener listener;
+  protected final ExtendedValueListener listener;
   private final ErrorFactory errorFactory;
 
-  public BaseMongoValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
+  public BaseExtendedValueParser(ExtendedValueListener listener, ErrorFactory errorFactory) {
     this.listener = listener;
     this.errorFactory = errorFactory;
   }

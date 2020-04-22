@@ -30,12 +30,12 @@ import com.fasterxml.jackson.core.JsonToken;
  * {"$date": {"$numberLong": "&lt;millis>"}
  * {"$date": "&lt;ISO-8601 Date/Time Format>"}</code></pre>
  */
-public class MongoDateValueParser extends BaseMongoValueParser {
+public class MongoDateValueParser extends BaseExtendedValueParser {
 
   private static final String DATE_HINT = "^{\"$date\": scalar | " +
     String.format(SCALAR_HINT, ExtendedTypeNames.DOUBLE) + "}";
 
-  public MongoDateValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
+  public MongoDateValueParser(ExtendedValueListener listener, ErrorFactory errorFactory) {
     super(listener, errorFactory);
   }
 

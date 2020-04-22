@@ -71,35 +71,13 @@ public class FieldParserFactory {
   public FieldParserFactory(JsonStructureParser structParser) {
     this.structParser = structParser;
   }
-//  public ElementParser fieldParserFor(ObjectParser parent, String key,
-//      TokenIterator tokenizer) {
-//    FieldType type = parent.listener().fieldType(key);
-//    if (type == FieldType.TYPED && structParser.options().allTextMode) {
-//      type = FieldType.TEXT;
-//    }
-//    switch (type) {
-//      case IGNORE:
-//        return DummyValueParser.INSTANCE;
-//      case JSON:
-//        return new JsonValueParser(parent, key,
-//            parent.listener().addField(key, new ValueDef(JsonType.STRING)));
-//      case TEXT:
-//        return lookaheadParserFor(new TextValueParser(parent, key), parent, key, tokenizer);
-//
-//      case TYPED:
-//        return lookaheadParserFor(new TypedValueParser(parent, key), parent, key, tokenizer);
-//
-//      default:
-//        throw new IllegalStateException(type.name());
-//    }
-//  }
 
   public ElementParser ignoredFieldParser() {
     return DummyValueParser.INSTANCE;
   }
 
   public ElementParser jsonTextParser(FieldDefn field, ValueListener fieldListener) {
-    return new JsonValueParser((AbstractElementParser) field.parent(), field.key(), fieldListener);
+    return new JsonValueParser(field.parser(), fieldListener);
   }
 
   public ElementParser valueParser(FieldDefn field, ValueListener fieldListener) {
@@ -111,14 +89,14 @@ public class FieldParserFactory {
   }
 
   public ElementParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
-    ValueParser fp = new TypedValueParser((AbstractElementParser) field.parent(), field.key());
+    ValueParser fp = new TypedValueParser(field.parser(), field.key());
     fp.accept(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;
   }
 
   public ElementParser textValueParser(FieldDefn field, ValueListener fieldListener) {
-    ValueParser fp = new TextValueParser((AbstractElementParser) field.parent(), field.key());
+    ValueParser fp = new TextValueParser(field.parser(), field.key());
     fp.accept(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;

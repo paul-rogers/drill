@@ -41,8 +41,8 @@ public class ArrayParser extends AbstractElementParser {
   private ValueParser elementParser;
   private ArrayListener arrayListener;
 
-  public ArrayParser(ValueParser parent, ArrayListener arrayListener) {
-    super(parent);
+  public ArrayParser(JsonStructureParser structParser, ArrayListener arrayListener) {
+    super(structParser);
     this.arrayListener = arrayListener;
   }
 
@@ -86,7 +86,7 @@ public class ArrayParser extends AbstractElementParser {
   }
 
   public void bindElement(ValueListener elementListener) {
-    elementParser = new TypedValueParser(this, "[]");
+    elementParser = new TypedValueParser(structParser, "[]");
     elementParser.accept(elementListener);
   }
 

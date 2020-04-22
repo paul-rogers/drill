@@ -29,9 +29,9 @@ public class JsonValueParser extends AbstractElementParser {
   private final ValueListener listener;
   private final StringBuilder json = new StringBuilder();
 
-  protected JsonValueParser(AbstractElementParser parent, String key,
+  protected JsonValueParser(JsonStructureParser structParser,
       ValueListener listener) {
-    super(parent);
+    super(structParser);
     this.listener = listener;
   }
 

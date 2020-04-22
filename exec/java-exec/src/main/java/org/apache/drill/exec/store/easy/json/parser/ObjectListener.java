@@ -95,7 +95,7 @@ public interface ObjectListener {
      * Returns the parent parser which is needed to construct standard
      * parsers.
      */
-    ElementParser parent();
+    JsonStructureParser parser();
 
     ErrorFactory errorFactory();
   }

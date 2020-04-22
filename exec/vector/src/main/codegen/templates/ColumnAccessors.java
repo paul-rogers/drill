@@ -415,8 +415,8 @@ public class ColumnAccessors {
       buf.writerIndex(VALUE_WIDTH);
     }
     </#if>
-
     <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+
     @Override
     public final void appendBytes(final byte[] value, final int len) {
       vectorIndex.prevElement();

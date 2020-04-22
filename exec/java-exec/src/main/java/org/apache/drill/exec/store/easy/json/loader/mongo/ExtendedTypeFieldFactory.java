@@ -23,9 +23,13 @@ import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.BaseFieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.FieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener;
+import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.ArrayParser;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -48,19 +52,51 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
   private ElementParser buildExtendedTypeParser(FieldDefn fieldDefn) {
 
-    // Extended types are objects: { "$type": ... }
 
+    // Extended types are objects: { "$type": ... }
+    // Extended arrays are [ { "$type": ...
     TokenIterator tokenizer = fieldDefn.tokenizer();
-    JsonToken token1 = tokenizer.requireNext();
-    if (token1 != JsonToken.START_OBJECT) {
-      tokenizer.unget(token1);
+    JsonToken token = tokenizer.requireNext();
+    ElementParser parser;
+    switch (token) {
+      case START_OBJECT:
+        parser = scalarParserFor(fieldDefn);
+        break;
+      case START_ARRAY:
+        parser = arrayParserFor(fieldDefn);
+        break;
+      default:
+        parser = null;
+    }
+    tokenizer.unget(token);
+    return parser;
+  }
+
+  private ElementParser scalarParserFor(FieldDefn fieldDefn) {
+    TokenIterator tokenizer = fieldDefn.tokenizer();
+
+    JsonToken token = tokenizer.peek();
+    if (token != JsonToken.FIELD_NAME) {
       return null;
     }
 
-    JsonToken token2 = tokenizer.requireNext();
-    tokenizer.unget(token2);
-    tokenizer.unget(token1);
-    if (token2 != JsonToken.FIELD_NAME) {
+    String key = tokenizer.textValue().trim();
+    if (!key.startsWith(ExtendedTypeNames.TYPE_PREFIX)) {
+      return null;
+    }
+    return parserFor(fieldDefn, key);
+  }
+
+  private ElementParser arrayParserFor(FieldDefn fieldDefn) {
+    TokenIterator tokenizer = fieldDefn.tokenizer();
+
+    JsonToken token = tokenizer.requireNext();
+    if (token != JsonToken.START_OBJECT) {
+      tokenizer.unget(token);
+      return null;
+    }
+    JsonToken token = tokenizer.peek();
+    if (token != JsonToken.FIELD_NAME) {
       return null;
     }
 
@@ -85,98 +121,103 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
       return dateParser(fieldDefn);
     case ExtendedTypeNames.BINARY:
       return binaryParser(fieldDefn);
+    case ExtendedTypeNames.OBJECT_ID:
+      return oidParser(fieldDefn);
+    case ExtendedTypeNames.DATE_DAY:
+      return dateDayParser(fieldDefn);
+    case ExtendedTypeNames.TIME:
+      return timeParser(fieldDefn);
+    case ExtendedTypeNames.INTERVAL:
+      return intervalParser(fieldDefn);
     default:
       return null;
     }
   }
 
   private ElementParser numberLongParser(FieldDefn fieldDefn) {
-    return new MongoSimpleValueParser(ExtendedTypeNames.LONG,
+    return new SimpleExtendedValueParser(ExtendedTypeNames.LONG,
         new Int64ValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.BIGINT)),
+            defineColumn(fieldDefn, MinorType.BIGINT)),
+        fieldDefn.errorFactory());
+    ArrayListener al = new ScalarArrayListener(loader, colschema, sl);
+    return new ArrayParser(fieldDefn.parent(), al);
+    ValueListener vl = new ScalarArrayValueListener(loader, colSchema, al);
+    ValueParser vp = new ValueParser(fieldDefn.parser(), vl);
+  }
+
+  private ElementParser numberLongArrayParser(FieldDefn fieldDefn) {
+    return new SimpleExtendedValueParser(ExtendedTypeNames.LONG,
+        new Int64ValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.BIGINT)),
         fieldDefn.errorFactory());
   }
 
   private ElementParser numberDecimalParser(FieldDefn fieldDefn) {
-    return new MongoSimpleValueParser(ExtendedTypeNames.DECIMAL,
+    return new SimpleExtendedValueParser(ExtendedTypeNames.DECIMAL,
         new DecimalValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.VARDECIMAL)),
+            defineColumn(fieldDefn, MinorType.VARDECIMAL)),
         fieldDefn.errorFactory());
   }
 
   private ElementParser numberDoubleParser(FieldDefn fieldDefn) {
-    return new MongoSimpleValueParser(ExtendedTypeNames.DOUBLE,
+    return new SimpleExtendedValueParser(ExtendedTypeNames.DOUBLE,
         new DoubleValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.FLOAT8)),
+            defineColumn(fieldDefn, MinorType.FLOAT8)),
         fieldDefn.errorFactory());
   }
 
   private ElementParser numberIntParser(FieldDefn fieldDefn) {
-    return new MongoSimpleValueParser(ExtendedTypeNames.INT,
+    return new SimpleExtendedValueParser(ExtendedTypeNames.INT,
         new Int32ValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.INT)),
+            defineColumn(fieldDefn, MinorType.INT)),
         fieldDefn.errorFactory());
   }
 
   private ElementParser dateParser(FieldDefn fieldDefn) {
     return new MongoDateValueParser(
-        new DateValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.TIMESTAMP)),
+        new TimestampValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.TIMESTAMP)),
         fieldDefn.errorFactory());
   }
 
   private ElementParser binaryParser(FieldDefn fieldDefn) {
     return new MongoBinaryValueParser(
         new BinaryValueListener(loader(),
-            defineColumn(fieldDefn.key(), MinorType.VARBINARY)),
+            defineColumn(fieldDefn, MinorType.VARBINARY)),
         fieldDefn.errorFactory());
   }
 
-  protected ScalarWriter defineColumn(String key, MinorType type) {
-    return tupleListener.fieldwriterFor(
-        MetadataUtils.newScalar(key, type, DataMode.OPTIONAL))
-        .scalar();
+  private ElementParser oidParser(FieldDefn fieldDefn) {
+    return new SimpleExtendedValueParser(ExtendedTypeNames.OBJECT_ID,
+        new StringValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.VARCHAR)),
+        fieldDefn.errorFactory());
   }
 
-//  @Override
-//  public FieldType fieldType(String key) {
-//    return child.fieldType(key);
-//  }
-//
-//  @Override
-//  public ValueListener addField(String key, ValueDef valueDef) {
-//    // TODO Auto-generated method stub
-//    return null;
-//  }
-//
-//  public ObjectValueListener becomeMap(String key) {
-//    return objectListenerFor(key);
-//  }
-//
-//  public boolean isExtendedTypeName(String key) {
-//    // TODO: If this is a performance issue, replace with a
-//    // static map of contructors.
-//    switch (key) {
-//      case ExtendedTypeNames.LONG:
-//        return true;
-//      default:
-//        return false;
-//    }
-//  }
-//
-//  public ValueListener extendedTypeListenerFor(String key) {
-//    return new ExtendedTypeFieldListener(
-//        extendedObjectListenerFor(key));
-//  }
-//
-//  private ExtendedTypeObjectListener extendedObjectListenerFor(String key) {
-//    // TODO: If this is a performance issue, replace with a
-//    // static map of contructors.
-//    switch (key) {
-//      case ExtendedTypeNames.LONG:
-//        return new Int64ObjectListener(tupleListener, key);
-//      default:
-//        throw new IllegalStateException("Unexpected extended type: " + key);
-//    }
-//  }
+  private ElementParser dateDayParser(FieldDefn fieldDefn) {
+    return new SimpleExtendedValueParser(ExtendedTypeNames.DATE_DAY,
+        new DateValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.DATE)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser timeParser(FieldDefn fieldDefn) {
+    return new SimpleExtendedValueParser(ExtendedTypeNames.TIME,
+        new TimeValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.TIME)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser intervalParser(FieldDefn fieldDefn) {
+    return new SimpleExtendedValueParser(ExtendedTypeNames.INTERVAL,
+        new IntervalValueListener(loader(),
+            defineColumn(fieldDefn, MinorType.INTERVAL)),
+        fieldDefn.errorFactory());
+  }
+
+  protected ScalarWriter defineColumn(FieldDefn fieldDefn, MinorType type) {
+    return tupleListener.fieldwriterFor(
+        MetadataUtils.newScalar(fieldDefn.key(), type, DataMode.OPTIONAL))
+        .scalar();
+  }
 }

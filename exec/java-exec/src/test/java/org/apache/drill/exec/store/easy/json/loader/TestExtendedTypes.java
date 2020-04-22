@@ -250,6 +250,152 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testObjectID() {
+    String json =
+        "{ a: { \"$oid\": \"foo\" } }\n" +
+        // Harmless extension
+        "{ a: null }\n" +
+        // Only valid after the above
+        "{ a: \"foo\" }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("foo")
+        .addSingleCol(null)
+        .addRow("foo")
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  // A Mongo document is just a regular JSON map.
+  @Test
+  public void testDocument() {
+    String json =
+        "{ m: { a: { \"$numberLong\": 10 }, b: \"foo\" } }\n" +
+        // Harmless extension
+        "{ m: null }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addMap("m")
+          .addNullable("a", MinorType.BIGINT)
+          .addNullable("b", MinorType.VARCHAR)
+          .resumeSchema()
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(mapValue(10L, "foo"))
+        .addSingleCol(mapValue(null, null))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  // Drill extension: date only
+  @Test
+  public void testDateDay() {
+    String json =
+        "{ a: { \"$dateDay\": \"2020-04-21\" } }\n" +
+        "{ a: null }\n" +
+        "{ a: \"2020-04-21\" }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.DATE)
+        .build();
+    org.joda.time.LocalDate date = new org.joda.time.LocalDate(2020, 04, 21);
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(date)
+        .addSingleCol(null)
+        .addRow(date)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  // Drill extension: time only
+  @Test
+  public void testTime() {
+    String json =
+        "{ a: { \"$time\": \"11:22:33\" } }\n" +
+        "{ a: null }\n" +
+        "{ a: \"11:22:33\" }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.TIME)
+        .build();
+    org.joda.time.LocalTime time  = new org.joda.time.LocalTime(11, 22, 33);
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(time)
+        .addSingleCol(null)
+        .addRow(time)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  // Drill extension: time interval
+  @Test
+  public void testInterval() {
+    String json =
+        "{ a: { \"$interval\": \"P1Y2M3DT4H5M6S\" } }\n" +
+        "{ a: { \"$interval\": \"P1Y2M3D\" } }\n" +
+        "{ a: { \"$interval\": \"PT4H5M6S\" } }\n" +
+        "{ a: null }\n" +
+        "{ a: \"P1Y2M3DT4H5M6S\" }\n" +
+        "{ a: \"P1Y2M3D\" }\n" +
+        "{ a: \"PT4H5M6S\" }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INTERVAL)
+        .build();
+    org.joda.time.Period full = org.joda.time.Period.years(1).withMonths(2).withDays(3).withHours(4).withMinutes(5).withSeconds(6);
+    org.joda.time.Period ymd = org.joda.time.Period.years(1).withMonths(2).withDays(3);
+    org.joda.time.Period hms = org.joda.time.Period.hours(4).withMinutes(5).withSeconds(6);
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(full)
+        .addRow(ymd)
+        .addRow(hms)
+        .addSingleCol(null)
+        .addRow(full)
+        .addRow(ymd)
+        .addRow(hms)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
   public void testNonExtended() {
     String json =
         "{ a: 10, b: { }, c: { d: 30 } }";

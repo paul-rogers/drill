@@ -17,17 +17,21 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import java.math.BigDecimal;
-
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.joda.time.Period;
+import org.joda.time.format.ISOPeriodFormat;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class DecimalValueListener extends ExtendedValueListener {
+/**
+ * Drill-specific extension for a time interval (AKA time
+ * span or time period).
+ */
+public class IntervalValueListener extends ExtendedValueListener {
 
-  public DecimalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public IntervalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
@@ -37,13 +41,12 @@ public class DecimalValueListener extends ExtendedValueListener {
       case VALUE_NULL:
         writer.setNull();
         break;
-      case VALUE_NUMBER_INT:
-      case VALUE_NUMBER_FLOAT:
       case VALUE_STRING:
         try {
-          writer.setDecimal(new BigDecimal(tokenizer.textValue()));
-        } catch (NumberFormatException e) {
-          throw loader.dataConversionError(schema(), "DECIMAL", tokenizer.textValue());
+          final Period p = ISOPeriodFormat.standard().parsePeriod(tokenizer.stringValue());
+          writer.setPeriod(p);
+        } catch (Exception e) {
+          throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
         }
         break;
       default:

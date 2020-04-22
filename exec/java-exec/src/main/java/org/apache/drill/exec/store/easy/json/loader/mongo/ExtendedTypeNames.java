@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
+import org.apache.drill.exec.vector.complex.fn.ExtendedTypeName;
+
 /**
  * Names of Mongo extended types. Includes both
  * <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/">
@@ -28,6 +30,8 @@ package org.apache.drill.exec.store.easy.json.loader.mongo;
  * for an older version of these names
  */
 public interface ExtendedTypeNames {
+
+  // Supported Mongo types
   String TYPE_PREFIX = "$";
   String LONG = "$numberLong";
   String DECIMAL = "$numberDecimal";
@@ -35,4 +39,10 @@ public interface ExtendedTypeNames {
   String INT = "$numberInt";
   String DATE = "$date";
   String BINARY = "$binary";
+  String OBJECT_ID = "$oid";
+
+  // Drill extensions
+  String DATE_DAY = ExtendedTypeName.DATE;
+  String TIME = ExtendedTypeName.TIME;
+  String INTERVAL = ExtendedTypeName.INTERVAL;
 }

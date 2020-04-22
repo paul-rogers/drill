@@ -17,31 +17,29 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
-/**
- * Parsers a Mongo extended type of the form:<pre><code>
- * { $type: value }</code></pre>
- */
-public class MongoSimpleValueParser extends BaseMongoValueParser {
-  private final String typeName;
+import com.fasterxml.jackson.core.JsonToken;
 
-  public MongoSimpleValueParser(String typeName, MongoValueListener listener, ErrorFactory errorFactory) {
-    super(listener, errorFactory);
-    this.typeName = typeName;
+public class StringValueListener extends ExtendedValueListener {
+
+  public StringValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+    super(loader, writer);
   }
 
   @Override
-  protected String typeName() { return typeName; }
-
-  @Override
-  public void parse(TokenIterator tokenizer) {
-    parseExtended(tokenizer, typeName);
-  }
-
-  @Override
-  protected String formatHint() {
-    return String.format(SCALAR_HINT, typeName());
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    switch (token) {
+      case VALUE_NULL:
+        writer.setNull();
+        break;
+      case VALUE_STRING:
+        writer.setString(tokenizer.stringValue());
+        break;
+      default:
+        throw tokenizer.invalidValue(token);
+    }
   }
 }

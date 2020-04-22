@@ -23,7 +23,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class BinaryValueListener extends MongoValueListener {
+public class BinaryValueListener extends ExtendedValueListener {
 
   public BinaryValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);

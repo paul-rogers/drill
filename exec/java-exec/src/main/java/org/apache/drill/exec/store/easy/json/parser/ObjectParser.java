@@ -90,8 +90,8 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
   private ObjectListener listener;
   private final Map<String, ElementParser> members = CaseInsensitiveMap.newHashMap();
 
-  public ObjectParser(AbstractElementParser parent, ObjectListener listener) {
-    super(parent);
+  public ObjectParser(JsonStructureParser structParser, ObjectListener listener) {
+    super(structParser);
     this.listener = listener;
   }
 
@@ -226,7 +226,7 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
     }
 
     @Override
-    public ElementParser parent() { return ObjectParser.this; }
+    public JsonStructureParser parser() { return structParser; }
 
     @Override
     public ErrorFactory errorFactory() {

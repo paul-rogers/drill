@@ -17,37 +17,31 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import java.math.BigDecimal;
-
-import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
+import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
-import com.fasterxml.jackson.core.JsonToken;
+/**
+ * Parsers a Mongo extended type of the form:<pre><code>
+ * { $type: value }</code></pre>
+ */
+public class SimpleExtendedValueParser extends BaseExtendedValueParser {
+  private final String typeName;
 
-public class DecimalValueListener extends ExtendedValueListener {
-
-  public DecimalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
-    super(loader, writer);
+  public SimpleExtendedValueParser(String typeName, ExtendedValueListener listener, ErrorFactory errorFactory) {
+    super(listener, errorFactory);
+    this.typeName = typeName;
   }
 
   @Override
-  public void onValue(JsonToken token, TokenIterator tokenizer) {
-    switch (token) {
-      case VALUE_NULL:
-        writer.setNull();
-        break;
-      case VALUE_NUMBER_INT:
-      case VALUE_NUMBER_FLOAT:
-      case VALUE_STRING:
-        try {
-          writer.setDecimal(new BigDecimal(tokenizer.textValue()));
-        } catch (NumberFormatException e) {
-          throw loader.dataConversionError(schema(), "DECIMAL", tokenizer.textValue());
-        }
-        break;
-      default:
-        throw tokenizer.invalidValue(token);
-    }
+  protected String typeName() { return typeName; }
+
+  @Override
+  public void parse(TokenIterator tokenizer) {
+    parseExtended(tokenizer, typeName);
+  }
+
+  @Override
+  protected String formatHint() {
+    return String.format(SCALAR_HINT, typeName());
   }
 }
