@@ -34,4 +34,5 @@ public interface ExtendedTypeNames {
   String DOUBLE = "$numberDouble";
   String INT = "$numberInt";
   String DATE = "$date";
+  String BINARY = "$binary";
 }

@@ -25,6 +25,8 @@ import com.fasterxml.jackson.core.JsonToken;
 
 public abstract class BaseMongoValueParser implements ElementParser {
 
+  protected static final String SCALAR_HINT = "{\"%s\": scalar}";
+
   protected final MongoValueListener listener;
   private final ErrorFactory errorFactory;
 
@@ -61,34 +63,48 @@ public abstract class BaseMongoValueParser implements ElementParser {
     }
 
     // Must be an object
-    if (token != JsonToken.START_OBJECT) {
-      throw syntaxError("^{\"%s\": scalar}");
-    }
+    requireToken(token, JsonToken.START_OBJECT);
 
     // Field name must be correct
-    token = tokenizer.requireNext();
-    if (token != JsonToken.FIELD_NAME ||
-        !tokenizer.textValue().equals(typeName)) {
-      throw syntaxError("{ ^\"%s\": scalar}");
-    }
+    requireField(tokenizer, typeName);
 
     // Value must be a scalar
-    token = tokenizer.requireNext();
-    if (!token.isScalarValue()) {
-      throw syntaxError("{\"%s\": ^scalar }");
-    }
-    listener.onValue(token, tokenizer);
+    listener.onValue(requireScalar(tokenizer), tokenizer);
 
     // Must be no other fields
-    token = tokenizer.requireNext();
-    if (token != JsonToken.END_OBJECT) {
-      throw syntaxError("{\"%s\": scalar ^}");
+    requireToken(tokenizer, JsonToken.END_OBJECT);
+  }
+
+  protected void requireToken(TokenIterator tokenizer, JsonToken expected) {
+    requireToken(tokenizer.requireNext(), expected);
+  }
+
+  protected void requireToken(JsonToken token, JsonToken expected) {
+    if (token != expected) {
+      throw syntaxError();
     }
   }
 
-  protected RuntimeException syntaxError(String syntax) {
+  protected JsonToken requireScalar(TokenIterator tokenizer) {
+    JsonToken token = tokenizer.requireNext();
+    if (!token.isScalarValue()) {
+      throw syntaxError();
+    }
+    return token;
+  }
+
+  protected void requireField(TokenIterator tokenizer, String fieldName) {
+    requireToken(tokenizer, JsonToken.FIELD_NAME);
+    if (!tokenizer.textValue().equals(fieldName)) {
+      throw syntaxError();
+    }
+  }
+
+  protected RuntimeException syntaxError() {
     return errorFactory.structureError(
         String.format("Expected <%s> for extended type %s.",
-            String.format(syntax, typeName()), typeName()));
+            formatHint(), typeName()));
   }
+
+  protected abstract String formatHint();
 }

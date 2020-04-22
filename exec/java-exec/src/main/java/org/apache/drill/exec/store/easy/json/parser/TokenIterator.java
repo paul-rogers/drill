@@ -171,6 +171,18 @@ public class TokenIterator {
     }
   }
 
+  public byte[] binaryValue() {
+    try {
+      return parser.getBinaryValue();
+    } catch (JsonParseException e) {
+      throw errorFactory.syntaxError(e);
+    } catch (IOException e) {
+      throw errorFactory.ioException(e);
+    } catch (UnsupportedConversionError e) {
+      throw errorFactory.typeError(e);
+    }
+  }
+
   public RuntimeException invalidValue(JsonToken token) {
     return errorFactory.structureError("Unexpected JSON value: " + token.name());
   }

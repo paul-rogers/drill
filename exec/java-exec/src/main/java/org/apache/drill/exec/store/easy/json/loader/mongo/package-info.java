@@ -30,10 +30,13 @@
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Array>
  * Array</a></li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Binary">
- * Binary</a><, translated to a Drill {@code BIT}./li>
+ * Binary</a>, translated to a Drill {@code VARBINARY}. The data must be encoded in
+ * the <a href="https://fasterxml.github.io/jackson-core/javadoc/2.2.0/com/fasterxml/jackson/core/JsonParser.html#getBinaryValue()">
+ * default Jackson Base64 format.</a> The {@code subType} field, if present, is ignored.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Date">
- * Date</a>, translated to a Drill {@code TIMESTAMP}. However, see the caveat for Timestamp
- * below.</li>
+ * Date</a>, translated to a Drill {@code TIMESTAMP}. Drill's times are
+ * in the server local time. The UTC date in Mongo will be shifted to the local time
+ * zone on read.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#numberdecimal">
  * Decimal (V1)</a>, translated to a Drill {@code VARDECIMAL}.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Decimal128">
@@ -47,12 +50,6 @@
  * Int64</a>, translated to a Drill {@code BIGINT}.</li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Int32">
  * Int32</a>, translated to a Drill {@code INT}.</li>
- * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Timestamp">
- * Timestamp</a>, translated to a Drill {@code TIMESTAMP}. However Drill's times are
- * in the server local time. The UTC timestamp in Mongo will be redesignated as (but not
- * converted to) a local
- * time with the same offset since the epoch. That is, times will be implicitly shifted
- * by the offset of the local timezone. This is a known limitation of Drill itself.</li>
  * </ul>
  * Unsupported types:
  * <ul>
@@ -64,6 +61,11 @@
  * Regular Expression</a></li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#bson.data_ref">
  * Data Ref (V1)</a></li>
+ * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Timestamp">
+ * Timestamp</a>. According to
+ * <a href="https://docs.mongodb.com/manual/reference/bson-types/#timestamps">this page</a>:
+ * <quote>The BSON timestamp type is for internal MongoDB use. For most cases, in application
+ * development, you will want to use the BSON date type.</quote></li>
  * <li><a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#bson.data_undefined">
  * Undefined (V1)</a>, since Drill has no untyped {@code NULL} value.</li>
  * </ul>

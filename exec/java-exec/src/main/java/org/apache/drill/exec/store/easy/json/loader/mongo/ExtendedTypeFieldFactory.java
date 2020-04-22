@@ -83,6 +83,8 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
       return numberIntParser(fieldDefn);
     case ExtendedTypeNames.DATE:
       return dateParser(fieldDefn);
+    case ExtendedTypeNames.BINARY:
+      return binaryParser(fieldDefn);
     default:
       return null;
     }
@@ -120,6 +122,13 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     return new MongoDateValueParser(
         new DateValueListener(loader(),
             defineColumn(fieldDefn.key(), MinorType.TIMESTAMP)),
+        fieldDefn.errorFactory());
+  }
+
+  private ElementParser binaryParser(FieldDefn fieldDefn) {
+    return new MongoBinaryValueParser(
+        new BinaryValueListener(loader(),
+            defineColumn(fieldDefn.key(), MinorType.VARBINARY)),
         fieldDefn.errorFactory());
   }
 

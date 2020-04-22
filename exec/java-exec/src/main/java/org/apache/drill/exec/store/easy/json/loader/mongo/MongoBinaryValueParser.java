@@ -23,24 +23,20 @@ import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Parses a Mongo date in the
- * <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#date">V1</a> format:<pre><code>
- * { "$date": "&lt;date>" }</code></pre> and in the
- * <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#bson.Date">V2</a> formats:<pre><code>
- * {"$date": {"$numberLong": "&lt;millis>"}
- * {"$date": "&lt;ISO-8601 Date/Time Format>"}</code></pre>
+ * Parsers a binary. Ignores the subtype field.</pre>
  */
-public class MongoDateValueParser extends BaseMongoValueParser {
+public class MongoBinaryValueParser extends BaseMongoValueParser {
 
-  private static final String DATE_HINT = "^{\"$date\": scalar | " +
-    String.format(SCALAR_HINT, ExtendedTypeNames.DOUBLE) + "}";
+  protected static final String BINARY_HINT =
+      "{\"$binary\": {base64: (\"<payload>\", subType: \"<t>\" }) | " +
+        "(\"<payload>\", \"$type\": \"<t>\") }";
 
-  public MongoDateValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
+  public MongoBinaryValueParser(MongoValueListener listener, ErrorFactory errorFactory) {
     super(listener, errorFactory);
   }
 
   @Override
-  protected String typeName() { return ExtendedTypeNames.DATE; }
+  protected String typeName() { return ExtendedTypeNames.BINARY; }
 
   @Override
   public void parse(TokenIterator tokenizer) {
@@ -53,9 +49,9 @@ public class MongoDateValueParser extends BaseMongoValueParser {
       return;
     }
 
-    // Value is a scalar, assume "Relaxed format"
-    // (Extension to extended types: allow strings.)
-    if (token.isScalarValue()) {
+    // Value is a scalar, assume binary value as a string.
+    // This is a harmless extension to the standard.
+     if (token.isScalarValue()) {
       listener.onValue(token, tokenizer);
       return;
     }
@@ -64,25 +60,52 @@ public class MongoDateValueParser extends BaseMongoValueParser {
     requireToken(token, JsonToken.START_OBJECT);
 
     // Field name must be correct
-    requireField(tokenizer, ExtendedTypeNames.DATE);
+    requireField(tokenizer, ExtendedTypeNames.BINARY);
 
-    // If value is an object, assume V2 canonical format.
     token = tokenizer.requireNext();
+
     if (token == JsonToken.START_OBJECT) {
-      tokenizer.unget(token);
-      parseExtended(tokenizer, ExtendedTypeNames.LONG);
+      // V2: { "base64": "<payload>", "subType": "<t>" }
+      // With fields in either order
+      for (;;) {
+        token = tokenizer.requireNext();
+        if (token == JsonToken.END_OBJECT) {
+          break;
+        } else if (token != JsonToken.FIELD_NAME) {
+          throw syntaxError();
+        }
+        switch (tokenizer.textValue()) {
+          case "base64":
+            listener.onValue(requireScalar(tokenizer), tokenizer);
+            break;
+          case "subType":
+            requireScalar(tokenizer);
+            break;
+          default:
+            throw syntaxError();
+        }
+      }
+    } else if (token.isScalarValue()) {
+      // V1: { "$binary": "<bindata>", "$type": "<t>" }
+      // With fields in either order
+      listener.onValue(token, tokenizer);
+      token = tokenizer.requireNext();
+      if (token == JsonToken.FIELD_NAME) {
+        tokenizer.unget(token);
+        requireField(tokenizer, "$type");
+        requireScalar(tokenizer);
+      } else {
+        tokenizer.unget(token);
+      }
     } else {
-      // Otherwise, Value must be a scalar
-      tokenizer.unget(token);
-      listener.onValue(requireScalar(tokenizer), tokenizer);
+      syntaxError();
     }
 
-    // Must be no other fields
     requireToken(tokenizer, JsonToken.END_OBJECT);
   }
 
   @Override
   protected String formatHint() {
-    return DATE_HINT;
+    return BINARY_HINT;
   }
 }

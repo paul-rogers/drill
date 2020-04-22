@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.store.easy.json.loader;
 
 import static org.junit.Assert.assertNotNull;
@@ -8,7 +25,6 @@ import static org.junit.Assert.fail;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.TimeZone;
 
@@ -196,6 +212,44 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testBinary() {
+    String json =
+        // V2 format
+        "{ a: { \"$binary\": { base64: \"ZHJpbGw=\", subType: \"0\" } } }\n" +
+        "{ a: { \"$binary\": { subType: \"0\", base64: \"ZHJpbGw=\" } } }\n" +
+        // Harmless extension
+        "{ a: { \"$binary\": { base64: \"ZHJpbGw=\" } } }\n" +
+        "{ a: null }\n" +
+        // V1 format
+        "{ a: { \"$binary\": \"ZHJpbGw=\", \"$type\": 1 } }\n" +
+        // Harmless extension
+        "{ a: { \"$binary\": \"ZHJpbGw=\" } }\n" +
+        // Only valid after the above
+        "{ a: \"ZHJpbGw=\" }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARBINARY)
+        .build();
+    byte[] bytes = "Drill".getBytes();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(bytes)
+        .addRow(bytes)
+        .addRow(bytes)
+        .addSingleCol(null)
+        .addRow(bytes)
+        .addRow(bytes)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
   public void testNonExtended() {
     String json =
         "{ a: 10, b: { }, c: { d: 30 } }";
@@ -244,6 +298,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
     loader.close();
   }
 
+  private final String LONG_HINT = "<{\"$numberLong\": scalar}>";
   @Test
   public void testInvalidTypeToken() {
     String json =
@@ -256,7 +311,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("<^{\"$numberLong\": scalar}>"));
+      assertTrue(e.getMessage().contains(LONG_HINT));
     }
     loader.close();
   }
@@ -273,7 +328,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("<{ ^\"$numberLong\": scalar}>"));
+      assertTrue(e.getMessage().contains(LONG_HINT));
     }
     loader.close();
   }
@@ -290,7 +345,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("<{ ^\"$numberLong\": scalar}>"));
+      assertTrue(e.getMessage().contains(LONG_HINT));
     }
     loader.close();
   }
@@ -307,7 +362,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("<{\"$numberLong\": ^scalar }>"));
+      assertTrue(e.getMessage().contains(LONG_HINT));
     }
     loader.close();
   }
@@ -341,7 +396,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("<{\"$numberLong\": scalar ^}>"));
+      assertTrue(e.getMessage().contains(LONG_HINT));
     }
     loader.close();
   }
