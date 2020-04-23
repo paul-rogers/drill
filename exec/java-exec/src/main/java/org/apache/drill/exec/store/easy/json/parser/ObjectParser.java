@@ -203,6 +203,12 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
     public String key() { return key; }
 
     @Override
+    public TokenIterator tokenizer() { return tokenizer; }
+
+    @Override
+    public JsonStructureParser parser() { return structParser; }
+
+    @Override
     public JsonStructureOptions options() {
       return structParser.options();
     }
@@ -213,19 +219,11 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
     }
 
     @Override
-    public TokenIterator tokenizer() {
-      return tokenizer;
-    }
-
-    @Override
     public ValueDef lookahead() {
       if (valueDef == null) {
         valueDef = ValueDefFactory.lookAhead(tokenizer);
       }
       return valueDef;
     }
-
-    @Override
-    public JsonStructureParser parser() { return structParser; }
   }
 }
