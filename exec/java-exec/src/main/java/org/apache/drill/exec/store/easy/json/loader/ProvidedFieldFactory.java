@@ -21,10 +21,10 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.values.VariantListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
@@ -50,7 +50,7 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
    * accurately reflects the structure of the JSON being parsed.
    */
   @Override
-  public ElementParser addField(FieldDefn fieldDefn) {
+  public ValueParser addField(FieldDefn fieldDefn) {
     ColumnMetadata providedCol = providedColumn(fieldDefn.key());
     if (providedCol == null) {
       return child.addField(fieldDefn);
@@ -58,8 +58,8 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
     return parserFor(fieldDefn, providedCol, listenerFor(fieldDefn, providedCol));
   }
 
-  public ElementParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
-    FieldParserFactory parserFactory = fieldDefn.fieldFactory();
+  public ValueParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
+    FieldParserFactory parserFactory = parserFactory();
     String mode = providedCol.property(JsonLoader.JSON_MODE);
     if (mode == null) {
       return parserFactory.valueParser(fieldDefn, fieldListener);
@@ -68,7 +68,7 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
       case JsonLoader.JSON_TEXT_MODE:
         return parserFactory.textValueParser(fieldDefn, fieldListener);
       case JsonLoader.JSON_LITERAL_MODE:
-        return parserFactory.jsonTextParser(fieldDefn, fieldListener);
+        return parserFactory.jsonTextParser(fieldListener);
       default:
         return parserFactory.valueParser(fieldDefn, fieldListener);
     }

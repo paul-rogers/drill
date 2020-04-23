@@ -19,13 +19,15 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+
 /**
  * Parse and ignore an unprojected value. The parsing just "free wheels", we
  * care only about matching brackets, but not about other details.
  */
-class DummyValueParser implements ElementParser {
+public class DummyValueParser implements ValueParser {
 
-  public static final ElementParser INSTANCE = new DummyValueParser();
+  public static final ValueParser INSTANCE = new DummyValueParser();
 
   private DummyValueParser() { }
 
@@ -66,4 +68,32 @@ class DummyValueParser implements ElementParser {
       }
     }
   }
+
+  @Override
+  public void bindListener(ValueListener listener) {
+    immutableError();
+  }
+
+  @Override
+  public <T extends ValueListener> T listener() { return null; }
+
+  @Override
+  public void bindArrayParser(ArrayParser arrayParser) {
+    immutableError();
+  }
+
+  @Override
+  public ArrayParser arrayParser() { return null; }
+
+  @Override
+  public void bindObjectParser(ObjectParser objectParser) {
+    immutableError();
+  }
+
+  private void immutableError() {
+    throw new IllegalStateException("Dummy parser is immutable");
+  }
+
+  @Override
+  public ObjectParser objectParser() { return null; }
 }

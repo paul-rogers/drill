@@ -235,6 +235,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   }
 
   public JsonLoaderOptions options() { return options; }
+  public JsonStructureParser parser() { return parser; }
 
   @Override // JsonLoader
   public boolean readBatch() {
@@ -299,7 +300,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   }
 
   public FieldFactory fieldFactoryFor(TupleListener tupleListener) {
-    FieldFactory factory = new SimpleFieldFactory(tupleListener);
+    FieldFactory factory = new InferredFieldFactory(tupleListener);
     if (tupleListener.providedSchema() != null) {
       factory = new ProvidedFieldFactory(tupleListener, factory);
     }

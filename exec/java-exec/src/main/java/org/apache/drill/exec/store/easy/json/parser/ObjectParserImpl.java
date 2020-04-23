@@ -205,16 +205,6 @@ public class ObjectParserImpl extends AbstractElementParser implements ObjectPar
     public JsonStructureParser parser() { return structParser; }
 
     @Override
-    public JsonStructureOptions options() {
-      return structParser.options();
-    }
-
-    @Override
-    public FieldParserFactory fieldFactory() {
-      return structParser.fieldFactory();
-    }
-
-    @Override
     public ValueDef lookahead() {
       if (valueDef == null) {
         valueDef = ValueDefFactory.lookAhead(tokenizer);

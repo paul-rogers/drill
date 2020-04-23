@@ -17,10 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 
 /**
  * Extensible mechanism to build fields for a JSON object (a Drill
@@ -35,7 +36,7 @@ public interface FieldFactory {
    *
    * @see ObjectListener#addField(String, ValueDef)
    */
-  ElementParser addField(FieldDefn fieldDefn);
+  ValueParser addField(FieldDefn fieldDefn);
 
   /**
    * Resolve a field to concrete vector. Called from the above, or when
@@ -47,4 +48,6 @@ public interface FieldFactory {
    * replace the original, undefined, listener
    */
   ValueListener resolveField(String key, ValueDef valueDef);
+
+  ValueParser ignoredFieldParser();
 }

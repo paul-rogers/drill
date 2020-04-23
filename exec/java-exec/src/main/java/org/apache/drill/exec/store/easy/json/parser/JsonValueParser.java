@@ -19,12 +19,14 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+
 /**
  * Parses an arbitrary JSON value (which can be a subtree of any
  * complexity) into a JSON string. That is, converts the parsed
  * JSON tokens back into the original JSON text.
  */
-public class JsonValueParser extends AbstractElementParser {
+public class JsonValueParser extends AbstractElementParser implements ValueParser {
 
   private final ValueListener listener;
   private final StringBuilder json = new StringBuilder();
@@ -111,4 +113,29 @@ public class JsonValueParser extends AbstractElementParser {
       parseValue(tokenizer, tokenizer.requireNext());
     }
   }
+
+  @Override
+  public void bindListener(ValueListener listener) {
+    throw new IllegalStateException("Can't rebind listener for JSON value parser");
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T extends ValueListener> T listener() { return (T) listener; }
+
+  @Override
+  public void bindArrayParser(ArrayParser arrayParser) {
+    throw new IllegalStateException("Array parser not supported for JSON value parser");
+  }
+
+  @Override
+  public ArrayParser arrayParser() { return null; }
+
+  @Override
+  public void bindObjectParser(ObjectParser objectParser) {
+    throw new IllegalStateException("Object parser not supported for JSON value parser");
+  }
+
+  @Override
+  public ObjectParser objectParser() { return null; }
 }

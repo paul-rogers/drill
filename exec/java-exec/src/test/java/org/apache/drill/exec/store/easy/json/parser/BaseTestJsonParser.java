@@ -272,20 +272,21 @@ public class BaseTestJsonParser {
      * Create a new field listener depending on the test setup.
      */
     @Override
-    public ElementParser onField(FieldDefn fieldDefn) {
+    public ValueParser onField(FieldDefn fieldDefn) {
+      FieldParserFactory parserFactory = fieldDefn.parser().fieldFactory();
       if (projectFilter != null && !projectFilter.contains(fieldDefn.key())) {
-        return fieldDefn.fieldFactory().ignoredFieldParser();
+        return parserFactory.ignoredFieldParser();
       }
       assertFalse(fields.containsKey(fieldDefn.key()));
       ValueListenerFixture fieldListener = makeField(fieldDefn.key(), fieldDefn.lookahead());
       fields.put(fieldDefn.key(), fieldListener);
       switch (fieldType) {
       case JSON:
-        return fieldDefn.fieldFactory().jsonTextParser(fieldDefn, fieldListener);
+        return parserFactory.jsonTextParser(fieldListener);
       case TEXT:
-        return fieldDefn.fieldFactory().textValueParser(fieldDefn, fieldListener);
+        return parserFactory.textValueParser(fieldDefn, fieldListener);
       default:
-        return fieldDefn.fieldFactory().valueParser(fieldDefn, fieldListener);
+        return parserFactory.valueParser(fieldDefn, fieldListener);
       }
     }
 

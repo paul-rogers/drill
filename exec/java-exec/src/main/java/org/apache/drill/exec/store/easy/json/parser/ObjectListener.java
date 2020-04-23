@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+
 /**
  * Represents events on a object value. The object value may be a top-level
  * field or may be the element of an array. The listener gets an event when
@@ -63,17 +65,6 @@ public interface ObjectListener {
      * Returns the field name.
      */
     String key();
-
-    /**
-     * Returns the options passed to the structure parser to, say, allow forcing
-     * "all-text mode".
-     */
-    JsonStructureOptions options();
-
-    /**
-     * Returns a factory to create standard field parsers.
-     */
-    FieldParserFactory fieldFactory();
 
     /**
      * Looks ahead to guess the field type based on JSON tokens.
@@ -136,7 +127,7 @@ public interface ObjectListener {
    * @param field description of the field, including the field name
    * @return a parser for the newly-created field
    */
-  ElementParser onField(FieldDefn field);
+  ValueParser onField(FieldDefn field);
 
   /**
    * Called at the end of a set of values for an object. That is, called

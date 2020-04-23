@@ -37,6 +37,8 @@ import org.apache.drill.exec.store.easy.json.loader.values.DoubleListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -62,6 +64,15 @@ public abstract class BaseFieldFactory implements FieldFactory {
   public BaseFieldFactory(TupleListener tupleListener, FieldFactory child) {
     this.tupleListener = tupleListener;
     this.child = child;
+  }
+
+  protected FieldParserFactory parserFactory() {
+    return loader().parser().fieldFactory();
+  }
+
+  @Override
+  public ValueParser ignoredFieldParser() {
+    return parserFactory().ignoredFieldParser();
   }
 
   @Override

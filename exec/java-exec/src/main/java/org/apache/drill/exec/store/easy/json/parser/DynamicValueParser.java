@@ -86,8 +86,9 @@ public abstract class DynamicValueParser extends ValueParserImpl {
    */
   public static class TypedValueParser extends DynamicValueParser {
 
-    public TypedValueParser(JsonStructureParser structParser) {
+    public TypedValueParser(JsonStructureParser structParser, ValueListener listener) {
       super(structParser);
+      bindListener(listener);
     }
 
     @Override

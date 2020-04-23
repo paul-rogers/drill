@@ -23,7 +23,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
@@ -34,9 +34,9 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
  * Create Drill field listeners based on the observed look-ahead
  * tokens in JSON.
  */
-public class SimpleFieldFactory extends BaseFieldFactory {
+public class InferredFieldFactory extends BaseFieldFactory {
 
-  public SimpleFieldFactory(TupleListener tupleListener) {
+  public InferredFieldFactory(TupleListener tupleListener) {
     super(tupleListener);
   }
 
@@ -44,8 +44,8 @@ public class SimpleFieldFactory extends BaseFieldFactory {
    * Build a column and its listener based on a look-ahead hint.
    */
   @Override
-  public ElementParser addField(FieldDefn fieldDefn) {
-    return fieldDefn.fieldFactory().valueParser(fieldDefn, listenerFor(fieldDefn));
+  public ValueParser addField(FieldDefn fieldDefn) {
+    return parserFactory().valueParser(fieldDefn, listenerFor(fieldDefn));
   }
 
   private ValueListener listenerFor(FieldDefn fieldDefn) {

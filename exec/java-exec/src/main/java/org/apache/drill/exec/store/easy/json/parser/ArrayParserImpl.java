@@ -97,8 +97,7 @@ public class ArrayParserImpl extends AbstractElementParser implements ArrayParse
   }
 
   public void bindElement(ValueListener elementListener) {
-    elementParser = new TypedValueParser(structParser);
-    elementParser.bindListener(elementListener);
+    elementParser = new TypedValueParser(structParser, elementListener);
   }
 
   @Override

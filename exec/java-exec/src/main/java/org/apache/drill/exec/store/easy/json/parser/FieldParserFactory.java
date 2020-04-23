@@ -17,10 +17,12 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TextValueParser;
 import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ArrayParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 
 
 /**
@@ -65,22 +67,21 @@ import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValu
  */
 public class FieldParserFactory {
 
-
   final JsonStructureParser structParser;
 
   public FieldParserFactory(JsonStructureParser structParser) {
     this.structParser = structParser;
   }
 
-  public ElementParser ignoredFieldParser() {
+  public ValueParser ignoredFieldParser() {
     return DummyValueParser.INSTANCE;
   }
 
-  public ElementParser jsonTextParser(FieldDefn field, ValueListener fieldListener) {
-    return new JsonValueParser(field.parser(), fieldListener);
+  public ValueParser jsonTextParser(ValueListener fieldListener) {
+    return new JsonValueParser(structParser, fieldListener);
   }
 
-  public ElementParser valueParser(FieldDefn field, ValueListener fieldListener) {
+  public ValueParser valueParser(FieldDefn field, ValueListener fieldListener) {
     if (structParser.options().allTextMode) {
       return textValueParser(field, fieldListener);
     } else {
@@ -88,17 +89,28 @@ public class FieldParserFactory {
     }
   }
 
-  public ElementParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
-    DynamicValueParser fp = new TypedValueParser(field.parser());
+  public ValueParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
+    DynamicValueParser fp = new TypedValueParser(structParser, fieldListener);
+    fp.expandStructure(field.lookahead());
+    return fp;
+  }
+
+  public ValueParser textValueParser(FieldDefn field, ValueListener fieldListener) {
+    DynamicValueParser fp = new TextValueParser(structParser);
     fp.bindListener(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;
   }
 
-  public ElementParser textValueParser(FieldDefn field, ValueListener fieldListener) {
-    DynamicValueParser fp = new TextValueParser(field.parser());
-    fp.bindListener(fieldListener);
-    fp.expandStructure(field.lookahead());
-    return fp;
+  public ArrayParser arrayParser(ValueParser elementParser, ArrayListener arrayListener) {
+    ArrayParserImpl arrayParser = new ArrayParserImpl(structParser, arrayListener);
+    arrayParser.bindElementParser(elementParser);
+    return arrayParser;
+  }
+
+  public ValueParser arrayValueParser(ArrayParser arrayParser, ValueListener valueListener) {
+    ValueParserImpl valueParser = new TypedValueParser(structParser, valueListener);
+    valueParser.bindArrayParser(arrayParser);
+    return valueParser;
   }
 }

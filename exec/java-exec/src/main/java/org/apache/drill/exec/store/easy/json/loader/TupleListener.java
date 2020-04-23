@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
@@ -130,9 +130,9 @@ public class TupleListener implements ObjectListener {
   public void onEnd() { }
 
   @Override
-  public ElementParser onField(FieldDefn field) {
+  public ValueParser onField(FieldDefn field) {
     if (!tupleWriter.isProjected(field.key())) {
-      return field.fieldFactory().ignoredFieldParser();
+      return fieldFactory.ignoredFieldParser();
     } else {
       return fieldFactory.addField(field);
     }
