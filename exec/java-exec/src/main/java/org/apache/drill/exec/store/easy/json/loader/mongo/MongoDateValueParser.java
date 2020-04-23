@@ -17,7 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
+import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -35,8 +36,8 @@ public class MongoDateValueParser extends BaseExtendedValueParser {
   private static final String DATE_HINT = "^{\"$date\": scalar | " +
     String.format(SCALAR_HINT, ExtendedTypeNames.DOUBLE) + "}";
 
-  public MongoDateValueParser(ExtendedValueListener listener, ErrorFactory errorFactory) {
-    super(listener, errorFactory);
+  public MongoDateValueParser(JsonStructureParser structParser, ScalarListener listener) {
+    super(structParser, listener);
   }
 
   @Override

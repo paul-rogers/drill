@@ -35,15 +35,9 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public abstract class StructuredValueListener extends AbstractValueListener {
 
-  private final ColumnMetadata colSchema;
-
-  public StructuredValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema) {
+  public StructuredValueListener(JsonLoaderImpl loader) {
     super(loader);
-    this.colSchema = colSchema;
   }
-
-  @Override
-  public ColumnMetadata schema() { return colSchema; }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
@@ -62,8 +56,8 @@ public abstract class StructuredValueListener extends AbstractValueListener {
 
     protected final AbstractArrayListener arrayListener;
 
-    public ArrayValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema, AbstractArrayListener arrayListener) {
-      super(loader, colSchema);
+    public ArrayValueListener(JsonLoaderImpl loader, AbstractArrayListener arrayListener) {
+      super(loader);
       this.arrayListener = arrayListener;
     }
 
@@ -79,8 +73,8 @@ public abstract class StructuredValueListener extends AbstractValueListener {
    */
   public static class ScalarArrayValueListener extends ArrayValueListener {
 
-    public ScalarArrayValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarArrayListener arrayListener) {
-      super(loader, colSchema, arrayListener);
+    public ScalarArrayValueListener(JsonLoaderImpl loader, ScalarArrayListener arrayListener) {
+      super(loader, arrayListener);
     }
 
     @Override
@@ -91,12 +85,20 @@ public abstract class StructuredValueListener extends AbstractValueListener {
 
     @Override
     public void onValue(JsonToken token, TokenIterator tokenizer) {
-      elementListener().onValue(token, tokenizer);
+      // Treat null as an empty array
+      if (token != JsonToken.VALUE_NULL) {
+        elementListener().onValue(token, tokenizer);
+      }
     }
 
     @Override
     public void onText(String value) {
       elementListener().onText(value);
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return ((AbstractValueListener) elementListener()).schema();
     }
   }
 
@@ -105,16 +107,21 @@ public abstract class StructuredValueListener extends AbstractValueListener {
    */
   public static class ObjectValueListener extends StructuredValueListener {
 
-    private final ObjectListener tupleListener;
+    private final TupleListener tupleListener;
 
-    public ObjectValueListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ObjectListener tupleListener) {
-      super(loader, colSchema);
+    public ObjectValueListener(JsonLoaderImpl loader, TupleListener tupleListener) {
+      super(loader);
       this.tupleListener = tupleListener;
     }
 
     @Override
     public ObjectListener object() {
       return tupleListener;
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return tupleListener.writer().schema();
     }
   }
 
@@ -124,8 +131,8 @@ public abstract class StructuredValueListener extends AbstractValueListener {
   public static class ObjectArrayValueListener extends ArrayValueListener {
 
     public ObjectArrayValueListener(JsonLoaderImpl loader,
-        ColumnMetadata colSchema, ObjectArrayListener arrayListener) {
-      super(loader, colSchema, arrayListener);
+        ObjectArrayListener arrayListener) {
+      super(loader, arrayListener);
      }
 
     @Override

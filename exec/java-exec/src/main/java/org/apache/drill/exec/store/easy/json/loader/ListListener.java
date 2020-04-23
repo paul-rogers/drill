@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.store.easy.json.loader.values.VariantListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -64,7 +65,7 @@ public class ListListener extends AbstractValueListener {
     private final ArrayWriter listWriter;
 
     public ListArrayListener(JsonLoaderImpl loader, ArrayWriter listWriter) {
-      super(loader, listWriter.schema(),
+      super(loader,
           new VariantListener(loader, listWriter.variant()));
       this.listWriter = listWriter;
     }
@@ -84,6 +85,11 @@ public class ListListener extends AbstractValueListener {
     @Override
     public void onElementEnd() {
       listWriter.save();
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return listWriter.schema();
     }
   }
 }

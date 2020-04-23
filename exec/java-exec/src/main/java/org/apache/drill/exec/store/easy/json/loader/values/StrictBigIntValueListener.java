@@ -15,70 +15,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Value listener for JSON string values. Allows conversion from
- * other scalar types using the Java {@code toString()} semantics.
- * Use the "text-mode" hint in a provided schema to get the literal
- * JSON value.
+ * 64-bit integer (BIGINT) listener with conversions only from
+ * numbers and strings.
  */
-public class VarCharListener extends ScalarListener {
+public class StrictBigIntValueListener extends ScalarListener {
 
-  private final boolean classicArrayNulls;
-
-  public VarCharListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public StrictBigIntValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
-    classicArrayNulls = isArray ? loader.options().classicArrayNulls : false;
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
-    String value;
     switch (token) {
       case VALUE_NULL:
         setNull();
-        return;
-      case VALUE_TRUE:
-        value = Boolean.TRUE.toString();
-        break;
-      case VALUE_FALSE:
-        value = Boolean.FALSE.toString();
         break;
       case VALUE_NUMBER_INT:
-        value = Long.toString(tokenizer.longValue());
-        break;
-      case VALUE_NUMBER_FLOAT:
-        value = Double.toString(tokenizer.doubleValue());
+        writer.setLong(tokenizer.longValue());
         break;
       case VALUE_STRING:
-        value = tokenizer.stringValue();
+        try {
+          writer.setLong(Long.parseLong(tokenizer.stringValue()));
+        } catch (NumberFormatException e) {
+          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
+        }
         break;
       default:
-        // Won't get here: the Jackson parser catches
-        // errors.
         throw tokenizer.invalidValue(token);
-    }
-    writer.setString(value);
-  }
-
-  @Override
-  public void onText(String value) {
-    if (value == null) {
-      writer.setNull();
-    } else {
-      writer.setString(value);
     }
   }
 
   @Override
   protected void setArrayNull() {
-    writer.setString(classicArrayNulls ? "null" : "");
+    writer.setLong(0);
   }
 }

@@ -19,8 +19,8 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
-import org.apache.drill.exec.store.easy.json.parser.ValueParser.TextValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ValueParser.TypedValueParser;
+import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TextValueParser;
+import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
 
 
 /**
@@ -89,14 +89,14 @@ public class FieldParserFactory {
   }
 
   public ElementParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
-    ValueParser fp = new TypedValueParser(field.parser(), field.key());
+    DynamicValueParser fp = new TypedValueParser(field.parser());
     fp.accept(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;
   }
 
   public ElementParser textValueParser(FieldDefn field, ValueListener fieldListener) {
-    ValueParser fp = new TextValueParser(field.parser(), field.key());
+    DynamicValueParser fp = new TextValueParser(field.parser());
     fp.accept(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;

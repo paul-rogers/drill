@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
+import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 
 /**
@@ -27,8 +29,8 @@ import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 public class SimpleExtendedValueParser extends BaseExtendedValueParser {
   private final String typeName;
 
-  public SimpleExtendedValueParser(String typeName, ExtendedValueListener listener, ErrorFactory errorFactory) {
-    super(listener, errorFactory);
+  public SimpleExtendedValueParser(JsonStructureParser structParser, String typeName, ScalarListener listener) {
+    super(structParser, listener);
     this.typeName = typeName;
   }
 

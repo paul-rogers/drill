@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -23,23 +23,58 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class StringValueListener extends ExtendedValueListener {
+/**
+ * Listener for JSON Boolean fields. Allows conversion from numeric
+ * fields (with the usual semantics: 0 = false, ~0 = true) and from
+ * strings (using Java Boolean parsing semantics.)
+ */
+public class BooleanListener extends ScalarListener {
 
-  public StringValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public BooleanListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
+    boolean value;
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = true;
+        break;
+      case VALUE_FALSE:
+        value = false;
+        break;
+      case VALUE_NUMBER_INT:
+        value = tokenizer.longValue() != 0;
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = tokenizer.doubleValue() != 0;
         break;
       case VALUE_STRING:
-        writer.setString(tokenizer.stringValue());
-        break;
+        parseString(tokenizer.stringValue());
+        return;
       default:
+        // Won't get here: the Jackson parser catches
+        // errors.
         throw tokenizer.invalidValue(token);
     }
+    writer.setBoolean(value);
+  }
+
+  private void parseString(String value) {
+    value = value.trim();
+    if (value.isEmpty()) {
+      setNull();
+    } else {
+      writer.setBoolean(Boolean.parseBoolean(value.trim()));
+    }
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setBoolean(false);
   }
 }

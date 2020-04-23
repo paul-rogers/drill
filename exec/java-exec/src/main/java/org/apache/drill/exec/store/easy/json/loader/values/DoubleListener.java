@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -23,24 +23,62 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class BinaryValueListener extends ExtendedValueListener {
+/**
+ * Listener for the JSON double type. Allows conversion from other
+ * types. Conversion from Boolean is the usual semantics:
+ * true = 1.0, false = 0.0. Strings are parsed using Java semantics.
+ */
+public class DoubleListener extends ScalarListener {
 
-  public BinaryValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public DoubleListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
+    double value;
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = 1;
+        break;
+      case VALUE_FALSE:
+        value = 0;
+        break;
+      case VALUE_NUMBER_INT:
+        value = tokenizer.longValue();
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = tokenizer.doubleValue();
         break;
       case VALUE_STRING:
-        byte[] value = tokenizer.binaryValue();
-        writer.setBytes(value, value.length);
-        break;
+        parseString(tokenizer.stringValue());
+        return;
       default:
+        // Won't get here: the Jackson parser catches
+        // errors.
         throw tokenizer.invalidValue(token);
     }
+    writer.setDouble(value);
+  }
+
+  private void parseString(String value) {
+    value = value.trim();
+    if (value.isEmpty()) {
+      setNull();
+    } else {
+      try {
+        writer.setDouble(Double.parseDouble(value));
+      } catch (NumberFormatException e) {
+        throw loader.dataConversionError(schema(), "string", value);
+      }
+    }
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setDouble(0);
   }
 }

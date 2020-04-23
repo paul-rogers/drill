@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.store.easy.json.loader.AbstractValueListener;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
@@ -37,40 +37,7 @@ public abstract class ScalarListener extends AbstractValueListener {
   public ScalarListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader);
     this.writer = writer;
-    ColumnMetadata colSchema = writer.schema();
-    isArray = colSchema.isArray();
-  }
-
-  public static ScalarListener listenerFor(JsonLoaderImpl loader, ObjectWriter colWriter) {
-    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
-        colWriter.array().scalar() : colWriter.scalar();
-    switch (writer.schema().type()) {
-      case BIGINT:
-        return new BigIntListener(loader, writer);
-      case BIT:
-        return new BooleanListener(loader, writer);
-      case FLOAT8:
-        return new DoubleListener(loader, writer);
-      case VARCHAR:
-        return new VarCharListener(loader, writer);
-      case DATE:
-      case FLOAT4:
-      case INT:
-      case INTERVAL:
-      case INTERVALDAY:
-      case INTERVALYEAR:
-      case SMALLINT:
-      case TIME:
-      case TIMESTAMP:
-      case VARBINARY:
-      case VARDECIMAL:
-        // TODO: Implement conversions for above
-      default:
-        throw loader.buildError(
-            UserException.internalError(null)
-              .message("Unsupported JSON reader type: %s",
-                  writer.schema().type().name()));
-    }
+    isArray = writer.schema().isArray();
   }
 
   @Override
@@ -90,7 +57,10 @@ public abstract class ScalarListener extends AbstractValueListener {
     }
   }
 
-  protected abstract void setArrayNull();
+  protected void setArrayNull() {
+    // Default is no "natural" null value
+    loader.dataConversionError(schema(), "null", "null");
+  }
 
   @Override
   public ArrayListener array(ValueDef valueDef) {

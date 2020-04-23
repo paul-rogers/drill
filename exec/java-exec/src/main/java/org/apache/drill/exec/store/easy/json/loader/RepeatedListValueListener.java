@@ -17,13 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import java.util.function.Function;
-
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -51,79 +45,19 @@ public class RepeatedListValueListener extends AbstractValueListener {
   private final ObjectWriter repeatedListWriter;
   private final RepeatedArrayListener outerArrayListener;
 
-  private RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
+  protected RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
       ValueListener elementListener) {
     this(loader,  writer,
         new RepeatedArrayListener(loader, writer.schema(),
             writer.array(), elementListener));
   }
 
-  private RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
+  protected RepeatedListValueListener(JsonLoaderImpl loader, ObjectWriter writer,
       RepeatedArrayListener outerArrayListener) {
     super(loader);
     this.repeatedListWriter = writer;
     this.outerArrayListener = outerArrayListener;
   }
-
-  /**
-   * Create a repeated list listener for a scalar value.
-   */
-  public static ValueListener multiDimScalarArrayFor(JsonLoaderImpl loader, ObjectWriter writer, int dims) {
-    return buildOuterArrays(loader, writer, dims,
-        innerWriter ->
-          new ScalarArrayListener(loader, innerWriter.schema(),
-              ScalarListener.listenerFor(loader, innerWriter))
-        );
-  }
-
-  /**
-   * Create a repeated list listener for a Map.
-   */
-  public static ValueListener multiDimObjectArrayFor(JsonLoaderImpl loader,
-      ObjectWriter writer, int dims, TupleMetadata providedSchema) {
-    return buildOuterArrays(loader, writer, dims,
-        innerWriter ->
-          new ObjectArrayListener(loader, innerWriter.array(),
-              new ObjectValueListener(loader, innerWriter.array().entry().schema(),
-                  new TupleListener(loader, innerWriter.array().tuple(), providedSchema))));
-  }
-
-  /**
-   * Create layers of repeated list listeners around the type-specific
-   * array. If the JSON has three array levels, the outer two are repeated
-   * lists, the inner is type-specific: say an array of {@code BIGINT} or
-   * a map array.
-   */
-  public static ValueListener buildOuterArrays(JsonLoaderImpl loader, ObjectWriter writer, int dims,
-      Function<ObjectWriter, ArrayListener> innerCreator) {
-    ColumnMetadata colSchema = writer.schema();
-    ObjectWriter writers[] = new ObjectWriter[dims];
-    writers[0] = writer;
-    for (int i = 1; i < dims; i++) {
-      writers[i] = writers[i-1].array().entry();
-    }
-    ArrayListener prevArrayListener = innerCreator.apply(writers[dims - 1]);
-    RepeatedArrayListener innerArrayListener = null;
-    for (int i = dims - 2; i >= 0; i--) {
-      innerArrayListener = new RepeatedArrayListener(loader, colSchema,
-          writers[i].array(),
-          new RepeatedListElementListener(loader, colSchema,
-              writers[i+1].array(), prevArrayListener));
-      prevArrayListener = innerArrayListener;
-    }
-    return new RepeatedListValueListener(loader, writer, innerArrayListener);
-  }
-
-  /**
-   * Create a repeated list listener for a variant. Here, the inner
-   * array is provided by a List (which is a repeated Union.)
-   */
-  public static ValueListener repeatedVariantListFor(JsonLoaderImpl loader,
-      ObjectWriter writer) {
-    return new RepeatedListValueListener(loader, writer,
-        new ListListener(loader, writer.array().entry()));
-  }
-
   @Override
   public ArrayListener array(ValueDef valueDef) {
     return outerArrayListener;
@@ -144,14 +78,16 @@ public class RepeatedListValueListener extends AbstractValueListener {
   /**
    * Represents the outer array for a repeated (2D) list
    */
-  private static class RepeatedArrayListener extends AbstractArrayListener {
+  protected static class RepeatedArrayListener extends AbstractArrayListener {
 
     private final ArrayWriter outerArrayWriter;
+    private final ColumnMetadata colMetadata;
 
     public RepeatedArrayListener(JsonLoaderImpl loader,
         ColumnMetadata colMetadata, ArrayWriter outerArrayWriter,
         ValueListener outerValue) {
-      super(loader, colMetadata, outerValue);
+      super(loader, outerValue);
+      this.colMetadata = colMetadata;
       this.outerArrayWriter = outerArrayWriter;
     }
 
@@ -164,6 +100,11 @@ public class RepeatedListValueListener extends AbstractValueListener {
     public void onElementEnd() {
       outerArrayWriter.save();
     }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return colMetadata;
+    }
   }
 
   /**
@@ -171,7 +112,7 @@ public class RepeatedListValueListener extends AbstractValueListener {
    * only be arrays. However, Drill is forgiving if the value happens to be null, which
    * is defined to be the same as an empty inner array.
    */
-  private static class RepeatedListElementListener extends AbstractValueListener {
+  protected static class RepeatedListElementListener extends AbstractValueListener {
 
     private final ColumnMetadata colMetadata;
     private final ArrayListener innerArrayListener;

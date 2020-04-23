@@ -227,10 +227,5 @@ public class ObjectParser extends AbstractElementParser implements Consumer<Obje
 
     @Override
     public JsonStructureParser parser() { return structParser; }
-
-    @Override
-    public ErrorFactory errorFactory() {
-      return structParser.errorFactory();
-    }
   }
 }

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -23,30 +23,63 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class Int64ValueListener extends ExtendedValueListener {
+/**
+ * Listener for JSON integer values. Allows conversion from
+ * Boolean, double and string types. (The conversion from double
+ * is lossy, but perhaps better than failing the query.)
+ * Conversion from Boolean is the usual semantics:
+ * true = 1, false = 0.  Conversion from string uses the Java
+ * integer parsing semantics.
+ */
+public class BigIntListener extends ScalarListener {
 
-  public Int64ValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public BigIntListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
+    long value;
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
+        setNull();
+        return;
+      case VALUE_TRUE:
+        value = 1;
+        break;
+      case VALUE_FALSE:
+        value = 0;
         break;
       case VALUE_NUMBER_INT:
-        writer.setLong(tokenizer.longValue());
+        value = tokenizer.longValue();
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = Math.round(tokenizer.doubleValue());
         break;
       case VALUE_STRING:
-        try {
-          writer.setLong(Long.parseLong(tokenizer.stringValue()));
-        } catch (NumberFormatException e) {
-          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
-        }
-        break;
+        parseString(tokenizer.stringValue());
+        return;
       default:
         throw tokenizer.invalidValue(token);
     }
+    writer.setLong(value);
+  }
+
+  private void parseString(String value) {
+    value = value.trim();
+    if (value.isEmpty()) {
+      setNull();
+    } else {
+      try {
+        writer.setLong(Long.parseLong(value));
+      } catch (NumberFormatException e) {
+        throw loader.dataConversionError(schema(), "string", value);
+      }
+    }
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setLong(0);
   }
 }

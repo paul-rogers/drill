@@ -359,7 +359,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .addContext("Recovery attempts", parser.recoverableErrorCount()));
   }
 
-  protected UserException typeConversionError(ColumnMetadata schema, ValueDef valueDef) {
+  public UserException typeConversionError(ColumnMetadata schema, ValueDef valueDef) {
     StringBuilder buf = new StringBuilder()
         .append(valueDef.type().name().toLowerCase());
     if (valueDef.isArray()) {
@@ -409,7 +409,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .addContext("On token", e.token.name()));
   }
 
-  protected UserException buildError(ColumnMetadata schema, UserException.Builder builder) {
+  public UserException buildError(ColumnMetadata schema, UserException.Builder builder) {
     return buildError(builder
         .addContext("Column", schema.name())
         .addContext("Column type", schema.typeString()));

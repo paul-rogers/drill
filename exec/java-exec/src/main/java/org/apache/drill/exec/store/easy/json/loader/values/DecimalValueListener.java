@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.values;
+
+import java.math.BigDecimal;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -23,35 +25,34 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class DoubleValueListener extends ExtendedValueListener {
+public class DecimalValueListener extends ScalarListener {
 
-  public DoubleValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public DecimalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
-    double value;
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
-        return;
+        setNull();
+        break;
       case VALUE_NUMBER_INT:
-        value = tokenizer.longValue();
-        break;
       case VALUE_NUMBER_FLOAT:
-        value = tokenizer.doubleValue();
-        break;
       case VALUE_STRING:
         try {
-          value= Double.parseDouble(tokenizer.stringValue());
+          writer.setDecimal(new BigDecimal(tokenizer.textValue()));
         } catch (NumberFormatException e) {
-          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
+          throw loader.dataConversionError(schema(), "DECIMAL", tokenizer.textValue());
         }
         break;
       default:
         throw tokenizer.invalidValue(token);
     }
-    writer.setDouble(value);
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setDecimal(BigDecimal.ZERO);
   }
 }

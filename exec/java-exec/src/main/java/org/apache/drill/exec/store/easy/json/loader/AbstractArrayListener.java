@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
+import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
@@ -32,16 +33,16 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 public abstract class AbstractArrayListener implements ArrayListener {
 
   protected final JsonLoaderImpl loader;
-  protected final ColumnMetadata colSchema;
   protected final ValueListener elementListener;
 
-  public AbstractArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ValueListener elementListener) {
+  public AbstractArrayListener(JsonLoaderImpl loader, ValueListener elementListener) {
     this.loader = loader;
-    this.colSchema = colSchema;
     this.elementListener = elementListener;
   }
 
   public ValueListener elementListener() { return elementListener; }
+
+  protected abstract ColumnMetadata schema();
 
   @Override
   public void onStart() { }
@@ -57,22 +58,27 @@ public abstract class AbstractArrayListener implements ArrayListener {
 
   @Override
   public ValueListener element(ValueDef valueDef) {
-    throw loader.typeConversionError(colSchema, valueDef);
+    throw loader.typeConversionError(schema(), valueDef);
   }
 
   protected UserException typeConversionError(String jsonType) {
-    return loader.typeConversionError(colSchema, jsonType);
+    return loader.typeConversionError(schema(), jsonType);
   }
 
   public static class ScalarArrayListener extends AbstractArrayListener {
 
-    public ScalarArrayListener(JsonLoaderImpl loader, ColumnMetadata colSchema, ScalarListener valueListener) {
-      super(loader, colSchema, valueListener);
+    public ScalarArrayListener(JsonLoaderImpl loader, ScalarListener valueListener) {
+      super(loader, valueListener);
     }
 
     @Override
     public ValueListener element(ValueDef valueDef) {
       return elementListener;
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return ((ScalarListener) elementListener).schema();
     }
   }
 
@@ -80,7 +86,7 @@ public abstract class AbstractArrayListener implements ArrayListener {
     private final ArrayWriter arrayWriter;
 
     public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter, ObjectValueListener valueListener) {
-      super(loader, arrayWriter.schema(), valueListener);
+      super(loader, valueListener);
       this.arrayWriter = arrayWriter;
     }
 
@@ -92,6 +98,11 @@ public abstract class AbstractArrayListener implements ArrayListener {
     @Override
     public void onElementEnd() {
       arrayWriter.save();
+    }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return arrayWriter.schema();
     }
   }
 }

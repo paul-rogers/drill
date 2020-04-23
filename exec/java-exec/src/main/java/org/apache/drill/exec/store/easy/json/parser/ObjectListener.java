@@ -96,8 +96,6 @@ public interface ObjectListener {
      * parsers.
      */
     JsonStructureParser parser();
-
-    ErrorFactory errorFactory();
   }
 
   /**

@@ -15,65 +15,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader;
+package org.apache.drill.exec.store.easy.json.loader.values;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
+import org.apache.drill.exec.expr.fn.impl.DateUtility;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Listener for JSON Boolean fields. Allows conversion from numeric
- * fields (with the usual semantics: 0 = false, ~0 = true) and from
- * strings (using Java Boolean parsing semantics.)
+ * Drill-specific extension to allow times only.
  */
-public class BooleanListener extends ScalarListener {
+public class TimeValueListener extends ScalarListener {
 
-  public BooleanListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  private static final DateTimeFormatter TIME_FORMAT = DateUtility.buildFormatter("HH:mm:ss");
+
+  public TimeValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
-    boolean value;
     switch (token) {
       case VALUE_NULL:
         setNull();
-        return;
-      case VALUE_TRUE:
-        value = true;
-        break;
-      case VALUE_FALSE:
-        value = false;
-        break;
-      case VALUE_NUMBER_INT:
-        value = tokenizer.longValue() != 0;
-        break;
-      case VALUE_NUMBER_FLOAT:
-        value = tokenizer.doubleValue() != 0;
         break;
       case VALUE_STRING:
-        parseString(tokenizer.stringValue());
-        return;
+        try {
+          LocalTime localTime = LocalTime.parse(tokenizer.stringValue(), TIME_FORMAT);
+          writer.setInt((int) ((localTime.toNanoOfDay() + 500_000L) / 1_000_000L)); // round to milliseconds
+        } catch (Exception e) {
+          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
+        }
+        break;
       default:
-        // Won't get here: the Jackson parser catches
-        // errors.
         throw tokenizer.invalidValue(token);
     }
-    writer.setBoolean(value);
-  }
-
-  private void parseString(String value) {
-    value = value.trim();
-    if (value.isEmpty()) {
-      setNull();
-    } else {
-      writer.setBoolean(Boolean.parseBoolean(value.trim()));
-    }
-  }
-
-  @Override
-  protected void setArrayNull() {
-    writer.setBoolean(false);
   }
 }

@@ -18,10 +18,11 @@
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
+import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.Period;
 import org.joda.time.format.ISOPeriodFormat;
+import org.joda.time.format.PeriodFormatter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -29,7 +30,9 @@ import com.fasterxml.jackson.core.JsonToken;
  * Drill-specific extension for a time interval (AKA time
  * span or time period).
  */
-public class IntervalValueListener extends ExtendedValueListener {
+public class IntervalValueListener extends ScalarListener {
+
+  public static final PeriodFormatter FORMATTER = ISOPeriodFormat.standard();
 
   public IntervalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
@@ -43,8 +46,7 @@ public class IntervalValueListener extends ExtendedValueListener {
         break;
       case VALUE_STRING:
         try {
-          final Period p = ISOPeriodFormat.standard().parsePeriod(tokenizer.stringValue());
-          writer.setPeriod(p);
+          writer.setPeriod(FORMATTER.parsePeriod(tokenizer.stringValue()));
         } catch (Exception e) {
           throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
         }

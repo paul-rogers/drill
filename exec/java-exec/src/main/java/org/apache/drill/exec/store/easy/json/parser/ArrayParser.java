@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ValueParser.TypedValueParser;
+import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -44,6 +44,10 @@ public class ArrayParser extends AbstractElementParser {
   public ArrayParser(JsonStructureParser structParser, ArrayListener arrayListener) {
     super(structParser);
     this.arrayListener = arrayListener;
+  }
+
+  public void bindElementParser(ValueParser elementParser) {
+    this.elementParser = elementParser;
   }
 
   public ValueParser elementParser() { return elementParser; }
@@ -86,7 +90,7 @@ public class ArrayParser extends AbstractElementParser {
   }
 
   public void bindElement(ValueListener elementListener) {
-    elementParser = new TypedValueParser(structParser, "[]");
+    elementParser = new TypedValueParser(structParser);
     elementParser.accept(elementListener);
   }
 
@@ -103,11 +107,11 @@ public class ArrayParser extends AbstractElementParser {
    * If 2D or greater, then we must create the child array of one
    * less dimension.
     */
-  public void expandStructure(ValueDef valueDef) {
+  public void expandStructure(DynamicValueParser valueParser, ValueDef valueDef) {
     if (valueDef.dimensions() > 1 || !valueDef.type().isUnknown()) {
       ValueDef elementDef = new ValueDef(valueDef.type(), valueDef.dimensions() - 1);
       addElement(elementDef);
-      elementParser.expandStructure(elementDef);
+      valueParser.expandStructure(elementDef);
     }
   }
 }

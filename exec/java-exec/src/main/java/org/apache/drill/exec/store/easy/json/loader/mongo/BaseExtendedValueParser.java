@@ -17,22 +17,20 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.mongo;
 
-import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
+import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class BaseExtendedValueParser implements ElementParser {
+public abstract class BaseExtendedValueParser extends ValueParser {
 
   protected static final String SCALAR_HINT = "{\"%s\": scalar}";
 
-  protected final ExtendedValueListener listener;
-  private final ErrorFactory errorFactory;
-
-  public BaseExtendedValueParser(ExtendedValueListener listener, ErrorFactory errorFactory) {
+  public BaseExtendedValueParser(JsonStructureParser structParser, ScalarListener listener) {
+    super(structParser);
     this.listener = listener;
-    this.errorFactory = errorFactory;
   }
 
   protected abstract String typeName();
@@ -101,7 +99,7 @@ public abstract class BaseExtendedValueParser implements ElementParser {
   }
 
   protected RuntimeException syntaxError() {
-    return errorFactory.structureError(
+    return errorFactory().structureError(
         String.format("Expected <%s> for extended type %s.",
             formatHint(), typeName()));
   }
