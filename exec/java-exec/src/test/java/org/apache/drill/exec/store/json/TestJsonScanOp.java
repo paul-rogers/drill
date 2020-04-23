@@ -27,7 +27,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.BaseScanOperatorExecTest.BaseScanFixtureBuilder;
@@ -46,7 +46,7 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestJsonScanOp extends SubOperatorTest {
 
   private static class JsonReaderFixure implements ManagedReader<SchemaNegotiator> {

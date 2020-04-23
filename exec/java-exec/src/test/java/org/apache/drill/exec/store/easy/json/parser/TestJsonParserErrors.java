@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -30,7 +30,7 @@ import org.junit.experimental.categories.Category;
  * error cases can't occur because the Jackson parser catches them
  * first.
  */
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestJsonParserErrors extends BaseTestJsonParser {
 
   @Test

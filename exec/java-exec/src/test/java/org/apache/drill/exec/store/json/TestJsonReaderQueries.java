@@ -36,7 +36,7 @@ import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.zip.GZIPOutputStream;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
@@ -61,7 +61,7 @@ import org.junit.experimental.categories.Category;
  * TestJsonReader test suite.
  */
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestJsonReaderQueries extends BaseTestJsonReader {
 
   @BeforeClass

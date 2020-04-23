@@ -20,11 +20,11 @@ package org.apache.drill.exec.store.easy.json.loader.mongo;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.store.easy.json.parser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ValueParserImpl;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class BaseExtendedValueParser extends ValueParser {
+public abstract class BaseExtendedValueParser extends ValueParserImpl {
 
   protected static final String SCALAR_HINT = "{\"%s\": scalar}";
 

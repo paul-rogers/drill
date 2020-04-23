@@ -17,14 +17,14 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
@@ -35,7 +35,7 @@ import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestObjects extends BaseJsonLoaderTest {
 
   @Test

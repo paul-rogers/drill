@@ -24,7 +24,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -39,7 +39,7 @@ import org.junit.experimental.categories.Category;
  * deciding on the column type. Hitting the end of batch, or an array
  * that contains only null values, forces resolution to VARCHAR.
  */
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestUnknowns extends BaseJsonLoaderTest {
 
   @Test

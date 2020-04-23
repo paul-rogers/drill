@@ -23,7 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -32,7 +32,7 @@ import org.junit.experimental.categories.Category;
  * Tests array (including multi-dimensional and object) support
  * for the JSON structure parser.
  */
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestJsonParserArrays extends BaseTestJsonParser {
 
   @Test

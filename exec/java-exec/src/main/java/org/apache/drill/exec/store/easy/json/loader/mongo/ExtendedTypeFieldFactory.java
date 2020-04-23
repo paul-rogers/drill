@@ -36,11 +36,11 @@ import org.apache.drill.exec.store.easy.json.loader.values.StrictStringValueList
 import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
 import org.apache.drill.exec.store.easy.json.loader.TupleListener;
-import org.apache.drill.exec.store.easy.json.parser.ArrayParser;
+import org.apache.drill.exec.store.easy.json.parser.ArrayParserImpl;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.store.easy.json.parser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ValueParserImpl;
 import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -103,12 +103,12 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     // listeners to use.
     ScalarArrayListener arrayListener = new ScalarArrayListener(
         loader(), (ScalarListener) element.listener());
-    ArrayParser arrayParser = new ArrayParser(fieldDefn.parser(), arrayListener);
+    ArrayParserImpl arrayParser = new ArrayParserImpl(fieldDefn.parser(), arrayListener);
     arrayParser.bindListener(arrayListener);
     arrayParser.bindElementParser(element);
-    ValueParser valueParser = new TypedValueParser(fieldDefn.parser());
-    valueParser.accept(new ScalarArrayValueListener(loader(), arrayListener));
-    valueParser.addArrayParser(arrayParser);
+    ValueParserImpl valueParser = new TypedValueParser(fieldDefn.parser());
+    valueParser.bindListener(new ScalarArrayValueListener(loader(), arrayListener));
+    valueParser.bindArrayParser(arrayParser);
     return valueParser;
   }
 

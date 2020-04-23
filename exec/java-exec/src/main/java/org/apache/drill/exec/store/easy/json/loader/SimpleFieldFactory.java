@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.easy.json.loader;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
@@ -143,8 +142,7 @@ public class SimpleFieldFactory extends BaseFieldFactory {
    * for the given key.
    */
   public ArrayValueListener objectArrayListenerForValue(String key) {
-    ColumnMetadata colSchema = MetadataUtils.newMapArray(key);
-    return objectArrayListenerFor(colSchema, colSchema.tupleSchema());
+    return objectArrayListenerFor(MetadataUtils.newMapArray(key), null);
   }
 
   /**

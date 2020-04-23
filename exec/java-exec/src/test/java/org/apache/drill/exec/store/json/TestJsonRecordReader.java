@@ -23,7 +23,7 @@ import static org.junit.Assert.fail;
 
 import java.nio.file.Paths;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
@@ -38,7 +38,7 @@ import org.junit.experimental.categories.Category;
  * Original JSON reader tests. Left in original form; not converted
  * to the newer formats.
  */
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestJsonRecordReader extends BaseTestQuery {
 
   @BeforeClass

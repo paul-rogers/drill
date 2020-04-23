@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.json;
 
 import java.nio.file.Paths;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
@@ -44,7 +44,7 @@ import org.junit.experimental.categories.Category;
  * JSON reader itself (using {@link TestJsonReader}), then run these tests to
  * ensure vectors populated by JSON work with downstream functions.
  */
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestJsonReaderFns extends BaseTestJsonReader {
 
   @BeforeClass

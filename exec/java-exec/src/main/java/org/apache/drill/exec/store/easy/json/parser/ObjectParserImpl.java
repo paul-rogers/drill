@@ -18,9 +18,9 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 import java.util.Map;
-import java.util.function.Consumer;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ObjectParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,28 +84,24 @@ import com.fasterxml.jackson.core.JsonToken;
  * the array is multi-dimensional, there will be multiple array/value
  * parser pairs: one for each dimension.
  */
-public class ObjectParser extends AbstractElementParser implements Consumer<ObjectListener> {
-  protected static final Logger logger = LoggerFactory.getLogger(ObjectParser.class);
+public class ObjectParserImpl extends AbstractElementParser implements ObjectParser {
+  protected static final Logger logger = LoggerFactory.getLogger(ObjectParserImpl.class);
 
-  private ObjectListener listener;
+  private final ObjectListener listener;
   private final Map<String, ElementParser> members = CaseInsensitiveMap.newHashMap();
 
-  public ObjectParser(JsonStructureParser structParser, ObjectListener listener) {
+  public ObjectParserImpl(JsonStructureParser structParser, ObjectListener listener) {
     super(structParser);
     this.listener = listener;
   }
 
-  public ObjectParser(JsonStructureParser structParser) {
+  public ObjectParserImpl(JsonStructureParser structParser) {
     super(structParser);
     this.listener = structParser.rootListener();
   }
 
-  public ObjectListener listener() { return listener; }
-
   @Override
-  public void accept(ObjectListener listener) {
-    this.listener = listener;
-  }
+  public ObjectListener listener() { return listener; }
 
   /**
    * Parses <code>{ ^ ... }</code>

@@ -18,7 +18,7 @@
 
 package org.apache.drill.exec.store.pcap;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 import org.junit.BeforeClass;
@@ -28,7 +28,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestPcapEVFReader extends ClusterTest {
 
   @BeforeClass

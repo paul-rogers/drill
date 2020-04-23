@@ -30,9 +30,9 @@ import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import org.apache.commons.io.input.ReaderInputStream;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
@@ -115,7 +115,7 @@ public class BaseTestJsonParser {
     int valueCount;
     JsonToken lastToken;
     Object lastValue;
-    Consumer<ValueListener> host;
+    ValueParser host;
     ObjectListenerFixture objectValue;
     ArrayListenerFixture arrayValue;
 
@@ -183,7 +183,7 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public void bind(Consumer<ValueListener> host) {
+    public void bind(ValueParser host) {
       this.host = host;
     }
   }

@@ -24,14 +24,14 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
   /**
@@ -54,7 +54,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
     // Replace the listener with a new one
     ValueListenerFixture a2 = new ValueListenerFixture(new ValueDef(JsonType.BOOLEAN, a.valueDef.dimensions()));
-    a.host.accept(a2);
+    a.host.bindListener(a2);
     assertSame(a.host, a2.host);
 
     assertTrue(fixture.next());
@@ -127,7 +127,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
 
     private ValueListenerFixture replaceWith(ValueListenerFixture newListener) {
       parent.fields.put(key, newListener);
-      host.accept(newListener);
+      host.bindListener(newListener);
       return newListener;
     }
   }

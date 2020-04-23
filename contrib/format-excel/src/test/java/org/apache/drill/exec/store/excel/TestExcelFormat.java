@@ -43,7 +43,7 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 
 import java.io.IOException;
@@ -56,7 +56,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestExcelFormat extends ClusterTest {
 
   @BeforeClass

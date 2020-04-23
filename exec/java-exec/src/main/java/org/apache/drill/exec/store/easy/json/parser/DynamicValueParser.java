@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class DynamicValueParser extends ValueParser {
+public abstract class DynamicValueParser extends ValueParserImpl {
 
   public DynamicValueParser(JsonStructureParser structParser) {
     super(structParser);
@@ -61,12 +61,13 @@ public abstract class DynamicValueParser extends ValueParser {
   protected abstract void parseValue(TokenIterator tokenizer, JsonToken token);
 
   public void addObjectParser() {
-    objectParser = new ObjectParser(structParser, listener().object());
+    bindObjectParser(new ObjectParserImpl(structParser, listener().object()));
   }
 
   private void addArrayParser(ValueDef valueDef) {
-    addArrayParser(new ArrayParser(structParser, listener().array(valueDef)));
-    arrayParser.expandStructure(this, valueDef);
+    ArrayParserImpl arrayImpl = new ArrayParserImpl(structParser, listener().array(valueDef));
+    bindArrayParser(arrayImpl);
+    arrayImpl.expandStructure(this, valueDef);
   }
 
   public void expandStructure(ValueDef valueDef) {

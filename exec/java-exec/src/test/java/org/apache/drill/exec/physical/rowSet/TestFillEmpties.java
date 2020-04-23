@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -50,7 +50,7 @@ import org.junit.experimental.categories.Category;
  * null handling in the accessor classes.
  */
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestFillEmpties extends SubOperatorTest {
 
   public static final int ROW_COUNT = 1000;

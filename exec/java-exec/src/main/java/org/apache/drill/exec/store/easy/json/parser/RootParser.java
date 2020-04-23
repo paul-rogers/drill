@@ -36,11 +36,11 @@ public abstract class RootParser {
   protected static final Logger logger = LoggerFactory.getLogger(RootParser.class);
 
   private final JsonStructureParser structParser;
-  protected final ObjectParser rootObject;
+  protected final ObjectParserImpl rootObject;
 
   public RootParser(JsonStructureParser structParser) {
     this.structParser = structParser;
-    this.rootObject = new ObjectParser(structParser);
+    this.rootObject = new ObjectParserImpl(structParser);
   }
 
   public abstract boolean parseRoot(TokenIterator tokenizer);

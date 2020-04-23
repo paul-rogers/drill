@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import java.util.function.Consumer;
-
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl.NullTypeMarker;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -58,7 +57,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
 
   protected final TupleListener parentTuple;
   protected final String key;
-  protected Consumer<ValueListener> host;
+  protected ValueParser host;
   private UnknownArrayListener unknownArray;
 
   public UnknownFieldListener(TupleListener parentTuple, String key) {
@@ -69,7 +68,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   @Override
-  public void bind(Consumer<ValueListener> host) {
+  public void bind(ValueParser host) {
     this.host = host;
   }
 
@@ -117,7 +116,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   protected ValueListener resolveTo(ValueListener newListener) {
-    host.accept(newListener);
+    host.bindListener(newListener);
     loader.removeNullMarker(this);
     return newListener;
   }

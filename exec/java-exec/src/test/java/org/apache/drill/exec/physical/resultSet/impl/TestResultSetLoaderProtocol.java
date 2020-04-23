@@ -28,7 +28,7 @@ import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -71,7 +71,7 @@ import org.junit.experimental.categories.Category;
  * current state.
  */
 
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
   @Test

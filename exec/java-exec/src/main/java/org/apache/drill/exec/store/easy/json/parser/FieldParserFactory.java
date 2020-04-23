@@ -90,14 +90,14 @@ public class FieldParserFactory {
 
   public ElementParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
     DynamicValueParser fp = new TypedValueParser(field.parser());
-    fp.accept(fieldListener);
+    fp.bindListener(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;
   }
 
   public ElementParser textValueParser(FieldDefn field, ValueListener fieldListener) {
     DynamicValueParser fp = new TextValueParser(field.parser());
-    fp.accept(fieldListener);
+    fp.bindListener(fieldListener);
     fp.expandStructure(field.lookahead());
     return fp;
   }

@@ -28,7 +28,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.nio.file.Paths;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared;
@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 //TODO: Move to JSON reader package after code review
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestJsonReader extends BaseTestQuery {
   private static final Logger logger = LoggerFactory.getLogger(TestJsonReader.class);
 

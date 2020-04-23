@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import java.util.function.Consumer;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -70,7 +70,7 @@ public interface ValueListener {
    * such as when a field starts null and resolves to some concrete
    * type.
    */
-  void bind(Consumer<ValueListener> host);
+  void bind(ValueParser parser);
 
   void onValue(JsonToken token, TokenIterator tokenizer);
 

@@ -38,6 +38,7 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.binArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
@@ -45,7 +46,9 @@ import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(JsonTest.class)
 public class TestExtendedArrays extends BaseJsonLoaderTest {
 
   @Test

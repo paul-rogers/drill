@@ -17,11 +17,10 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import java.util.function.Consumer;
-
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
@@ -41,7 +40,7 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   @Override
-  public void bind(Consumer<ValueListener> host) { }
+  public void bind(ValueParser parser) { }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {

@@ -22,7 +22,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.resultSet.project.Projections;
@@ -46,7 +46,7 @@ import org.junit.experimental.categories.Category;
  * to a few messy rows a billion rows in, or due to the order that the scanners
  * see the data.
  */
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestScalars extends BaseJsonLoaderTest {
 
   /**

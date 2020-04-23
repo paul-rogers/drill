@@ -27,7 +27,7 @@ import static org.junit.Assert.fail;
 
 import java.util.Iterator;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
  * Test the implementation of the Drill Volcano iterator protocol that
  * wraps the modular operator implementation.
  */
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestOperatorRecordBatch extends SubOperatorTest {
   private static final Logger logger = LoggerFactory.getLogger(TestOperatorRecordBatch.class);
 

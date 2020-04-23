@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.HashSet;
 
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -33,7 +33,7 @@ import org.junit.experimental.categories.Category;
  * Tests JSON structure parser functionality excluding nested objects
  * and arrays. Tests the "happy path."
  */
-@Category(RowSetTests.class)
+@Category(JsonTest.class)
 public class TestJsonParserBasics extends BaseTestJsonParser {
 
   @Test

@@ -22,11 +22,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.categories.JsonTest;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import com.fasterxml.jackson.core.JsonToken;
 
+@Category(JsonTest.class)
 public class TestJsonParserMessage extends BaseTestJsonParser {
 
   /**
@@ -68,9 +71,10 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertEquals(2, fixture.read());
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.next());
     assertEquals(100L, a.lastValue);
+    assertEquals(1, fixture.read());
+    assertEquals(1, a.nullCount);
     fixture.close();
   }
 
@@ -99,9 +103,10 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertEquals(2, fixture.read());
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.next());
     assertEquals(100L, a.lastValue);
+    assertEquals(1, fixture.read());
+    assertEquals(1, a.nullCount);
     fixture.close();
   }
 
@@ -118,9 +123,10 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertEquals(2, fixture.read());
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.next());
     assertEquals(100L, a.lastValue);
+    assertEquals(1, fixture.read());
+    assertEquals(1, a.nullCount);
     fixture.close();
   }
 

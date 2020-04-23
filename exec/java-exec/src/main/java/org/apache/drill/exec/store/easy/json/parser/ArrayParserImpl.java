@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ArrayParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -36,21 +37,27 @@ import com.fasterxml.jackson.core.JsonToken;
  * create a new parser for that case, with an element listener per
  * element as is done for objects.
  */
-public class ArrayParser extends AbstractElementParser {
+public class ArrayParserImpl extends AbstractElementParser implements ArrayParser {
 
   private ValueParser elementParser;
   private ArrayListener arrayListener;
 
-  public ArrayParser(JsonStructureParser structParser, ArrayListener arrayListener) {
+  public ArrayParserImpl(JsonStructureParser structParser, ArrayListener arrayListener) {
     super(structParser);
     this.arrayListener = arrayListener;
   }
 
+  @Override
   public void bindElementParser(ValueParser elementParser) {
     this.elementParser = elementParser;
   }
 
+  @Override
   public ValueParser elementParser() { return elementParser; }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <T extends ArrayListener> T listener() { return (T) arrayListener; }
 
   /**
    * Parses <code>[ ^ ((value)(, (value)* )? ]</code>
@@ -91,13 +98,14 @@ public class ArrayParser extends AbstractElementParser {
 
   public void bindElement(ValueListener elementListener) {
     elementParser = new TypedValueParser(structParser);
-    elementParser.accept(elementListener);
+    elementParser.bindListener(elementListener);
   }
 
+  @Override
   public void bindListener(ArrayListener newListener) {
     arrayListener = newListener;
     if (elementParser != null) {
-      elementParser.accept(arrayListener.element(ValueDef.UNKNOWN));
+      elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
     }
   }
 

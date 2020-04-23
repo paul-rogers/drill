@@ -18,9 +18,8 @@
 package org.apache.drill.categories;
 
 /**
- * A category for tests that test the RowSet, ResultSetLoader
- * and related mechanisms.
+ * Tests for RowSet, ResultSetLoader and related mechanisms.
  */
-public interface RowSetTests {
+public interface RowSetTest {
   // Junit category marker
 }

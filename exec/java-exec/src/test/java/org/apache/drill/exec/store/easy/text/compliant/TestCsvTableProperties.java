@@ -18,7 +18,7 @@
 package org.apache.drill.exec.store.easy.text.compliant;
 
 import org.apache.drill.TestSelectWithOption;
-import org.apache.drill.categories.RowSetTests;
+import org.apache.drill.categories.RowSetTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
@@ -53,7 +53,7 @@ import static org.junit.Assert.assertTrue;
  * @see TestSelectWithOption for similar tests using table
  * properties within SQL
  */
-@Category(RowSetTests.class)
+@Category(RowSetTest.class)
 public class TestCsvTableProperties extends BaseCsvTest {
 
   @BeforeClass

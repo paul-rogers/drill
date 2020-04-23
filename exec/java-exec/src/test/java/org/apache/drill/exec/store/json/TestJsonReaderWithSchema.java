@@ -18,7 +18,7 @@ public class TestJsonReaderWithSchema extends BaseTestJsonReader {
               .baselineValues(13L, "BIGINT")
               .go();
     } finally {
-      resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
+      client.resetSession(ExecConstants.ENABLE_UNION_TYPE_KEY);
     }
   }
 }
