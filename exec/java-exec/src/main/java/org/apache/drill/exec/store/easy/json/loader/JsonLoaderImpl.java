@@ -385,6 +385,12 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
           .addContext("JSON token", value));
   }
 
+  public UserException nullDisallowedError(ColumnMetadata schema) {
+    return buildError(schema,
+        UserException.dataReadError()
+          .message("JSON value \"null\" for a column that does not allow null values"));
+  }
+
   public UserException unsupportedType(ColumnMetadata schema) {
     return buildError(schema,
         UserException.validationError()

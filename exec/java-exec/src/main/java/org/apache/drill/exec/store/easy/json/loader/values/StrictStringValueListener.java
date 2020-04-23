@@ -33,7 +33,7 @@ public class StrictStringValueListener extends ScalarListener {
   public void onValue(JsonToken token, TokenIterator tokenizer) {
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
+        setNull();
         break;
       case VALUE_STRING:
         writer.setString(tokenizer.stringValue());

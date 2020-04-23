@@ -111,7 +111,7 @@ public class ArrayParser extends AbstractElementParser {
     if (valueDef.dimensions() > 1 || !valueDef.type().isUnknown()) {
       ValueDef elementDef = new ValueDef(valueDef.type(), valueDef.dimensions() - 1);
       addElement(elementDef);
-      valueParser.expandStructure(elementDef);
+      ((DynamicValueParser) elementParser).expandStructure(elementDef);
     }
   }
 }

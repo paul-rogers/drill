@@ -86,7 +86,6 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
   private ElementParser arrayParserFor(FieldDefn fieldDefn) {
     TokenIterator tokenizer = fieldDefn.tokenizer();
-
     JsonToken token = tokenizer.requireNext();
     if (token != JsonToken.START_OBJECT) {
       tokenizer.unget(token);
@@ -115,7 +114,6 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
   private BaseExtendedValueParser extendedTypeParserFor(FieldDefn fieldDefn, boolean isArray) {
     TokenIterator tokenizer = fieldDefn.tokenizer();
-
     JsonToken token = tokenizer.peek();
     if (token != JsonToken.FIELD_NAME) {
       return null;

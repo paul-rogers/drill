@@ -234,6 +234,10 @@ public class RowSetUtilities {
     return elements;
   }
 
+  public static byte[][] binArray(byte[]... elements) {
+    return elements;
+  }
+
   public static int[] intArray(Integer... elements) {
     int[] array = new int[elements.length];
     for (int i = 0; i < elements.length; i++) {

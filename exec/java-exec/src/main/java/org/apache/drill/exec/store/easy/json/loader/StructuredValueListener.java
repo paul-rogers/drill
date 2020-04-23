@@ -143,5 +143,10 @@ public abstract class StructuredValueListener extends AbstractValueListener {
       Preconditions.checkArgument(!valueDef.type().isScalar());
       return arrayListener;
     }
+
+    @Override
+    protected ColumnMetadata schema() {
+      return arrayListener.schema();
+    }
   }
 }

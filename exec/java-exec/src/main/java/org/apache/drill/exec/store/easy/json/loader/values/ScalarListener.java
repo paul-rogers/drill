@@ -59,7 +59,7 @@ public abstract class ScalarListener extends AbstractValueListener {
 
   protected void setArrayNull() {
     // Default is no "natural" null value
-    loader.dataConversionError(schema(), "null", "null");
+    throw loader.nullDisallowedError(schema());
   }
 
   @Override

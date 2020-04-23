@@ -33,6 +33,10 @@ import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
 import static org.apache.drill.test.rowSet.RowSetUtilities.longArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.decArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.doubleArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.binArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.objArray;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -129,16 +133,13 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
   @Test
   public void testDouble() {
     String json =
-        "{ a: { \"$numberDouble\": 10 } }\n" +
+        "{ a: [ { \"$numberDouble\": 10 }, null, { \"$numberDouble\": \"30\" } ] }\n" +
         "{ a: null }\n" +
-        "{ a: { \"$numberDouble\": \"30\" } }\n" +
-        "{ a: { \"$numberDouble\": 40.125 } }\n" +
-        "{ a: 60 }\n" +
-        "{ a: \"70.125\" }\n" +
-        "{ a: 80.375 }\n" +
-        "{ a: { \"$numberDouble\": \"-Infinity\" } }\n" +
-        "{ a: { \"$numberDouble\": \"Infinity\" } }\n" +
-        "{ a: { \"$numberDouble\": \"NaN\" } }";
+        "{ a: [] }\n" +
+        "{ a: [ { \"$numberDouble\": 40.125 }, 60, \"70.125\", 80.375 ] }\n" +
+        "{ a: [ { \"$numberDouble\": \"-Infinity\" }, " +
+        "       { \"$numberDouble\": \"Infinity\" }," +
+        "       { \"$numberDouble\": \"NaN\" } ] }";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -146,19 +147,14 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.FLOAT8)
+        .addArray("a", MinorType.FLOAT8)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(10D)
-        .addSingleCol(null)
-        .addRow(30D)
-        .addRow(40.125D)
-        .addRow(60D)
-        .addRow(70.125D)
-        .addRow(80.375D)
-        .addRow(Double.NEGATIVE_INFINITY)
-        .addRow(Double.POSITIVE_INFINITY)
-        .addRow(Double.NaN)
+        .addSingleCol(doubleArray(10D, 0D, 30D))
+        .addSingleCol(doubleArray())
+        .addSingleCol(doubleArray())
+        .addSingleCol(doubleArray(40.125D, 60D, 70.125D, 80.375D))
+        .addSingleCol(doubleArray(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -174,15 +170,16 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     long localTs = ts + TimeZone.getDefault().getOffset(ts);
     String json =
         // V1 string, V2 relaxed
-        "{ a: { \"$date\": \"" + utc + "\" } }\n" +
+        "{ a: [ { \"$date\": \"" + utc + "\" },\n" +
         // V1 "shell mode"
-        "{ a: { \"$date\": " + ts + " } }\n" +
+        "       { \"$date\": " + ts + " } ] }\n" +
         "{ a: null }\n" +
+        "{ a: [] }\n" +
         // V2 canonical
-        "{ a: { \"$date\": { \"$numberLong\": " + ts + " } } }\n" +
+        "{ a: [ { \"$date\": { \"$numberLong\": " + ts + " } },\n" +
         // Harmless extensions, only valid after the above
-        "{ a: " + ts + " }\n" +
-        "{ a: \"" + utc + "\" }";
+        "      " + ts + ",\n" +
+        "      \"" + utc + "\" ] }";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -190,15 +187,13 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.TIMESTAMP)
+        .addArray("a", MinorType.TIMESTAMP)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(localTs)
-        .addRow(localTs)
-        .addSingleCol(null)
-        .addRow(localTs)
-        .addRow(localTs)
-        .addRow(localTs)
+        .addSingleCol(longArray(localTs, localTs))
+        .addSingleCol(longArray())
+        .addSingleCol(longArray())
+        .addSingleCol(longArray(localTs, localTs, localTs))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -206,20 +201,40 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
   }
 
   @Test
+  public void testDateNull() {
+    LocalDateTime local = LocalDateTime.of(2020, 4, 21, 11, 22, 33);
+    Instant instant = local.atZone(ZoneId.systemDefault()).toInstant();
+    String utc = DateTimeFormatter.ISO_INSTANT.format(instant);
+    String json =
+        "{ a: [ { \"$date\": \"" + utc + "\" }, null ] }\n";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.enableExtendedTypes = true;
+    loader.open(json);
+    try {
+      loader.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("does not allow null values"));
+    }
+    loader.close();
+  }
+
+  @Test
   public void testBinary() {
     String json =
         // V2 format
-        "{ a: { \"$binary\": { base64: \"ZHJpbGw=\", subType: \"0\" } } }\n" +
-        "{ a: { \"$binary\": { subType: \"0\", base64: \"ZHJpbGw=\" } } }\n" +
+        "{ a: [ { \"$binary\": { base64: \"ZHJpbGw=\", subType: \"0\" } },\n" +
+        "       { \"$binary\": { subType: \"0\", base64: \"ZHJpbGw=\" } },\n" +
         // Harmless extension
-        "{ a: { \"$binary\": { base64: \"ZHJpbGw=\" } } }\n" +
+        "       { \"$binary\": { base64: \"ZHJpbGw=\" } }, null ] }\n" +
         "{ a: null }\n" +
+        "{ a: [] }\n" +
         // V1 format
-        "{ a: { \"$binary\": \"ZHJpbGw=\", \"$type\": 1 } }\n" +
+        "{ a: [ { \"$binary\": \"ZHJpbGw=\", \"$type\": 1 },\n" +
         // Harmless extension
-        "{ a: { \"$binary\": \"ZHJpbGw=\" } }\n" +
+        "       { \"$binary\": \"ZHJpbGw=\" },\n" +
         // Only valid after the above
-        "{ a: \"ZHJpbGw=\" }\n";
+        "       \"ZHJpbGw=\" ] }\n";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -227,16 +242,14 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.VARBINARY)
+        .addArray("a", MinorType.VARBINARY)
         .build();
     byte[] bytes = "Drill".getBytes();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(bytes)
-        .addRow(bytes)
-        .addRow(bytes)
-        .addSingleCol(null)
-        .addRow(bytes)
-        .addRow(bytes)
+        .addSingleCol(binArray(bytes, bytes, bytes, new byte[] { }))
+        .addSingleCol(binArray())
+        .addSingleCol(binArray())
+        .addSingleCol(binArray(bytes, bytes, bytes))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -246,11 +259,14 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
   @Test
   public void testObjectID() {
     String json =
-        "{ a: { \"$oid\": \"foo\" } }\n" +
-        // Harmless extension
+        "{ a: [ { \"$oid\": \"foo\" },\n" +
+        // Harmless extension. A Real OID can't be a "blank"
+        // value, but here we just store it as a string.
+        "       null ] }\n" +
         "{ a: null }\n" +
+        "{ a: [] }\n" +
         // Only valid after the above
-        "{ a: \"foo\" }\n";
+        "{ a: [ \"foo\" ] }\n";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -258,12 +274,13 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.VARCHAR)
+        .addArray("a", MinorType.VARCHAR)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow("foo")
-        .addSingleCol(null)
-        .addRow("foo")
+        .addSingleCol(strArray("foo", ""))
+        .addSingleCol(strArray())
+        .addSingleCol(strArray())
+        .addSingleCol(strArray("foo"))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());
@@ -274,9 +291,13 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
   @Test
   public void testDocument() {
     String json =
-        "{ m: { a: { \"$numberLong\": 10 }, b: \"foo\" } }\n" +
+        "{ m: [ { a: { \"$numberLong\": 10 }, b: \"foo\" },\n" +
+        "       { a: { \"$numberLong\": \"20\" }, b: null },\n" +
+        "       { a: 30 } ] }\n" +
         // Harmless extension
-        "{ m: null }\n";
+        "{ m: null }\n" +
+        "{ m: [] }\n" +
+        "{ m: [ null, { a: { \"$numberLong\": 40 }, b: \"bar\" } ] }\n";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.jsonOptions.enableExtendedTypes = true;
     loader.open(json);
@@ -284,14 +305,17 @@ public class TestExtendedArrays extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addMap("m")
+        .addMapArray("m")
           .addNullable("a", MinorType.BIGINT)
           .addNullable("b", MinorType.VARCHAR)
           .resumeSchema()
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addSingleCol(mapValue(10L, "foo"))
-        .addSingleCol(mapValue(null, null))
+        .addSingleCol(objArray(mapValue(10L, "foo"),
+            mapValue(20L, null), mapValue(30L, null)))
+        .addSingleCol(objArray())
+        .addSingleCol(objArray())
+        .addSingleCol(objArray(mapValue(null, null), mapValue(40L, "bar")))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

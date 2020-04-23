@@ -116,7 +116,7 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
     assertNotNull(results);
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable("a", MinorType.VARDECIMAL)
+        .addNullable("a", MinorType.VARDECIMAL, 38, 10)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(dec("10"))
