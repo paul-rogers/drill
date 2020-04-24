@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 /**
  * Parses a JSON value. JSON allows any value type to appear anywhere a
  * value is allowed; this parser reflects that rule. The associated listener
@@ -35,42 +34,15 @@ import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
  * Listeners can enforce one type only, or can be more flexible and
  * allow multiple types.
  */
-public abstract class ValueParserImpl extends AbstractElementParser implements ValueParser {
+public abstract class ValueParser extends AbstractElementParser {
 
   protected ValueListener listener;
-  protected ObjectParser objectParser;
-  protected ArrayParser arrayParser;
 
-  public ValueParserImpl(JsonStructureParser structParser) {
+  public ValueParser(JsonStructureParser structParser, ValueListener listener) {
     super(structParser);
+    this.listener = listener;;
   }
 
-  @Override
-  public void bindListener(ValueListener listener) {
-    this.listener = listener;
-    listener.bind(this);
-    if (arrayParser != null) {
-      arrayParser.bindListener(listener.array(ValueDef.UNKNOWN_ARRAY));
-    }
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
+   @SuppressWarnings("unchecked")
   public <T extends ValueListener> T listener() { return (T) listener; }
-
-  @Override
-  public void bindArrayParser(ArrayParser arrayParser) {
-    this.arrayParser = arrayParser;
-  }
-
-  @Override
-  public ArrayParser arrayParser() { return arrayParser; }
-
-  @Override
-  public void bindObjectParser(ObjectParser objectParser) {
-    this.objectParser = objectParser;
-  }
-
-  @Override
-  public ObjectParser objectParser() { return objectParser; }
 }

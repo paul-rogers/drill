@@ -67,11 +67,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class JsonStructureParser {
   protected static final Logger logger = LoggerFactory.getLogger(JsonStructureParser.class);
 
+  public interface ParserFactory {
+    ObjectParser rootParser(JsonStructureParser parser);
+  }
+
   public static class JsonStructureParserBuilder {
     private InputStream stream;
     private Reader reader;
     private JsonStructureOptions options;
-    private ObjectListener rootListener;
+    private ParserFactory parserFactory;
     private ErrorFactory errorFactory;
     private String dataPath;
     private MessageParser messageParser;
@@ -81,8 +85,8 @@ public class JsonStructureParser {
       return this;
     }
 
-    public JsonStructureParserBuilder rootListener(ObjectListener rootListener) {
-      this.rootListener = rootListener;
+    public JsonStructureParserBuilder parserFactory(ParserFactory parserFactory) {
+      this.parserFactory = parserFactory;
       return this;
     }
 
@@ -125,7 +129,6 @@ public class JsonStructureParser {
 
   private final JsonParser parser;
   private final JsonStructureOptions options;
-  private final ObjectListener rootListener;
   private final ErrorFactory errorFactory;
   private final TokenIterator tokenizer;
   private final RootParser rootState;
@@ -145,7 +148,6 @@ public class JsonStructureParser {
    */
   private JsonStructureParser(JsonStructureParserBuilder builder) {
     this.options = Preconditions.checkNotNull(builder.options);
-    this.rootListener = Preconditions.checkNotNull(builder.rootListener);
     this.errorFactory = Preconditions.checkNotNull(builder.errorFactory);
     try {
       ObjectMapper mapper = new ObjectMapper()
@@ -165,17 +167,17 @@ public class JsonStructureParser {
       throw errorFactory().ioException(e);
     }
     tokenizer = new TokenIterator(parser, options, errorFactory());
+    fieldFactory = new FieldParserFactory(this,
+        Preconditions.checkNotNull(builder.parserFactory));
     if (builder.messageParser == null) {
       rootState = makeRootState();
     } else {
       rootState = makeCustomRoot(builder.messageParser);
     }
-    fieldFactory = new FieldParserFactory(this);
   }
 
   public JsonStructureOptions options() { return options; }
   public ErrorFactory errorFactory() { return errorFactory; }
-  public ObjectListener rootListener() { return rootListener; }
   public FieldParserFactory fieldFactory() { return fieldFactory; }
 
   private RootParser makeCustomRoot(MessageParser messageParser) {

@@ -21,8 +21,8 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractValueListener;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
-import org.apache.drill.exec.store.easy.json.loader.TupleListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.loader.TupleParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 
@@ -90,11 +90,11 @@ public class VariantListener extends AbstractValueListener {
   }
 
   @Override
-  public ObjectListener object() {
+  public ObjectParser object() {
     return new VariantTupleListener(loader, writer);
   }
 
-  private static class VariantTupleListener extends TupleListener {
+  private static class VariantTupleListener extends TupleParser {
 
     private final VariantWriter writer;
 

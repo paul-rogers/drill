@@ -55,12 +55,12 @@ import com.fasterxml.jackson.core.JsonToken;
 public class UnknownFieldListener extends AbstractValueListener implements NullTypeMarker {
   protected static final Logger logger = LoggerFactory.getLogger(UnknownFieldListener.class);
 
-  protected final TupleListener parentTuple;
+  protected final TupleParser parentTuple;
   protected final String key;
-  protected ValueParser host;
+  protected ValueParser parser;
   private UnknownArrayListener unknownArray;
 
-  public UnknownFieldListener(TupleListener parentTuple, String key) {
+  public UnknownFieldListener(TupleParser parentTuple, String key) {
     super(parentTuple.loader());
     this.parentTuple = parentTuple;
     this.key = key;
@@ -75,8 +75,8 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   @Override
-  public void bind(ValueParser host) {
-    this.host = host;
+  public void bind(ValueParser parser) {
+    this.parser = parser;
   }
 
   @Override
@@ -121,7 +121,6 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
   }
 
   protected ValueListener resolveTo(ValueListener newListener) {
-    host.bindListener(newListener);
     loader.removeNullMarker(this);
     return newListener;
   }

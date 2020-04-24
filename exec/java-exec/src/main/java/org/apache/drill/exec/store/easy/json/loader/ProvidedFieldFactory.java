@@ -21,9 +21,9 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.values.VariantListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -35,7 +35,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
  */
 public class ProvidedFieldFactory extends BaseFieldFactory {
 
-  public ProvidedFieldFactory(TupleListener tupleListener, FieldFactory child) {
+  public ProvidedFieldFactory(TupleParser tupleListener, FieldFactory child) {
     super(tupleListener, child);
     Preconditions.checkArgument(tupleListener.providedSchema() != null);
   }
@@ -50,7 +50,7 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
    * accurately reflects the structure of the JSON being parsed.
    */
   @Override
-  public ValueParser addField(FieldDefn fieldDefn) {
+  public ElementParser addField(FieldDefn fieldDefn) {
     ColumnMetadata providedCol = providedColumn(fieldDefn.key());
     if (providedCol == null) {
       return child.addField(fieldDefn);
@@ -58,19 +58,19 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
     return parserFor(fieldDefn, providedCol, listenerFor(fieldDefn, providedCol));
   }
 
-  public ValueParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
+  public ElementParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
     FieldParserFactory parserFactory = parserFactory();
     String mode = providedCol.property(JsonLoader.JSON_MODE);
     if (mode == null) {
-      return parserFactory.valueParser(fieldDefn, fieldListener);
+      return parserFactory.valueParser(fieldListener);
     }
     switch (mode) {
       case JsonLoader.JSON_TEXT_MODE:
-        return parserFactory.textValueParser(fieldDefn, fieldListener);
+        return parserFactory.textValueParser(fieldListener);
       case JsonLoader.JSON_LITERAL_MODE:
         return parserFactory.jsonTextParser(fieldListener);
       default:
-        return parserFactory.valueParser(fieldDefn, fieldListener);
+        return parserFactory.valueParser(fieldListener);
     }
   }
 

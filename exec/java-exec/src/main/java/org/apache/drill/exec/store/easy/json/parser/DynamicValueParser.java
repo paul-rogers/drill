@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class DynamicValueParser extends ValueParserImpl {
+public abstract class DynamicValueParser extends ValueParser {
 
   public DynamicValueParser(JsonStructureParser structParser) {
     super(structParser);
@@ -60,12 +60,8 @@ public abstract class DynamicValueParser extends ValueParserImpl {
 
   protected abstract void parseValue(TokenIterator tokenizer, JsonToken token);
 
-  public void addObjectParser() {
-    bindObjectParser(new ObjectParserImpl(structParser, listener().object()));
-  }
-
   private void addArrayParser(ValueDef valueDef) {
-    ArrayParserImpl arrayImpl = new ArrayParserImpl(structParser, listener().array(valueDef));
+    ArrayParser arrayImpl = new ArrayParser(structParser, listener().array(valueDef));
     bindArrayParser(arrayImpl);
     arrayImpl.expandStructure(this, valueDef);
   }
@@ -75,48 +71,6 @@ public abstract class DynamicValueParser extends ValueParserImpl {
       addArrayParser(valueDef);
     } else if (valueDef.type().isObject()) {
       addObjectParser();
-    }
-  }
-
-  /**
-   * Parses <code>true | false | null | integer | float | string |<br>
-   *              embedded-object</code>
-   * <p>
-   * Forwards the result as a typed value.
-   */
-  public static class TypedValueParser extends DynamicValueParser {
-
-    public TypedValueParser(JsonStructureParser structParser, ValueListener listener) {
-      super(structParser);
-      bindListener(listener);
-    }
-
-    @Override
-    public void parseValue(TokenIterator tokenizer, JsonToken token) {
-      listener.onValue(token, tokenizer);
-    }
-  }
-
-  /**
-   * Parses <code>true | false | null | integer | float | string |<br>
-   *              embedded-object</code>
-   * <p>
-   * Forwards the result as a string.
-   */
-  public static class TextValueParser extends DynamicValueParser {
-
-    public TextValueParser(JsonStructureParser structParser) {
-      super(structParser);
-    }
-
-    @Override
-    public void parseValue(TokenIterator tokenizer, JsonToken token) {
-      if (token == JsonToken.VALUE_NULL) {
-        listener.onValue(token, tokenizer);
-      } else {
-        listener.onText(
-            token == JsonToken.VALUE_NULL ? null : tokenizer.textValue());
-      }
     }
   }
 }

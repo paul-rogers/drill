@@ -42,7 +42,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     JsonParserFixture fixture = new JsonParserFixture();
     fixture.open(json);
     assertFalse(fixture.next());
-    assertEquals(0, fixture.rootObject.startCount);
+    assertNull(fixture.rootObject);
     fixture.close();
   }
 
@@ -54,7 +54,6 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     assertEquals(3, fixture.read());
     assertEquals(3, fixture.rootObject.startCount);
     assertEquals(3, fixture.rootObject.endCount);
-    assertTrue(fixture.rootObject.fields.isEmpty());
     fixture.close();
   }
 
@@ -65,7 +64,6 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     fixture.open(json);
     assertTrue(fixture.next());
     assertEquals(1, fixture.rootObject.startCount);
-    assertEquals(1, fixture.rootObject.fields.size());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(JsonType.BOOLEAN, a.valueDef.type());
     assertEquals(0, a.valueDef.dimensions());
@@ -249,12 +247,11 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
         "{a: 2}\n" +
         "{b: \"bar\"}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject.projectFilter = new HashSet<>();
-    fixture.rootObject.projectFilter.add("a");
+    fixture.projectFilter = new HashSet<>();
+    fixture.projectFilter.add("a");
     fixture.open(json);
 
     assertEquals(3, fixture.read());
-    assertEquals(1, fixture.rootObject.fields.size());
     ValueListenerFixture a = fixture.field("a");
     assertEquals(2, a.valueCount);
     assertEquals(2L, a.lastValue);
@@ -280,7 +277,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     final String json =
       "{a: 1} {a: \"foo\"} {a: true} {a: 20.5} {a: null}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject.fieldType = FieldType.TEXT;
+    fixture.fieldType = FieldType.TEXT;
     fixture.open(json);
 
     fixture.expect("a",
@@ -294,7 +291,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
     final String json =
       "{a: 1} {a: \"foo\"} {a: true} {a: 20.5} {a: null}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject.fieldType = FieldType.JSON;
+    fixture.fieldType = FieldType.JSON;
     fixture.open(json);
 
     fixture.expect("a",
@@ -309,7 +306,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
       "{a: []} {a: [null]} {a: [null, null]} {a: [[]]}\n" +
         "{a: [1, \"foo\", true]} {a: [[1, 2], [3, 4]]}\n";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject.fieldType = FieldType.JSON;
+    fixture.fieldType = FieldType.JSON;
     fixture.open(json);
 
     fixture.expect("a",
@@ -325,7 +322,7 @@ public class TestJsonParserBasics extends BaseTestJsonParser {
       "{a: {}} {a: {b: null}} {a: {b: null, b: null}}\n" +
         "{a: {b: {c: {d: [{e: 10}, null, 20], f: \"foo\"}, g:30}, h: 40}}\n";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject.fieldType = FieldType.JSON;
+    fixture.fieldType = FieldType.JSON;
     fixture.open(json);
 
     fixture.expect("a",

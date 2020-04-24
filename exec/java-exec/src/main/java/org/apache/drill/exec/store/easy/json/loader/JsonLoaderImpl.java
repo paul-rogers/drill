@@ -31,12 +31,14 @@ import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.drill.exec.store.easy.json.loader.mongo.ExtendedTypeFieldFactory;
+import org.apache.drill.exec.store.easy.json.loader.extended.ExtendedTypeFieldFactory;
 import org.apache.drill.exec.store.easy.json.parser.ErrorFactory;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.MessageParser;
 import org.apache.drill.exec.store.easy.json.parser.MessageParser.MessageContextException;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
@@ -203,7 +205,6 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   private final ResultSetLoader rsLoader;
   private final JsonLoaderOptions options;
   private final CustomErrorContext errorContext;
-  private final TupleListener rowListener;
   private final JsonStructureParser parser;
   private boolean eof;
 
@@ -223,12 +224,16 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     this.rsLoader = builder.rsLoader;
     this.options = builder.options;
     this.errorContext = builder. errorContext;
-    this.rowListener = new TupleListener(this, rsLoader.writer(), builder.providedSchema);
     this.parser = new JsonStructureParserBuilder()
             .fromStream(builder.stream)
             .fromReader(builder.reader)
             .options(builder.options)
-            .rootListener(rowListener)
+            .parserFactory(new ParserFactory() {
+              @Override
+              public ObjectParser rootParser(JsonStructureParser parser) {
+                return new TupleParser(JsonLoaderImpl.this, rsLoader.writer(), builder.providedSchema);
+              }
+            })
             .errorFactory(this)
             .messageParser(builder.messageParser)
             .build();
@@ -299,7 +304,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     parser.close();
   }
 
-  public FieldFactory fieldFactoryFor(TupleListener tupleListener) {
+  public FieldFactory fieldFactoryFor(TupleParser tupleListener) {
     FieldFactory factory = new InferredFieldFactory(tupleListener);
     if (tupleListener.providedSchema() != null) {
       factory = new ProvidedFieldFactory(tupleListener, factory);

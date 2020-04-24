@@ -33,14 +33,10 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 public abstract class AbstractArrayListener implements ArrayListener {
 
   protected final JsonLoaderImpl loader;
-  protected final ValueListener elementListener;
 
-  public AbstractArrayListener(JsonLoaderImpl loader, ValueListener elementListener) {
+  public AbstractArrayListener(JsonLoaderImpl loader) {
     this.loader = loader;
-    this.elementListener = elementListener;
   }
-
-  public ValueListener elementListener() { return elementListener; }
 
   protected abstract ColumnMetadata schema();
 
@@ -56,43 +52,19 @@ public abstract class AbstractArrayListener implements ArrayListener {
   @Override
   public void onEnd() { }
 
-  @Override
-  public ValueListener element(ValueDef valueDef) {
-    throw loader.typeConversionError(schema(), valueDef);
-  }
-
-  protected UserException typeConversionError(String jsonType) {
-    return loader.typeConversionError(schema(), jsonType);
-  }
-
   public static class ScalarArrayListener extends AbstractArrayListener {
 
-    public ScalarArrayListener(JsonLoaderImpl loader, ScalarListener valueListener) {
-      super(loader, valueListener);
-    }
-
-    @Override
-    public ValueListener element(ValueDef valueDef) {
-      return elementListener;
-    }
-
-    @Override
-    protected ColumnMetadata schema() {
-      return ((ScalarListener) elementListener).schema();
+    public ScalarArrayListener(JsonLoaderImpl loader) {
+      super(loader);
     }
   }
 
   public static class ObjectArrayListener extends AbstractArrayListener {
     private final ArrayWriter arrayWriter;
 
-    public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter, ObjectValueListener valueListener) {
-      super(loader, valueListener);
+    public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter) {
+      super(loader);
       this.arrayWriter = arrayWriter;
-    }
-
-    @Override
-    public ValueListener element(ValueDef valueDef) {
-      return elementListener;
     }
 
     @Override

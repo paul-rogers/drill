@@ -19,10 +19,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -103,14 +101,15 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * query, but not if multiple fragments each make their own (inconsistent)
  * decisions. Only a schema provides a consistent answer.
  */
-public class TupleListener implements ObjectListener {
+public class TupleParser extends ObjectParser {
 
   private final JsonLoaderImpl loader;
   private final TupleWriter tupleWriter;
   private final TupleMetadata providedSchema;
   private final FieldFactory fieldFactory;
 
-  public TupleListener(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
+  public TupleParser(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
+    super(loader.parser());
     this.loader = loader;
     this.tupleWriter = tupleWriter;
     this.providedSchema = providedSchema;
@@ -122,15 +121,10 @@ public class TupleListener implements ObjectListener {
   public TupleWriter writer() { return tupleWriter; }
 
   protected TupleMetadata providedSchema() { return providedSchema; }
+  protected FieldFactory fieldFactory() { return fieldFactory; }
 
   @Override
-  public void onStart() { }
-
-  @Override
-  public void onEnd() { }
-
-  @Override
-  public ValueParser onField(FieldDefn field) {
+  public ElementParser onField(FieldDefn field) {
     if (!tupleWriter.isProjected(field.key())) {
       return fieldFactory.ignoredFieldParser();
     } else {
@@ -141,8 +135,8 @@ public class TupleListener implements ObjectListener {
   /**
    * Build a column and its listener based on a look-ahead hint.
    */
-  public ValueListener resolveField(String key, ValueDef valueDef) {
-    return fieldFactory.resolveField(key, valueDef);
+  public ElementParser resolveField(FieldDefn field) {
+    return fieldFactory.resolveField(field);
   }
 
   public ObjectWriter fieldwriterFor(ColumnMetadata colSchema) {

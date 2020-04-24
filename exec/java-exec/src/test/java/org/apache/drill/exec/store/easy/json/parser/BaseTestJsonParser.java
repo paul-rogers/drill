@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.easy.json.parser;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -27,13 +26,12 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.JsonStructureParserBuilder;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFactory;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -110,16 +108,18 @@ public class BaseTestJsonParser {
 
   protected static class ValueListenerFixture implements ValueListener {
 
+    final JsonStructureParser structParser;
     final ValueDef valueDef;
     int nullCount;
     int valueCount;
     JsonToken lastToken;
     Object lastValue;
     ValueParser host;
-    ObjectListenerFixture objectValue;
+    ObjectParserFixture objectValue;
     ArrayListenerFixture arrayValue;
 
-    public ValueListenerFixture(ValueDef valueDef) {
+    public ValueListenerFixture(JsonStructureParser structParser, ValueDef valueDef) {
+      this.structParser = structParser;
       this.valueDef = valueDef;
     }
 
@@ -168,16 +168,16 @@ public class BaseTestJsonParser {
     }
 
     @Override
-    public ObjectListener object() {
+    public ObjectParser object() {
       assertNull(objectValue);
-      objectValue = new ObjectListenerFixture();
+      objectValue = new ObjectParserFixture(structParser);
       return objectValue;
     }
 
     @Override
     public ArrayListener array(ValueDef valueDef) {
       if (arrayValue == null) {
-        arrayValue = new ArrayListenerFixture(valueDef);
+        arrayValue = new ArrayListenerFixture(structParser, valueDef);
       }
       return arrayValue;
     }
@@ -190,13 +190,15 @@ public class BaseTestJsonParser {
 
   protected static class ArrayListenerFixture implements ArrayListener {
 
+    final JsonStructureParser structParser;
     final ValueDef valueDef;
     int startCount;
     int endCount;
     int elementCount;
     ValueListenerFixture element;
 
-    public ArrayListenerFixture(ValueDef valueDef) {
+    public ArrayListenerFixture(JsonStructureParser structParser, ValueDef valueDef) {
+      this.structParser = structParser;
       this.valueDef = valueDef;
     }
 
@@ -221,7 +223,7 @@ public class BaseTestJsonParser {
     @Override
     public ValueListener element(ValueDef valueDef) {
       if (element == null) {
-        element = new ValueListenerFixture(valueDef);
+        element = new ValueListenerFixture(structParser, valueDef);
       }
       return element;
     }
@@ -250,13 +252,16 @@ public class BaseTestJsonParser {
     JSON
   }
 
-  protected static class ObjectListenerFixture implements ObjectListener {
+  protected static class ObjectParserFixture extends ObjectParser {
 
-    final Map<String, ValueListenerFixture> fields = new HashMap<>();
     Set<String> projectFilter;
     FieldType fieldType = FieldType.TYPED;
     int startCount;
     int endCount;
+
+    public ObjectParserFixture(JsonStructureParser structParser) {
+      super(structParser);
+    }
 
     @Override
     public void onStart() {
@@ -274,28 +279,36 @@ public class BaseTestJsonParser {
     @Override
     public ValueParser onField(FieldDefn fieldDefn) {
       FieldParserFactory parserFactory = fieldDefn.parser().fieldFactory();
+
+      // Simulate projection, if projection set provided
       if (projectFilter != null && !projectFilter.contains(fieldDefn.key())) {
         return parserFactory.ignoredFieldParser();
       }
-      assertFalse(fields.containsKey(fieldDefn.key()));
+
+      // Create "unknown" parsers to test resolution
+      ValueDef valueDef = fieldDefn.lookahead();
+      if (valueDef.type().isUnknown()) {
+        return structParser.fieldFactory().parserForUnknown(this, fieldDefn);
+      }
+
+      // Create parser based on field type
       ValueListenerFixture fieldListener = makeField(fieldDefn.key(), fieldDefn.lookahead());
-      fields.put(fieldDefn.key(), fieldListener);
       switch (fieldType) {
       case JSON:
         return parserFactory.jsonTextParser(fieldListener);
       case TEXT:
-        return parserFactory.textValueParser(fieldDefn, fieldListener);
+        return parserFactory.textValueParser(fieldDefn.lookahead(), fieldListener);
       default:
-        return parserFactory.valueParser(fieldDefn, fieldListener);
+        return parserFactory.valueParser(fieldDefn.lookahead(), fieldListener);
       }
     }
 
     public ValueListenerFixture makeField(String key, ValueDef valueDef) {
-      return new ValueListenerFixture(valueDef);
+      return new ValueListenerFixture(structParser, valueDef);
     }
 
     public ValueListenerFixture field(String key) {
-      ValueListenerFixture field = fields.get(key);
+      ValueListenerFixture field = fieldParser(key).listener();
       assertNotNull(field);
       return field;
     }
@@ -309,8 +322,11 @@ public class BaseTestJsonParser {
     JsonStructureParserBuilder builder;
     JsonStructureOptions options = new JsonStructureOptions();
     JsonStructureParser parser;
-    ObjectListenerFixture rootObject = new ObjectListenerFixture();
+    ObjectParserFixture rootObject;
     ErrorFactory errorFactory = new ErrorFactoryFixture();
+    Set<String> projectFilter;
+    FieldType fieldType = FieldType.TYPED;
+    ParserFactory parserFactory;
 
     public JsonParserFixture() {
       builder = new JsonStructureParserBuilder();
@@ -319,10 +335,21 @@ public class BaseTestJsonParser {
     public void open(String json) {
       InputStream inStream = new
           ReaderInputStream(new StringReader(json));
+      if (parserFactory == null) {
+        parserFactory = new ParserFactory() {
+          @Override
+          public ObjectParser rootParser(JsonStructureParser parser) {
+            rootObject = new ObjectParserFixture(parser);
+            rootObject.projectFilter = projectFilter;
+            rootObject.fieldType = fieldType;
+            return rootObject;
+          }
+        };
+      }
       builder
           .fromStream(inStream)
           .options(options)
-          .rootListener(rootObject)
+          .parserFactory(parserFactory)
           .errorFactory(errorFactory);
       parser = builder.build();
     }

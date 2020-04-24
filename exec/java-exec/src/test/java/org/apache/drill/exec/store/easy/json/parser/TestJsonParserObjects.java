@@ -47,7 +47,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertEquals(fixture.rootObject.startCount, fixture.rootObject.endCount);
     ValueListenerFixture cust = fixture.field("customer");
     assertNotNull(cust.objectValue);
-    ObjectListenerFixture custObj = cust.objectValue;
+    ObjectParserFixture custObj = cust.objectValue;
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
@@ -76,7 +76,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     ValueListenerFixture cust = fixture.field("customer");
     assertEquals(0, cust.valueCount);
     assertEquals(0, cust.nullCount);
-    ObjectListenerFixture custObj = cust.objectValue;
+    ObjectParserFixture custObj = cust.objectValue;
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
@@ -106,7 +106,6 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     fixture.open(json);
 
     assertTrue(fixture.next());
-    assertEquals(1, fixture.rootObject.fields.size());
 
     assertTrue(fixture.next());
     ValueListenerFixture cust = fixture.field("customer");
@@ -116,7 +115,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
 
     assertTrue(fixture.next());
     assertNotNull(cust.objectValue);
-    ObjectListenerFixture custObj = cust.objectValue;
+    ObjectParserFixture custObj = cust.objectValue;
     assertEquals(1, custObj.startCount);
     assertEquals(custObj.startCount, custObj.endCount);
     ValueListenerFixture name = custObj.field("name");
@@ -141,7 +140,7 @@ public class TestJsonParserObjects extends BaseTestJsonParser {
     assertTrue(fixture.next());
     ValueListenerFixture cust = fixture.field("customer");
     assertNotNull(cust.objectValue);
-    ObjectListenerFixture custObj = cust.objectValue;
+    ObjectParserFixture custObj = cust.objectValue;
     ValueListenerFixture name = custObj.field("name");
     assertEquals("fred", name.lastValue);
 

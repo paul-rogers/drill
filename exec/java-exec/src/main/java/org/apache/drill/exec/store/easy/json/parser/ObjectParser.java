@@ -20,8 +20,7 @@ package org.apache.drill.exec.store.easy.json.parser;
 import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ObjectParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +28,10 @@ import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Parses a JSON object: <code>{ name : value ... }</code>
+ * <p>
+ * The object value may the root object (the row), a top-level
+ * field or may be the element of an array. The event methods are called when
+ * an object is started and ended, as well as when a new field is discovered.
  * <p>
  * Creates a map of known fields. Each time a field is parsed,
  * looks up the field in the map. If not found, the value is "sniffed"
@@ -51,6 +54,19 @@ import com.fasterxml.jackson.core.JsonToken;
  * The listeners decide if the tokens make sense for a particular column.
  * The listener should provide a clear error if a particular token is not
  * valid for a given listener.
+ *
+ * <h4>Fields</h4>
+ *
+ * The structure of an object is:
+ * <ul>
+ * <li>{@code ObjectListener} which represents the object (tuple) as a whole.
+ * Each field, indexed by name, is represented as a</li>
+ * <li>{@code ValueListener} which represents the value "slot". That value
+ * can be scalar, or can be structured, in which case the value listener
+ * contains either a</li>
+ * <li>{@code ArrayListener} for an array, or a</li>
+ * <li>{@code ObjectListener} for a nested object (tuple).</li>
+ * </ul>
  *
  * <h4>Nulls</h4>
  *
@@ -84,31 +100,81 @@ import com.fasterxml.jackson.core.JsonToken;
  * the array is multi-dimensional, there will be multiple array/value
  * parser pairs: one for each dimension.
  */
-public class ObjectParserImpl extends AbstractElementParser implements ObjectParser {
-  protected static final Logger logger = LoggerFactory.getLogger(ObjectParserImpl.class);
+public abstract class ObjectParser extends AbstractElementParser {
+  protected static final Logger logger = LoggerFactory.getLogger(ObjectParser.class);
 
-  private final ObjectListener listener;
   private final Map<String, ElementParser> members = CaseInsensitiveMap.newHashMap();
 
-  public ObjectParserImpl(JsonStructureParser structParser, ObjectListener listener) {
+  public ObjectParser(JsonStructureParser structParser) {
     super(structParser);
-    this.listener = listener;
   }
 
-  public ObjectParserImpl(JsonStructureParser structParser) {
-    super(structParser);
-    this.listener = structParser.rootListener();
+  @VisibleForTesting
+  public ElementParser fieldParser(String key) {
+    return members.get(key);
   }
 
-  @Override
-  public ObjectListener listener() { return listener; }
+  /**
+   * Called at the start of a set of values for an object. That is, called
+   * when the structure parser accepts the <code>{</code> token.
+   */
+  protected void onStart() { }
+
+  /**
+   * The structure parser has just encountered a new field for this
+   * object. This method returns a parser for the field, along with
+   * an optional listener to handle events within the field. THe field typically
+   * uses a value parser create by the {@link FieldParserFactory} class.
+   * However, special cases (such as Mongo extended types) can create a
+   * custom parser.
+   * <p>
+   * If the field is not projected, the method should return a dummy parser
+   * from {@link FieldParserFactory#ignoredFieldParser()}.
+   * The dummy parser will "free-wheel" over whatever values the
+   * field contains. (This is one way to avoid structure errors in a JSON file:
+   * just ignore them.) Otherwise, the parser will look ahead to guess the
+   * field type and will call one of the "add" methods, each of which should
+   * return a value listener for the field itself.
+   * <p>
+   * A normal field will respond to the structure of the JSON file as it
+   * appears. The associated value listener receives events for the
+   * field value. The value listener may be asked to create additional
+   * structure, such as arrays or nested objects.
+   * <p>
+   * Parse position: <code>{ ... field : ^ ?</code> for a newly-seen field.
+   * Constructs a value parser and its listeners by looking ahead
+   * some number of tokens to "sniff" the type of the value. For
+   * example:
+   * <ul>
+   * <li>{@code foo: <value>} - Field value</li>
+   * <li>{@code foo: [ <value> ]} - 1D array value</li>
+   * <li>{@code foo: [ [<value> ] ]} - 2D array value</li>
+   * <li>Etc.</li>
+   * </ul>
+   * <p>
+   * There are two cases in which no type estimation is possible:
+   * <ul>
+   * <li>{@code foo: null}</li>
+   * <li>{@code foo: []}</li>
+   * </ul>
+   *
+   * @param field description of the field, including the field name
+   * @return a parser for the newly-created field
+   */
+  protected abstract ElementParser onField(FieldDefn field);
+
+  /**
+   * Called at the end of a set of values for an object. That is, called
+   * when the structure parser accepts the <code>}</code> token.
+   */
+  protected void onEnd() { }
 
   /**
    * Parses <code>{ ^ ... }</code>
    */
   @Override
   public void parse(TokenIterator tokenizer) {
-    listener.onStart();
+    onStart();
 
     // Parse (field: value)* }
 
@@ -133,7 +199,7 @@ public class ObjectParserImpl extends AbstractElementParser implements ObjectPar
           throw errorFactory().syntaxError(token);
       }
     }
-    listener.onEnd();
+    onEnd();
   }
 
   /**
@@ -171,7 +237,7 @@ public class ObjectParserImpl extends AbstractElementParser implements ObjectPar
       throw errorFactory().structureError(
           "Drill does not allow empty keys in JSON key/value pairs");
     }
-    ElementParser fieldParser = listener.onField(new FieldDefnImpl(tokenizer, key));
+    ElementParser fieldParser = onField(new FieldDefn(this, tokenizer, key));
     if (fieldParser == null) {
       logger.warn("No JSON element parser returned for field {}, assuming unprojected", key);
       return DummyValueParser.INSTANCE;
@@ -180,31 +246,60 @@ public class ObjectParserImpl extends AbstractElementParser implements ObjectPar
     }
   }
 
-  /**
-   * Implementation of the {@link FieldDefn} interface using state
-   * from the object parser class.
-   */
-  public class FieldDefnImpl implements FieldDefn {
+  public void replaceFieldParser(String key, ElementParser fieldParser) {
+    members.put(key, fieldParser);
+  }
 
+  /**
+   * Describes a new field within an object. Allows the listener to control
+   * how to handle the field: as unprojected, parsed as a typed field, as
+   * text, as JSON, or as a custom parser.
+   */
+  public static class FieldDefn {
+
+    private final ObjectParser objectParser;
     private final String key;
     private final TokenIterator tokenizer;
     private ValueDef valueDef;
 
-    private FieldDefnImpl(TokenIterator tokenizer, final String key) {
+    protected FieldDefn(ObjectParser objectParser, TokenIterator tokenizer, final String key) {
+      this.objectParser = objectParser;
       this.key = key;
       this.tokenizer = tokenizer;
     }
 
-    @Override
+    /**
+     * Returns the field name.
+     */
     public String key() { return key; }
 
-    @Override
+    /**
+     * Token stream which allows a custom parser to look ahead
+     * as needed. The caller must "unget" all tokens to leave the
+     * tokenizer at the present location. Note that the underlying
+     * Jackson parser will return text for the last token consumed,
+     * even if tokens are unwound using the token iterator, so do not
+     * look ahead past the first field name or value; on look ahead
+     * over "static" tokens such as object and array start characters.
+     */
     public TokenIterator tokenizer() { return tokenizer; }
 
-    @Override
-    public JsonStructureParser parser() { return structParser; }
+    /**
+     * Returns the parent parser which is needed to construct standard
+     * parsers.
+     */
+    public JsonStructureParser parser() { return objectParser.structParser(); }
 
-    @Override
+    /**
+     * Looks ahead to guess the field type based on JSON tokens.
+     * While this is helpful, it really only works if the JSON
+     * is structured like a list of tuples, if the initial value is not {@code null},
+     * and if initial arrays are not empty. The structure parser cannot see
+     * into the future beyond the first field value; the value listener for each
+     * field must handle "type-deferral" if needed to handle missing or null
+     * values. That is, type-consistency is a semantic task handled by the listener,
+     * not a syntax task handled by the parser.
+     */
     public ValueDef lookahead() {
       if (valueDef == null) {
         valueDef = ValueDefFactory.lookAhead(tokenizer);

@@ -15,22 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.extended;
 
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.store.easy.json.parser.ValueParserImpl;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public abstract class BaseExtendedValueParser extends ValueParserImpl {
+public abstract class BaseExtendedValueParser extends ValueParser {
 
   protected static final String SCALAR_HINT = "{\"%s\": scalar}";
 
   public BaseExtendedValueParser(JsonStructureParser structParser, ScalarListener listener) {
-    super(structParser);
-    this.listener = listener;
+    super(structParser, listener);
   }
 
   protected abstract String typeName();

@@ -17,12 +17,13 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TextValueParser;
-import org.apache.drill.exec.store.easy.json.parser.DynamicValueParser.TypedValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ArrayParser;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.SimpleValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.TextValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ArrayValueParser.LenientArrayValueParser;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFactory;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 
 /**
@@ -67,50 +68,96 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
  */
 public class FieldParserFactory {
 
-  final JsonStructureParser structParser;
+  private final JsonStructureParser structParser;
+  private final ParserFactory parserFactory;
 
-  public FieldParserFactory(JsonStructureParser structParser) {
+  public FieldParserFactory(JsonStructureParser structParser,
+      ParserFactory parserFactory) {
     this.structParser = structParser;
+    this.parserFactory = parserFactory;
   }
 
-  public ValueParser ignoredFieldParser() {
+  public ObjectParser rootParser() {
+    return parserFactory.rootParser(structParser);
+  }
+
+  public ElementParser ignoredFieldParser() {
     return DummyValueParser.INSTANCE;
+  }
+
+  /**
+   * Create a listener when we don't have type information. For the case
+   * {@code null} appears before other values.
+   */
+  public ElementParser parserForUnknown(ObjectParser parent, FieldDefn fieldDefn) {
+    ValueDef valueDef = fieldDefn.lookahead();
+    Preconditions.checkArgument(valueDef.type().isUnknown());
+    if (valueDef.isArray()) {
+      return emptyArrayParser(parent, fieldDefn.key());
+    } else {
+      return nullParser(parent, fieldDefn.key());
+    }
+  }
+
+  public ElementParser nullParser(ObjectParser parent, String key) {
+    return new NullValueParser(parent, key);
+  }
+
+  public ElementParser emptyArrayParser(ObjectParser parent, String key) {
+    return new EmptyArrayParser(parent, key);
   }
 
   public ValueParser jsonTextParser(ValueListener fieldListener) {
     return new JsonValueParser(structParser, fieldListener);
   }
 
-  public ValueParser valueParser(FieldDefn field, ValueListener fieldListener) {
+  public ValueParser valueParser(ValueListener fieldListener) {
     if (structParser.options().allTextMode) {
-      return textValueParser(field, fieldListener);
+      return textValueParser(fieldListener);
     } else {
-      return typedValueParser(field, fieldListener);
+      return simpleValueParser(fieldListener);
     }
   }
 
-  public ValueParser typedValueParser(FieldDefn field, ValueListener fieldListener) {
-    DynamicValueParser fp = new TypedValueParser(structParser, fieldListener);
-    fp.expandStructure(field.lookahead());
+  public ValueParser valueParser(ValueDef valueDef, ValueListener fieldListener) {
+    if (structParser.options().allTextMode) {
+      return textValueParser(valueDef, fieldListener);
+    } else {
+      return simpleValueParser(valueDef, fieldListener);
+    }
+  }
+
+  public ValueParser simpleValueParser(ValueListener fieldListener) {
+    return new SimpleValueParser(structParser, fieldListener);
+  }
+
+  public ValueParser simpleValueParser(ValueDef valueDef, ValueListener fieldListener) {
+    ElementParser fp = new SimpleValueParser(structParser, fieldListener);
+    fp.expandStructure(valueDef);
     return fp;
   }
 
-  public ValueParser textValueParser(FieldDefn field, ValueListener fieldListener) {
-    DynamicValueParser fp = new TextValueParser(structParser);
-    fp.bindListener(fieldListener);
-    fp.expandStructure(field.lookahead());
+  public ValueParser textValueParser(ValueDef valueDef, ValueListener fieldListener) {
+    ElementParser fp = new TextValueParser(structParser, fieldListener);
+    fp.expandStructure(valueDef);
     return fp;
   }
 
-  public ArrayParser arrayParser(ValueParser elementParser, ArrayListener arrayListener) {
-    ArrayParserImpl arrayParser = new ArrayParserImpl(structParser, arrayListener);
-    arrayParser.bindElementParser(elementParser);
-    return arrayParser;
+  public ValueParser textValueParser(ValueListener fieldListener) {
+    return new TextValueParser(structParser, fieldListener);
   }
 
-  public ValueParser arrayValueParser(ArrayParser arrayParser, ValueListener valueListener) {
-    ValueParserImpl valueParser = new TypedValueParser(structParser, valueListener);
-    valueParser.bindArrayParser(arrayParser);
-    return valueParser;
+  public ElementParser scalarArrayValueParser(ArrayListener arrayListener, ElementParser elementParser) {
+    return new LenientArrayValueParser(
+        new ArrayParser(structParser, arrayListener, elementParser));
+  }
+
+  public ElementParser arrayValueParser(ArrayListener arrayListener, ElementParser elementParser) {
+    return new ArrayValueParser(
+        new ArrayParser(structParser, arrayListener, elementParser));
+  }
+
+  public ElementParser objectValueParser(ObjectParser objParser) {
+    return new ObjectValueParser(objParser);
   }
 }

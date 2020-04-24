@@ -17,12 +17,10 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
-
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Represents a JSON object, either a direct object field, or level
+ * Represents a JSON scalar value, either a direct object field, or level
  * within an array. That is:
  * <ul>
  * <li>{@code foo: <value>} - Field value</li>
@@ -31,47 +29,15 @@ import com.fasterxml.jackson.core.JsonToken;
  * <li><code>foo: { ... }</code> - object</li>
  * <li><code>foo: [+ { ... } ]</code> - object array</li>
  * </ul>
- * <p>
- * A value listener appears at each level of an array. The top
- * and inner dimensions will provide an array listener, the bottom
- * level (outermost dimension) will see the value events.
- * <p>
- * A field value can be a scalar, an array or an object.
- * The structured types return a child listener specialized for that
- * type. The parser asks for the structured listener only once, when
- * building the parse tree for that structure. The scalar value
- * methods are called each time a value is parsed. Note that, for
- * any given row, it may be that no method is called if the field
- * does not appear in that record.
- * <p>
- * Object and array listeners are given contextual information when
- * adding fields or elements. JSON allows any value to appear in any
- * context. So, as the parse proceeds, the
- * parser may come across a structure different than the initial hint.
- * For example, the initial value might be null, and the later value
- * might be an array. The initial value might be an integer, but the
- * later value could be an object. It
- * is up to the listener implementation to decide whether to support
- * such structures. The implementation should log a warning, or throw
- * an exception, if it does not support a particular event.
- * <p>
- * JSON is flexible. It could be that the first value seen for an element
- * is {@code null} (or a scalar) and so the parser calls a scalar
- * method on the value listener. Perhaps the next value is an object or
- * an array. The parser focuses only on syntax: the JSON is what it is.
- * The parser simply asks the listener for an array or object listener
- * (then caches the resulting listener). The value listener is responsible
- * for semantics: deciding if it is valid to mix types in a field.
  */
 public interface ValueListener {
 
   /**
-   * Allows the object listener to revise the listener for a field,
-   * such as when a field starts null and resolves to some concrete
-   * type.
+   * Called for a JSON scalar token.
+   *
+   * @param token the scalar token
+   * @param tokenizer provides access to the value of the token
    */
-  void bind(ValueParser parser);
-
   void onValue(JsonToken token, TokenIterator tokenizer);
 
   /**
@@ -81,21 +47,4 @@ public interface ValueListener {
    * @param value the string value of the parsed token or structure
    */
   void onText(String value);
-
-  /**
-   * The parser has encountered a object value for the field for the first
-   * time. That is: <code>foo: {</code>.
-   *
-   * @return an object listener for the object
-   */
-  ObjectListener object();
-
-  /**
-   * The parser has encountered a array value for the first time.
-   *
-   * @param valueDef description of the array dimensions (if
-   * a multi-dimensional array) and type (if known)
-   * @return an array listener for the array
-   */
-  ArrayListener array(ValueDef valueDef);
 }

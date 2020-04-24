@@ -20,6 +20,8 @@ package org.apache.drill.exec.store.easy.json.loader;
 import java.util.function.Function;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -37,10 +39,11 @@ import org.apache.drill.exec.store.easy.json.loader.values.DoubleListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -54,14 +57,14 @@ import jersey.repackaged.com.google.common.base.Preconditions;
  * building column writers and JSON listeners.
  */
 public abstract class BaseFieldFactory implements FieldFactory {
-  protected final TupleListener tupleListener;
+  protected final TupleParser tupleListener;
   protected final FieldFactory child;
 
-  public BaseFieldFactory(TupleListener tupleListener) {
+  public BaseFieldFactory(TupleParser tupleListener) {
     this(tupleListener, null);
   }
 
-  public BaseFieldFactory(TupleListener tupleListener, FieldFactory child) {
+  public BaseFieldFactory(TupleParser tupleListener, FieldFactory child) {
     this.tupleListener = tupleListener;
     this.child = child;
   }
@@ -71,19 +74,25 @@ public abstract class BaseFieldFactory implements FieldFactory {
   }
 
   @Override
-  public ValueParser ignoredFieldParser() {
+  public ElementParser ignoredFieldParser() {
     return parserFactory().ignoredFieldParser();
   }
 
   @Override
-  public ValueListener resolveField(String key, ValueDef valueDef) {
+  public ElementParser resolveField(FieldDefn fieldDefn) {
     Preconditions.checkState(child != null);
-    return child.resolveField(key, valueDef);
+    return child.resolveField(fieldDefn);
   }
 
   protected JsonLoaderImpl loader() { return tupleListener.loader(); }
 
   public TupleWriter writer() { return tupleListener.writer(); }
+
+  protected ElementParser scalarArrayParserFor(ValueParser element) {
+    return parserFactory().scalarArrayValueParser(
+        new ScalarArrayListener(loader()),
+        element);
+  }
 
   /**
    * Create a scalar array column and array listener for the given column
@@ -91,8 +100,8 @@ public abstract class BaseFieldFactory implements FieldFactory {
    */
   protected ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
     return new ScalarArrayValueListener(loader(),
-        new ScalarArrayListener(loader(),
-            scalarListenerFor(colSchema)));
+        new ScalarArrayListener(loader() /*,
+            scalarListenerFor(colSchema) */));
   }
 
   /**
@@ -116,31 +125,36 @@ public abstract class BaseFieldFactory implements FieldFactory {
    * Create a map column and its associated object value listener for the
    * a JSON object value given the value's key.
    */
-  public ObjectValueListener objectListenerFor(String key) {
-    return objectListenerFor(MetadataUtils.newMap(key), null);
+  public ElementParser objectParserFor(String key) {
+    return objectParserFor(MetadataUtils.newMap(key), null);
   }
 
   /**
    * Create a map column and its associated object value listener for the
    * given key and optional provided schema.
    */
-  protected ObjectValueListener objectListenerFor(ColumnMetadata colSchema, TupleMetadata providedSchema) {
-    return new ObjectValueListener(loader(),
-        new TupleListener(loader(), tupleListener.fieldwriterFor(colSchema).tuple(),
+  protected ElementParser objectParserFor(ColumnMetadata colSchema, TupleMetadata providedSchema) {
+    return parserFactory().objectValueParser(
+        new TupleParser(loader(),
+            tupleListener.fieldwriterFor(colSchema).tuple(),
             providedSchema));
   }
 
   /**
-   * Create a map array column and its associated object array listener
+   * Create a map array column and its associated parsers and listeners
    * for the given column schema and optional provided schema.
    */
-  protected ArrayValueListener objectArrayListenerFor(
+  protected ElementParser objectArrayParserFor(
       ColumnMetadata colSchema, TupleMetadata providedSchema) {
     ArrayWriter arrayWriter = tupleListener.fieldwriterFor(colSchema).array();
-    return new ObjectArrayValueListener(loader(),
-        new ObjectArrayListener(loader(), arrayWriter,
-            new ObjectValueListener(loader(),
-                new TupleListener(loader(), arrayWriter.tuple(), providedSchema))));
+    return parserFactory().arrayValueParser(
+        new ObjectArrayListener(loader(), arrayWriter),
+          parserFactory().objectValueParser(
+              new TupleParser(loader(), arrayWriter.tuple(), providedSchema)));
+//    return new ObjectArrayValueListener(loader(),
+//        new ObjectArrayListener(loader(), arrayWriter,
+//            new ObjectValueListener(loader(),
+//                new TupleParser(loader(), arrayWriter.tuple(), providedSchema))));
   }
 
   /**
@@ -213,11 +227,13 @@ public abstract class BaseFieldFactory implements FieldFactory {
    * Create a repeated list listener for a scalar value.
    */
   public static ValueListener multiDimScalarArrayFor(JsonLoaderImpl loader, ObjectWriter writer, int dims) {
-    return buildOuterArrays(loader, writer, dims,
-        innerWriter ->
-          new ScalarArrayListener(loader,
-              scalarListenerFor(loader, innerWriter))
-        );
+//    return buildOuterArrays(loader, writer, dims,
+//        innerWriter ->
+//          new ScalarArrayListener(loader,
+//              scalarListenerFor(loader, innerWriter))
+//        );
+    assert false;
+    return null;
   }
 
   /**
@@ -225,11 +241,13 @@ public abstract class BaseFieldFactory implements FieldFactory {
    */
   public static ValueListener multiDimObjectArrayFor(JsonLoaderImpl loader,
       ObjectWriter writer, int dims, TupleMetadata providedSchema) {
-    return buildOuterArrays(loader, writer, dims,
-        innerWriter ->
-          new ObjectArrayListener(loader, innerWriter.array(),
-              new ObjectValueListener(loader,
-                  new TupleListener(loader, innerWriter.array().tuple(), providedSchema))));
+//    return buildOuterArrays(loader, writer, dims,
+//        innerWriter ->
+//          new ObjectArrayListener(loader, innerWriter.array(),
+//              new ObjectValueListener(loader,
+//                  new TupleParser(loader, innerWriter.array().tuple(), providedSchema))));
+    assert false;
+    return null;
   }
 
   /**
@@ -266,5 +284,32 @@ public abstract class BaseFieldFactory implements FieldFactory {
       ObjectWriter writer) {
     return new RepeatedListValueListener(loader, writer,
         new ListListener(loader, writer.array().entry()));
+  }
+
+  protected DataMode mode(boolean isArray) {
+    return isArray ? DataMode.REPEATED : DataMode.OPTIONAL;
+  }
+
+  protected ColumnMetadata defineScalar(String key,  MinorType type, boolean isArray) {
+    return MetadataUtils.newScalar(key, type, mode(isArray));
+  }
+
+  protected ScalarWriter defineColumn(FieldDefn fieldDefn, MinorType type, boolean isArray) {
+    return defineColumn(defineScalar(fieldDefn.key(), type, isArray));
+  }
+
+  protected ScalarWriter defineColumn(ColumnMetadata colSchema) {
+    ObjectWriter writer = tupleListener.fieldwriterFor(colSchema);
+    return colSchema.isArray() ? writer.array().scalar() : writer.scalar();
+  }
+
+  @Override
+  public ElementParser forceNullResolution(String key) {
+    return child.forceArrayResolution(key);
+  }
+
+  @Override
+  public ElementParser forceArrayResolution(String key) {
+    return child.forceArrayResolution(key);
   }
 }

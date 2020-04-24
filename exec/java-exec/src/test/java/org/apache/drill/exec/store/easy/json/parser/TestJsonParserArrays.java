@@ -296,7 +296,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
 
     // Object for a[] elements
     assertNotNull(aElement.objectValue);
-    ObjectListenerFixture elementObj = aElement.objectValue;
+    ObjectParserFixture elementObj = aElement.objectValue;
     assertEquals(2, elementObj.startCount);
     assertEquals(elementObj.startCount, elementObj.endCount);
 
@@ -356,7 +356,7 @@ public class TestJsonParserArrays extends BaseTestJsonParser {
 
     // Object for a[][] elements
     assertNotNull(innerElement.objectValue);
-    ObjectListenerFixture elementObj = innerElement.objectValue;
+    ObjectParserFixture elementObj = innerElement.objectValue;
     assertEquals(4, elementObj.startCount);
     assertEquals(elementObj.startCount, elementObj.endCount);
 

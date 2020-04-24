@@ -19,11 +19,7 @@ package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -40,9 +36,6 @@ public abstract class AbstractValueListener implements ValueListener {
   }
 
   @Override
-  public void bind(ValueParser parser) { }
-
-  @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
     throw typeConversionError(token.name());
   }
@@ -50,16 +43,6 @@ public abstract class AbstractValueListener implements ValueListener {
   @Override
   public void onText(String value) {
     throw typeConversionError("text");
-  }
-
-  @Override
-  public ObjectListener object() {
-    throw typeConversionError("object");
-  }
-
-  @Override
-  public ArrayListener array(ValueDef valueDef) {
-    throw loader.typeConversionError(schema(), valueDef);
   }
 
   protected UserException typeConversionError(String jsonType) {

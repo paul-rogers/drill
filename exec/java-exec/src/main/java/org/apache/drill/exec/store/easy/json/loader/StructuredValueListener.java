@@ -21,7 +21,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
@@ -107,15 +107,15 @@ public abstract class StructuredValueListener extends AbstractValueListener {
    */
   public static class ObjectValueListener extends StructuredValueListener {
 
-    private final TupleListener tupleListener;
+    private final TupleParser tupleListener;
 
-    public ObjectValueListener(JsonLoaderImpl loader, TupleListener tupleListener) {
+    public ObjectValueListener(JsonLoaderImpl loader, TupleParser tupleListener) {
       super(loader);
       this.tupleListener = tupleListener;
     }
 
     @Override
-    public ObjectListener object() {
+    public ObjectParser object() {
       return tupleListener;
     }
 
@@ -133,7 +133,7 @@ public abstract class StructuredValueListener extends AbstractValueListener {
     public ObjectArrayValueListener(JsonLoaderImpl loader,
         ObjectArrayListener arrayListener) {
       super(loader, arrayListener);
-     }
+    }
 
     @Override
     public ArrayListener array(ValueDef valueDef) {

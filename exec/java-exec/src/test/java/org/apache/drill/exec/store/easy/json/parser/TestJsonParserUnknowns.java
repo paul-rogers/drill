@@ -19,8 +19,6 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -29,134 +27,28 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import com.fasterxml.jackson.core.JsonToken;
-
 @Category(JsonTest.class)
 public class TestJsonParserUnknowns extends BaseTestJsonParser {
-
-  /**
-   * Test replacing a value lister "in-flight". Handles the
-   * (simulated) case where the initial value is ambiguous (here, null),
-   * and a later token resolves the value to something concrete.
-   */
-  @Test
-  public void testReplaceListener() {
-    final String json = "{a: null} {a: true} {a: false}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.open(json);
-    assertTrue(fixture.next());
-    assertEquals(1, fixture.rootObject.startCount);
-    assertEquals(1, fixture.rootObject.fields.size());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.NULL, a.valueDef.type());
-    assertEquals(0, a.valueDef.dimensions());
-    assertEquals(1, a.nullCount);
-
-    // Replace the listener with a new one
-    ValueListenerFixture a2 = new ValueListenerFixture(new ValueDef(JsonType.BOOLEAN, a.valueDef.dimensions()));
-    a.host.bindListener(a2);
-    assertSame(a.host, a2.host);
-
-    assertTrue(fixture.next());
-    assertEquals(Boolean.TRUE, a2.lastValue);
-    assertTrue(fixture.next());
-    assertEquals(0, a2.nullCount);
-    assertEquals(Boolean.FALSE, a2.lastValue);
-    fixture.close();
-  }
-
-  private static class SwapperElementFixture extends ValueListenerFixture {
-
-    private final SwapperListenerFixture parent;
-
-    public SwapperElementFixture(SwapperListenerFixture parent, ValueDef valueDef) {
-      super(valueDef);
-      this.parent = parent;
-    }
-
-    @Override
-    public void onValue(JsonToken token, TokenIterator tokenizer) {
-      if (token == JsonToken.VALUE_NULL) {
-        super.onValue(token, tokenizer);
-      } else {
-        parent.replace().arrayValue.element.onValue(token, tokenizer);
-      }
-    }
-  }
-
-  private static class SwapperListenerFixture extends ValueListenerFixture {
-
-    private final ObjectListenerFixture parent;
-    private final String key;
-
-    public SwapperListenerFixture(ObjectListenerFixture parent,
-        String key, ValueDef valueDef) {
-      super(valueDef);
-      this.parent = parent;
-      this.key = key;
-    }
-
-    @Override
-    public void onValue(JsonToken token, TokenIterator tokenizer) {
-      if (token == JsonToken.VALUE_NULL) {
-        super.onValue(token, tokenizer);
-      } else {
-        replace().onValue(token, tokenizer);
-      }
-    }
-
-    @Override
-    public ObjectListener object() {
-      return replace().object();
-    }
-
-    @Override
-    public ArrayListener array(ValueDef valueDef) {
-      if (valueDef.type() == JsonType.EMPTY) {
-        super.array(valueDef);
-        arrayValue.element = new SwapperElementFixture(this, ValueDef.UNKNOWN);
-        return arrayValue;
-      } else {
-        return replace().array(valueDef);
-      }
-    }
-
-    private ValueListenerFixture replace() {
-      return replaceWith(new ValueListenerFixture(valueDef));
-    }
-
-    private ValueListenerFixture replaceWith(ValueListenerFixture newListener) {
-      parent.fields.put(key, newListener);
-      host.bindListener(newListener);
-      return newListener;
-    }
-  }
 
   @Test
   public void testNullToScalar() {
     final String json =
-        "{a: null} {a: 2} {a: 3}";
+        "{a: null} {a: null} {a: 2} {a: 3}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject = new ObjectListenerFixture() {
-      @Override
-      public ValueListenerFixture makeField(String key, ValueDef valueDef) {
-        return new SwapperListenerFixture(this, key, valueDef);
-      }
-    };
     fixture.open(json);
 
     // {a: null}
     assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.NULL, a.valueDef.type());
-    assertEquals(0, a.valueDef.dimensions());
-    assertNull(a.arrayValue);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof NullValueParser);
+
+    // {a: null} - still null
+    assertTrue(fixture.next());
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof NullValueParser);
 
     // See a scalar, can revise estimate of field type
     // {a: 2}
     assertTrue(fixture.next());
     ValueListenerFixture a2 = fixture.field("a");
-    assertNotSame(a, a2);
     assertEquals(2L, a2.lastValue);
     assertEquals(0, a2.nullCount);
     assertEquals(1, a2.valueCount);
@@ -172,26 +64,17 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     final String json =
         "{a: null} {a: {}} {a: {b: 3}}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject = new ObjectListenerFixture() {
-      @Override
-      public ValueListenerFixture makeField(String key, ValueDef valueDef) {
-        return new SwapperListenerFixture(this, key, valueDef);
-      }
-    };
     fixture.open(json);
 
     // {a: null}
     assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof NullValueParser);
 
     // See an object, can revise estimate of field type
     // {a: {}}
     assertTrue(fixture.next());
     ValueListenerFixture a2 = fixture.field("a");
-    assertNotSame(a, a2);
     assertNotNull(a2.objectValue);
-    assertTrue(a2.objectValue.fields.isEmpty());
 
     assertTrue(fixture.next());
     ValueListenerFixture b = a2.objectValue.field("b");
@@ -205,39 +88,28 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     final String json =
         "{a: null} {a: []} {a: []} {a: [10, 20]} {a: [30, 40]}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject = new ObjectListenerFixture() {
-      @Override
-      public ValueListenerFixture makeField(String key, ValueDef valueDef) {
-        return new SwapperListenerFixture(this, key, valueDef);
-      }
-    };
     fixture.open(json);
 
     // {a: null}
     assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof NullValueParser);
 
     // See an empty array, can revise estimate of field type
     // {a: []}
     assertTrue(fixture.next());
-    assertSame(a, fixture.field("a"));
-    assertEquals(1, a.arrayValue.startCount);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof EmptyArrayParser);
 
     // Ensure things are stable
     // {a: []}
     assertTrue(fixture.next());
-    assertSame(a, fixture.field("a"));
-    assertEquals(2, a.arrayValue.startCount);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof EmptyArrayParser);
 
     // Revise again once we see element type
     // {a: [10, 20]}
     assertTrue(fixture.next());
     ValueListenerFixture a2 = fixture.field("a");
-    assertNotSame(a, a2);
-    assertEquals(3, a.arrayValue.startCount); // Start on old listener
-    assertEquals(0, a2.arrayValue.startCount);
-    assertEquals(1, a2.arrayValue.endCount); // End on new one
+    assertEquals(1, a2.arrayValue.startCount);
+    assertEquals(1, a2.arrayValue.endCount);
     assertEquals(2, a2.arrayValue.element.valueCount);
     assertEquals(20L, a2.arrayValue.element.lastValue);
 
@@ -245,7 +117,7 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     // {a: [30, 40]}
     assertTrue(fixture.next());
     assertSame(a2, fixture.field("a"));
-    assertEquals(1, a2.arrayValue.startCount);
+    assertEquals(2, a2.arrayValue.startCount);
     assertEquals(4, a2.arrayValue.element.valueCount);
     assertEquals(40L, a2.arrayValue.element.lastValue);
 
@@ -261,24 +133,16 @@ public class TestJsonParserUnknowns extends BaseTestJsonParser {
     final String json =
         "{a: null} {a: [10, 20]} {a: [30, 40]}";
     JsonParserFixture fixture = new JsonParserFixture();
-    fixture.rootObject = new ObjectListenerFixture() {
-      @Override
-      public ValueListenerFixture makeField(String key, ValueDef valueDef) {
-        return new SwapperListenerFixture(this, key, valueDef);
-      }
-    };
     fixture.open(json);
 
     // {a: null}
     assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(1, a.nullCount);
+    assertTrue(fixture.rootObject.fieldParser("a") instanceof NullValueParser);
 
     // See a typed empty array, can revise estimate of field type
     // {a: [10, 20]}
     assertTrue(fixture.next());
     ValueListenerFixture a2 = fixture.field("a");
-    assertNotSame(a, a2);
     assertEquals(1, a2.arrayValue.startCount);
     assertEquals(1, a2.arrayValue.startCount);
     assertEquals(JsonType.INTEGER, a2.arrayValue.valueDef.type());

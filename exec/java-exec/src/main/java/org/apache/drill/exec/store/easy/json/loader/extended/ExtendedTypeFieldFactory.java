@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.mongo;
+package org.apache.drill.exec.store.easy.json.loader.extended;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -25,7 +25,7 @@ import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.Scalar
 import org.apache.drill.exec.store.easy.json.loader.BaseFieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.FieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.TupleListener;
+import org.apache.drill.exec.store.easy.json.loader.TupleParser;
 import org.apache.drill.exec.store.easy.json.loader.values.BinaryValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.DateValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.DecimalValueListener;
@@ -36,10 +36,11 @@ import org.apache.drill.exec.store.easy.json.loader.values.StrictIntValueListene
 import org.apache.drill.exec.store.easy.json.loader.values.StrictStringValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
-import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
+import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
@@ -47,13 +48,13 @@ import com.fasterxml.jackson.core.JsonToken;
 
 public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
-  public ExtendedTypeFieldFactory(TupleListener tupleListener, FieldFactory child) {
+  public ExtendedTypeFieldFactory(TupleParser tupleListener, FieldFactory child) {
     super(tupleListener, child);
   }
 
   @Override
-  public ValueParser addField(FieldDefn fieldDefn) {
-    ValueParser parser = buildExtendedTypeParser(fieldDefn);
+  public ElementParser addField(FieldDefn fieldDefn) {
+    ElementParser parser = buildExtendedTypeParser(fieldDefn);
     if (parser == null) {
       return child.addField(fieldDefn);
     } else {
@@ -61,13 +62,13 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     }
   }
 
-  private ValueParser buildExtendedTypeParser(FieldDefn fieldDefn) {
+  private ElementParser buildExtendedTypeParser(FieldDefn fieldDefn) {
 
     // Extended types are objects: { "$type": ... }
     // Extended arrays are [ { "$type": ...
     TokenIterator tokenizer = fieldDefn.tokenizer();
     JsonToken token = tokenizer.requireNext();
-    ValueParser parser;
+    ElementParser parser;
     switch (token) {
       case START_OBJECT:
         parser = extendedTypeParserFor(fieldDefn, false);
@@ -82,7 +83,7 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     return parser;
   }
 
-  private ValueParser arrayParserFor(FieldDefn fieldDefn) {
+  private ElementParser arrayParserFor(FieldDefn fieldDefn) {
     TokenIterator tokenizer = fieldDefn.tokenizer();
     JsonToken token = tokenizer.requireNext();
     if (token != JsonToken.START_OBJECT) {
@@ -96,20 +97,7 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
       return null;
     }
 
-    return arrayParserForElement(element);
-  }
-
-  private ValueParser arrayParserForElement(ValueParser element) {
-    FieldParserFactory parserFactory = parserFactory();
-
-    // In the normal case, we discover the array and its element as we read.
-    // Here, we know that we have an array, and we know the parsers and
-    // listeners to use.
-    ScalarArrayListener arrayListener = new ScalarArrayListener(
-        loader(), (ScalarListener) element.listener());
-    return parserFactory.arrayValueParser(
-        parserFactory.arrayParser(element, arrayListener),
-        new ScalarArrayValueListener(loader(), arrayListener));
+    return scalarArrayParserFor(element);
   }
 
   private BaseExtendedValueParser extendedTypeParserFor(FieldDefn fieldDefn, boolean isArray) {
@@ -221,18 +209,5 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
         fieldDefn.parser(), ExtendedTypeNames.INTERVAL,
         new IntervalValueListener(loader(),
             defineColumn(fieldDefn, MinorType.INTERVAL, isArray)));
-  }
-
-  protected DataMode mode(boolean isArray) {
-    return isArray ? DataMode.REPEATED : DataMode.OPTIONAL;
-  }
-
-  protected ScalarWriter defineColumn(FieldDefn fieldDefn, MinorType type, boolean isArray) {
-    return defineColumn(MetadataUtils.newScalar(fieldDefn.key(), type, mode(isArray)));
-  }
-
-  protected ScalarWriter defineColumn(ColumnMetadata colSchema) {
-    ObjectWriter writer = tupleListener.fieldwriterFor(colSchema);
-    return colSchema.isArray() ? writer.array().scalar() : writer.scalar();
   }
 }

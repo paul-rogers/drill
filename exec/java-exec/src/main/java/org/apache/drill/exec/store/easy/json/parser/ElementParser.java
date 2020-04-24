@@ -34,24 +34,4 @@ package org.apache.drill.exec.store.easy.json.parser;
  */
 public interface ElementParser {
   void parse(TokenIterator tokenizer);
-
-  public interface ArrayParser extends ElementParser {
-    void bindElementParser(ValueParser elementParser);
-    ValueParser elementParser();
-    void bindListener(ArrayListener listener);
-    <T extends ArrayListener> T listener();
-  }
-
-  public interface ValueParser extends ElementParser {
-    void bindListener(ValueListener listener);
-    <T extends ValueListener> T listener();
-    void bindArrayParser(ArrayParser arrayParser);
-    ArrayParser arrayParser();
-    void bindObjectParser(ObjectParser objectParser);
-    ObjectParser objectParser();
-  }
-
-  public interface ObjectParser extends ElementParser {
-    ObjectListener listener();
-  }
 }
