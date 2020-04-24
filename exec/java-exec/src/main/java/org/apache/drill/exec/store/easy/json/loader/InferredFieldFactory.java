@@ -23,7 +23,9 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
+import org.apache.drill.exec.store.easy.json.parser.ElementParser.ArrayParser;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser.ValueParser;
+import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.ObjectListener.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
@@ -45,25 +47,33 @@ public class InferredFieldFactory extends BaseFieldFactory {
    */
   @Override
   public ValueParser addField(FieldDefn fieldDefn) {
-    return parserFactory().valueParser(fieldDefn, listenerFor(fieldDefn));
-  }
-
-  private ValueListener listenerFor(FieldDefn fieldDefn) {
     String key = fieldDefn.key();
     ValueDef valueDef = fieldDefn.lookahead();
     if (valueDef.type().isUnknown()) {
-      return listenerForUnknown(key, valueDef);
+      return parserForUnknown(fieldDefn);
     } else {
-      return resolveField(key, valueDef);
+      return parserFactory().valueParser(fieldDefn, resolveField(key, valueDef));
     }
   }
 
-  private ValueListener listenerForUnknown(String key, ValueDef valueDef) {
-    Preconditions.checkArgument(valueDef.type().isUnknown());
+  /**
+   * Create a listener when we don't have type information. For the case
+   * {@code null} appears before other values.
+   */
+  private ValueParser parserForUnknown(FieldDefn fieldDefn) {
+    FieldParserFactory parserFactory = parserFactory();
+    ValueDef valueDef = fieldDefn.lookahead();
+    UnknownFieldListener fieldListener = new UnknownFieldListener(tupleListener, fieldDefn.key());
     if (valueDef.isArray()) {
-      return unknownArrayListenerFor(key, valueDef);
+
+      // For the case [] appears before other values.
+      ArrayParser arrayParser = parserFactory.arrayParser(null,
+          fieldListener.becomeArray());
+      return parserFactory.arrayValueParser(arrayParser, fieldListener);
     } else {
-      return unknownListenerFor(key);
+
+      // For the case null appears before other values.
+      return parserFactory.typedValueParser(fieldDefn, fieldListener);
     }
   }
 
@@ -89,24 +99,6 @@ public class InferredFieldFactory extends BaseFieldFactory {
         return multiDimScalarArrayListenerForValue(key, valueDef);
       }
     }
-  }
-
-  /**
-   * Create a listener when we don't have type information. For the case
-   * {@code null} appears before other values.
-   */
-  private ValueListener unknownListenerFor(String key) {
-    return new UnknownFieldListener(tupleListener, key);
-  }
-
-  /**
-   * Create a listener when we don't have type information. For the case
-   * {@code []} appears before other values.
-   */
-  private ValueListener unknownArrayListenerFor(String key, ValueDef valueDef) {
-    UnknownFieldListener fieldListener = new UnknownFieldListener(tupleListener, key);
-    fieldListener.array(valueDef);
-    return fieldListener;
   }
 
   /**

@@ -67,6 +67,13 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
     loader.addNullMarker(this);
   }
 
+  public ArrayListener becomeArray() {
+    if (unknownArray == null) {
+      unknownArray = new UnknownArrayListener(this);
+    }
+    return unknownArray;
+  }
+
   @Override
   public void bind(ValueParser host) {
     this.host = host;
@@ -108,11 +115,9 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
 
       // if 2D+ array, then we know enough to choose a Repeated list
       return resolveToArray(valueDef).array(valueDef);
+    } else {
+      return becomeArray();
     }
-    if (unknownArray == null) {
-      unknownArray = new UnknownArrayListener(this);
-    }
-    return unknownArray;
   }
 
   protected ValueListener resolveTo(ValueListener newListener) {
@@ -151,7 +156,7 @@ public class UnknownFieldListener extends AbstractValueListener implements NullT
    * This array listener holds no element since none has been
    * created yet; we use this only while we see empty arrays.
    */
-  public static class UnknownArrayListener implements ArrayListener {
+  private static class UnknownArrayListener implements ArrayListener {
 
     private final UnknownFieldListener parent;
 
