@@ -39,6 +39,7 @@ import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFa
 import org.apache.drill.exec.store.easy.json.parser.MessageParser;
 import org.apache.drill.exec.store.easy.json.parser.MessageParser.MessageContextException;
 import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator.RecoverableJsonException;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
@@ -144,6 +145,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     private CustomErrorContext errorContext;
     private InputStream stream;
     private Reader reader;
+    private String dataPath;
     private MessageParser messageParser;
 
     public JsonLoaderBuilder resultSetLoader(ResultSetLoader rsLoader) {
@@ -183,6 +185,11 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
     public JsonLoaderBuilder messageParser(MessageParser messageParser) {
       this.messageParser = messageParser;
+      return this;
+    }
+
+    public JsonLoaderBuilder dataPath(String dataPath) {
+      this.dataPath = dataPath;
       return this;
     }
 
@@ -242,6 +249,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
             })
             .errorFactory(this)
             .messageParser(builder.messageParser)
+            .dataPath(builder.dataPath)
             .build();
   }
 
@@ -337,9 +345,13 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
   @Override // ErrorFactory
   public RuntimeException structureError(String msg) {
-    throw buildError(
-        UserException.dataReadError()
-          .message(msg));
+    if (options.skipMalformedRecords) {
+      throw new RecoverableJsonException();
+    } else {
+      throw buildError(
+          UserException.dataReadError()
+            .message(msg));
+    }
   }
 
   @Override // ErrorFactory
@@ -359,9 +371,13 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
   @Override // ErrorFactory
   public RuntimeException syntaxError(JsonToken token) {
-    throw buildError(
-        UserException.dataReadError()
-          .message("Syntax error on token", token.toString()));
+    if (options.skipMalformedRecords) {
+      throw new RecoverableJsonException();
+    } else {
+      throw buildError(
+          UserException.dataReadError()
+            .message("Syntax error on token", token.toString()));
+    }
   }
 
   @Override // ErrorFactory
@@ -383,7 +399,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     return typeConversionError(schema, buf.toString());
   }
 
-  protected UserException typeConversionError(ColumnMetadata schema, String tokenType) {
+  public UserException typeConversionError(ColumnMetadata schema, String tokenType) {
     return buildError(schema,
         UserException.dataReadError()
           .message("Type of JSON token is not compatible with its column")
@@ -436,12 +452,16 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
 
   protected UserException buildError(UserException.Builder builder) {
     builder
-      .addContext(errorContext)
-      .addContext("Line", parser.lineNumber())
-      .addContext("Position", parser.columnNumber());
-    String token = parser.token();
-    if (token != null) {
-      builder.addContext("Near token", token);
+      .addContext(errorContext);
+    if (parser != null) {
+      // Parser is not set during bootstrap to find the start of data
+      builder
+        .addContext("Line", parser.lineNumber())
+        .addContext("Position", parser.columnNumber());
+      String token = parser.token();
+      if (token != null) {
+        builder.addContext("Near token", token);
+      }
     }
     return builder.build(logger);
   }

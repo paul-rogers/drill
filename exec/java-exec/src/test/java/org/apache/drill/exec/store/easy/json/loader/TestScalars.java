@@ -127,7 +127,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -255,7 +255,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -390,7 +390,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.jsonOptions.allowNanInf = true;
     loader.open(json);
     RowSet results = loader.next();
@@ -504,7 +504,7 @@ public class TestScalars extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);

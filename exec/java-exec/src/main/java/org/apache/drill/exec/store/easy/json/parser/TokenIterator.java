@@ -34,7 +34,7 @@ public class TokenIterator {
    * error is detected within a record. Allows for recovery.
    */
   @SuppressWarnings("serial")
-  class RecoverableJsonException extends RuntimeException {
+  public static class RecoverableJsonException extends RuntimeException {
   }
 
   private final JsonParser parser;

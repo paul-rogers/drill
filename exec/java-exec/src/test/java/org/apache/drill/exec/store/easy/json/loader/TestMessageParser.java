@@ -15,22 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.parser;
+package org.apache.drill.exec.store.easy.json.loader;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.JsonTest;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.rowSet.RowSet;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.parser.MessageParser;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-@Category(JsonTest.class)
-public class TestJsonParserMessage extends BaseTestJsonParser {
+public class TestMessageParser extends BaseJsonLoaderTest {
 
   /**
    * Example message parser. A real parser would provide much better
@@ -65,17 +70,23 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
   public void testMessageParser() {
     final String json =
         "{ status: \"ok\", data: [{a: 0}, {a: 100}, {a: null}]}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.messageParser(new MessageParserFixture());
-    fixture.open(json);
-    assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertTrue(fixture.next());
-    assertEquals(100L, a.lastValue);
-    assertEquals(1, fixture.read());
-    assertEquals(1, a.nullCount);
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.messageParser(new MessageParserFixture());
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+         .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(0)
+        .addRow(100)
+        .addSingleCol(null)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
   }
 
   /**
@@ -86,28 +97,34 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
   public void testMessageParserEOF() {
     final String json =
         "{ status: \"fail\", data: [{a: 0}, {a: 100}, {a: null}]}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.messageParser(new MessageParserFixture());
-    fixture.open(json);
-    assertFalse(fixture.next());
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.messageParser(new MessageParserFixture());
+    loader.open(json);
+    assertNull(loader.next());
+    loader.close();
   }
 
   @Test
   public void testDataPath() {
     final String json =
         "{ status: \"ok\", data: [{a: 0}, {a: 100}, {a: null}]}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.dataPath("data");
-    fixture.open(json);
-    assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertTrue(fixture.next());
-    assertEquals(100L, a.lastValue);
-    assertEquals(1, fixture.read());
-    assertEquals(1, a.nullCount);
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.dataPath("data");
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+         .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(0)
+        .addRow(100)
+        .addSingleCol(null)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
   }
 
   @Test
@@ -117,69 +134,73 @@ public class TestJsonParserMessage extends BaseTestJsonParser {
         "  response: { rowCount: 1,\n" +
         "    data: [{a: 0}, {a: 100}, {a: null}]},\n" +
         "  footer: \"some stuff\"}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.dataPath("response/data");
-    fixture.open(json);
-    assertTrue(fixture.next());
-    ValueListenerFixture a = fixture.field("a");
-    assertEquals(JsonType.INTEGER, a.valueDef.type());
-    assertTrue(fixture.next());
-    assertEquals(100L, a.lastValue);
-    assertEquals(1, fixture.read());
-    assertEquals(1, a.nullCount);
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.dataPath("response/data");
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+         .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(0)
+        .addRow(100)
+        .addSingleCol(null)
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
   }
 
   @Test
   public void testDataPathNull() {
     final String json =
         "{ status: \"fail\", data: null}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.messageParser(new MessageParserFixture());
-    fixture.open(json);
-    assertFalse(fixture.next());
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.messageParser(new MessageParserFixture());
+    loader.open(json);
+    assertNull(loader.next());
+    loader.close();
   }
 
   @Test
   public void testDataPathMissing() {
     final String json =
         "{ status: \"fail\"}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.messageParser(new MessageParserFixture());
-    fixture.open(json);
-    assertFalse(fixture.next());
-    fixture.close();
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.messageParser(new MessageParserFixture());
+    loader.open(json);
+    assertNull(loader.next());
+    loader.close();
   }
 
   @Test
   public void testDataPathErrorRoot() {
     final String json = "\"Bogus!\"";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.dataPath("data");
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.dataPath("data");
     try {
-      fixture.open(json);
+      loader.open(json);
       fail();
-    } catch (JsonErrorFixture e) {
-      assertTrue(e.errorType.equals("messageParseError"));
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("Syntax error"));
       assertTrue(e.getCause() instanceof MessageParser.MessageContextException);
     }
-    fixture.close();
   }
 
   @Test
   public void testDataPathErrorLeaf() {
     final String json =
         "{ status: \"bogus\", data: { notValid: \"must be array\"}}";
-    JsonParserFixture fixture = new JsonParserFixture();
-    fixture.builder.dataPath("data");
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.builder.dataPath("data");
     try {
-      fixture.open(json);
+      loader.open(json);
       fail();
-    } catch (JsonErrorFixture e) {
-      assertTrue(e.errorType.equals("messageParseError"));
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains("Syntax error"));
       assertTrue(e.getCause() instanceof MessageParser.MessageContextException);
     }
-    fixture.close();
   }
 }

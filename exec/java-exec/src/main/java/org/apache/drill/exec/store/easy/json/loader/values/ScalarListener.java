@@ -19,27 +19,40 @@ package org.apache.drill.exec.store.easy.json.loader.values;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.store.easy.json.loader.AbstractValueListener;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
+
+import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * Base class for scalar field listeners
  */
-public abstract class ScalarListener extends AbstractValueListener {
+public abstract class ScalarListener implements ValueListener {
 
+  protected final JsonLoaderImpl loader;
   protected final ScalarWriter writer;
   protected final boolean isArray;
 
   public ScalarListener(JsonLoaderImpl loader, ScalarWriter writer) {
-    super(loader);
+    this.loader = loader;
     this.writer = writer;
     isArray = writer.schema().isArray();
   }
 
-  @Override
   public ColumnMetadata schema() { return writer.schema(); }
+
+  @Override
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    throw typeConversionError(token.name());
+  }
+
+  @Override
+  public void onText(String value) {
+    throw typeConversionError("text");
+  }
 
   protected void setNull() {
     try {
@@ -58,5 +71,9 @@ public abstract class ScalarListener extends AbstractValueListener {
   protected void setArrayNull() {
     // Default is no "natural" null value
     throw loader.nullDisallowedError(schema());
+  }
+
+  protected UserException typeConversionError(String jsonType) {
+    return loader.typeConversionError(schema(), jsonType);
   }
 }

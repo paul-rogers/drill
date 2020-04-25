@@ -110,7 +110,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .addArray("a", MinorType.BIT)
         .build();
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -217,7 +217,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -295,7 +295,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -373,7 +373,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);

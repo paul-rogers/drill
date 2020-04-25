@@ -230,7 +230,7 @@ public class JsonStructureParser {
         return rootState.parseRoot(tokenizer);
       } catch (RecoverableJsonException e) {
         if (! recover()) {
-          return false;
+          throw errorFactory().structureError("Unrecoverable error - " + e.getMessage());
         }
       }
     }

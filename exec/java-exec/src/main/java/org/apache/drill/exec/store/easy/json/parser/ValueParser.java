@@ -42,7 +42,4 @@ public abstract class ValueParser extends AbstractElementParser {
     super(structParser);
     this.listener = listener;;
   }
-
-   @SuppressWarnings("unchecked")
-  public <T extends ValueListener> T listener() { return (T) listener; }
 }

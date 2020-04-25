@@ -98,7 +98,7 @@ public class TestObjects extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -136,7 +136,7 @@ public class TestObjects extends BaseJsonLoaderTest {
     m.setProperty(JsonLoader.JSON_MODE, JsonLoader.JSON_LITERAL_MODE);
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -225,7 +225,7 @@ public class TestObjects extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
@@ -270,7 +270,7 @@ public class TestObjects extends BaseJsonLoaderTest {
         .build();
 
     JsonLoaderFixture loader = new JsonLoaderFixture();
-    loader.providedSchema = schema;
+    loader.builder.providedSchema(schema);
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);
