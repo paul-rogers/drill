@@ -20,8 +20,6 @@ package org.apache.drill.exec.store.easy.json.loader;
 import java.util.function.Function;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -30,17 +28,21 @@ import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.Scalar
 import org.apache.drill.exec.store.easy.json.loader.RepeatedListValueListener.RepeatedArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.RepeatedListValueListener.RepeatedListElementListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.BigIntListener;
+import org.apache.drill.exec.store.easy.json.loader.values.BinaryValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.BooleanListener;
+import org.apache.drill.exec.store.easy.json.loader.values.DateValueListener;
+import org.apache.drill.exec.store.easy.json.loader.values.DecimalValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.DoubleListener;
+import org.apache.drill.exec.store.easy.json.loader.values.IntervalValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
+import org.apache.drill.exec.store.easy.json.loader.values.StrictIntValueListener;
+import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
+import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
@@ -50,22 +52,21 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
-import jersey.repackaged.com.google.common.base.Preconditions;
-
 /**
  * Base field factor class which handles the common tasks for
  * building column writers and JSON listeners.
  */
 public abstract class BaseFieldFactory implements FieldFactory {
-  protected final TupleParser tupleListener;
+
+  protected final JsonLoaderImpl loader;
   protected final FieldFactory child;
 
-  public BaseFieldFactory(TupleParser tupleListener) {
-    this(tupleListener, null);
+  public BaseFieldFactory(JsonLoaderImpl loader) {
+    this(loader, null);
   }
 
-  public BaseFieldFactory(TupleParser tupleListener, FieldFactory child) {
-    this.tupleListener = tupleListener;
+  public BaseFieldFactory(JsonLoaderImpl loader, FieldFactory child) {
+    this.loader = loader;
     this.child = child;
   }
 
@@ -78,15 +79,12 @@ public abstract class BaseFieldFactory implements FieldFactory {
     return parserFactory().ignoredFieldParser();
   }
 
-  @Override
-  public ElementParser resolveField(FieldDefn fieldDefn) {
-    Preconditions.checkState(child != null);
-    return child.resolveField(fieldDefn);
+  protected JsonLoaderImpl loader() { return loader; }
+
+  public ValueParser scalarParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
+    return parserFactory().valueParser(
+        scalarListenerFor(fieldDefn, colSchema));
   }
-
-  protected JsonLoaderImpl loader() { return tupleListener.loader(); }
-
-  public TupleWriter writer() { return tupleListener.writer(); }
 
   protected ElementParser scalarArrayParserFor(ValueParser element) {
     return parserFactory().scalarArrayValueParser(
@@ -95,49 +93,29 @@ public abstract class BaseFieldFactory implements FieldFactory {
   }
 
   /**
-   * Create a scalar array column and array listener for the given column
-   * schema.
-   */
-  protected ArrayValueListener scalarArrayListenerFor(ColumnMetadata colSchema) {
-    return new ScalarArrayValueListener(loader(),
-        new ScalarArrayListener(loader() /*,
-            scalarListenerFor(colSchema) */));
-  }
-
-  /**
    * Create a scalar column and listener given the column schema.
    */
-  public ScalarListener scalarListenerFor(ColumnMetadata colSchema) {
-    return scalarListenerFor(loader(),
-        tupleListener.fieldwriterFor(colSchema));
-  }
-
-  /**
-   * Create a multi- (2+) dimensional scalar array from a column schema and dimension
-   * count hint.
-   */
-  protected ValueListener multiDimScalarArrayListenerFor(ColumnMetadata colSchema, int dims) {
-    return multiDimScalarArrayFor(loader(),
-        tupleListener.fieldwriterFor(colSchema), dims);
+  public ScalarListener scalarListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
+    return scalarListenerFor(loader(), fieldDefn.scalarWriterFor(colSchema));
   }
 
   /**
    * Create a map column and its associated object value listener for the
    * a JSON object value given the value's key.
    */
-  public ElementParser objectParserFor(String key) {
-    return objectParserFor(MetadataUtils.newMap(key), null);
+  public ElementParser objectParserFor(FieldDefn fieldDefn) {
+    return objectParserFor(fieldDefn, MetadataUtils.newMap(fieldDefn.key()), null);
   }
 
   /**
    * Create a map column and its associated object value listener for the
    * given key and optional provided schema.
    */
-  protected ElementParser objectParserFor(ColumnMetadata colSchema, TupleMetadata providedSchema) {
-    return parserFactory().objectValueParser(
-        new TupleParser(loader(),
-            tupleListener.fieldwriterFor(colSchema).tuple(),
-            providedSchema));
+  protected ElementParser objectParserFor(FieldDefn fieldDefn,
+      ColumnMetadata colSchema, TupleMetadata providedSchema) {
+    return objectParserFor(fieldDefn,
+            fieldDefn.fieldWriterFor(colSchema).tuple(),
+            providedSchema);
   }
 
   /**
@@ -145,26 +123,35 @@ public abstract class BaseFieldFactory implements FieldFactory {
    * for the given column schema and optional provided schema.
    */
   protected ElementParser objectArrayParserFor(
-      ColumnMetadata colSchema, TupleMetadata providedSchema) {
-    ArrayWriter arrayWriter = tupleListener.fieldwriterFor(colSchema).array();
+      FieldDefn fieldDefn, ColumnMetadata colSchema, TupleMetadata providedSchema) {
+    ArrayWriter arrayWriter = fieldDefn.fieldWriterFor(colSchema).array();
     return parserFactory().arrayValueParser(
         new ObjectArrayListener(loader(), arrayWriter),
-          parserFactory().objectValueParser(
-              new TupleParser(loader(), arrayWriter.tuple(), providedSchema)));
-//    return new ObjectArrayValueListener(loader(),
-//        new ObjectArrayListener(loader(), arrayWriter,
-//            new ObjectValueListener(loader(),
-//                new TupleParser(loader(), arrayWriter.tuple(), providedSchema))));
+        objectParserFor(fieldDefn, arrayWriter.tuple(), providedSchema));
   }
 
+  protected ElementParser objectParserFor(FieldDefn fieldDefn,
+      TupleWriter writer, TupleMetadata providedSchema) {
+    return parserFactory().objectValueParser(
+        new TupleParser(loader(), writer, providedSchema));
+  }
+
+  /**
+   * Create a multi- (2+) dimensional scalar array from a column schema and dimension
+   * count hint.
+   */
+  protected ValueListener multiDimScalarArrayListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema, int dims) {
+    return multiDimScalarArrayFor(loader(),
+        fieldDefn.fieldWriterFor(colSchema), dims);
+  }
   /**
    * Create a multi- (2+) dimensional scalar array from a column schema, dimension
    * count hint, and optional provided schema.
    */
-  protected ValueListener multiDimObjectArrayListenerFor(ColumnMetadata colSchema,
+  protected ValueListener multiDimObjectArrayListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema,
       int dims, TupleMetadata providedSchema) {
     return multiDimObjectArrayFor(loader(),
-        tupleListener.fieldwriterFor(colSchema), dims, providedSchema);
+        fieldDefn.fieldWriterFor(colSchema), dims, providedSchema);
   }
 
   /**
@@ -172,9 +159,10 @@ public abstract class BaseFieldFactory implements FieldFactory {
    * count hint. This is actually an (n-1) dimensional array of lists, where a LISt
    * is a repeated UNION.
    */
-  protected ValueListener multiDimVariantArrayListenerFor(ColumnMetadata colSchema, int dims) {
+  protected ValueListener multiDimVariantArrayListenerFor(FieldDefn fieldDefn,
+      ColumnMetadata colSchema, int dims) {
     return repeatedVariantListFor(loader(),
-        tupleListener.fieldwriterFor(colSchema));
+        fieldDefn.fieldWriterFor(colSchema));
   }
 
   /**
@@ -191,30 +179,34 @@ public abstract class BaseFieldFactory implements FieldFactory {
     return prev;
   }
 
-  public static ScalarListener scalarListenerFor(JsonLoaderImpl loader, ObjectWriter colWriter) {
-    ScalarWriter writer = colWriter.type() == ObjectType.ARRAY ?
-        colWriter.array().scalar() : colWriter.scalar();
+  public static ScalarListener scalarListenerFor(JsonLoaderImpl loader, ScalarWriter writer) {
     switch (writer.schema().type()) {
       case BIGINT:
         return new BigIntListener(loader, writer);
       case BIT:
         return new BooleanListener(loader, writer);
+      case FLOAT4:
       case FLOAT8:
         return new DoubleListener(loader, writer);
       case VARCHAR:
         return new VarCharListener(loader, writer);
-      case DATE:
-      case FLOAT4:
       case INT:
+      case SMALLINT:
+        return new StrictIntValueListener(loader, writer);
       case INTERVAL:
       case INTERVALDAY:
       case INTERVALYEAR:
-      case SMALLINT:
+        return new IntervalValueListener(loader, writer);
+      case DATE:
+        return new DateValueListener(loader, writer);
       case TIME:
+        return new TimeValueListener(loader, writer);
       case TIMESTAMP:
+        return new TimestampValueListener(loader, writer);
       case VARBINARY:
+        return new BinaryValueListener(loader, writer);
       case VARDECIMAL:
-        // TODO: Implement conversions for above
+        return new DecimalValueListener(loader, writer);
       default:
         throw loader.buildError(
             UserException.internalError(null)
@@ -286,30 +278,13 @@ public abstract class BaseFieldFactory implements FieldFactory {
         new ListListener(loader, writer.array().entry()));
   }
 
-  protected DataMode mode(boolean isArray) {
-    return isArray ? DataMode.REPEATED : DataMode.OPTIONAL;
-  }
-
-  protected ColumnMetadata defineScalar(String key,  MinorType type, boolean isArray) {
-    return MetadataUtils.newScalar(key, type, mode(isArray));
-  }
-
-  protected ScalarWriter defineColumn(FieldDefn fieldDefn, MinorType type, boolean isArray) {
-    return defineColumn(defineScalar(fieldDefn.key(), type, isArray));
-  }
-
-  protected ScalarWriter defineColumn(ColumnMetadata colSchema) {
-    ObjectWriter writer = tupleListener.fieldwriterFor(colSchema);
-    return colSchema.isArray() ? writer.array().scalar() : writer.scalar();
+  @Override
+  public ElementParser forceNullResolution(FieldDefn fieldDefn) {
+    return child.forceArrayResolution(fieldDefn);
   }
 
   @Override
-  public ElementParser forceNullResolution(String key) {
-    return child.forceArrayResolution(key);
-  }
-
-  @Override
-  public ElementParser forceArrayResolution(String key) {
-    return child.forceArrayResolution(key);
+  public ElementParser forceArrayResolution(FieldDefn fieldDefn) {
+    return child.forceArrayResolution(fieldDefn);
   }
 }

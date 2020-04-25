@@ -17,19 +17,16 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.extended;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.BaseFieldFactory;
+import org.apache.drill.exec.store.easy.json.loader.FieldDefn;
 import org.apache.drill.exec.store.easy.json.loader.FieldFactory;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.TupleParser;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.loader.values.BinaryValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.DateValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.DecimalValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
+import org.apache.drill.exec.store.easy.json.loader.values.IntervalValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.StrictBigIntValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.StrictDoubleValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.StrictIntValueListener;
@@ -37,26 +34,22 @@ import org.apache.drill.exec.store.easy.json.loader.values.StrictStringValueList
 import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
 public class ExtendedTypeFieldFactory extends BaseFieldFactory {
 
-  public ExtendedTypeFieldFactory(TupleParser tupleListener, FieldFactory child) {
-    super(tupleListener, child);
+  public ExtendedTypeFieldFactory(JsonLoaderImpl loader, FieldFactory child) {
+    super(loader, child);
   }
 
   @Override
-  public ElementParser addField(FieldDefn fieldDefn) {
+  public ElementParser fieldParser(FieldDefn fieldDefn) {
     ElementParser parser = buildExtendedTypeParser(fieldDefn);
     if (parser == null) {
-      return child.addField(fieldDefn);
+      return child.fieldParser(fieldDefn);
     } else {
       return parser;
     }
@@ -145,7 +138,7 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.LONG,
         new StrictBigIntValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.BIGINT, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.BIGINT, isArray)));
   }
 
   private BaseExtendedValueParser numberDecimalParser(FieldDefn fieldDefn, boolean isArray) {
@@ -154,60 +147,60 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.DECIMAL,
         new DecimalValueListener(loader(),
-            defineColumn(
-                MetadataUtils.newDecimal(fieldDefn.key(), mode(isArray), 38, 10))));
+            fieldDefn.scalarWriterFor(
+                MetadataUtils.newDecimal(fieldDefn.key(), fieldDefn.mode(isArray), 38, 10))));
   }
 
   private BaseExtendedValueParser numberDoubleParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.DOUBLE,
         new StrictDoubleValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.FLOAT8, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.FLOAT8, isArray)));
   }
 
   private BaseExtendedValueParser numberIntParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.INT,
         new StrictIntValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.INT, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.INT, isArray)));
   }
 
   private BaseExtendedValueParser dateParser(FieldDefn fieldDefn, boolean isArray) {
     return new MongoDateValueParser(fieldDefn.parser(),
         new TimestampValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.TIMESTAMP, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.TIMESTAMP, isArray)));
   }
 
   private BaseExtendedValueParser binaryParser(FieldDefn fieldDefn, boolean isArray) {
     return new MongoBinaryValueParser(fieldDefn.parser(),
         new BinaryValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.VARBINARY, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.VARBINARY, isArray)));
   }
 
   private BaseExtendedValueParser oidParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.OBJECT_ID,
         new StrictStringValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.VARCHAR, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.VARCHAR, isArray)));
   }
 
   private BaseExtendedValueParser dateDayParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.DATE_DAY,
         new DateValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.DATE, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.DATE, isArray)));
   }
 
   private BaseExtendedValueParser timeParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(fieldDefn.parser(), ExtendedTypeNames.TIME,
         new TimeValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.TIME, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.TIME, isArray)));
   }
 
   private BaseExtendedValueParser intervalParser(FieldDefn fieldDefn, boolean isArray) {
     return new SimpleExtendedValueParser(
         fieldDefn.parser(), ExtendedTypeNames.INTERVAL,
         new IntervalValueListener(loader(),
-            defineColumn(fieldDefn, MinorType.INTERVAL, isArray)));
+            fieldDefn.scalarWriterFor(MinorType.INTERVAL, isArray)));
   }
 }

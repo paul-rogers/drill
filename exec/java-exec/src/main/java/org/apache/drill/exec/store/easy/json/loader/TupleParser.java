@@ -21,6 +21,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
+import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -106,14 +107,12 @@ public class TupleParser extends ObjectParser {
   private final JsonLoaderImpl loader;
   private final TupleWriter tupleWriter;
   private final TupleMetadata providedSchema;
-  private final FieldFactory fieldFactory;
 
   public TupleParser(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
     super(loader.parser());
     this.loader = loader;
     this.tupleWriter = tupleWriter;
     this.providedSchema = providedSchema;
-    this.fieldFactory = loader.fieldFactoryFor(this);
   }
 
   public JsonLoaderImpl loader() { return loader; }
@@ -121,27 +120,32 @@ public class TupleParser extends ObjectParser {
   public TupleWriter writer() { return tupleWriter; }
 
   protected TupleMetadata providedSchema() { return providedSchema; }
-  protected FieldFactory fieldFactory() { return fieldFactory; }
+  protected FieldFactory fieldFactory() { return loader.fieldFactory(); }
 
   @Override
-  public ElementParser onField(FieldDefn field) {
-    if (!tupleWriter.isProjected(field.key())) {
-      return fieldFactory.ignoredFieldParser();
+  public ElementParser onField(String key, TokenIterator tokenizer) {
+    if (!tupleWriter.isProjected(key)) {
+      return fieldFactory().ignoredFieldParser();
     } else {
-      return fieldFactory.addField(field);
+      return fieldParserFor(key, tokenizer);
     }
   }
 
-  /**
-   * Build a column and its listener based on a look-ahead hint.
-   */
-  public ElementParser resolveField(FieldDefn field) {
-    return fieldFactory.resolveField(field);
+  private ElementParser fieldParserFor(String key, TokenIterator tokenizer) {
+    return fieldFactory().fieldParser(new FieldDefn(this, key, tokenizer));
   }
 
-  public ObjectWriter fieldwriterFor(ColumnMetadata colSchema) {
-    final TupleWriter writer = writer();
-    final int index = writer.addColumn(colSchema);
-    return writer.column(index);
+  public ElementParser resolveField(String key, TokenIterator tokenizer) {
+    return replaceFieldParser(key, fieldParserFor(key, tokenizer));
+  }
+
+  public void forceNullResolution(String key) {
+    replaceFieldParser(key,
+        fieldFactory().forceNullResolution(new FieldDefn(this, key, null)));
+  }
+
+  public void forceEmptyArrayResolution(String key) {
+    replaceFieldParser(key,
+        fieldFactory().forceArrayResolution(new FieldDefn(this, key, null)));
   }
 }

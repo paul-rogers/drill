@@ -19,38 +19,49 @@ package org.apache.drill.exec.store.easy.json.parser;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-/**
- * Parses nulls. On the first non-null token, replaces itself with
- * a "resolved" parser to handle the actual structure.
- */
-public abstract class NullValueParser extends AbstractElementParser {
+public abstract class FullValueParser extends AbstractElementParser {
 
-  protected final String key;
+  private ObjectParser objectParser;
+  private ArrayParser arrayParser;
 
-  public NullValueParser(JsonStructureParser structParser, String key) {
+  public FullValueParser(JsonStructureParser structParser) {
     super(structParser);
-    this.key = key;
   }
 
   /**
-   * Parses nulls. On the first non-null
    * Parses <code>true | false | null | integer | float | string|
    *              embedded-object | { ... } | [ ... ]</code>
    */
   @Override
   public void parse(TokenIterator tokenizer) {
     JsonToken token = tokenizer.requireNext();
-    if (token != JsonToken.VALUE_NULL) {
-      tokenizer.unget(token);
-      resolve(tokenizer).parse(tokenizer);
+    switch (token) {
+    case START_OBJECT:
+      // Position: { ^
+      if (objectParser == null) {
+        // No object parser yet. May be that the value was null,
+        // or may be that it changed types.
+        objectParser = buildObjectParser(tokenizer);
+      }
+      objectParser.parse(tokenizer);
+      break;
 
-      // This parser never called again
+    case START_ARRAY:
+      // Position: [ ^
+      if (arrayParser == null) {
+        // No array parser yet. May be that the value was null,
+        // or may be that it changed types.
+        arrayParser = buildArrayParser(tokenizer);
+      }
+      arrayParser.parse(tokenizer);
+      break;
+
+    default:
+      onValue(token, tokenizer);
     }
   }
 
-  /**
-   * Replace this parser with a new parser based on the current
-   * parse context.
-   */
-  protected abstract ElementParser resolve(TokenIterator tokenizer);
+  protected abstract void onValue(JsonToken token, TokenIterator tokenizer);
+  protected abstract ObjectParser buildObjectParser(TokenIterator tokenizer);
+  protected abstract ArrayParser buildArrayParser(TokenIterator tokenizer);
 }

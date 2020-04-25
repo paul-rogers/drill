@@ -21,7 +21,6 @@ import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.SimpleValu
 import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.TextValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ArrayValueParser.LenientArrayValueParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -85,28 +84,6 @@ public class FieldParserFactory {
     return DummyValueParser.INSTANCE;
   }
 
-  /**
-   * Create a listener when we don't have type information. For the case
-   * {@code null} appears before other values.
-   */
-  public ElementParser parserForUnknown(ObjectParser parent, FieldDefn fieldDefn) {
-    ValueDef valueDef = fieldDefn.lookahead();
-    Preconditions.checkArgument(valueDef.type().isUnknown());
-    if (valueDef.isArray()) {
-      return emptyArrayParser(parent, fieldDefn.key());
-    } else {
-      return nullParser(parent, fieldDefn.key());
-    }
-  }
-
-  public ElementParser nullParser(ObjectParser parent, String key) {
-    return new NullValueParser(parent, key);
-  }
-
-  public ElementParser emptyArrayParser(ObjectParser parent, String key) {
-    return new EmptyArrayParser(parent, key);
-  }
-
   public ValueParser jsonTextParser(ValueListener fieldListener) {
     return new JsonValueParser(structParser, fieldListener);
   }
@@ -119,28 +96,8 @@ public class FieldParserFactory {
     }
   }
 
-  public ValueParser valueParser(ValueDef valueDef, ValueListener fieldListener) {
-    if (structParser.options().allTextMode) {
-      return textValueParser(valueDef, fieldListener);
-    } else {
-      return simpleValueParser(valueDef, fieldListener);
-    }
-  }
-
   public ValueParser simpleValueParser(ValueListener fieldListener) {
     return new SimpleValueParser(structParser, fieldListener);
-  }
-
-  public ValueParser simpleValueParser(ValueDef valueDef, ValueListener fieldListener) {
-    ElementParser fp = new SimpleValueParser(structParser, fieldListener);
-    fp.expandStructure(valueDef);
-    return fp;
-  }
-
-  public ValueParser textValueParser(ValueDef valueDef, ValueListener fieldListener) {
-    ElementParser fp = new TextValueParser(structParser, fieldListener);
-    fp.expandStructure(valueDef);
-    return fp;
   }
 
   public ValueParser textValueParser(ValueListener fieldListener) {

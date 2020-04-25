@@ -75,38 +75,4 @@ public class ArrayParser extends AbstractElementParser {
     elementParser.parse(tokenizer);
     arrayListener.onElementEnd();
   }
-
-//  private void detectElement(TokenIterator tokenizer) {
-//    addElement(ValueDefFactory.lookAhead(tokenizer));
-//  }
-//
-//  public void addElement(ValueDef valueDef) {
-//    bindElement(arrayListener.element(valueDef));
-//  }
-
-//  public void bindElement(ValueListener elementListener) {
-//    elementParser = new SimpleValueParser(structParser, elementListener);
-//  }
-//
-//  @Override
-//  public void bindListener(ArrayListener newListener) {
-//    arrayListener = newListener;
-//    if (elementParser != null) {
-//      elementParser.bindListener(arrayListener.element(ValueDef.UNKNOWN));
-//    }
-//  }
-
-//  /**
-//   * Expand the structure of this array given a description of the
-//   * look-ahead value. Skip if this is a 1D array of unknown type.
-//   * If 2D or greater, then we must create the child array of one
-//   * less dimension.
-//    */
-//  public void expandStructure(DynamicValueParser valueParser, ValueDef valueDef) {
-//    if (valueDef.dimensions() > 1 || !valueDef.type().isUnknown()) {
-//      ValueDef elementDef = new ValueDef(valueDef.type(), valueDef.dimensions() - 1);
-//      addElement(elementDef);
-//      ((DynamicValueParser) elementParser).expandStructure(elementDef);
-//    }
-//  }
 }

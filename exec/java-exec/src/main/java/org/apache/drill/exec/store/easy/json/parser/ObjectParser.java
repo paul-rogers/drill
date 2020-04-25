@@ -161,7 +161,7 @@ public abstract class ObjectParser extends AbstractElementParser {
    * @param field description of the field, including the field name
    * @return a parser for the newly-created field
    */
-  protected abstract ElementParser onField(FieldDefn field);
+  protected abstract ElementParser onField(String key, TokenIterator tokenizer);
 
   /**
    * Called at the end of a set of values for an object. That is, called
@@ -177,7 +177,6 @@ public abstract class ObjectParser extends AbstractElementParser {
     onStart();
 
     // Parse (field: value)* }
-
     top: for (;;) {
       JsonToken token = tokenizer.requireNext();
       // Position: { (key: value)* ? ^
@@ -216,7 +215,7 @@ public abstract class ObjectParser extends AbstractElementParser {
       // New key; sniff the value to determine the parser to use
       // (which also tell us the kind of column to create in Drill.)
       // Position: key: ^
-      fieldParser = detectValueParser(tokenizer, key);
+      fieldParser = detectValueParser(key, tokenizer);
       members.put(key, fieldParser);
     }
     // Parse the field value.
@@ -232,12 +231,12 @@ public abstract class ObjectParser extends AbstractElementParser {
    * @param key name of the field
    * @return parser for the field
    */
-  private ElementParser detectValueParser(TokenIterator tokenizer, final String key) {
+  private ElementParser detectValueParser(String key, TokenIterator tokenizer) {
     if (key.isEmpty()) {
       throw errorFactory().structureError(
           "Drill does not allow empty keys in JSON key/value pairs");
     }
-    ElementParser fieldParser = onField(new FieldDefn(this, tokenizer, key));
+    ElementParser fieldParser = onField(key, tokenizer);
     if (fieldParser == null) {
       logger.warn("No JSON element parser returned for field {}, assuming unprojected", key);
       return DummyValueParser.INSTANCE;
@@ -246,65 +245,8 @@ public abstract class ObjectParser extends AbstractElementParser {
     }
   }
 
-  public void replaceFieldParser(String key, ElementParser fieldParser) {
+  public ElementParser replaceFieldParser(String key, ElementParser fieldParser) {
     members.put(key, fieldParser);
-  }
-
-  /**
-   * Describes a new field within an object. Allows the listener to control
-   * how to handle the field: as unprojected, parsed as a typed field, as
-   * text, as JSON, or as a custom parser.
-   */
-  public static class FieldDefn {
-
-    private final ObjectParser objectParser;
-    private final String key;
-    private final TokenIterator tokenizer;
-    private ValueDef valueDef;
-
-    protected FieldDefn(ObjectParser objectParser, TokenIterator tokenizer, final String key) {
-      this.objectParser = objectParser;
-      this.key = key;
-      this.tokenizer = tokenizer;
-    }
-
-    /**
-     * Returns the field name.
-     */
-    public String key() { return key; }
-
-    /**
-     * Token stream which allows a custom parser to look ahead
-     * as needed. The caller must "unget" all tokens to leave the
-     * tokenizer at the present location. Note that the underlying
-     * Jackson parser will return text for the last token consumed,
-     * even if tokens are unwound using the token iterator, so do not
-     * look ahead past the first field name or value; on look ahead
-     * over "static" tokens such as object and array start characters.
-     */
-    public TokenIterator tokenizer() { return tokenizer; }
-
-    /**
-     * Returns the parent parser which is needed to construct standard
-     * parsers.
-     */
-    public JsonStructureParser parser() { return objectParser.structParser(); }
-
-    /**
-     * Looks ahead to guess the field type based on JSON tokens.
-     * While this is helpful, it really only works if the JSON
-     * is structured like a list of tuples, if the initial value is not {@code null},
-     * and if initial arrays are not empty. The structure parser cannot see
-     * into the future beyond the first field value; the value listener for each
-     * field must handle "type-deferral" if needed to handle missing or null
-     * values. That is, type-consistency is a semantic task handled by the listener,
-     * not a syntax task handled by the parser.
-     */
-    public ValueDef lookahead() {
-      if (valueDef == null) {
-        valueDef = ValueDefFactory.lookAhead(tokenizer);
-      }
-      return valueDef;
-    }
+    return fieldParser;
   }
 }

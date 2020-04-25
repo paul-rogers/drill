@@ -22,9 +22,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
@@ -40,15 +38,15 @@ import org.slf4j.LoggerFactory;
 public class InferredFieldFactory extends BaseFieldFactory {
   protected static final Logger logger = LoggerFactory.getLogger(InferredFieldFactory.class);
 
-  public InferredFieldFactory(TupleParser tupleListener) {
-    super(tupleListener);
+  public InferredFieldFactory(JsonLoaderImpl loader) {
+    super(loader);
   }
 
   /**
    * Build a column and its listener based on a look-ahead hint.
    */
   @Override
-  public ElementParser addField(FieldDefn fieldDefn) {
+  public ElementParser fieldParser(FieldDefn fieldDefn) {
     ValueDef valueDef = fieldDefn.lookahead();
     if (valueDef.type().isUnknown()) {
       return parserForUnknown(fieldDefn);
@@ -65,79 +63,61 @@ public class InferredFieldFactory extends BaseFieldFactory {
      if (fieldDefn.lookahead().isArray()) {
 
       // For the case [] appears before other values.
-      return new EmptyArrayFieldParser(tupleListener, fieldDefn.key());
+      return new EmptyArrayFieldParser(fieldDefn.tupleParser(), fieldDefn.key());
     } else {
 
       // For the case null appears before other values.
-      return new NullFieldParser(tupleListener, fieldDefn.key());
+      return new NullFieldParser(fieldDefn.tupleParser(), fieldDefn.key());
     }
   }
 
-  @Override
-  public ElementParser resolveField(FieldDefn fieldDefn) {
-    String key = fieldDefn.key();
+  private ElementParser resolveField(FieldDefn fieldDefn) {
     ValueDef valueDef = fieldDefn.lookahead();
     Preconditions.checkArgument(!valueDef.type().isUnknown());
     if (!valueDef.isArray()) {
       if (valueDef.type().isObject()) {
-        return objectParserFor(key);
+        return objectParserFor(fieldDefn);
       } else {
-        return scalarParserFor(fieldDefn);
+        return scalarParserFor(fieldDefn, false);
       }
     } else if (valueDef.dimensions() == 1) {
-      assert false;
-      return null;
-//      if (valueDef.type().isObject()) {
-//        return objectArrayListenerForValue(key);
-//      } else {
-//        return scalarArrayListenerForValue(key, valueDef.type());
-//      }
+      if (valueDef.type().isObject()) {
+        return objectArrayParserFor(fieldDefn);
+      } else {
+        return scalarArrayParserFor(scalarParserFor(fieldDefn, true));
+      }
     } else { // 2+ dimensions
       assert false;
       return null;
 //      if (valueDef.type().isObject()) {
-//        return multiDimObjectArrayListenerForValue(key, valueDef);
+//        return multiDimObjectArrayListenerForValue(fieldDefn);
 //      } else {
-//        return multiDimScalarArrayListenerForValue(key, valueDef);
+//        return multiDimScalarArrayListenerForValue(fieldDefn);
 //      }
     }
   }
 
-  /**
-   * Create a scalar column and listener given the definition of a JSON
-   * scalar value.
-   */
-  public ValueParser scalarParserFor(FieldDefn fieldDefn) {
-    return parserFactory().valueParser(
-        scalarListenerFor(MetadataUtils.newScalar(fieldDefn.key(),
-            Types.optional(scalarTypeFor(fieldDefn)))));
-  }
-
-  /**
-   * Create a scalar array column and listener given the definition of a JSON
-   * array of scalars.
-   */
-  public ArrayValueListener scalarArrayListenerForValue(FieldDefn fieldDefn) {
-    return scalarArrayListenerFor(MetadataUtils.newScalar(fieldDefn.key(),
-        Types.repeated(scalarTypeFor(fieldDefn))));
+  public ValueParser scalarParserFor(FieldDefn fieldDefn, boolean isArray) {
+    return scalarParserFor(fieldDefn,
+            fieldDefn.schemaFor(scalarTypeFor(fieldDefn), isArray));
   }
 
   /**
    * Create a multi- (2+) dimensional scalar array from a JSON value description.
    */
   private ValueListener multiDimScalarArrayListenerForValue(FieldDefn fieldDefn) {
-    return multiDimScalarArrayListenerFor(
-        repeatedListSchemaFor(key, valueDef.dimensions(),
-            MetadataUtils.newScalar(key, scalarTypeFor(fieldDefn), DataMode.REPEATED)),
-        valueDef.dimensions());
+    return multiDimScalarArrayListenerFor(fieldDefn,
+        repeatedListSchemaFor(fieldDefn.key(), fieldDefn.lookahead().dimensions(),
+            MetadataUtils.newScalar(fieldDefn.key(), scalarTypeFor(fieldDefn), DataMode.REPEATED)),
+        fieldDefn.lookahead().dimensions());
   }
 
   /**
    * Create a map array column and its associated object array listener
    * for the given key.
    */
-  public ElementParser objectArrayParserFor(String key) {
-    return objectArrayParserFor(MetadataUtils.newMapArray(key), null);
+  public ElementParser objectArrayParserFor(FieldDefn fieldDefn) {
+    return objectArrayParserFor(fieldDefn, MetadataUtils.newMapArray(fieldDefn.key()), null);
   }
 
   /**
@@ -145,11 +125,11 @@ public class InferredFieldFactory extends BaseFieldFactory {
    * schema. That is, create a multi-dimensional array of maps.
    * The map fields are created on the fly, optionally using the provided schema.
    */
-  private ValueListener multiDimObjectArrayListenerForValue(String key, ValueDef valueDef) {
-    return multiDimObjectArrayListenerFor(
-        repeatedListSchemaFor(key, valueDef.dimensions(),
-            MetadataUtils.newMapArray(key)),
-        valueDef.dimensions(), null);
+  private ValueListener multiDimObjectArrayListenerForValue(FieldDefn fieldDefn) {
+    return multiDimObjectArrayListenerFor(fieldDefn,
+        repeatedListSchemaFor(fieldDefn.key(), fieldDefn.lookahead().dimensions(),
+            MetadataUtils.newMapArray(fieldDefn.key())),
+        fieldDefn.lookahead().dimensions(), null);
   }
 
   /**
@@ -159,10 +139,10 @@ public class InferredFieldFactory extends BaseFieldFactory {
    * save a large amount of complexity that will likely never be needed.
    */
   @SuppressWarnings("unused")
-  private ValueListener repeatedListOfVariantListenerFor(String key, ValueDef valueDef) {
-    return multiDimVariantArrayListenerFor(
-        MetadataUtils.newVariant(key, DataMode.REPEATED),
-        valueDef.dimensions());
+  private ValueListener repeatedListOfVariantListenerFor(FieldDefn fieldDefn) {
+    return multiDimVariantArrayListenerFor(fieldDefn,
+        MetadataUtils.newVariant(fieldDefn.key(), DataMode.REPEATED),
+        fieldDefn.lookahead().dimensions());
   }
 
   /**
@@ -203,21 +183,21 @@ public class InferredFieldFactory extends BaseFieldFactory {
   }
 
   @Override
-  public ElementParser forceNullResolution(String key) {
+  public ElementParser forceNullResolution(FieldDefn fieldDefn) {
     logger.warn("Ambiguous type! JSON field {}" +
-        " contains all nulls. Assuming JSON text.", key);
-    return forceResolution(key, false);
+        " contains all nulls. Assuming JSON text.", fieldDefn.key());
+    return forceResolution(fieldDefn, false);
   }
 
   @Override
-  public ElementParser forceArrayResolution(String key) {
+  public ElementParser forceArrayResolution(FieldDefn fieldDefn) {
     logger.warn("Ambiguous type! JSON field {}" +
-        " contains all empty arrays. Assuming array of JSON text.", key);
-    return scalarArrayParserFor(forceResolution(key, true));
+        " contains all empty arrays. Assuming array of JSON text.", fieldDefn.key());
+    return scalarArrayParserFor(forceResolution(fieldDefn, true));
   }
 
-  private ValueParser forceResolution(String key, boolean isArray) {
+  private ValueParser forceResolution(FieldDefn fieldDefn, boolean isArray) {
     return parserFactory().jsonTextParser(
-        scalarListenerFor(defineScalar(key, MinorType.VARCHAR, isArray)));
+        scalarListenerFor(fieldDefn, fieldDefn.schemaFor(MinorType.VARCHAR, isArray)));
   }
 }

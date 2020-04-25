@@ -17,11 +17,15 @@ public class ObjectValueParser extends AbstractElementParser {
   @Override
   public void parse(TokenIterator tokenizer) {
     JsonToken token = tokenizer.requireNext();
-    if (token == JsonToken.START_OBJECT) {
-      // Position: { ^
-      objectParser.parse(tokenizer);
-    } else {
-      throw errorFactory().structureError("JSON object expected");
+    switch (token) {
+      case START_OBJECT:
+        objectParser.parse(tokenizer);
+        break;
+      case VALUE_NULL:
+        // Silently ignore, treat as a missing field
+        break;
+      default:
+        throw errorFactory().structureError("JSON object expected");
     }
   }
 }

@@ -206,6 +206,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   private final JsonLoaderOptions options;
   private final CustomErrorContext errorContext;
   private final JsonStructureParser parser;
+  private final FieldFactory fieldFactory;
   private boolean eof;
 
   /**
@@ -224,7 +225,12 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
     this.rsLoader = builder.rsLoader;
     this.options = builder.options;
     this.errorContext = builder. errorContext;
-    this.parser = new JsonStructureParserBuilder()
+    this.fieldFactory = buildFieldFactory(builder);
+    this.parser = buildParser(builder);
+  }
+
+  private JsonStructureParser buildParser(JsonLoaderBuilder builder) {
+    return new JsonStructureParserBuilder()
             .fromStream(builder.stream)
             .fromReader(builder.reader)
             .options(builder.options)
@@ -239,8 +245,20 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
             .build();
   }
 
+  private FieldFactory buildFieldFactory(JsonLoaderBuilder builder) {
+    FieldFactory factory = new InferredFieldFactory(this);
+    if (builder.providedSchema != null) {
+      factory = new ProvidedFieldFactory(this, factory);
+    }
+    if (options.enableExtendedTypes) {
+      factory = new ExtendedTypeFieldFactory(this, factory);
+    }
+    return factory;
+  }
+
   public JsonLoaderOptions options() { return options; }
   public JsonStructureParser parser() { return parser; }
+  public FieldFactory fieldFactory() { return fieldFactory; }
 
   @Override // JsonLoader
   public boolean readBatch() {
@@ -302,17 +320,6 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   @Override // JsonLoader
   public void close() {
     parser.close();
-  }
-
-  public FieldFactory fieldFactoryFor(TupleParser tupleListener) {
-    FieldFactory factory = new InferredFieldFactory(tupleListener);
-    if (tupleListener.providedSchema() != null) {
-      factory = new ProvidedFieldFactory(tupleListener, factory);
-    }
-    if (options.enableExtendedTypes) {
-      factory = new ExtendedTypeFieldFactory(tupleListener, factory);
-    }
-    return factory;
   }
 
   @Override // ErrorFactory

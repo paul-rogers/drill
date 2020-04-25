@@ -17,14 +17,16 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
 import org.apache.drill.exec.store.easy.json.loader.values.VariantListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 import org.apache.drill.exec.store.easy.json.parser.ValueListener;
+import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
@@ -35,13 +37,8 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
  */
 public class ProvidedFieldFactory extends BaseFieldFactory {
 
-  public ProvidedFieldFactory(TupleParser tupleListener, FieldFactory child) {
-    super(tupleListener, child);
-    Preconditions.checkArgument(tupleListener.providedSchema() != null);
-  }
-
-  public ColumnMetadata providedColumn(String key) {
-    return tupleListener.providedSchema().metadata(key);
+  public ProvidedFieldFactory(JsonLoaderImpl loader, FieldFactory child) {
+    super(loader, child);
   }
 
   /**
@@ -50,71 +47,81 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
    * accurately reflects the structure of the JSON being parsed.
    */
   @Override
-  public ElementParser addField(FieldDefn fieldDefn) {
-    ColumnMetadata providedCol = providedColumn(fieldDefn.key());
-    if (providedCol == null) {
-      return child.addField(fieldDefn);
-    }
-    return parserFor(fieldDefn, providedCol, listenerFor(fieldDefn, providedCol));
-  }
-
-  public ElementParser parserFor(FieldDefn fieldDefn, ColumnMetadata providedCol, ValueListener fieldListener) {
-    FieldParserFactory parserFactory = parserFactory();
-    String mode = providedCol.property(JsonLoader.JSON_MODE);
-    if (mode == null) {
-      return parserFactory.valueParser(fieldListener);
-    }
-    switch (mode) {
-      case JsonLoader.JSON_TEXT_MODE:
-        return parserFactory.textValueParser(fieldListener);
-      case JsonLoader.JSON_LITERAL_MODE:
-        return parserFactory.jsonTextParser(fieldListener);
-      default:
-        return parserFactory.valueParser(fieldListener);
+  public ElementParser fieldParser(FieldDefn fieldDefn) {
+    if (fieldDefn.providedColumn() == null) {
+      return child.fieldParser(fieldDefn);
+    } else {
+      return parserFor(fieldDefn);
     }
   }
 
-  public ValueListener listenerFor(FieldDefn fieldDefn, ColumnMetadata providedCol) {
+  public ElementParser parserFor(FieldDefn fieldDefn) {
+    ColumnMetadata providedCol = fieldDefn.providedColumn();
     switch (providedCol.structureType()) {
-
-      case PRIMITIVE: {
-        ColumnMetadata colSchema = providedCol.copy();
-        if (providedCol.isArray()) {
-          return scalarArrayListenerFor(colSchema);
-        } else {
-          return scalarListenerFor(colSchema);
-        }
-      }
-
-      case TUPLE: {
-        // Propagate the provided map schema into the object
-        // listener as a provided tuple schema.
-        ColumnMetadata colSchema = providedCol.cloneEmpty();
-        TupleMetadata providedSchema = providedCol.tupleSchema();
-        if (providedCol.isArray()) {
-          return objectArrayListenerFor(colSchema, providedSchema);
-        } else {
-          return objectListenerFor(colSchema, providedSchema);
-        }
-      }
-
-      case VARIANT: {
-        // A variant can contain multiple types. The schema does not
-        // declare the types; rather they are discovered by the reader.
-        // That is, there is no VARIANT<INT, DOUBLE>, there is just VARIANT.
-        ColumnMetadata colSchema = providedCol.cloneEmpty();
-        if (providedCol.isArray()) {
-          return variantArrayListenerFor(colSchema);
-        } else {
-          return variantListenerFor(colSchema);
-        }
-      }
-
+      case PRIMITIVE:
+        return primitiveParserFor(fieldDefn);
+      case TUPLE:
+        return objectParserForSchema(fieldDefn);
+      case VARIANT:
+        return variantParserForSchema(fieldDefn);
       case MULTI_ARRAY:
-        return multiDimArrayListenerForSchema(providedCol);
-
+        return multiDimArrayParserForSchema(fieldDefn);
       default:
         throw loader().unsupportedType(providedCol);
+    }
+  }
+
+  private ElementParser primitiveParserFor(FieldDefn fieldDefn) {
+    ColumnMetadata providedCol = fieldDefn.providedColumn();
+    if (providedCol.type() == MinorType.VARCHAR) {
+      return stringParserFor(fieldDefn);
+    } else {
+      return basicParserFor(fieldDefn);
+    }
+  }
+
+  private ElementParser basicParserFor(FieldDefn fieldDefn) {
+    ColumnMetadata colSchema = fieldDefn.providedColumn().copy();
+    ValueParser scalarParser = scalarParserFor(fieldDefn, colSchema);
+    if (colSchema.isArray()) {
+      return scalarArrayParserFor(scalarParser);
+    } else {
+      return scalarParser;
+    }
+  }
+
+  private ElementParser stringParserFor(FieldDefn fieldDefn) {
+    String mode = fieldDefn.providedColumn().property(JsonLoader.JSON_MODE);
+    if (mode == null) {
+      return basicParserFor(fieldDefn);
+    }
+    FieldParserFactory parserFactory = parserFactory();
+    switch (mode) {
+      case JsonLoader.JSON_TEXT_MODE:
+        return parserFactory.textValueParser(varCharListenerFor(fieldDefn));
+      case JsonLoader.JSON_LITERAL_MODE:
+        return parserFactory.jsonTextParser(varCharListenerFor(fieldDefn));
+      default:
+        return basicParserFor(fieldDefn);
+    }
+  }
+
+  private VarCharListener varCharListenerFor(FieldDefn fieldDefn) {
+    return new VarCharListener(loader,
+        fieldDefn.scalarWriterFor(fieldDefn.providedColumn().copy()));
+  }
+
+  private ElementParser objectParserForSchema(FieldDefn fieldDefn) {
+    ColumnMetadata providedCol = fieldDefn.providedColumn();
+
+    // Propagate the provided map schema into the object
+    // listener as a provided tuple schema.
+    ColumnMetadata colSchema = providedCol.cloneEmpty();
+    TupleMetadata providedSchema = providedCol.tupleSchema();
+    if (providedCol.isArray()) {
+      return objectArrayParserFor(fieldDefn, colSchema, providedSchema);
+    } else {
+      return objectParserFor(fieldDefn, colSchema, providedSchema);
     }
   }
 
@@ -125,7 +132,7 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
    * then there are <i>n</i>-1 repeated lists with some array type as the
    * innermost dimension.
    */
-  private ValueListener multiDimArrayListenerForSchema(ColumnMetadata providedSchema) {
+  private ElementParser multiDimArrayParserForSchema(FieldDefn fieldDefn) {
     // Parse the stack of repeated lists to count the "outer" dimensions and
     // to locate the innermost array (the "list" which is "repeated").
     int dims = 1; // For inner array
@@ -155,20 +162,32 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
     }
   }
 
+  private ElementParser variantParserForSchema(FieldDefn fieldDefn) {
+    // A variant can contain multiple types. The schema does not
+    // declare the types; rather they are discovered by the reader.
+    // That is, there is no VARIANT<INT, DOUBLE>, there is just VARIANT.
+    ColumnMetadata colSchema = fieldDefn.providedColumn().cloneEmpty();
+    if (colSchema.isArray()) {
+      return variantArrayParserFor(fieldDefn, colSchema);
+    } else {
+      return variantParserFor(fieldDefn, colSchema);
+    }
+  }
+
   /**
    * Create a variant (UNION) column and its associated listener given
    * a column schema.
    */
-  private ValueListener variantListenerFor(ColumnMetadata colSchema) {
-    return new VariantListener(loader(),
-        tupleListener.fieldwriterFor(colSchema).variant());
+  private ElementParser variantParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
+    return new VariantParser(loader(),
+            fieldDefn.fieldWriterFor(colSchema).variant());
   }
 
   /**
    * Create a variant array (LIST) column and its associated listener given
    * a column schema.
    */
-  private ValueListener variantArrayListenerFor(ColumnMetadata colSchema) {
-    return new ListListener(loader(), tupleListener.fieldwriterFor(colSchema));
+  private ElementParser variantArrayParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
+    return new ListListener(loader(), tupleListener.fieldWriterFor(colSchema));
   }
 }

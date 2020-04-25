@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonToken;
 
 public class ArrayValueParser extends AbstractElementParser {
 
-  protected ArrayParser arrayParser;
+  protected final ArrayParser arrayParser;
 
   public ArrayValueParser(ArrayParser arrayParser) {
     super(arrayParser.structParser());
@@ -21,6 +21,8 @@ public class ArrayValueParser extends AbstractElementParser {
     if (token == JsonToken.START_ARRAY) {
       // Position: [ ^
       arrayParser.parse(tokenizer);
+    } else if (token == JsonToken.VALUE_NULL) {
+      // Treat as if the field was not present: ignore
     } else if (token.isScalarValue()) {
       tokenizer.unget(token);
       parseValue(tokenizer);

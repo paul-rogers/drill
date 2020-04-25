@@ -1,6 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.store.easy.json.parser;
-
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -14,14 +29,12 @@ import com.fasterxml.jackson.core.JsonToken;
  * This array listener holds no element since none has been
  * created yet; we use this only while we see empty arrays.
  */
-public class EmptyArrayParser extends AbstractElementParser {
+public abstract class EmptyArrayParser extends AbstractElementParser {
 
-  private final ObjectParser parent;
   protected final String key;
 
-  public EmptyArrayParser(ObjectParser parent, String key) {
-    super(parent.structParser());
-    this.parent = parent;
+  public EmptyArrayParser(JsonStructureParser structParser, String key) {
+    super(structParser);
     this.key = key;
   }
 
@@ -47,9 +60,11 @@ public class EmptyArrayParser extends AbstractElementParser {
 
       // Saw the first actual element. Swap out this parser for a
       // real field parser, then let that parser parse from here.
+      // The real parser is for the entire field, so we unget the
+      // opening bracket as well as the element.
       tokenizer.unget(token2);
       tokenizer.unget(token1);
-      resolve(token2, tokenizer).parse(tokenizer);
+      resolve(tokenizer).parse(tokenizer);
 
       // This parser never called again
     }
@@ -59,22 +74,5 @@ public class EmptyArrayParser extends AbstractElementParser {
    * Replace this parser with a new parser based on the current
    * parse context.
    */
-  protected ElementParser resolve(JsonToken token, TokenIterator tokenizer) {
-    ElementParser fieldParser;
-    if (token == JsonToken.VALUE_NULL) {
-      fieldParser = resolveNullElement();
-    } else {
-      fieldParser = parent.onField(new FieldDefn(parent, tokenizer, key));
-    }
-    parent.replaceFieldParser(key, fieldParser);
-    return fieldParser;
-  }
-
-  /**
-   * Create a parser when the first element seen is a null. There is no "natural"
-   * parser for this case, the parser must be selected arbitrarily.
-    */
-  protected ElementParser resolveNullElement() {
-    throw errorFactory().structureError("Don't know how to resolve [ null ]");
-  }
+  protected abstract ElementParser resolve(TokenIterator tokenizer);
 }

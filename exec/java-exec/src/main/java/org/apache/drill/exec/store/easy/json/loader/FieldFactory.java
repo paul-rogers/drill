@@ -18,8 +18,6 @@
 package org.apache.drill.exec.store.easy.json.loader;
 
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
-import org.apache.drill.exec.store.easy.json.parser.ObjectParser.FieldDefn;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 
 /**
  * Extensible mechanism to build fields for a JSON object (a Drill
@@ -28,27 +26,16 @@ import org.apache.drill.exec.store.easy.json.parser.ValueDef;
 public interface FieldFactory {
 
   /**
-   * Add a field. Called only for projected fields. May add a "deferred"
+   * Create a parser for a field. The caller will add the field
+   * to the parent object.
+   * Called only for projected fields. May add a "deferred"
    * undefined field if the value type is undefined. Such fields are added
    * to the underlying row or map at a later time.
-   *
-   * @see ObjectListener#addField(String, ValueDef)
    */
-  ElementParser addField(FieldDefn fieldDefn);
-
-  /**
-   * Resolve a field to concrete vector. Called from the above, or when
-   * a deferred field resolves to an actual type.
-   *
-   * @param key field name
-   * @param valueDef type and array description. The type must be concrete.
-   * @return a parser for the field which, for a deferred field, can
-   * replace the original, undefined, parser
-   */
-  ElementParser resolveField(FieldDefn fieldDefn);
+  ElementParser fieldParser(FieldDefn fieldDefn);
 
   ElementParser ignoredFieldParser();
 
-  ElementParser forceNullResolution(String key);
-  ElementParser forceArrayResolution(String key);
+  ElementParser forceNullResolution(FieldDefn fieldDefn);
+  ElementParser forceArrayResolution(FieldDefn fieldDefn);
 }
