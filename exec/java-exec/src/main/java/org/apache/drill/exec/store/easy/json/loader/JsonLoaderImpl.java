@@ -237,7 +237,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
             .parserFactory(new ParserFactory() {
               @Override
               public ObjectParser rootParser(JsonStructureParser parser) {
-                return new TupleParser(JsonLoaderImpl.this, rsLoader.writer(), builder.providedSchema);
+                return new TupleParser(parser, JsonLoaderImpl.this, rsLoader.writer(), builder.providedSchema);
               }
             })
             .errorFactory(this)
@@ -361,7 +361,7 @@ public class JsonLoaderImpl implements JsonLoader, ErrorFactory {
   public RuntimeException syntaxError(JsonToken token) {
     throw buildError(
         UserException.dataReadError()
-          .addContext("Syntax error on token", token.toString()));
+          .message("Syntax error on token", token.toString()));
   }
 
   @Override // ErrorFactory

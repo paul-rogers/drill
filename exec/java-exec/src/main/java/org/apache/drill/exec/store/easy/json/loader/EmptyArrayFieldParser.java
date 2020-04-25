@@ -22,6 +22,8 @@ import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.EmptyArrayParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 
+import com.fasterxml.jackson.core.JsonToken;
+
 /**
  * Represents a run of empty arrays for which we have no type information.
  * Resolves to an actual type when a non-empty array appears. Must resolve
@@ -50,6 +52,16 @@ public class EmptyArrayFieldParser extends EmptyArrayParser implements NullTypeM
   @Override
   protected ElementParser resolve(TokenIterator tokenizer) {
     tupleParser.loader().removeNullMarker(this);
-    return tupleParser.resolveField(key, tokenizer);
+    if (tokenizer.peek() == JsonToken.START_ARRAY) {
+
+      // The value is [], [ foo, so resolve directly
+      return tupleParser.resolveField(key, tokenizer);
+    } else {
+
+    }
+      // The value is [], foo, so must artificially create the
+      // surrounding array to get a repeated type, which will
+      // then parse the item as one-item array.
+     return tupleParser.resolveArray(key, tokenizer);
   }
 }

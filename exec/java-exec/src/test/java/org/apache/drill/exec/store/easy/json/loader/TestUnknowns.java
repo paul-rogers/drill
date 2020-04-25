@@ -231,10 +231,35 @@ public class TestUnknowns extends BaseJsonLoaderTest {
   }
 
   @Test
-  public void testArrayToNull() {
+  public void testArrayToNullJson() {
+    String json =
+        "{a: []} {a: [null]} {a: [\"foo\"] }\n" +
+        "{a: [ 10, [20], { b: 30 } ] }";
+    JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.open(json);
+    RowSet results = loader.next();
+    assertNotNull(results);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(strArray())
+        .addSingleCol(strArray("null"))
+        .addSingleCol(strArray("\"foo\""))
+        .addSingleCol(strArray("10", "[20]", "{\"b\": 30}"))
+        .build();
+    RowSetUtilities.verify(expected, results);
+    assertNull(loader.next());
+    loader.close();
+  }
+
+  @Test
+  public void testArrayToNullVarchar() {
     String json =
         "{a: []} {a: [null]} {a: [\"foo\"]}";
     JsonLoaderFixture loader = new JsonLoaderFixture();
+    loader.jsonOptions.unknownsAsJson = false;
     loader.open(json);
     RowSet results = loader.next();
     assertNotNull(results);

@@ -17,28 +17,14 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ObjectValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
 import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
-import org.apache.drill.exec.store.easy.json.parser.ValueDef;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 
 /**
  * Base class for scalar and object arrays. Represents the array
  * behavior of a field.
  */
-public abstract class AbstractArrayListener implements ArrayListener {
-
-  protected final JsonLoaderImpl loader;
-
-  public AbstractArrayListener(JsonLoaderImpl loader) {
-    this.loader = loader;
-  }
-
-  protected abstract ColumnMetadata schema();
+public class SimpleArrayListener implements ArrayListener {
 
   @Override
   public void onStart() { }
@@ -52,18 +38,11 @@ public abstract class AbstractArrayListener implements ArrayListener {
   @Override
   public void onEnd() { }
 
-  public static class ScalarArrayListener extends AbstractArrayListener {
+  public static class StructureArrayListener extends SimpleArrayListener {
 
-    public ScalarArrayListener(JsonLoaderImpl loader) {
-      super(loader);
-    }
-  }
+    protected final ArrayWriter arrayWriter;
 
-  public static class ObjectArrayListener extends AbstractArrayListener {
-    private final ArrayWriter arrayWriter;
-
-    public ObjectArrayListener(JsonLoaderImpl loader, ArrayWriter arrayWriter) {
-      super(loader);
+    public StructureArrayListener(ArrayWriter arrayWriter) {
       this.arrayWriter = arrayWriter;
     }
 
@@ -71,10 +50,19 @@ public abstract class AbstractArrayListener implements ArrayListener {
     public void onElementEnd() {
       arrayWriter.save();
     }
+  }
+
+  public static class ListArrayListener extends StructureArrayListener {
+
+    public ListArrayListener(ArrayWriter listWriter) {
+      super(listWriter);
+    }
 
     @Override
-    protected ColumnMetadata schema() {
-      return arrayWriter.schema();
+    public void onElementStart() {
+      // For list, must say that the entry is non-null to
+      // record an empty list. {a: null} vs. {a: []}.
+      arrayWriter.setNull(false);
     }
   }
 }

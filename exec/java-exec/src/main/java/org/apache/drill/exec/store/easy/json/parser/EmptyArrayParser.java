@@ -47,9 +47,13 @@ public abstract class EmptyArrayParser extends AbstractElementParser {
       return;
     }
 
-    // Must be an array
+    // Assume an scalar is a one-item array.
     if (token1 != JsonToken.START_ARRAY) {
-      throw errorFactory().structureError("Encountered an object where an array is expected");
+      tokenizer.unget(token1);
+      resolve(tokenizer).parse(tokenizer);
+
+      // This parser never called again
+      return;
     }
 
     // Ignore an empty array, resolve a non-empty array.

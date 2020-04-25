@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.json.parser;
 
-import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.SimpleValueParser;
-import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.TextValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ArrayValueParser.LenientArrayValueParser;
 import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser.ParserFactory;
+import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.SimpleValueParser;
+import org.apache.drill.exec.store.easy.json.parser.ScalarValueParser.TextValueParser;
 import org.apache.drill.exec.store.easy.json.parser.ValueDef.JsonType;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 
 /**
@@ -86,14 +85,6 @@ public class FieldParserFactory {
 
   public ValueParser jsonTextParser(ValueListener fieldListener) {
     return new JsonValueParser(structParser, fieldListener);
-  }
-
-  public ValueParser valueParser(ValueListener fieldListener) {
-    if (structParser.options().allTextMode) {
-      return textValueParser(fieldListener);
-    } else {
-      return simpleValueParser(fieldListener);
-    }
   }
 
   public ValueParser simpleValueParser(ValueListener fieldListener) {

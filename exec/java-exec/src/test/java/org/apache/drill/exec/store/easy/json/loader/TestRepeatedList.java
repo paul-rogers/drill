@@ -138,7 +138,7 @@ public class TestRepeatedList extends BaseJsonLoaderTest {
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addSingleCol(null)
-        .addSingleCol(singleObjArray(strArray("")))
+        .addSingleCol(singleObjArray(strArray("null")))
         .addSingleCol(objArray(
             strArray("1", "2"), strArray("3", "4", "5")))
         .build();
@@ -429,7 +429,8 @@ public class TestRepeatedList extends BaseJsonLoaderTest {
   @Test
   public void testForced2DArrayResolve() {
     String json =
-        "{a: null} {a: []} {a: [[]]}";
+        "{a: null} {a: []} {a: [[]]}\n" +
+        "{a: [[\"foo\"], [20]]}";
     JsonLoaderFixture loader = new JsonLoaderFixture();
     loader.open(json);
     RowSet results = loader.next();
@@ -442,6 +443,9 @@ public class TestRepeatedList extends BaseJsonLoaderTest {
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addSingleCol(objArray())
+        .addSingleCol(objArray())
+        .addSingleCol(singleObjArray(strArray()))
+        .addSingleCol(objArray(strArray("\"foo\""), strArray("20")))
         .build();
     RowSetUtilities.verify(expected, results);
     assertNull(loader.next());

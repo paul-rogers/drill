@@ -45,9 +45,18 @@ public class FieldDefn {
   private ColumnMetadata providedColumn;
 
   public FieldDefn(TupleParser tupleParser, final String key, TokenIterator tokenizer) {
+    this(tupleParser, key, tokenizer, false);
+  }
+
+  public FieldDefn(TupleParser tupleParser, final String key,
+      TokenIterator tokenizer, boolean isArray) {
     this.tupleParser = tupleParser;
     this.key = key;
     this.tokenizer = tokenizer;
+    if (isArray) {
+      valueDef = ValueDefFactory.lookAhead(tokenizer);
+      valueDef = new ValueDef(valueDef.type(), valueDef.dimensions() + 1);
+    }
   }
 
   /**

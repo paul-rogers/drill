@@ -403,7 +403,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("integer[][]"));
+      assertTrue(e.getMessage().contains("Structure value found where scalar expected"));
     } finally {
       loader.close();
     }
@@ -422,7 +422,7 @@ public class TestScalarArrays extends BaseJsonLoaderTest {
       loader.next();
       fail();
     } catch (UserException e) {
-      assertTrue(e.getMessage().contains("object"));
+      assertTrue(e.getMessage().contains("JSON array expected"));
     } finally {
       loader.close();
     }

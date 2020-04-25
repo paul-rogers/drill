@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.json.loader;
 
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
+import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
 import org.apache.drill.exec.store.easy.json.parser.ObjectParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
@@ -108,17 +107,21 @@ public class TupleParser extends ObjectParser {
   private final TupleWriter tupleWriter;
   private final TupleMetadata providedSchema;
 
-  public TupleParser(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
-    super(loader.parser());
+  // Bootstrap case: struct parser not yet set on the JSON loader
+  public TupleParser(JsonStructureParser structParser, JsonLoaderImpl loader,
+      TupleWriter tupleWriter, TupleMetadata providedSchema) {
+    super(structParser);
     this.loader = loader;
     this.tupleWriter = tupleWriter;
     this.providedSchema = providedSchema;
   }
 
+  public TupleParser(JsonLoaderImpl loader, TupleWriter tupleWriter, TupleMetadata providedSchema) {
+    this(loader.parser(), loader, tupleWriter, providedSchema);
+  }
+
   public JsonLoaderImpl loader() { return loader; }
-
   public TupleWriter writer() { return tupleWriter; }
-
   protected TupleMetadata providedSchema() { return providedSchema; }
   protected FieldFactory fieldFactory() { return loader.fieldFactory(); }
 
@@ -137,6 +140,11 @@ public class TupleParser extends ObjectParser {
 
   public ElementParser resolveField(String key, TokenIterator tokenizer) {
     return replaceFieldParser(key, fieldParserFor(key, tokenizer));
+  }
+
+  public ElementParser resolveArray(String key, TokenIterator tokenizer) {
+    return replaceFieldParser(key,
+        fieldFactory().fieldParser(new FieldDefn(this, key, tokenizer, true)));
   }
 
   public void forceNullResolution(String key) {

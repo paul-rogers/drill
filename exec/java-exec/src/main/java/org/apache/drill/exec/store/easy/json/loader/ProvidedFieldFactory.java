@@ -22,11 +22,10 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
-import org.apache.drill.exec.store.easy.json.loader.values.VariantListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 /**
@@ -136,29 +135,26 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
     // Parse the stack of repeated lists to count the "outer" dimensions and
     // to locate the innermost array (the "list" which is "repeated").
     int dims = 1; // For inner array
-    ColumnMetadata elementSchema = providedSchema;
+    ColumnMetadata elementSchema = fieldDefn.providedColumn();
     while (MetadataUtils.isRepeatedList(elementSchema)) {
       dims++;
       elementSchema = elementSchema.childSchema();
       Preconditions.checkArgument(elementSchema != null);
     }
 
-    ColumnMetadata colSchema = repeatedListSchemaFor(providedSchema.name(), dims,
+    ColumnMetadata colSchema = repeatedListSchemaFor(fieldDefn.key(), dims,
         elementSchema.cloneEmpty());
+    ObjectWriter fieldWriter = fieldDefn.fieldWriterFor(colSchema);
     switch (elementSchema.structureType()) {
-
       case PRIMITIVE:
-        return multiDimScalarArrayListenerFor(colSchema, dims);
-
+        return multiDimScalarArrayFor(fieldWriter, dims);
       case TUPLE:
-        return multiDimObjectArrayListenerFor(colSchema,
+        return multiDimObjectArrayFor(fieldWriter,
             dims, elementSchema.tupleSchema());
-
       case VARIANT:
-        return multiDimVariantArrayListenerFor(colSchema, dims);
-
+        return multiDimVariantArrayParserFor(fieldWriter, dims);
       default:
-        throw loader().unsupportedType(providedSchema);
+        throw loader().unsupportedType(fieldDefn.providedColumn());
     }
   }
 
@@ -167,27 +163,11 @@ public class ProvidedFieldFactory extends BaseFieldFactory {
     // declare the types; rather they are discovered by the reader.
     // That is, there is no VARIANT<INT, DOUBLE>, there is just VARIANT.
     ColumnMetadata colSchema = fieldDefn.providedColumn().cloneEmpty();
+    ObjectWriter fieldWriter = fieldDefn.fieldWriterFor(colSchema);
     if (colSchema.isArray()) {
-      return variantArrayParserFor(fieldDefn, colSchema);
+      return variantArrayParserFor(fieldWriter.array());
     } else {
-      return variantParserFor(fieldDefn, colSchema);
+      return variantParserFor(fieldWriter.variant());
     }
-  }
-
-  /**
-   * Create a variant (UNION) column and its associated listener given
-   * a column schema.
-   */
-  private ElementParser variantParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
-    return new VariantParser(loader(),
-            fieldDefn.fieldWriterFor(colSchema).variant());
-  }
-
-  /**
-   * Create a variant array (LIST) column and its associated listener given
-   * a column schema.
-   */
-  private ElementParser variantArrayParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
-    return new ListListener(loader(), tupleListener.fieldWriterFor(colSchema));
   }
 }

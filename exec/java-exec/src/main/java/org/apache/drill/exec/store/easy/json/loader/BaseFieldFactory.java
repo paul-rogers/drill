@@ -23,12 +23,8 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ObjectArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.AbstractArrayListener.ScalarArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.RepeatedListValueListener.RepeatedArrayListener;
-import org.apache.drill.exec.store.easy.json.loader.RepeatedListValueListener.RepeatedListElementListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ArrayValueListener;
-import org.apache.drill.exec.store.easy.json.loader.StructuredValueListener.ScalarArrayValueListener;
+import org.apache.drill.exec.store.easy.json.loader.SimpleArrayListener.ListArrayListener;
+import org.apache.drill.exec.store.easy.json.loader.SimpleArrayListener.StructureArrayListener;
 import org.apache.drill.exec.store.easy.json.loader.values.BigIntListener;
 import org.apache.drill.exec.store.easy.json.loader.values.BinaryValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.BooleanListener;
@@ -41,16 +37,14 @@ import org.apache.drill.exec.store.easy.json.loader.values.StrictIntValueListene
 import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
 import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
-import org.apache.drill.exec.store.easy.json.parser.ArrayListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
-import org.apache.drill.exec.store.easy.json.parser.ValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.VariantWriter;
 
 /**
  * Base field factor class which handles the common tasks for
@@ -82,21 +76,28 @@ public abstract class BaseFieldFactory implements FieldFactory {
   protected JsonLoaderImpl loader() { return loader; }
 
   public ValueParser scalarParserFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
-    return parserFactory().valueParser(
-        scalarListenerFor(fieldDefn, colSchema));
+    return scalarParserFor(fieldDefn.scalarWriterFor(colSchema));
+  }
+
+  public ValueParser scalarParserFor(ScalarWriter writer) {
+    return parserFactory().simpleValueParser(scalarListenerFor(writer));
   }
 
   protected ElementParser scalarArrayParserFor(ValueParser element) {
     return parserFactory().scalarArrayValueParser(
-        new ScalarArrayListener(loader()),
-        element);
+        new SimpleArrayListener(), element);
+  }
+
+  protected ElementParser scalarArrayParserFor(ArrayWriter writer) {
+    return scalarArrayParserFor(scalarParserFor(writer.scalar()));
   }
 
   /**
-   * Create a scalar column and listener given the column schema.
+   * Create a repeated list listener for a scalar value.
    */
-  public ScalarListener scalarListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema) {
-    return scalarListenerFor(loader(), fieldDefn.scalarWriterFor(colSchema));
+  protected ElementParser multiDimScalarArrayFor(ObjectWriter writer, int dims) {
+    return buildOuterArrays(writer, dims,
+        innerWriter -> scalarArrayParserFor(innerWriter.array()));
   }
 
   /**
@@ -113,7 +114,7 @@ public abstract class BaseFieldFactory implements FieldFactory {
    */
   protected ElementParser objectParserFor(FieldDefn fieldDefn,
       ColumnMetadata colSchema, TupleMetadata providedSchema) {
-    return objectParserFor(fieldDefn,
+    return objectParserFor(
             fieldDefn.fieldWriterFor(colSchema).tuple(),
             providedSchema);
   }
@@ -124,45 +125,77 @@ public abstract class BaseFieldFactory implements FieldFactory {
    */
   protected ElementParser objectArrayParserFor(
       FieldDefn fieldDefn, ColumnMetadata colSchema, TupleMetadata providedSchema) {
-    ArrayWriter arrayWriter = fieldDefn.fieldWriterFor(colSchema).array();
+    return objectArrayParserFor(fieldDefn.fieldWriterFor(colSchema).array(), providedSchema);
+  }
+
+  protected ElementParser objectArrayParserFor(ArrayWriter arrayWriter, TupleMetadata providedSchema) {
     return parserFactory().arrayValueParser(
-        new ObjectArrayListener(loader(), arrayWriter),
-        objectParserFor(fieldDefn, arrayWriter.tuple(), providedSchema));
+        new StructureArrayListener(arrayWriter),
+        objectParserFor(arrayWriter.tuple(), providedSchema));
   }
 
-  protected ElementParser objectParserFor(FieldDefn fieldDefn,
-      TupleWriter writer, TupleMetadata providedSchema) {
+  protected ElementParser objectParserFor(TupleWriter writer, TupleMetadata providedSchema) {
     return parserFactory().objectValueParser(
-        new TupleParser(loader(), writer, providedSchema));
+        new TupleParser(loader, writer, providedSchema));
   }
 
   /**
-   * Create a multi- (2+) dimensional scalar array from a column schema and dimension
-   * count hint.
+   * Create a repeated list listener for a Map.
    */
-  protected ValueListener multiDimScalarArrayListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema, int dims) {
-    return multiDimScalarArrayFor(loader(),
-        fieldDefn.fieldWriterFor(colSchema), dims);
-  }
-  /**
-   * Create a multi- (2+) dimensional scalar array from a column schema, dimension
-   * count hint, and optional provided schema.
-   */
-  protected ValueListener multiDimObjectArrayListenerFor(FieldDefn fieldDefn, ColumnMetadata colSchema,
-      int dims, TupleMetadata providedSchema) {
-    return multiDimObjectArrayFor(loader(),
-        fieldDefn.fieldWriterFor(colSchema), dims, providedSchema);
+  public ElementParser multiDimObjectArrayFor(
+      ObjectWriter writer, int dims, TupleMetadata providedSchema) {
+    return buildOuterArrays(writer, dims,
+        innerWriter ->
+          objectArrayParserFor(innerWriter.array(), providedSchema));
   }
 
   /**
-   * Create a multi- (2+) dimensional variant array from a column schema and dimension
-   * count hint. This is actually an (n-1) dimensional array of lists, where a LISt
-   * is a repeated UNION.
+   * Create a variant (UNION) column and its associated parser given
+   * a column schema.
    */
-  protected ValueListener multiDimVariantArrayListenerFor(FieldDefn fieldDefn,
-      ColumnMetadata colSchema, int dims) {
-    return repeatedVariantListFor(loader(),
-        fieldDefn.fieldWriterFor(colSchema));
+  protected ElementParser variantParserFor(VariantWriter writer) {
+    return new VariantParser(loader, writer);
+  }
+
+  /**
+   * Create a variant array (LIST) column and its associated parser given
+   * a column schema.
+   */
+  protected ElementParser variantArrayParserFor(ArrayWriter arrayWriter) {
+    return parserFactory().arrayValueParser(
+        new ListArrayListener(arrayWriter),
+        variantParserFor(arrayWriter.variant()));
+  }
+
+  /**
+   * Create a repeated list listener for a variant. Here, the inner
+   * array is provided by a List (which is a repeated Union.)
+   */
+  protected ElementParser multiDimVariantArrayParserFor(
+      ObjectWriter writer, int dims) {
+    return buildOuterArrays(writer, dims,
+        innerWriter -> variantArrayParserFor(innerWriter.array()));
+  }
+
+  /**
+   * Create layers of repeated list listeners around the type-specific
+   * array. If the JSON has three array levels, the outer two are repeated
+   * lists, the inner is type-specific: say an array of {@code BIGINT} or
+   * a map array.
+   */
+  public ElementParser buildOuterArrays(ObjectWriter writer, int dims,
+      Function<ObjectWriter, ElementParser> innerCreator) {
+    ObjectWriter writers[] = new ObjectWriter[dims];
+    writers[0] = writer;
+    for (int i = 1; i < dims; i++) {
+      writers[i] = writers[i-1].array().entry();
+    }
+    ElementParser prevElementParser = innerCreator.apply(writers[dims - 1]);
+    for (int i = dims - 2; i >= 0; i--) {
+      prevElementParser = parserFactory().arrayValueParser(
+          new StructureArrayListener(writers[i].array()), prevElementParser);
+    }
+    return prevElementParser;
   }
 
   /**
@@ -179,7 +212,7 @@ public abstract class BaseFieldFactory implements FieldFactory {
     return prev;
   }
 
-  public static ScalarListener scalarListenerFor(JsonLoaderImpl loader, ScalarWriter writer) {
+  public ScalarListener scalarListenerFor(ScalarWriter writer) {
     switch (writer.schema().type()) {
       case BIGINT:
         return new BigIntListener(loader, writer);
@@ -213,69 +246,6 @@ public abstract class BaseFieldFactory implements FieldFactory {
               .message("Unsupported JSON reader type: %s",
                   writer.schema().type().name()));
     }
-  }
-
-  /**
-   * Create a repeated list listener for a scalar value.
-   */
-  public static ValueListener multiDimScalarArrayFor(JsonLoaderImpl loader, ObjectWriter writer, int dims) {
-//    return buildOuterArrays(loader, writer, dims,
-//        innerWriter ->
-//          new ScalarArrayListener(loader,
-//              scalarListenerFor(loader, innerWriter))
-//        );
-    assert false;
-    return null;
-  }
-
-  /**
-   * Create a repeated list listener for a Map.
-   */
-  public static ValueListener multiDimObjectArrayFor(JsonLoaderImpl loader,
-      ObjectWriter writer, int dims, TupleMetadata providedSchema) {
-//    return buildOuterArrays(loader, writer, dims,
-//        innerWriter ->
-//          new ObjectArrayListener(loader, innerWriter.array(),
-//              new ObjectValueListener(loader,
-//                  new TupleParser(loader, innerWriter.array().tuple(), providedSchema))));
-    assert false;
-    return null;
-  }
-
-  /**
-   * Create layers of repeated list listeners around the type-specific
-   * array. If the JSON has three array levels, the outer two are repeated
-   * lists, the inner is type-specific: say an array of {@code BIGINT} or
-   * a map array.
-   */
-  public static ValueListener buildOuterArrays(JsonLoaderImpl loader, ObjectWriter writer, int dims,
-      Function<ObjectWriter, ArrayListener> innerCreator) {
-    ColumnMetadata colSchema = writer.schema();
-    ObjectWriter writers[] = new ObjectWriter[dims];
-    writers[0] = writer;
-    for (int i = 1; i < dims; i++) {
-      writers[i] = writers[i-1].array().entry();
-    }
-    ArrayListener prevArrayListener = innerCreator.apply(writers[dims - 1]);
-    RepeatedArrayListener innerArrayListener = null;
-    for (int i = dims - 2; i >= 0; i--) {
-      innerArrayListener = new RepeatedArrayListener(loader, colSchema,
-          writers[i].array(),
-          new RepeatedListElementListener(loader, colSchema,
-              writers[i+1].array(), prevArrayListener));
-      prevArrayListener = innerArrayListener;
-    }
-    return new RepeatedListValueListener(loader, writer, innerArrayListener);
-  }
-
-  /**
-   * Create a repeated list listener for a variant. Here, the inner
-   * array is provided by a List (which is a repeated Union.)
-   */
-  public static ValueListener repeatedVariantListFor(JsonLoaderImpl loader,
-      ObjectWriter writer) {
-    return new RepeatedListValueListener(loader, writer,
-        new ListListener(loader, writer.array().entry()));
   }
 
   @Override
