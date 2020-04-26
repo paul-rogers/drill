@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.values;
+package org.apache.drill.exec.store.easy.json.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -24,62 +24,59 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Listener for JSON integer values. Allows conversion from
- * Boolean, double and string types. (The conversion from double
- * is lossy, but perhaps better than failing the query.)
- * Conversion from Boolean is the usual semantics:
- * true = 1, false = 0.  Conversion from string uses the Java
- * integer parsing semantics.
+ * Value listener for JSON string values. Allows conversion from
+ * other scalar types using the Java {@code toString()} semantics.
+ * Use the "text-mode" hint in a provided schema to get the literal
+ * JSON value.
  */
-public class BigIntListener extends ScalarListener {
+public class VarCharListener extends ScalarListener {
 
-  public BigIntListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  private final boolean classicArrayNulls;
+
+  public VarCharListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
+    classicArrayNulls = isArray ? loader.options().classicArrayNulls : false;
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
-    long value;
+    String value;
     switch (token) {
       case VALUE_NULL:
         setNull();
         return;
       case VALUE_TRUE:
-        value = 1;
+        value = Boolean.TRUE.toString();
         break;
       case VALUE_FALSE:
-        value = 0;
+        value = Boolean.FALSE.toString();
         break;
       case VALUE_NUMBER_INT:
-        value = tokenizer.longValue();
+        value = Long.toString(tokenizer.longValue());
         break;
       case VALUE_NUMBER_FLOAT:
-        value = Math.round(tokenizer.doubleValue());
+        value = Double.toString(tokenizer.doubleValue());
         break;
       case VALUE_STRING:
-        parseString(tokenizer.stringValue());
-        return;
+        value = tokenizer.stringValue();
+        break;
       default:
         throw tokenizer.invalidValue(token);
     }
-    writer.setLong(value);
+    writer.setString(value);
   }
 
-  private void parseString(String value) {
-    value = value.trim();
-    if (value.isEmpty()) {
+  @Override
+  public void onText(String value) {
+    if (value == null) {
       setNull();
     } else {
-      try {
-        writer.setLong(Long.parseLong(value));
-      } catch (NumberFormatException e) {
-        throw loader.dataConversionError(schema(), "string", value);
-      }
+      writer.setString(value);
     }
   }
 
   @Override
   protected void setArrayNull() {
-    writer.setLong(0);
+    writer.setString(classicArrayNulls ? "null" : "");
   }
 }

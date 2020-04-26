@@ -21,10 +21,10 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.easy.json.loader.values.VarCharListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.FieldParserFactory;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
+import org.apache.drill.exec.store.easy.json.values.VarCharListener;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 

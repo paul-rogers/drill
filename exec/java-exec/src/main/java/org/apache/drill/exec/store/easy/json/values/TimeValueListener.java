@@ -15,25 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.values;
+package org.apache.drill.exec.store.easy.json.values;
+
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.format.ISOPeriodFormat;
-import org.joda.time.format.PeriodFormatter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
 /**
- * Drill-specific extension for a time interval (AKA time
- * span or time period).
+ * Drill-specific extension to allow times only.
  */
-public class IntervalValueListener extends ScalarListener {
+public class TimeValueListener extends ScalarListener {
 
-  public static final PeriodFormatter FORMATTER = ISOPeriodFormat.standard();
+  // This uses the Java-provided formatter which handles
+  // HH:MM:SS[.SSS][ZZZ]
+  // The Drill-provided formatters in DateUtility are close, but don't
+  // work for both the Mongo-format and Drill-format times.
+  private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ISO_TIME;
 
-  public IntervalValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public TimeValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
@@ -41,13 +45,14 @@ public class IntervalValueListener extends ScalarListener {
   public void onValue(JsonToken token, TokenIterator tokenizer) {
     switch (token) {
       case VALUE_NULL:
-        writer.setNull();
+        setNull();
         break;
       case VALUE_STRING:
         try {
-          writer.setPeriod(FORMATTER.parsePeriod(tokenizer.stringValue()));
+          LocalTime localTime = LocalTime.parse(tokenizer.stringValue(), TIME_FORMAT);
+          writer.setInt((int) ((localTime.toNanoOfDay() + 500_000L) / 1_000_000L)); // round to milliseconds
         } catch (Exception e) {
-          throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
+          throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
         }
         break;
       default:

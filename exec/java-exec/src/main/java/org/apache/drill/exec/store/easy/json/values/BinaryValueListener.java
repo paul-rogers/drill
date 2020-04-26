@@ -15,34 +15,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.extended;
+package org.apache.drill.exec.store.easy.json.values;
 
-import org.apache.drill.exec.store.easy.json.loader.values.ScalarListener;
-import org.apache.drill.exec.store.easy.json.parser.JsonStructureParser;
+import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
-/**
- * Parsers a Mongo extended type of the form:<pre><code>
- * { $type: value }</code></pre>
- */
-public class SimpleExtendedValueParser extends BaseExtendedValueParser {
-  private final String typeName;
+import com.fasterxml.jackson.core.JsonToken;
 
-  public SimpleExtendedValueParser(JsonStructureParser structParser, String typeName, ScalarListener listener) {
-    super(structParser, listener);
-    this.typeName = typeName;
+public class BinaryValueListener extends ScalarListener {
+
+  private static final byte[] EMPTY_BYTES = new byte[0];
+
+  public BinaryValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+    super(loader, writer);
   }
 
   @Override
-  protected String typeName() { return typeName; }
-
-  @Override
-  public void parse(TokenIterator tokenizer) {
-    parseExtended(tokenizer, typeName);
+  public void onValue(JsonToken token, TokenIterator tokenizer) {
+    switch (token) {
+      case VALUE_NULL:
+        setNull();
+        break;
+      case VALUE_STRING:
+        byte[] value = tokenizer.binaryValue();
+        writer.setBytes(value, value.length);
+        break;
+      default:
+        throw tokenizer.invalidValue(token);
+    }
   }
 
   @Override
-  protected String formatHint() {
-    return String.format(SCALAR_HINT, typeName());
+  protected void setArrayNull() {
+    writer.setBytes(EMPTY_BYTES, 0);
   }
 }

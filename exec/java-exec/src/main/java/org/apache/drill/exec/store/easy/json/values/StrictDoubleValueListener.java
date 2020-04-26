@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.values;
+package org.apache.drill.exec.store.easy.json.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -23,28 +23,28 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-/**
- * 32-bit integer (INT) listener with conversions only from
- * numbers and strings.
- */
-public class StrictIntValueListener extends ScalarListener {
+public class StrictDoubleValueListener extends ScalarListener {
 
-  public StrictIntValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public StrictDoubleValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
+    double value;
     switch (token) {
       case VALUE_NULL:
         setNull();
-        break;
+        return;
       case VALUE_NUMBER_INT:
-        writer.setInt((int) tokenizer.longValue());
+        value = tokenizer.longValue();
+        break;
+      case VALUE_NUMBER_FLOAT:
+        value = tokenizer.doubleValue();
         break;
       case VALUE_STRING:
         try {
-          writer.setInt(Integer.parseInt(tokenizer.stringValue()));
+          value = Double.parseDouble(tokenizer.stringValue());
         } catch (NumberFormatException e) {
           throw loader.dataConversionError(schema(), "string", tokenizer.stringValue());
         }
@@ -52,10 +52,11 @@ public class StrictIntValueListener extends ScalarListener {
       default:
         throw tokenizer.invalidValue(token);
     }
+    writer.setDouble(value);
   }
 
   @Override
   protected void setArrayNull() {
-    writer.setInt(0);
+    writer.setDouble(0.0);
   }
 }

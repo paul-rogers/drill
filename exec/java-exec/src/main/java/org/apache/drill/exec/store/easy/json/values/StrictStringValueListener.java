@@ -15,10 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.values;
-
-import java.time.Instant;
-import java.time.ZoneId;
+package org.apache.drill.exec.store.easy.json.values;
 
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
@@ -26,47 +23,28 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-/**
- * Per the <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json-v1/#bson.data_date">
- * V1 docs</a>:
- * <quote>
- * In Strict mode, {@code <date>} is an ISO-8601 date format with a mandatory time zone field
- * following the template YYYY-MM-DDTHH:mm:ss.mmm<+/-Offset>.
- * <p>
- * In Shell mode, {@code <date>} is the JSON representation of a 64-bit signed
- * integer giving the number of milliseconds since epoch UTC.
- * </quote>
- * <p>
- * Drill dates are in the local time zone, so conversion is needed.
- */
-public class TimestampValueListener extends ScalarListener {
+public class StrictStringValueListener extends ScalarListener {
 
-  private final ZoneId localZoneId = ZoneId.systemDefault();
-
-  public TimestampValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public StrictStringValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
-    Instant instant;
     switch (token) {
       case VALUE_NULL:
         setNull();
-        return;
-      case VALUE_NUMBER_INT:
-        instant = Instant.ofEpochMilli(tokenizer.longValue());
         break;
       case VALUE_STRING:
-        try {
-          instant = Instant.parse(tokenizer.stringValue());
-        } catch (Exception e) {
-          throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
-        }
+        writer.setString(tokenizer.stringValue());
         break;
       default:
         throw tokenizer.invalidValue(token);
     }
-    writer.setLong(instant.toEpochMilli() + localZoneId.getRules().getOffset(instant).getTotalSeconds() * 1000);
+  }
+
+  @Override
+  protected void setArrayNull() {
+    writer.setString("");
   }
 }

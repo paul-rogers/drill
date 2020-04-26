@@ -15,17 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.values;
+package org.apache.drill.exec.store.easy.json.values;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+
+import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.fasterxml.jackson.core.JsonToken;
 
-public class StrictStringValueListener extends ScalarListener {
+/**
+ * Drill-specific extension to allow dates only.
+ * <p>
+ * Drill dates are in the local time zone, so conversion is needed.
+ * Drill dates are stores in ms, which is odd.
+ */
+public class DateValueListener extends ScalarListener {
 
-  public StrictStringValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
+  public DateValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
   }
 
@@ -36,15 +47,23 @@ public class StrictStringValueListener extends ScalarListener {
         setNull();
         break;
       case VALUE_STRING:
-        writer.setString(tokenizer.stringValue());
+        try {
+
+          // A Drill date is ms since the epoch, local time. Our input
+          // is in UTC. We DO NOT want to convert from the date, midnight, UTC
+          // to local time since that will change the date. Instead, we just
+          // want to copy the offset since the epoch from UTC to our local
+          // time, so that we retain the date, even if the span of the date
+          // is different locally than UTC. A mess.
+          LocalDate localDate = LocalDate.parse(tokenizer.stringValue(), DateUtility.isoFormatDate);
+          ZonedDateTime utc = localDate.atStartOfDay(ZoneOffset.UTC);
+          writer.setLong(utc.toEpochSecond() * 1000);
+        } catch (Exception e) {
+          throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
+        }
         break;
       default:
         throw tokenizer.invalidValue(token);
     }
-  }
-
-  @Override
-  protected void setArrayNull() {
-    writer.setString("");
   }
 }

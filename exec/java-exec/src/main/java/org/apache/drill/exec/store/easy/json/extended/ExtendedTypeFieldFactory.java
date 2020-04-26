@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.easy.json.loader.extended;
+package org.apache.drill.exec.store.easy.json.extended;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
@@ -23,19 +23,19 @@ import org.apache.drill.exec.store.easy.json.loader.BaseFieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.FieldDefn;
 import org.apache.drill.exec.store.easy.json.loader.FieldFactory;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
-import org.apache.drill.exec.store.easy.json.loader.values.BinaryValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.DateValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.DecimalValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.IntervalValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.StrictBigIntValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.StrictDoubleValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.StrictIntValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.StrictStringValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.TimeValueListener;
-import org.apache.drill.exec.store.easy.json.loader.values.TimestampValueListener;
 import org.apache.drill.exec.store.easy.json.parser.ElementParser;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.store.easy.json.parser.ValueParser;
+import org.apache.drill.exec.store.easy.json.values.BinaryValueListener;
+import org.apache.drill.exec.store.easy.json.values.DateValueListener;
+import org.apache.drill.exec.store.easy.json.values.DecimalValueListener;
+import org.apache.drill.exec.store.easy.json.values.IntervalValueListener;
+import org.apache.drill.exec.store.easy.json.values.StrictBigIntValueListener;
+import org.apache.drill.exec.store.easy.json.values.StrictDoubleValueListener;
+import org.apache.drill.exec.store.easy.json.values.StrictIntValueListener;
+import org.apache.drill.exec.store.easy.json.values.StrictStringValueListener;
+import org.apache.drill.exec.store.easy.json.values.TimeValueListener;
+import org.apache.drill.exec.store.easy.json.values.TimestampValueListener;
 
 import com.fasterxml.jackson.core.JsonToken;
 
