@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.easy.json.loader.values;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -32,7 +31,11 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public class TimeValueListener extends ScalarListener {
 
-  private static final DateTimeFormatter TIME_FORMAT = DateUtility.buildFormatter("HH:mm:ss");
+  // This uses the Java-provided formatter which handles
+  // HH:MM:SS[.SSS][ZZZ]
+  // The Drill-provided formatters in DateUtility are close, but don't
+  // work for both the Mongo-format and Drill-format times.
+  private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ISO_TIME;
 
   public TimeValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);

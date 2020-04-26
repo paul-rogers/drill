@@ -120,6 +120,7 @@ public class ExtendedTypeFieldFactory extends BaseFieldFactory {
     case ExtendedTypeNames.DATE:
       return dateParser(fieldDefn, isArray);
     case ExtendedTypeNames.BINARY:
+    case ExtendedTypeNames.BINARY_TYPE:
       return binaryParser(fieldDefn, isArray);
     case ExtendedTypeNames.OBJECT_ID:
       return oidParser(fieldDefn, isArray);

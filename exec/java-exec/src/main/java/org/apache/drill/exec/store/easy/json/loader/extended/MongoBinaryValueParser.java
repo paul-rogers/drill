@@ -60,48 +60,86 @@ public class MongoBinaryValueParser extends BaseExtendedValueParser {
     // Must be an object
     requireToken(token, JsonToken.START_OBJECT);
 
-    // Field name must be correct
-    requireField(tokenizer, ExtendedTypeNames.BINARY);
-
-    token = tokenizer.requireNext();
-
-    if (token == JsonToken.START_OBJECT) {
-      // V2: { "base64": "<payload>", "subType": "<t>" }
-      // With fields in either order
-      for (;;) {
-        token = tokenizer.requireNext();
-        if (token == JsonToken.END_OBJECT) {
-          break;
-        } else if (token != JsonToken.FIELD_NAME) {
-          throw syntaxError();
-        }
-        switch (tokenizer.textValue()) {
-          case "base64":
-            listener.onValue(requireScalar(tokenizer), tokenizer);
-            break;
-          case "subType":
-            requireScalar(tokenizer);
-            break;
-          default:
-            throw syntaxError();
-        }
-      }
-    } else if (token.isScalarValue()) {
-      // V1: { "$binary": "<bindata>", "$type": "<t>" }
-      // With fields in either order
-      listener.onValue(token, tokenizer);
-      token = tokenizer.requireNext();
-      if (token == JsonToken.FIELD_NAME) {
-        tokenizer.unget(token);
-        requireField(tokenizer, "$type");
-        requireScalar(tokenizer);
-      } else {
-        tokenizer.unget(token);
-      }
+    // { ^($binary | $type)
+    requireToken(tokenizer, JsonToken.FIELD_NAME);
+    String fieldName = tokenizer.textValue();
+    if (fieldName.equals(ExtendedTypeNames.BINARY_TYPE)) {
+      // { $type ^
+      parseV1Format(fieldName, tokenizer);
+    } else if (!fieldName.equals(ExtendedTypeNames.BINARY)) {
+      throw syntaxError();
+    } else if (tokenizer.peek() == JsonToken.START_OBJECT) {
+      // { $binary: ^{
+      parseV2Format(tokenizer);
     } else {
+      // { $binary: ^value
+      parseV1Format(fieldName, tokenizer);
+    }
+  }
+
+  // Parse field: { ($binary | $type) ^ ...
+  private void parseV1Format(String fieldName, TokenIterator tokenizer) {
+    boolean sawData = false;
+    for (;;) {
+      // key: ^value
+      JsonToken token = requireScalar(tokenizer);
+      if (fieldName.equals(ExtendedTypeNames.BINARY)) {
+        if (sawData) {
+          syntaxError();
+        }
+        sawData = true;
+        listener.onValue(token, tokenizer);
+      }
+
+      // key: value ^(} | key ...)
+      token = tokenizer.requireNext();
+      if (token == JsonToken.END_OBJECT) {
+        break;
+      } if (token != JsonToken.FIELD_NAME) {
+        syntaxError();
+      }
+      fieldName = tokenizer.textValue();
+      switch (fieldName) {
+      case ExtendedTypeNames.BINARY:
+      case ExtendedTypeNames.BINARY_TYPE:
+        break;
+      default:
+        syntaxError();
+      }
+    }
+    if (!sawData) {
       syntaxError();
     }
+  }
 
+  // Parse field: { $binary: ^{ "base64": "<payload>", "subType": "<t>" } }
+  // With fields in either order
+  private void parseV2Format(TokenIterator tokenizer) {
+    boolean sawData = false;
+    requireToken(tokenizer, JsonToken.START_OBJECT);
+    for (;;) {
+      JsonToken token = tokenizer.requireNext();
+      if (token == JsonToken.END_OBJECT) {
+        break;
+      } else if (token != JsonToken.FIELD_NAME) {
+        throw syntaxError();
+      }
+      switch (tokenizer.textValue()) {
+        case "base64":
+          if (sawData) {
+            syntaxError();
+          }
+          sawData = true;
+          listener.onValue(requireScalar(tokenizer), tokenizer);
+          break;
+        case "subType":
+          requireScalar(tokenizer);
+          break;
+        default:
+          throw syntaxError();
+      }
+    }
+    // { $binary: { ... } ^}
     requireToken(tokenizer, JsonToken.END_OBJECT);
   }
 

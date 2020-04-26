@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.store.easy.json.loader.values;
 
+import java.time.Instant;
+import java.time.ZoneId;
+
 import org.apache.drill.exec.store.easy.json.loader.JsonLoaderImpl;
 import org.apache.drill.exec.store.easy.json.parser.TokenIterator;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -41,8 +41,7 @@ import com.fasterxml.jackson.core.JsonToken;
  */
 public class TimestampValueListener extends ScalarListener {
 
-  private final DateTimeZone tz = DateTimeZone.getDefault();
-  private final DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
+  private final ZoneId localZoneId = ZoneId.systemDefault();
 
   public TimestampValueListener(JsonLoaderImpl loader, ScalarWriter writer) {
     super(loader, writer);
@@ -50,16 +49,17 @@ public class TimestampValueListener extends ScalarListener {
 
   @Override
   public void onValue(JsonToken token, TokenIterator tokenizer) {
+    Instant instant;
     switch (token) {
       case VALUE_NULL:
         setNull();
-        break;
+        return;
       case VALUE_NUMBER_INT:
-        writer.setLong(tz.convertUTCToLocal(tokenizer.longValue()));
+        instant = Instant.ofEpochMilli(tokenizer.longValue());
         break;
       case VALUE_STRING:
         try {
-          writer.setLong(tz.convertUTCToLocal(fmt.parseMillis(tokenizer.stringValue())));
+          instant = Instant.parse(tokenizer.stringValue());
         } catch (Exception e) {
           throw loader.dataConversionError(schema(), "date", tokenizer.stringValue());
         }
@@ -67,5 +67,6 @@ public class TimestampValueListener extends ScalarListener {
       default:
         throw tokenizer.invalidValue(token);
     }
+    writer.setLong(instant.toEpochMilli() + localZoneId.getRules().getOffset(instant).getTotalSeconds() * 1000);
   }
 }

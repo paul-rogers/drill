@@ -45,4 +45,7 @@ public interface ExtendedTypeNames {
   String DATE_DAY = ExtendedTypeName.DATE;
   String TIME = ExtendedTypeName.TIME;
   String INTERVAL = ExtendedTypeName.INTERVAL;
+
+  // The V1 JSON reader allows binary of format {"$type": 1, $binary: "..."}
+  String BINARY_TYPE = ExtendedTypeName.TYPE;
 }

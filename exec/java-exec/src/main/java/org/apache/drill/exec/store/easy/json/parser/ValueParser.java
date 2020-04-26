@@ -40,6 +40,6 @@ public abstract class ValueParser extends AbstractElementParser {
 
   public ValueParser(JsonStructureParser structParser, ValueListener listener) {
     super(structParser);
-    this.listener = listener;;
+    this.listener = listener;
   }
 }

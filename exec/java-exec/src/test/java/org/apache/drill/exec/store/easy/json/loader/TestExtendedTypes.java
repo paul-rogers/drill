@@ -225,6 +225,8 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         "{ a: null }\n" +
         // V1 format
         "{ a: { \"$binary\": \"ZHJpbGw=\", \"$type\": 1 } }\n" +
+        // Drill-supported variation of V1
+        "{ a: { \"$type\": 1, \"$binary\": \"ZHJpbGw=\" } }\n" +
         // Harmless extension
         "{ a: { \"$binary\": \"ZHJpbGw=\" } }\n" +
         // Only valid after the above
@@ -244,6 +246,8 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         .addRow(bytes)
         .addRow(bytes)
         .addSingleCol(null)
+        .addRow(bytes)
+        .addRow(bytes)
         .addRow(bytes)
         .addRow(bytes)
         .build();
@@ -339,6 +343,9 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
   public void testTime() {
     String json =
         "{ a: { \"$time\": \"11:22:33\" } }\n" +
+        "{ a: { \"$time\": \"11:22:33.123\" } }\n" +
+        // Drill's assumed format, though not really valid
+        "{ a: { \"$time\": \"11:22:33.123Z\" } }\n" +
         "{ a: null }\n" +
         "{ a: \"11:22:33\" }\n";
     JsonLoaderFixture loader = new JsonLoaderFixture();
@@ -351,8 +358,11 @@ public class TestExtendedTypes extends BaseJsonLoaderTest {
         .addNullable("a", MinorType.TIME)
         .build();
     org.joda.time.LocalTime time  = new org.joda.time.LocalTime(11, 22, 33);
+    org.joda.time.LocalTime time2  = new org.joda.time.LocalTime(11, 22, 33, 123);
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(time)
+        .addRow(time2)
+        .addRow(time2)
         .addSingleCol(null)
         .addRow(time)
         .build();

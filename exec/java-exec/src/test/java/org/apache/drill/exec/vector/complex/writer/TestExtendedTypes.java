@@ -22,11 +22,11 @@ import static org.junit.Assert.assertEquals;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.vector.complex.writer.TestJsonReader.TestWrapper;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -38,19 +38,19 @@ public class TestExtendedTypes extends BaseTestQuery {
     dirTestWatcher.copyResourceToRoot(Paths.get("vector", "complex"));
   }
 
-  // TODO: This test cannot be run in Eclipse due to mocking
   @Test
   public void checkReadWriteExtended() throws Exception {
     runBoth(() -> doCheckReadWriteExtended());
   }
 
   private void doCheckReadWriteExtended() throws Exception {
-    mockUtcDateTimeZone();
 
     final String originalFile = "vector/complex/extended.json";
     final String newTable = "TestExtendedTypes/newjson";
 
+    TimeZone origZone = TimeZone.getDefault();
     try {
+      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
       alterSession(ExecConstants.OUTPUT_FORMAT_OPTION, "json");
       alterSession(ExecConstants.JSON_EXTENDED_TYPES_KEY, true);
 
@@ -64,8 +64,10 @@ public class TestExtendedTypes extends BaseTestQuery {
       final byte[] newData = Files.readAllBytes(dirTestWatcher.getDfsTestTmpDir().toPath().resolve(Paths.get(newTable, "0_0_0.json")));
       assertEquals(new String(originalData), new String(newData));
     } finally {
+      TimeZone.setDefault(origZone);
       resetSessionOption(ExecConstants.OUTPUT_FORMAT_OPTION);
       resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES_KEY);
+      test("DROP TABLE IF EXISTS dfs.tmp.`%s`", newTable);
     }
   }
 
@@ -77,7 +79,9 @@ public class TestExtendedTypes extends BaseTestQuery {
   private void doTestMongoExtendedTypes() throws Exception {
     final String originalFile = "vector/complex/mongo_extended.json";
 
+    TimeZone origZone = TimeZone.getDefault();
     try {
+      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
       alterSession(ExecConstants.OUTPUT_FORMAT_OPTION, "json");
       alterSession(ExecConstants.JSON_EXTENDED_TYPES_KEY, true);
 
@@ -91,6 +95,7 @@ public class TestExtendedTypes extends BaseTestQuery {
       String expected = "drill_timestamp_millies,bin,bin1\n2015-07-07 03:59:43.488,drill,drill\n";
       assertEquals(expected, actual);
     } finally {
+      TimeZone.setDefault(origZone);
       resetSessionOption(ExecConstants.OUTPUT_FORMAT_OPTION);
       resetSessionOption(ExecConstants.JSON_EXTENDED_TYPES_KEY);
     }
