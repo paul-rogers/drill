@@ -67,7 +67,7 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = UserBitShared.CoreOperatorType.PCAP_SUB_SCAN_VALUE;
-    config.useEnhancedScan = true;
+    config.scanVersion = ScanFrameworkVersion.EVF_V1;
     return config;
   }
 

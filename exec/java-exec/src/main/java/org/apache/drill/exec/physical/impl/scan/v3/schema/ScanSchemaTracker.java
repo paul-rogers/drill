@@ -305,6 +305,11 @@ public interface ScanSchemaTracker {
   ProjectionType projectionType();
 
   /**
+   * Return the projection for a column, if any.
+   */
+  ProjectedColumn columnProjection(String colName);
+
+  /**
    * Is the scan schema resolved? The schema is resolved depending on the
    * complex lifecycle explained in the class comment. Resolution occurs
    * when the wildcard (if any) is expanded, and all explicit projection

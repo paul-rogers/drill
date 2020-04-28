@@ -105,8 +105,8 @@ public class MutableTupleSchema {
     }
   }
 
-  protected final List<MutableTupleSchema.ColumnHandle> columns = new ArrayList<>();
-  protected final Map<String, MutableTupleSchema.ColumnHandle> nameIndex =
+  protected final List<ColumnHandle> columns = new ArrayList<>();
+  protected final Map<String, ColumnHandle> nameIndex =
       CaseInsensitiveMap.newHashMap();
   private ProjectionType projType;
   private int insertPoint = -1;
@@ -130,9 +130,9 @@ public class MutableTupleSchema {
    * Provide the list of partially-resolved columns. Primarily for
    * the implicit column parser.
    */
-  public List<MutableTupleSchema.ColumnHandle> columns() { return columns; }
+  public List<ColumnHandle> columns() { return columns; }
 
-  public MutableTupleSchema.ColumnHandle find(String colName) {
+  public ColumnHandle find(String colName) {
     return nameIndex.get(colName);
   }
 
@@ -147,20 +147,20 @@ public class MutableTupleSchema {
   }
 
   public void add(ColumnMetadata col) {
-    MutableTupleSchema.ColumnHandle holder = new ColumnHandle(col);
+    ColumnHandle holder = new ColumnHandle(col);
     columns.add(holder);
     addIndex(holder);
     version++;
   }
 
-  public void addIndex(MutableTupleSchema.ColumnHandle holder) {
+  public void addIndex(ColumnHandle holder) {
     if (nameIndex.put(holder.column().name(), holder) != null) {
       throw new IllegalArgumentException("Duplicate scan projection column: " + holder.name());
     }
   }
 
   public void insert(int posn, ColumnMetadata col) {
-    MutableTupleSchema.ColumnHandle holder = new ColumnHandle(col);
+    ColumnHandle holder = new ColumnHandle(col);
     columns.add(posn, holder);
     addIndex(holder);
     version++;
@@ -171,7 +171,7 @@ public class MutableTupleSchema {
   }
 
   public boolean isResolved() {
-    for (MutableTupleSchema.ColumnHandle handle : columns) {
+    for (ColumnHandle handle : columns) {
       if (!isColumnResolved(handle.column())) {
         return false;
       }
@@ -197,7 +197,7 @@ public class MutableTupleSchema {
 
   public TupleMetadata toSchema() {
     TupleMetadata schema = new TupleSchema();
-    for (MutableTupleSchema.ColumnHandle col : columns) {
+    for (ColumnHandle col : columns) {
       schema.addColumn(col.column());
     }
     return schema;

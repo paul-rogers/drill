@@ -84,6 +84,11 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
     this.implicitInsertPoint = parseResult.wildcardPosn;
   }
 
+  @Override
+  public ProjectedColumn columnProjection(String colName) {
+    return (ProjectedColumn) projection.metadata(colName);
+  }
+
   public void applyProvidedSchema(TupleMetadata providedSchema) {
     boolean isStrict = SchemaUtils.isStrict(providedSchema);
     new ScanSchemaResolver(schema,

@@ -91,4 +91,7 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
 
   @Override
   public int schemaVersion() { return 1; }
+
+  @Override
+  public ProjectedColumn columnProjection(String colName) { return null; }
 }

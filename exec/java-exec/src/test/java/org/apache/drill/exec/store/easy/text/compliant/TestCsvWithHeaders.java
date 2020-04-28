@@ -330,14 +330,14 @@ public class TestCsvWithHeaders extends BaseCsvTest {
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
         .add("c", MinorType.VARCHAR)
+        .add("a", MinorType.VARCHAR)
         .add("d", MinorType.VARCHAR)
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("10", "foo", "bar", "10")
+        .addRow("foo", "bar", "10", "10")
         .build();
     RowSetUtilities.verify(expected, actual);
   }
@@ -603,8 +603,8 @@ public class TestCsvWithHeaders extends BaseCsvTest {
       client.queryBuilder().sql(sql, COLUMNS_FILE_NAME).run();
     } catch (UserRemoteException e) {
       assertTrue(e.getMessage().contains(
-          "VALIDATION ERROR: Unexpected `columns`[x]; columns array not enabled"));
-      assertTrue(e.getMessage().contains("Format plugin: text"));
+          "VALIDATION ERROR: Unexpected `columns`[x]; file has headers or schema"));
+      assertTrue(e.getMessage().contains("Format plugin type: text"));
       assertTrue(e.getMessage().contains("Plugin config name: csv"));
       assertTrue(e.getMessage().contains("Extract headers: true"));
       assertTrue(e.getMessage().contains("Skip first line: false"));
@@ -639,8 +639,8 @@ public class TestCsvWithHeaders extends BaseCsvTest {
       // Note: this error is caught before reading any tables,
       // so no table information is available.
       assertTrue(e.getMessage().contains(
-          "VALIDATION ERROR: Unexpected `columns`[x]; columns array not enabled"));
-      assertTrue(e.getMessage().contains("Format plugin: text"));
+          "VALIDATION ERROR: Unexpected `columns`[x]; file has headers or schema"));
+      assertTrue(e.getMessage().contains("Format plugin type: text"));
       assertTrue(e.getMessage().contains("Plugin config name: csv"));
       assertTrue(e.getMessage().contains("Extract headers: true"));
       assertTrue(e.getMessage().contains("Skip first line: false"));

@@ -49,7 +49,7 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
     @Override
     public void addContext(Builder builder) {
       super.addContext(builder);
-      builder.addContext("File", Path.getPathWithoutSchemeAndAuthority(split.getPath()).toString());
+      builder.addContext("File", split.getPath().toString());
       if (split.getStart() != 0) {
         builder.addContext("Offset", split.getStart());
         builder.addContext("Length", split.getLength());

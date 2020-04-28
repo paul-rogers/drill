@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
+import org.apache.drill.exec.store.easy.text.TextFormatConfig;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 

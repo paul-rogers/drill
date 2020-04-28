@@ -200,16 +200,9 @@ public class ScanSchemaResolver {
     switch (mode) {
       case LENIENT_PROVIDED_SCHEMA:
       case STRICT_PROVIDED_SCHEMA:
-        // With a wilcard, there should be no existing column unless
-        // the planner projected an implicit column and the provided
-        // schema defines that same implicit column.
-        if (isProjectAll && !SchemaUtils.isImplicit(colSchema)) {
-          throw UserException.validationError()
-            .message("Provided schema column name conflicts with presumed implicit column name")
-            .addContext("Column", colSchema.name())
-            .addContext(errorContext)
-            .build(logger);
-        }
+        // Even with a wildcard, the planner may add additional columns.
+        // Example SELECT * FROM foo ORDER BY bar
+        // The planner will provide us with [`*`, `bar`]
         break;
       case EARLY_READER_SCHEMA:
         // If the reader offers a column which duplicates an implicit column,

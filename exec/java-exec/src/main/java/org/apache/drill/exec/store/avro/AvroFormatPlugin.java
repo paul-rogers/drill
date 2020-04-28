@@ -55,7 +55,7 @@ public class AvroFormatPlugin extends EasyFormatPlugin<AvroFormatConfig> {
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
     config.readerOperatorType = CoreOperatorType.AVRO_SUB_SCAN_VALUE;
-    config.useEnhancedScan = true;
+    config.scanVersion = ScanFrameworkVersion.EVF_V1;
     return config;
   }
 

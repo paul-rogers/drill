@@ -23,6 +23,7 @@ import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.v3.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.v3.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader.EarlyEofException;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaTracker.ProjectionType;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -70,6 +71,11 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
   @Override
   public boolean isProjectionEmpty() {
     return readerLifecycle.schemaTracker().projectionType() == ProjectionType.NONE;
+  }
+
+  @Override
+  public ProjectedColumn projectionFor(String colName) {
+    return readerLifecycle.scanLifecycle().schemaTracker().columnProjection(colName);
   }
 
   @Override

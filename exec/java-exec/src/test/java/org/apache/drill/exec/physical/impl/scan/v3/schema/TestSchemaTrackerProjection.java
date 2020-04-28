@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.v3.schema;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -81,6 +82,8 @@ public class TestSchemaTrackerProjection extends BaseTest {
     assertFalse(tracker.isResolved());
     assertTrue(0 < tracker.schemaVersion());
     assertSame(ScanSchemaTracker.ProjectionType.ALL, tracker.projectionType());
+    assertNotNull(tracker.columnProjection("a"));
+    assertNotNull(tracker.columnProjection("b"));
     TupleMetadata schema = tracker.internalSchema().toSchema();
     assertEquals(2, schema.size());
     assertTrue(schema.metadata(0).isDynamic());
@@ -99,5 +102,22 @@ public class TestSchemaTrackerProjection extends BaseTest {
     assertTrue(schema.metadata(0).isDynamic());
     ProjectionFilter filter = tracker.projectionFilter(ERROR_CONTEXT);
     assertTrue(filter instanceof DynamicSchemaFilter);
+  }
+
+  @Test
+  public void testExplicitArray() {
+    ProjectionSchemaTracker tracker = schemaTracker(
+        RowSetTestUtils.projectList("a[1]", "a[3]"));
+    assertSame(ScanSchemaTracker.ProjectionType.SOME, tracker.projectionType());
+
+    ProjectedColumn projCol = tracker.columnProjection("a");
+    assertNotNull(projCol);
+    boolean[] indexes = projCol.indexes();
+    assertNotNull(indexes);
+    assertEquals(4, indexes.length);
+    assertFalse(indexes[0]);
+    assertTrue(indexes[1]);
+    assertFalse(indexes[2]);
+    assertTrue(indexes[3]);
   }
 }

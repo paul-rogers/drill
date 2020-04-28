@@ -89,7 +89,7 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
     config.readerOperatorType = CoreOperatorType.REGEX_SUB_SCAN_VALUE;
-    config.useEnhancedScan = true;
+    config.scanVersion = ScanFrameworkVersion.EVF_V1;
     return config;
   }
 

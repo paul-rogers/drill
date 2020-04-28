@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.v3;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectedColumn;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -133,6 +134,8 @@ public interface SchemaNegotiator {
    * data must be written using the loader
    */
   boolean isProjectionEmpty();
+
+  ProjectedColumn projectionFor(String colName);
 
   /**
    * Returns the provided schema, if defined. The provided schema is a
