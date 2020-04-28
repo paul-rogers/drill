@@ -82,13 +82,14 @@ public class ScanSchemaResolver {
    * Indicates the source of the schema to be analyzed.
    * Each schema type has subtly different rules. The
    * schema type allows us to inject those differences inline
-   * within the resolution process. Also, each schema caries
+   * within the resolution process. Also, each schema carries
    * a tag used for error reporting.
    */
   public enum SchemaType {
     STRICT_PROVIDED_SCHEMA("Provided"),
     LENIENT_PROVIDED_SCHEMA("Provided"),
     EARLY_READER_SCHEMA("Reader"),
+    FIRST_READER_SCHEMA("Reader"),
     READER_SCHEMA("Reader"),
     MISSING_COLS("Missing columns");
 
@@ -109,6 +110,7 @@ public class ScanSchemaResolver {
   private final boolean allowMapAdditions;
   private final String source;
   private final CustomErrorContext errorContext;
+  private final boolean allowColumnReorder;
 
   public ScanSchemaResolver(MutableTupleSchema schema, SchemaType mode,
       boolean allowMapAdditions,
@@ -119,6 +121,20 @@ public class ScanSchemaResolver {
     this.errorContext = errorContext;
     this.allowMapAdditions = allowMapAdditions;
     this.source = mode.source();
+    switch (mode) {
+      case STRICT_PROVIDED_SCHEMA:
+      case LENIENT_PROVIDED_SCHEMA:
+      case EARLY_READER_SCHEMA:
+      case FIRST_READER_SCHEMA:
+
+        // Allow reordering columns with projection is of the form
+        // *, foo. Move bar to its place in the schema (foo, bar) rather
+        // than at the end, as with implicit columns.
+        this.allowColumnReorder = schema.projectionType() == ProjectionType.ALL;
+        break;
+      default:
+        this.allowColumnReorder = false;
+    }
   }
 
   public void applySchema(TupleMetadata sourceSchema) {
@@ -139,7 +155,16 @@ public class ScanSchemaResolver {
    * A project list can contain implicit columns in
    * addition to the wildcard. The wildcard defines the
    * <i>insert point</i>: the point at which reader-defined
-   * columns are inserted as found.
+   * columns are inserted as found. This version applies a provided
+   * schema to a projection. If we are given a query of the form
+   * {@code SELECT * FROM foo ORDER BY bar}, Drill will give us a projection
+   * list of the form {@code [`**`, `bar`]} and normal projection processing
+   * will project all provided columns, except {@code bar}, in place of the
+   * wildcard. Since this behavior differs from all other DBs, we apply special
+   * processing, we move the projection column into the next wildcard position
+   * as if Drill did not include the extra column projection. This is a hack,
+   * but one that helps with ease-of-use. We apply the same rule to the first
+   * reader schema for the same reason.
    */
   private void projectSchema(TupleMetadata sourceSchema) {
     for (ColumnMetadata colSchema : sourceSchema) {
@@ -148,6 +173,9 @@ public class ScanSchemaResolver {
         insertColumn(colSchema);
       } else {
         mergeColumn(existing, colSchema);
+        if (allowColumnReorder) {
+          schema.moveIfExplicit(colSchema.name());
+        }
       }
     }
   }
@@ -160,6 +188,7 @@ public class ScanSchemaResolver {
    */
   private void insertColumn(ColumnMetadata col) {
     switch (mode) {
+      case FIRST_READER_SCHEMA:
       case READER_SCHEMA:
         if (!isProjectAll) {
           throw new IllegalStateException(
@@ -334,6 +363,7 @@ public class ScanSchemaResolver {
       case LENIENT_PROVIDED_SCHEMA:
       case STRICT_PROVIDED_SCHEMA:
         break;
+      case FIRST_READER_SCHEMA:
       case READER_SCHEMA:
         if (!allowMapAdditions) {
           throw new IllegalStateException("Reader should not have projected column: " + readerCol.name());

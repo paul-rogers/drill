@@ -26,6 +26,7 @@ import org.apache.drill.categories.EvfTests;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.EmptyErrorContext;
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnOptions;
@@ -168,5 +169,24 @@ public class TestSchemaTrackerEarlyReaderSchema extends SubOperatorTest {
       assertTrue(e.getMessage().contains("Scan column: `a` INT NOT NULL"));
       assertTrue(e.getMessage().contains("Reader column: `a` INT"));
     }
+  }
+
+  @Test
+  public void testWildcardWithExplicitWithEarlyReaderSchema() {
+
+    // Simulate SELECT *, a ...
+    final ScanSchemaConfigBuilder builder = new ScanSchemaConfigBuilder()
+        .projection(RowSetTestUtils.projectList(
+            SchemaPath.DYNAMIC_STAR, "a"));
+
+    final TupleMetadata readerSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .add("c", MinorType.VARCHAR)
+        .buildSchema();
+    final ScanSchemaTracker schemaTracker = builder.build();
+    schemaTracker.applyEarlyReaderSchema(readerSchema);
+    assertTrue(schemaTracker.isResolved());
+    assertEquals(readerSchema, schemaTracker.outputSchema());
   }
 }

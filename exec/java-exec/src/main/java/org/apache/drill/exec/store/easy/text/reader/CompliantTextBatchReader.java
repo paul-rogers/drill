@@ -29,6 +29,8 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.convert.StandardConversions;
+import org.apache.drill.exec.physical.impl.scan.convert.WriterBuilder;
+import org.apache.drill.exec.physical.impl.scan.convert.WriterBuilder.EarlySchemaWriterBuilder;
 import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.v3.file.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectedColumn;
@@ -152,30 +154,22 @@ public class CompliantTextBatchReader implements ManagedReader {
    */
   private FieldVarCharOutput buildWithSchema(FileSchemaNegotiator schemaNegotiator,
       String[] fieldNames) {
-    TupleMetadata readerSchema = mergeSchemas(schemaNegotiator.providedSchema(), fieldNames);
-    schemaNegotiator.tableSchema(readerSchema, true);
+    Map<String, String> props = new HashMap<>();
+    props.put(ColumnMetadata.BLANK_AS_PROP, ColumnMetadata.BLANK_AS_NULL);
+    EarlySchemaWriterBuilder writerBuilder = new EarlySchemaWriterBuilder(
+            schemaNegotiator.providedSchema(), props);
+    for (String fieldName : fieldNames) {
+      writerBuilder.mergeColumn(textColumn(fieldName));
+    }
+    schemaNegotiator.tableSchema(writerBuilder.readerSchema());
+    schemaNegotiator.schemaIsComplete(true);
     writer = schemaNegotiator.build().writer();
-    StandardConversions conversions = conversions(schemaNegotiator.providedSchema());
+    writerBuilder.rowWriter(writer);
     ValueWriter[] colWriters = new ValueWriter[fieldNames.length];
     for (int i = 0; i < fieldNames.length; i++) {
-      ScalarWriter colWriter = writer.scalar(fieldNames[i]);
-      if (writer.isProjected()) {
-        colWriters[i] = conversions.converter(colWriter, MinorType.VARCHAR);
-      } else {
-        colWriters[i] = colWriter;
-      }
+      colWriters[i] = writerBuilder.writerFor(fieldNames[i]);
     }
     return new FieldVarCharOutput(writer, colWriters);
-  }
-
-  private TupleMetadata mergeSchemas(TupleMetadata providedSchema,
-      String[] fieldNames) {
-    final TupleMetadata readerSchema = new TupleSchema();
-    for (String fieldName : fieldNames) {
-      final ColumnMetadata providedCol = providedSchema.metadata(fieldName);
-      readerSchema.addColumn(providedCol == null ? textColumn(fieldName) : providedCol);
-    }
-    return readerSchema;
   }
 
   private ColumnMetadata textColumn(String colName) {

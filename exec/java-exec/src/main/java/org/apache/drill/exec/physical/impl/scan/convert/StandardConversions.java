@@ -124,7 +124,7 @@ public class StandardConversions {
     this.properties = null;
   }
 
-  public StandardConversions(Map<String,String> properties) {
+  public StandardConversions(Map<String, String> properties) {
     this.properties = properties;
   }
 
@@ -145,7 +145,15 @@ public class StandardConversions {
     }
   }
 
-  private Map<String,String> merge(Map<String,String> specificProps) {
+  public StandardConversions(TupleMetadata providedSchema,
+      Map<String, String> additionalProperties) {
+    this.properties = merge(
+        providedSchema == null ? null : providedSchema.properties(),
+        additionalProperties);
+  }
+
+  private static Map<String, String> merge(Map<String, String> properties,
+      Map<String, String> specificProps) {
     if (properties == null) {
       return specificProps;
     } else if (specificProps == null) {
@@ -157,9 +165,13 @@ public class StandardConversions {
     return merged;
   }
 
+  private Map<String, String> merge(Map<String, String> specificProps) {
+    return merge(properties, specificProps);
+  }
+
   public static DirectConverter newInstance(
       Class<? extends DirectConverter> conversionClass, ScalarWriter baseWriter,
-      Map<String,String> properties) {
+      Map<String, String> properties) {
 
     // Try the Converter(ScalerWriter writer, Map<String, String> props) constructor first.
     // This first form is optional.
@@ -439,7 +451,8 @@ public class StandardConversions {
   }
 
   public ValueWriter converter(ScalarWriter scalarWriter, MinorType inputType) {
-    return converterFor(scalarWriter, inputType, properties);
+    return converterFor(scalarWriter, inputType,
+        merge(scalarWriter.schema().properties()));
   }
 
   /**

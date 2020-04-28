@@ -626,30 +626,27 @@ public class TestCsvWithSchema extends BaseCsvTest {
       sql = "SELECT * FROM " + tablePath + "ORDER BY id";
       RowSet actual = client.queryBuilder().sql(sql).rowSet();
 
-      // The planner provides a projection of [`**`, `id`]
-      // Which expands to [`bool_col`, `id`], which is opposite of
-      // what a normal DB would provide.
       TupleMetadata expectedSchema = new SchemaBuilder()
-          .add("bool_col", MinorType.BIT)
           .add("id", MinorType.INT)
+          .add("bool_col", MinorType.BIT)
           .buildSchema();
       RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-          .addRow(true,   1)
-          .addRow(false,  2)
-          .addRow(true,   3)
-          .addRow(false,  4)
-          .addRow(true,   5)
-          .addRow(true,   6)
-          .addRow(true,   7)
-          .addRow(false,  8)
-          .addRow(true,   9)
-          .addRow(true,  10)
-          .addRow(true,  11)
-          .addRow(true,  12)
-          .addRow(true,  13)
-          .addRow(true,  14)
-          .addRow(true,  15)
-          .addRow(false, 16)
+          .addRow( 1, true)
+          .addRow( 2, false)
+          .addRow( 3, true)
+          .addRow( 4, false)
+          .addRow( 5, true)
+          .addRow( 6, true)
+          .addRow( 7, true)
+          .addRow( 8, false)
+          .addRow( 9, true)
+          .addRow(10, true)
+          .addRow(11, true)
+          .addRow(12, true)
+          .addRow(13, true)
+          .addRow(14, true)
+          .addRow(15, true)
+          .addRow(16, false)
           .build();
       RowSetUtilities.verify(expected, actual);
     } finally {
@@ -1130,7 +1127,7 @@ public class TestCsvWithSchema extends BaseCsvTest {
 
     try {
       enableSchemaSupport();
-      String sql = "SELECT id, amount, start_date FROM " + tablePath + "ORDER BY id";
+      String sql = "SELECT * FROM " + tablePath + "ORDER BY id";
       RowSet actual = client.queryBuilder().sql(sql).rowSet();
 
       TupleMetadata expectedSchema = new SchemaBuilder()

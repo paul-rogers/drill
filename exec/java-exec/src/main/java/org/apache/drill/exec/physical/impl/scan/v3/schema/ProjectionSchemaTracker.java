@@ -37,6 +37,7 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
   private final TupleMetadata projection;
   private final boolean allowSchemaChange;
   private int implicitInsertPoint;
+  private int readerSchemaCount;
   private boolean allowMapAdditions = true;
 
   public ProjectionSchemaTracker(TupleMetadata definedSchema,
@@ -137,6 +138,8 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
   public ProjectionFilter projectionFilter(CustomErrorContext errorContext) {
     switch (projectionType()) {
       case ALL:
+
+        // Empty schema implies we've only seen the wildcard this far.
         if (schema.size() == 0) {
           return ProjectionFilter.PROJECT_ALL;
         }
@@ -151,7 +154,17 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
   @Override
   public void applyReaderSchema(TupleMetadata readerOutputSchema,
       CustomErrorContext errorContext) {
-    new ScanSchemaResolver(schema, SchemaType.READER_SCHEMA, allowMapAdditions, errorContext)
+    SchemaType schemaType;
+
+    // The first reader can reposition columns projected with a wildcard,
+    // other readers cannot as we want to preserve column order after the
+    // first batch.
+    if (readerSchemaCount == 0 && allowSchemaChange) {
+      schemaType = SchemaType.FIRST_READER_SCHEMA;
+    } else {
+      schemaType = SchemaType.READER_SCHEMA;
+    }
+    new ScanSchemaResolver(schema, schemaType, allowMapAdditions, errorContext)
         .applySchema(readerOutputSchema);
     if (!allowSchemaChange) {
       allowMapAdditions = false;
@@ -160,6 +173,7 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
       }
     }
     checkResolved();
+    readerSchemaCount++;
   }
 
   @Override

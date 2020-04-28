@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.v3.schema;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaTracker.ProjectionType;
@@ -168,6 +169,26 @@ public class MutableTupleSchema {
 
   public void insert(ColumnMetadata col) {
     insert(insertPoint++, col);
+  }
+
+  /**
+   * Move a column from its current position (which must be past the insert point)
+   * to the insert point. An index entry already exists. Special operation done
+   * when matching a provided schema to a projection list that includes a wildcard
+   * and explicitly projected columns. Works around unfortunate behavior in the
+   * planner.
+   */
+  public void moveIfExplicit(String colName) {
+    ColumnHandle holder = find(colName);
+    Objects.requireNonNull(holder);
+    int posn = columns.indexOf(holder);
+    if (posn == insertPoint) {
+      insertPoint++;
+    } else if (posn > insertPoint) {
+      columns.remove(posn);
+      columns.add(insertPoint++, holder);
+      version++;
+    }
   }
 
   public boolean isResolved() {
