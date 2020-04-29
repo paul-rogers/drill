@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnMarker;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaTracker.ProjectionType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -66,11 +67,10 @@ public class MutableTupleSchema {
    */
   public static class ColumnHandle {
     private ColumnMetadata col;
-    private boolean isImplicit;
+    private ImplicitColumnMarker marker;
 
     public ColumnHandle(ColumnMetadata col) {
       this.col = col;
-      this.isImplicit = SchemaUtils.isImplicit(col);
     }
 
     public String name() {
@@ -86,19 +86,18 @@ public class MutableTupleSchema {
       this.col = col;
     }
 
-    private void resolveImplicit(ColumnMetadata col) {
+    private void resolveImplicit(ColumnMetadata col, ImplicitColumnMarker marker) {
       SchemaUtils.mergeColProperties(this.col, col);
       this.col = col;
-      markImplicit();
+      markImplicit(marker);
     }
 
-    public void markImplicit() {
-      Preconditions.checkState(SchemaUtils.isImplicit(col));
-      isImplicit = true;
+    public void markImplicit(ImplicitColumnMarker marker) {
+      this.marker = marker;
     }
 
     public ColumnMetadata column() { return col; }
-    public boolean isImplicit() { return isImplicit; }
+    public boolean isImplicit() { return marker != null; }
 
     @Override
     public String toString() {
@@ -160,15 +159,16 @@ public class MutableTupleSchema {
     }
   }
 
-  public void insert(int posn, ColumnMetadata col) {
+  public ColumnHandle insert(int posn, ColumnMetadata col) {
     ColumnHandle holder = new ColumnHandle(col);
     columns.add(posn, holder);
     addIndex(holder);
     version++;
+    return holder;
   }
 
-  public void insert(ColumnMetadata col) {
-    insert(insertPoint++, col);
+  public ColumnHandle insert(ColumnMetadata col) {
+    return insert(insertPoint++, col);
   }
 
   /**
@@ -224,8 +224,8 @@ public class MutableTupleSchema {
     return schema;
   }
 
-  public void resolveImplicit(ColumnHandle col, ColumnMetadata resolved) {
-    col.resolveImplicit(resolved);
+  public void resolveImplicit(ColumnHandle col, ColumnMetadata resolved, ImplicitColumnMarker marker) {
+    col.resolveImplicit(resolved, marker);
     version++;
   }
 

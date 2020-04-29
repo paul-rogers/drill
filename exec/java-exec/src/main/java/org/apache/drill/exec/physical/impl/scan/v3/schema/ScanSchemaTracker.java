@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.v3.schema;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnMarker;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.impl.ProjectionFilter;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -354,7 +355,7 @@ public interface ScanSchemaTracker {
    * then determines which partition columns are needed and calls this
    * method to add each one.
    */
-  void expandImplicitCol(ColumnMetadata resolved);
+  void expandImplicitCol(ColumnMetadata resolved, ImplicitColumnMarker marker);
 
   /**
    * Indicate that implicit column parsing is complete. Returns the implicit

@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.v3.schema;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.DynamicSchemaFilter.RowSchemaFilter;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnMarker;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanProjectionParser.ProjectionParseResult;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaResolver.SchemaType;
 import org.apache.drill.exec.physical.resultSet.impl.ProjectionFilter;
@@ -177,8 +178,7 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
   }
 
   @Override
-  public void expandImplicitCol(ColumnMetadata resolved) {
-    Preconditions.checkArgument(SchemaUtils.isImplicit(resolved));
-    schema.insert(implicitInsertPoint++, resolved);
+  public void expandImplicitCol(ColumnMetadata resolved, ImplicitColumnMarker marker) {
+    schema.insert(implicitInsertPoint++, resolved).markImplicit(marker);;
   }
 }

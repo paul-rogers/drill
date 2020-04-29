@@ -24,7 +24,7 @@ import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.StaticBatchBuilder;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.StaticBatchBuilder.RepeatedBatchBuilder;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaTracker;
-import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ColumnMarker;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnMarker;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnOptions;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ParseResult;
 import org.apache.drill.exec.physical.resultSet.ResultVectorCache;
@@ -60,7 +60,7 @@ public class ImplicitFileColumnsHandler {
 
   public StaticBatchBuilder forFile(Path filePath) {
     FileDescrip fileInfo = new FileDescrip(filePath, rootDir);
-    List<ColumnMarker> columns = parseResult.columns();
+    List<ImplicitColumnMarker> columns = parseResult.columns();
     if (columns.isEmpty()) {
       return null;
     }

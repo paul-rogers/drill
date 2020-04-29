@@ -102,9 +102,8 @@ public abstract class AbstractSchemaTracker implements ScanSchemaTracker {
   private TupleMetadata implicitColumns() {
     TupleMetadata implicitCols = new TupleSchema();
     for (ColumnHandle handle : schema.columns()) {
-      ColumnMetadata col = handle.column();
-      if (SchemaUtils.isImplicit(col)) {
-        implicitCols.addColumn(col);
+      if (handle.isImplicit()) {
+        implicitCols.addColumn(handle.column());
       }
     }
     return implicitCols;

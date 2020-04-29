@@ -86,7 +86,7 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
   @Test
   public void testAllColumns() {
     StaticBatchBuilder batchLoader = buildHandler(
-        ScanTestUtils.projectAllWithMetadata(3),
+        ScanTestUtils.projectAllWithIFilemplicit(3),
         MOCK_ROOT_PATH, MOCK_FILE_PATH);
     assertNotNull(batchLoader);
     batchLoader.load(2);

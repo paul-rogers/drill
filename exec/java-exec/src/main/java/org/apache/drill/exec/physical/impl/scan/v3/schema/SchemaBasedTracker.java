@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.v3.schema;
 
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.DynamicSchemaFilter.RowSchemaFilter;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnMarker;
 import org.apache.drill.exec.physical.resultSet.impl.ProjectionFilter;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -85,7 +86,7 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
   }
 
   @Override
-  public void expandImplicitCol(ColumnMetadata resolved) {
+  public void expandImplicitCol(ColumnMetadata resolved, ImplicitColumnMarker marker) {
     throw new IllegalStateException("Can't expand a defined schema.");
   }
 

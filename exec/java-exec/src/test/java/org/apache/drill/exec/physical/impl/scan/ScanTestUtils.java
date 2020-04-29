@@ -45,14 +45,23 @@ import org.apache.drill.test.OperatorFixture;
 
 public class ScanTestUtils {
 
-  // Default file metadata column names; primarily for testing.
+  // Default implicit file column names; primarily for testing.
 
   public static final String FILE_NAME_COL = "filename";
   public static final String FULLY_QUALIFIED_NAME_COL = "fqn";
   public static final String FILE_PATH_COL = "filepath";
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
+
+  // Default Internal implicit columns; primarily for testing.
+
   public static final String LAST_MODIFIED_TIME_COL = "lmt";
+  public static final String ROW_GROUP_INDEX_COL = "rgi";
+  public static final String ROW_GROUP_START_COL = "rgs";
+  public static final String ROW_GROUP_LENGTH_COL = "rgl";
+
+  // Yes, the following both have the same value.
+  public static final String USE_METADATA_COL ="$project_metadata$";
   public static final String PROJECT_METADATA_COL = "$project_metadata$";
 
   public static abstract class ScanFixtureBuilder {
@@ -72,7 +81,7 @@ public class ScanTestUtils {
     }
 
     public void projectAllWithMetadata(int dirs) {
-      builder().projection(ScanTestUtils.projectAllWithMetadata(dirs));
+      builder().projection(ScanTestUtils.projectAllWithIFilemplicit(dirs));
     }
 
     public void setProjection(String... projCols) {
@@ -101,7 +110,7 @@ public class ScanTestUtils {
 
   public static class ScanFixture {
 
-    private OperatorContext opContext;
+    private final OperatorContext opContext;
     public ScanOperatorExec scanOp;
 
     public ScanFixture(OperatorContext opContext, ScanOperatorExec scanOp) {
@@ -152,7 +161,7 @@ public class ScanTestUtils {
    * @return schema with the metadata columns appended to the table columns
    */
 
-  public static TupleMetadata expandMetadata(TupleMetadata base, ImplicitColumnManager metadataProj, int dirCount) {
+  public static TupleMetadata expandImplicit(TupleMetadata base, ImplicitColumnManager metadataProj, int dirCount) {
     TupleMetadata metadataSchema = new TupleSchema();
     for (ColumnMetadata col : base) {
       metadataSchema.addColumn(col);
@@ -188,24 +197,29 @@ public class ScanTestUtils {
     return schema;
   }
 
-  public static List<SchemaPath> expandMetadata(int dirCount) {
+  public static List<String> expandFileImplicit(int dirCount) {
     List<String> selected = Lists.newArrayList(
         FULLY_QUALIFIED_NAME_COL,
         FILE_PATH_COL,
         FILE_NAME_COL,
-        SUFFIX_COL,
-        LAST_MODIFIED_TIME_COL,
-        PROJECT_METADATA_COL);
+        SUFFIX_COL);
 
     for (int i = 0; i < dirCount; i++) {
       selected.add(PARTITION_COL + i);
     }
-    return RowSetTestUtils.projectList(selected);
+    return selected;
   }
 
-  public static List<SchemaPath> projectAllWithMetadata(int dirCount) {
+  public static List<String> expandAllImplicit(int dirCount) {
+    List<String> selected = expandFileImplicit(dirCount);
+    selected.add(LAST_MODIFIED_TIME_COL);
+    selected.add(PROJECT_METADATA_COL);
+    return selected;
+  }
+
+  public static List<SchemaPath> projectAllWithIFilemplicit(int dirCount) {
     return RowSetTestUtils.concat(
         RowSetTestUtils.projectAll(),
-        expandMetadata(dirCount));
+        RowSetTestUtils.projectList(expandFileImplicit(dirCount)));
   }
 }

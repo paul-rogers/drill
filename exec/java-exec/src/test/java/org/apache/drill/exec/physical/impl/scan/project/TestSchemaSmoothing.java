@@ -595,7 +595,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = ScanLevelProjection.build(
-        ScanTestUtils.projectAllWithMetadata(2),
+        ScanTestUtils.projectAllWithIFilemplicit(2),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -608,7 +608,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    TupleMetadata expectedSchema = ScanTestUtils.expandImplicit(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
       ResolvedRow rootTuple = doResolve(smoother, tableSchema);
@@ -642,7 +642,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = ScanLevelProjection.build(
-        ScanTestUtils.projectAllWithMetadata(2),
+        ScanTestUtils.projectAllWithIFilemplicit(2),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -655,7 +655,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    TupleMetadata expectedSchema = ScanTestUtils.expandImplicit(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
       ResolvedRow rootTuple = doResolve(smoother, tableSchema);
@@ -689,7 +689,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
     // Set up the scan level projection
 
     ScanLevelProjection scanProj = ScanLevelProjection.build(
-        ScanTestUtils.projectAllWithMetadata(2),
+        ScanTestUtils.projectAllWithIFilemplicit(2),
         ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     // Define the schema smoother
@@ -702,7 +702,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    TupleMetadata expectedSchema = ScanTestUtils.expandImplicit(tableSchema, metadataManager, 2);
     {
       metadataManager.startFile(filePathA);
       ResolvedRow rootTuple = doResolve(smoother, tableSchema);
