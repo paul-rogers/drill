@@ -35,6 +35,7 @@ public class FileScanLifecycleBuilder extends ScanLifecycleBuilder {
   protected Path rootDir;
   private List<FileWork> splits;
   private Configuration fsConf;
+  private boolean compressible;
 
   public void fileSystemConfig(Configuration fsConf) {
     this.fsConf = fsConf;
@@ -64,6 +65,10 @@ public class FileScanLifecycleBuilder extends ScanLifecycleBuilder {
     this.rootDir = rootDir;
   }
 
+  public void compressible(boolean compressible) {
+    this.compressible = compressible;
+  }
+
   public List<FileWork> splits() {
     return Preconditions.checkNotNull(splits);
   }
@@ -75,20 +80,16 @@ public class FileScanLifecycleBuilder extends ScanLifecycleBuilder {
     return fsConf;
   }
 
+  public int maxPartitionDepth() { return maxPartitionDepth; }
+
+  public boolean useLegacyWildcardExpansion() { return useLegacyWildcardExpansion; }
+
+  public Path rootDir() { return rootDir; }
+
+  public boolean isCompressible() { return compressible; }
+
   @Override
   public ScanLifecycle build(OperatorContext context) {
     return new FileScanLifecycle(context, this);
-  }
-
-  public int maxPartitionDepth() {
-    return maxPartitionDepth;
-  }
-
-  public boolean useLegacyWildcardExpansion() {
-    return useLegacyWildcardExpansion;
-  }
-
-  public Path rootDir() {
-    return rootDir;
   }
 }

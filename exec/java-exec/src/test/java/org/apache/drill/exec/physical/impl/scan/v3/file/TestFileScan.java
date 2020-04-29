@@ -57,8 +57,9 @@ public class TestFileScan extends BaseFileScanTest {
     public MockLateSchemaReader(FileSchemaNegotiator negotiator) {
 
       // Verify the path
-      assertEquals(MOCK_FILE_SYSTEM_NAME, negotiator.fileWork().getPath().toString());
-      assertEquals(MOCK_FILE_SYSTEM_NAME, negotiator.split().getPath().toString());
+      assertEquals(MOCK_FILE_SYSTEM_NAME, negotiator.file().filePath().toString());
+      assertEquals(MOCK_FILE_SYSTEM_NAME, negotiator.file().fileWork().getPath().toString());
+      assertEquals(MOCK_FILE_SYSTEM_NAME, negotiator.file().split().getPath().toString());
 
       // No schema or file, just build the table loader.
       tableLoader = negotiator.build();

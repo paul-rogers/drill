@@ -21,14 +21,12 @@ import org.apache.drill.common.exceptions.ChildErrorContext;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.UserException.Builder;
 import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader;
-import org.apache.drill.exec.physical.impl.scan.v3.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader.EarlyEofException;
+import org.apache.drill.exec.physical.impl.scan.v3.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.ReaderLifecycle;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.SchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.StaticBatchBuilder;
-import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 
 /**
@@ -49,6 +47,7 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
     @Override
     public void addContext(Builder builder) {
       super.addContext(builder);
+      FileSplit split = fileDescrip.split();
       builder.addContext("File", split.getPath().toString());
       if (split.getStart() != 0) {
         builder.addContext("Offset", split.getStart());
@@ -57,8 +56,7 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
     }
   }
 
-  private FileWork fileWork;
-  private FileSplit split;
+  private FileDescrip fileDescrip;
 
   public FileSchemaNegotiatorImpl(ReaderLifecycle readerLifecycle) {
     super(readerLifecycle);
@@ -67,19 +65,11 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
   }
 
   public void bindSplit(FileWork fileWork) {
-    this.fileWork = fileWork;
-    Path path = fileScan().fileSystem().makeQualified(fileWork.getPath());
-    split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
+    fileDescrip = fileScan().implicitColumnsHandler().makeDescrip(fileWork);
   }
 
   @Override
-  public DrillFileSystem fileSystem() { return fileScan().fileSystem(); }
-
-  @Override
-  public FileSplit split() { return split; }
-
-  @Override
-  public FileWork fileWork() { return fileWork; }
+  public FileDescrip file() { return fileDescrip; }
 
   @Override
   @SuppressWarnings("unchecked")
@@ -89,7 +79,7 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
 
   @Override
   public StaticBatchBuilder implicitColumnsLoader() {
-    return fileScan().implicitColumnsHandler().forFile(split.getPath());
+    return fileScan().implicitColumnsHandler().forFile(fileDescrip);
   }
 
   private FileScanLifecycle fileScan() {

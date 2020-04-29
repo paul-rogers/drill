@@ -289,10 +289,9 @@ public class CompliantTextBatchReader implements ManagedReader {
   }
 
   private TextReader openReader(FileSchemaNegotiator schemaNegotiator, TextOutput output) throws IOException {
-    DrillFileSystem dfs = schemaNegotiator.fileSystem();
-    FileSplit split = schemaNegotiator.split();
+    FileSplit split = schemaNegotiator.file().split();
     logger.trace("Opening file {}", split.getPath());
-    final InputStream stream = dfs.openPossiblyCompressedStream(split.getPath());
+    final InputStream stream = schemaNegotiator.file().open();
     final TextInput input = new TextInput(settings, stream, readBuffer,
         split.getStart(), split.getStart() + split.getLength());
 
@@ -334,13 +333,12 @@ public class CompliantTextBatchReader implements ManagedReader {
     // don't skip header in case skipFirstLine is set true
     settings.setSkipFirstLine(false);
 
-    DrillFileSystem dfs = schemaNegotiator.fileSystem();
-    FileSplit split = schemaNegotiator.split();
+    FileSplit split = schemaNegotiator.file().split();
+    logger.trace("Opening file {}", split.getPath());
+    final InputStream hStream = schemaNegotiator.file().open();
     final HeaderBuilder hOutput = new HeaderBuilder(split.getPath());
 
-    // setup Input using InputStream
     // we should read file header irrespective of split given given to this reader
-    final InputStream hStream = dfs.openPossiblyCompressedStream(split.getPath());
     final TextInput hInput = new TextInput(settings, hStream, readBuffer, 0, split.getLength());
 
     final String [] fieldNames;

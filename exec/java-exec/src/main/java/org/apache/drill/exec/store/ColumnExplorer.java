@@ -317,7 +317,7 @@ public class ColumnExplorer {
    * @param length   row group length
    * @return implicit column value for specified implicit file column
    */
-  private static String getImplicitColumnValue(ImplicitFileColumn column, Path filePath,
+  public static String getImplicitColumnValue(ImplicitFileColumn column, Path filePath,
       FileSystem fs, Integer index, Long start, Long length) {
     if (column instanceof ImplicitFileColumns) {
       ImplicitFileColumns fileColumn = (ImplicitFileColumns) column;

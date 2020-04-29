@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.v3.schema;
+package org.apache.drill.exec.physical.impl.scan.v3.file;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,12 +33,19 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.v3.file.FileDescrip;
+import org.apache.drill.exec.physical.impl.scan.v3.file.ImplicitColumnMarker.FileImplicitMarker;
+import org.apache.drill.exec.physical.impl.scan.v3.file.ImplicitColumnMarker.InternalColumnMarker;
+import org.apache.drill.exec.physical.impl.scan.v3.file.ImplicitColumnMarker.PartitionColumnMarker;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.MutableTupleSchema;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.MutableTupleSchema.ColumnHandle;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanSchemaTracker;
+import org.apache.drill.exec.physical.impl.scan.v3.schema.SchemaUtils;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumn;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitInternalFileColumns;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -120,100 +127,6 @@ public class ImplicitColumnResolver {
       this.dfs = dfs;
       return this;
     }
-  }
-
-  /**
-   * Defines an implicit column and provides a function to resolve an
-   * implicit column given a description of the input file.
-   */
-  public interface ImplicitColumnMarker {
-    boolean isInternal();
-    String resolve(FileDescrip fileInfo);
-  }
-
-  public static class FileImplicitMarker implements ImplicitColumnMarker {
-    public final ImplicitFileColumns defn;
-
-    public FileImplicitMarker(ImplicitFileColumns defn) {
-      this.defn = defn;
-    }
-
-    @Override
-    public boolean isInternal() { return false; }
-
-    @Override
-    public String resolve(FileDescrip fileInfo) {
-      return defn.getValue(fileInfo.filePath());
-    }
-  }
-
-  public static class InternalImplicitMarker implements ImplicitColumnMarker {
-    public final ImplicitInternalFileColumns defn;
-
-    public InternalImplicitMarker(ImplicitInternalFileColumns defn) {
-      this.defn = defn;
-    }
-
-    @Override
-    public boolean isInternal() { return true; }
-
-    @Override
-    public String resolve(FileDescrip fileInfo) {
-      switch (defn) {
-      case PROJECT_METADATA:
-        return Boolean.FALSE.toString();
-      case USE_METADATA:
-        return null;
-      default:
-        throw new IllegalStateException("Must create a marker with state for internal columns");
-      }
-    }
-  }
-
-  // File modification time, returned as a VARCHAR(?). Would be better
-  // to use a TIMESTAMP, or, since that is in local time, a BIGINT.
-  public static class LastModTimeMarker extends InternalImplicitMarker {
-
-    private final DrillFileSystem dfs;
-
-    public LastModTimeMarker(ImplicitInternalFileColumns defn, DrillFileSystem dfs) {
-      super(defn);
-      this.dfs = dfs;
-    }
-
-    @Override
-    public String resolve(FileDescrip fileInfo) {
-      try {
-        return String.valueOf(dfs.getFileStatus(fileInfo.filePath()).getModificationTime());
-      } catch (Exception e) {
-
-        // This is an odd place to catch and report errors. Assume that, if the file
-        // has problems, the call to open the file will fail and will return a better
-        // error message than we can provide here.
-        return null;
-      }
-    }
-  }
-
-  /**
-   * Partition column defined by a partition depth from the scan
-   * root folder. Partitions that reference non-existent directory levels
-   * are null.
-   */
-  public static class PartitionColumnMarker implements ImplicitColumnMarker {
-    private final int partition;
-
-    private PartitionColumnMarker(int partition) {
-      this.partition = partition;
-    }
-
-    @Override
-    public String resolve(FileDescrip fileInfo) {
-      return fileInfo.partition(partition);
-    }
-
-    @Override
-    public boolean isInternal() { return false; }
   }
 
   /**
@@ -311,9 +224,9 @@ public class ImplicitColumnResolver {
         return;
       }
 
-      FileImplicitMarker defn = parser.typeDefs.get(colType);
+      ImplicitFileColumn defn = parser.typeDefs.get(colType);
       if (defn != null) {
-        resolveImplicitColumn(defn, col, colType);
+        resolveImplicitColumn((ImplicitFileColumns) defn, col, colType);
         return;
       }
       resolveUnknownColumn(col, colType);
@@ -343,7 +256,7 @@ public class ImplicitColumnResolver {
       referencedPartitions.add(partitionIndex);
     }
 
-    private void resolveImplicitColumn(FileImplicitMarker defn,
+    private void resolveImplicitColumn(ImplicitFileColumns defn,
         ColumnHandle col, String colType) {
 
       // The provided schema column must be of the correct type and mode.
@@ -352,14 +265,14 @@ public class ImplicitColumnResolver {
           colSchema.mode() == DataMode.REPEATED) {
         throw UserException.validationError()
             .message("Provided column `%s` is marked as implicit '%s', but is of the wrong type",
-                colSchema.columnString(), defn.defn.propertyValue())
+                colSchema.columnString(), defn.propertyValue())
             .addContext("Expected type", MinorType.VARCHAR.name())
             .addContext("Expected cardinality", String.format("%s or %s",
                 DataMode.REQUIRED.name(), DataMode.OPTIONAL.name()))
             .addContext(parser.errorContext)
             .build(logger);
       }
-      markImplicit(col, defn);
+      markImplicit(col, new FileImplicitMarker(defn));
     }
 
     private void markImplicit(ColumnHandle col, ImplicitColumnMarker marker) {
@@ -385,7 +298,7 @@ public class ImplicitColumnResolver {
         return;
       }
 
-      ImplicitColumnMarker defn = parser.colDefs.get(col.name());
+      ImplicitFileColumn defn = parser.colDefs.get(col.name());
       if (defn != null) {
         buildImplicitColumn(defn, col);
       }
@@ -417,7 +330,7 @@ public class ImplicitColumnResolver {
       scanSchema.resolveImplicit(col, resolved, marker);
     }
 
-    private void buildImplicitColumn(ImplicitColumnMarker defn,
+    private void buildImplicitColumn(ImplicitFileColumn defn,
         ColumnHandle col) {
 
       // If the projected column is a map or array, then it shadows the
@@ -426,38 +339,25 @@ public class ImplicitColumnResolver {
       if (!projCol.isSimple()) {
         logger.warn("Projected column {} shadows implicit column {}",
             projCol.projectString(), col.name());
-      } else if (defn.isInternal()) {
+      } else if (defn instanceof ImplicitInternalFileColumns) {
+
+        // Tests may not provide the DFS, real code must
+        ImplicitInternalFileColumns internalDefn = (ImplicitInternalFileColumns) defn;
+        if (internalDefn == ImplicitInternalFileColumns.LAST_MODIFIED_TIME &&
+            parser.dfs == null) {
+          throw new IllegalStateException(
+              "Must provide a file system to use " + internalDefn.name());
+        }
 
         // TODO: Internal columns are VARCHAR for historical reasons.
         // Better to use a type that fits the column purposes.
         resolve(col,
             MetadataUtils.newScalar(col.name(), IMPLICIT_COL_TYPE),
-            specificMarkerFor((InternalImplicitMarker) defn));
+            new InternalColumnMarker(internalDefn));
       } else {
         resolve(col,
             MetadataUtils.newScalar(col.name(), IMPLICIT_COL_TYPE),
-            defn);
-      }
-    }
-
-    private InternalImplicitMarker specificMarkerFor(InternalImplicitMarker defn) {
-      switch (defn.defn) {
-      case LAST_MODIFIED_TIME:
-
-        // Tests may not provide the DFS, real code must
-        if (parser.dfs == null) {
-          throw new IllegalStateException("Must provide a file system to use " + defn.defn.name());
-        }
-        new LastModTimeMarker(defn.defn, parser.dfs);
-      case PROJECT_METADATA:
-      case USE_METADATA:
-        return defn;
-      default:
-
-        // Others are used for Parquet. Extend so support extra fields when
-        // this code is used for Parquet.
-        throw new UnsupportedOperationException(
-            "Internal implicit col not yet implemented: " + defn.defn.name());
+            new FileImplicitMarker((ImplicitFileColumns) defn));
       }
     }
   }
@@ -470,8 +370,8 @@ public class ImplicitColumnResolver {
   private final String partitionDesignator;
   private final Pattern partitionPattern;
   private final Pattern partitionTypePattern;
-  private final Map<String, ImplicitColumnMarker> colDefs = CaseInsensitiveMap.newHashMap();
-  private final Map<String, FileImplicitMarker> typeDefs = CaseInsensitiveMap.newHashMap();
+  private final Map<String, ImplicitFileColumn> colDefs = CaseInsensitiveMap.newHashMap();
+  private final Map<String, ImplicitFileColumn> typeDefs = CaseInsensitiveMap.newHashMap();
   private final CustomErrorContext errorContext;
   private final DrillFileSystem dfs;
 
@@ -491,19 +391,18 @@ public class ImplicitColumnResolver {
 
     // File implicit columns: can be defined in the provided schema
     for (ImplicitFileColumns defn : ImplicitFileColumns.values()) {
-      FileImplicitMarker marker = new FileImplicitMarker(defn);
       String colName = options.optionSet.getString(defn.optionName());
       if (!Strings.isNullOrEmpty(colName)) {
-        this.colDefs.put(colName, marker);
+        this.colDefs.put(colName, defn);
       }
-      this.typeDefs.put(defn.propertyValue(), marker);
+      this.typeDefs.put(defn.propertyValue(), defn);
     }
 
     // Internal implicit cols: cannot be defined in the provided schema
     for (ImplicitInternalFileColumns defn : ImplicitInternalFileColumns.values()) {
       String colName = options.optionSet.getString(defn.optionName());
       if (!Strings.isNullOrEmpty(colName)) {
-        this.colDefs.put(colName, new InternalImplicitMarker(defn));
+        this.colDefs.put(colName, defn);
       }
     }
   }

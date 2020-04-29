@@ -33,10 +33,9 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
-import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver;
-import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ImplicitColumnOptions;
-import org.apache.drill.exec.physical.impl.scan.v3.schema.ImplicitColumnResolver.ParseResult;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.MutableTupleSchema.ColumnHandle;
+import org.apache.drill.exec.physical.impl.scan.v3.file.ImplicitColumnResolver.ImplicitColumnOptions;
+import org.apache.drill.exec.physical.impl.scan.v3.file.ImplicitColumnResolver.ParseResult;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectionSchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ScanProjectionParser.ProjectionParseResult;
@@ -556,28 +555,28 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
    */
   @Test
   public void testInternalImplicitColumnSelection() throws IOException {
-    // Simulate SELECT lmt, rgi, rgs, rgl, $project_metadata$" ...
+    // Simulate SELECT lmt, $project_metadata$", rgi, rgs, rgl ...
     Configuration conf = new Configuration();
     conf.set(FileSystem.FS_DEFAULT_NAME_KEY, FileSystem.DEFAULT_FS);
     DrillFileSystem dfs = new DrillFileSystem(conf);
     ParserFixture parseFixture = new ParserFixture(
         RowSetTestUtils.projectList("a",
             ScanTestUtils.LAST_MODIFIED_TIME_COL,
-            ScanTestUtils.PROJECT_METADATA_COL));
-//            ScanTestUtils.ROW_GROUP_INDEX_COL,  // Note yet supported
-//            ScanTestUtils.ROW_GROUP_START_COL,
-//            ScanTestUtils.ROW_GROUP_LENGTH_COL,
+            ScanTestUtils.PROJECT_METADATA_COL,
+            ScanTestUtils.ROW_GROUP_INDEX_COL,
+            ScanTestUtils.ROW_GROUP_START_COL,
+            ScanTestUtils.ROW_GROUP_LENGTH_COL));
     parseFixture.options.dfs(dfs);
     ParseResult result = parseFixture.parseImplicit();
 
-    assertEquals(2, result.columns().size());
+    assertEquals(5, result.columns().size());
 
     TupleMetadata expected = new SchemaBuilder()
         .add(ScanTestUtils.LAST_MODIFIED_TIME_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
-//        .add(ScanTestUtils.ROW_GROUP_INDEX_COL, MinorType.VARCHAR)
-//        .add(ScanTestUtils.ROW_GROUP_START_COL, MinorType.VARCHAR)
-//        .add(ScanTestUtils.ROW_GROUP_LENGTH_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.ROW_GROUP_INDEX_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.ROW_GROUP_START_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.ROW_GROUP_LENGTH_COL, MinorType.VARCHAR)
         .build();
     assertEquals(expected, result.schema());
 
@@ -585,9 +584,9 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
     assertFalse(isImplicit(cols, 0));
     assertTrue(isImplicit(cols, 1));
     assertTrue(isImplicit(cols, 2));
-//    assertTrue(isImplicit(cols, 3));
-//    assertTrue(isImplicit(cols, 4));
-//    assertTrue(isImplicit(cols, 5));
+    assertTrue(isImplicit(cols, 3));
+    assertTrue(isImplicit(cols, 4));
+    assertTrue(isImplicit(cols, 5));
   }
 
   @Test

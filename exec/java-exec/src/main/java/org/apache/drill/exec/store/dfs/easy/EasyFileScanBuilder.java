@@ -76,6 +76,7 @@ public class EasyFileScanBuilder extends FileScanLifecycleBuilder {
     fileSplitImpls(scan.getWorkUnits());
     rootDir(scan.getSelectionRoot());
     maxPartitionDepth(scan.getPartitionDepth());
+    compressible(plugin.easyConfig().compressible);
     errorContext(new EvfErrorContext(scan, plugin));
   }
 }
