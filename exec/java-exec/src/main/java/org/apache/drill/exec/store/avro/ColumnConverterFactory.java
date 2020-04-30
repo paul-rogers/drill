@@ -57,7 +57,7 @@ public class ColumnConverterFactory {
     if (providedSchema == null) {
       standardConversions = null;
     } else {
-      standardConversions = new StandardConversions(providedSchema.properties());
+      standardConversions = StandardConversions.builder().withSchema(providedSchema).build();
     }
   }
 
@@ -157,7 +157,7 @@ public class ColumnConverterFactory {
     if (standardConversions == null) {
       valueWriter = scalarWriter;
     } else {
-      valueWriter = standardConversions.converter(scalarWriter, readerSchema);
+      valueWriter = standardConversions.converterFor(scalarWriter, readerSchema);
     }
     return buildScalar(readerSchema, valueWriter);
   }

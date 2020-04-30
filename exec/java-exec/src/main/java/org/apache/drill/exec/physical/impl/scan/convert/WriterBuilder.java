@@ -54,7 +54,10 @@ public abstract class WriterBuilder {
   public WriterBuilder(TupleMetadata providedSchema,
       Map<String, String> properties) {
     this.providedSchema = providedSchema;
-    this.conversions = new StandardConversions(providedSchema, properties);
+    this.conversions = StandardConversions.builder()
+        .withSchema(providedSchema)
+        .withProperties(properties)
+        .build();
   }
 
   public WriterBuilder defaultType(MinorType type) {
@@ -110,7 +113,7 @@ public abstract class WriterBuilder {
         .build(logger);
     }
     ScalarWriter colWriter = makeColumn(providedCol);
-    return conversions.converter(colWriter, readerCol.type());
+    return conversions.converterFor(colWriter, readerCol.type());
   }
 
   private boolean compatibleModes(DataMode source, DataMode dest) {

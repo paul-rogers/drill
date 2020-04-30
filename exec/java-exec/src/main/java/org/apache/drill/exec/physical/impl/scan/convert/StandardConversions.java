@@ -111,6 +111,42 @@ public class StandardConversions {
     }
   }
 
+  public static class Builder {
+
+    private final Map<String, String> properties = new HashMap<>();
+
+    public Builder withSchema(TupleMetadata providedSchema) {
+      if (providedSchema != null && providedSchema.hasProperties()) {
+        properties.putAll(providedSchema.properties());
+      }
+      return this;
+    }
+
+    public Builder withProperties(Map<String, String> properties) {
+      if (properties != null) {
+        this.properties.putAll(properties);
+      }
+      return this;
+    }
+
+    public Builder property(String key, String value) {
+      if (value == null) {
+        properties.remove(key);
+      } else {
+        properties.put(key, value);
+      }
+      return this;
+    }
+
+    public Builder blankAs(String value) {
+      return property(ColumnMetadata.BLANK_AS_PROP, value);
+    }
+
+    public StandardConversions build() {
+      return new StandardConversions(properties);
+    }
+  }
+
   public static final ConversionDefn IMPLICIT =
       new ConversionDefn(ConversionType.IMPLICIT);
   public static final ConversionDefn IMPLICIT_UNSAFE =
@@ -120,39 +156,13 @@ public class StandardConversions {
 
   private final Map<String, String> properties;
 
-  public StandardConversions() {
-    this.properties = null;
-  }
-
-  public StandardConversions(Map<String, String> properties) {
+  private StandardConversions(Map<String, String> properties) {
     this.properties = properties;
   }
 
-  public StandardConversions(String blankAsProp) {
-    if (blankAsProp == null) {
-      this.properties = null;
-    } else {
-      this.properties = new HashMap<>();
-      this.properties.put(ColumnMetadata.BLANK_AS_PROP, blankAsProp);
-    }
-  }
+  public static Builder builder() { return new Builder(); }
 
-  public StandardConversions(TupleMetadata providedSchema) {
-    if (providedSchema == null || !providedSchema.hasProperties()) {
-      this.properties = null;
-    } else {
-      this.properties = providedSchema.properties();
-    }
-  }
-
-  public StandardConversions(TupleMetadata providedSchema,
-      Map<String, String> additionalProperties) {
-    this.properties = merge(
-        providedSchema == null ? null : providedSchema.properties(),
-        additionalProperties);
-  }
-
-  private static Map<String, String> merge(Map<String, String> properties,
+  private static Map<String, String> mergeProperties(Map<String, String> properties,
       Map<String, String> specificProps) {
     if (properties == null) {
       return specificProps;
@@ -165,11 +175,11 @@ public class StandardConversions {
     return merged;
   }
 
-  private Map<String, String> merge(Map<String, String> specificProps) {
-    return merge(properties, specificProps);
+  private Map<String, String> mergeProperties(Map<String, String> specificProps) {
+    return mergeProperties(properties, specificProps);
   }
 
-  public static DirectConverter newInstance(
+  public DirectConverter newInstance(
       Class<? extends DirectConverter> conversionClass, ScalarWriter baseWriter,
       Map<String, String> properties) {
 
@@ -177,7 +187,7 @@ public class StandardConversions {
     // This first form is optional.
     try {
       final Constructor<? extends DirectConverter> ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class, Map.class);
-      return ctor.newInstance(baseWriter, properties);
+      return ctor.newInstance(baseWriter, mergeProperties(properties));
     } catch (final ReflectiveOperationException e) {
       // Ignore
     }
@@ -186,7 +196,7 @@ public class StandardConversions {
     return newInstance(conversionClass, baseWriter);
   }
 
-  public static DirectConverter newInstance(
+  public DirectConverter newInstance(
       Class<? extends DirectConverter> conversionClass, ScalarWriter baseWriter) {
     try {
       final Constructor<? extends DirectConverter> ctor = conversionClass.getDeclaredConstructor(ScalarWriter.class);
@@ -208,11 +218,11 @@ public class StandardConversions {
    * @return a description of the conversion needed (if any), along with the
    * standard conversion class, if available
    */
-  public static ConversionDefn analyze(ColumnMetadata inputSchema, ColumnMetadata outputSchema) {
+  public ConversionDefn analyze(ColumnMetadata inputSchema, ColumnMetadata outputSchema) {
     return analyze(inputSchema.type(), outputSchema);
   }
 
-  public static ConversionDefn analyze(MinorType inputType, ColumnMetadata outputSchema) {
+  public ConversionDefn analyze(MinorType inputType, ColumnMetadata outputSchema) {
     if (inputType == outputSchema.type()) {
       return new ConversionDefn(ConversionType.NONE);
     }
@@ -376,8 +386,7 @@ public class StandardConversions {
     return EXPLICIT;
   }
 
-  public static Class<? extends DirectConverter> convertFromVarchar(
-      ColumnMetadata outputDefn) {
+  public Class<? extends DirectConverter> convertFromVarchar(ColumnMetadata outputDefn) {
     switch (outputDefn.type()) {
       case BIT:
         return ConvertStringToBoolean.class;
@@ -416,43 +425,34 @@ public class StandardConversions {
    *
    * @param scalarWriter the output column writer
    * @param inputType the type of the input data
-   * @param properties optional properties for some string-based conversions
+   * @param columnProps optional properties for some string-based conversions
    * @return a column converter, if needed and available, the input writer if
    * no conversion is needed, or null if there is no conversion available
    */
-  public static ValueWriter converterFor(ScalarWriter scalarWriter, MinorType inputType, Map<String, String> properties) {
+  public ValueWriter converterFor(ScalarWriter scalarWriter, MinorType inputType, Map<String, String> columnProps) {
     ConversionDefn defn = analyze(inputType, scalarWriter.schema());
     switch (defn.type) {
       case EXPLICIT:
         if (defn.conversionClass != null) {
-          return newInstance(defn.conversionClass, scalarWriter, properties);
+          return newInstance(defn.conversionClass, scalarWriter, columnProps);
         } else {
           return null;
         }
       case IMPLICIT:
       case IMPLICIT_UNSAFE:
-        return newInstance(defn.conversionClass, scalarWriter, properties);
+        return newInstance(defn.conversionClass, scalarWriter, columnProps);
       default:
         return scalarWriter;
     }
   }
 
-  public static ValueWriter converterFor(ScalarWriter scalarWriter, MinorType inputType) {
+  public ValueWriter converterFor(ScalarWriter scalarWriter, MinorType inputType) {
     return converterFor(scalarWriter, inputType, null);
   }
 
-  public static ValueWriter converterFor(ScalarWriter scalarWriter, ColumnMetadata inputSchema) {
-    return converterFor(scalarWriter, inputSchema.type(), inputSchema.properties());
-  }
-
-  public ValueWriter converter(ScalarWriter scalarWriter, ColumnMetadata inputSchema) {
+  public ValueWriter converterFor(ScalarWriter scalarWriter, ColumnMetadata inputSchema) {
     return converterFor(scalarWriter, inputSchema.type(),
-        merge(inputSchema.properties()));
-  }
-
-  public ValueWriter converter(ScalarWriter scalarWriter, MinorType inputType) {
-    return converterFor(scalarWriter, inputType,
-        merge(scalarWriter.schema().properties()));
+        inputSchema.hasProperties() ? inputSchema.properties() : null);
   }
 
   /**
