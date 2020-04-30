@@ -114,6 +114,10 @@ public class MutableTupleSchema {
 
   public void setProjectionType(ScanSchemaTracker.ProjectionType type) {
     this.projType = type;
+
+    // For project none, an empty schema is valid, so
+    // force a bump in schema version.
+    version++;
   }
 
   public void setInsertPoint(int insertPoint) {
@@ -238,4 +242,6 @@ public class MutableTupleSchema {
     col.resolve(resolved);
     version++;
   }
+
+  public boolean isEmpty() { return columns.isEmpty(); }
 }

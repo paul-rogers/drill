@@ -54,6 +54,14 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
     schema.setProjectionType(projType);
   }
 
+  /**
+   * Validate a projection list (provided as an argument) against a
+   * defined schema already held by this tracker. Ensures that, when we
+   * have both a defined schema and projection list, that they are
+   * consistent.
+   *
+   * @param projection the parsed projection list
+   */
   public void validateProjection(TupleMetadata projection) {
     if (projection == null) {
       return;

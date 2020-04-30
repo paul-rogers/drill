@@ -50,11 +50,11 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
     validateProjection(parseResult.dynamicSchema, definedSchema);
     checkResolved();
 
-    ScanSchemaTracker.ProjectionType projType;
+    ProjectionType projType;
     if (schema.size() == 0) {
-      projType = ScanSchemaTracker.ProjectionType.NONE;
+      projType = ProjectionType.NONE;
     } else {
-      projType = ScanSchemaTracker.ProjectionType.SOME;
+      projType = ProjectionType.SOME;
     }
     schema.setProjectionType(projType);
     this.implicitInsertPoint = -1;
@@ -68,15 +68,15 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
     this.schema.copyFrom(projection);
 
     // Work out the projection type: wildcard, empty, or explicit.
-    ScanSchemaTracker.ProjectionType projType;
+    ProjectionType projType;
     if (parseResult.isProjectAll()) {
-      projType = ScanSchemaTracker.ProjectionType.ALL;
+      projType = ProjectionType.ALL;
     } else if (projection.isEmpty()) {
-      projType = ScanSchemaTracker.ProjectionType.NONE;
+      projType = ProjectionType.NONE;
       this.isResolved = true;
       this.allowMapAdditions = false;
     } else {
-      projType = ScanSchemaTracker.ProjectionType.SOME;
+      projType = ProjectionType.SOME;
     }
     this.schema.setProjectionType(projType);
 

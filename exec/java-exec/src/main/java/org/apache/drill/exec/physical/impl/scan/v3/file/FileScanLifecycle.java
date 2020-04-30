@@ -80,7 +80,7 @@ public class FileScanLifecycle extends ScanLifecycle {
         dfs, context.getFragmentContext().getOptions(),
         options, vectorCache(), schemaTracker());
 
-    // Bind the reader factory which intializes the list
+    // Bind the reader factory which initializes the list
     // of splits from the builder.
     FileReaderFactory readerFactory = (FileReaderFactory) readerFactory();
     readerFactory.bind(this);

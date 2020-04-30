@@ -217,9 +217,9 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
       switch (lastKnownOutcome) {
         case NONE:
 
-          if (first && getKeyExpressions().size() == 0) {
+          if (first && isStraightAggregator()) {
             // if we have a straight aggregate and empty input batch, we need to handle it in a different way
-            // Wewant to produce the special batch only if we got a NONE as the first outcome after
+            // We want to produce the special batch only if we got a NONE as the first outcome after
             // OK_NEW_SCHEMA. If we get a NONE immediately after we see an EMIT, then we have already handled
             // the case of the empty batch
             constructSpecialBatch();
@@ -361,6 +361,15 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
     }
   }
 
+  /**
+   * A straight aggregator is one without keys. Keys occur in a one-phase
+   * aggregate with a GROUP BY clause, or in the first of a distributed
+   * two-phase aggregate, partitioned by key.
+   */
+  protected boolean isStraightAggregator() {
+    return getKeyExpressions().size() == 0;
+  }
+
   private void allocateComplexWriters() {
     // Allocate the complex writers before processing the incoming batch
     if (complexWriters != null) {
@@ -371,10 +380,12 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
   }
 
   /**
-   * Method is invoked when we have a straight aggregate (no group by expression) and our input is empty.
-   * In this case we construct an outgoing batch with record count as 1. For the nullable vectors we don't set anything
-   * as we want the output to be NULL. For the required vectors (only for count()) we set the value to be zero since
-   * we don't zero out our buffers initially while allocating them.
+   * Invoked when we have a straight aggregate (no group by expression) and our
+   * input is empty. In this case we construct an outgoing batch with record
+   * count as 1. For the nullable vectors we don't set anything as we want the
+   * output to be NULL. For the required vectors (only for count()) we set the
+   * value to be zero since we don't zero out our buffers initially while
+   * allocating them.
    */
   private void constructSpecialBatch() {
     int exprIndex = 0;
