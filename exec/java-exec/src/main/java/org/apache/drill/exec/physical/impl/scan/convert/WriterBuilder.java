@@ -25,6 +25,7 @@ import org.apache.drill.common.exceptions.EmptyErrorContext;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.v3.FixedReceiver;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
@@ -162,7 +163,7 @@ public abstract class WriterBuilder {
       if (providedSchema == null) {
         this.readerSchema = readerSchema;
       } else {
-        this.readerSchema = StandardConversions.mergeSchemas(
+        this.readerSchema = FixedReceiver.Builder.mergeSchemas(
             providedSchema, readerSchema);
       }
     }

@@ -98,6 +98,7 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     return baseErrorContext;
   }
 
+  @Override
   public CustomErrorContext errorContext() {
     return readerErrorContext == null ? baseErrorContext : readerErrorContext;
   }

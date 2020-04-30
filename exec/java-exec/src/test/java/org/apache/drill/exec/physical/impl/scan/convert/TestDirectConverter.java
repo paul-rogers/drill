@@ -32,6 +32,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.convert.StandardConversions.ConversionDefn;
 import org.apache.drill.exec.physical.impl.scan.convert.StandardConversions.ConversionType;
+import org.apache.drill.exec.physical.impl.scan.v3.FixedReceiver;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
@@ -136,7 +137,7 @@ public class TestDirectConverter extends SubOperatorTest {
       .add("d", MinorType.VARCHAR)
       .build();
 
-    TupleMetadata mergedSchema = StandardConversions.mergeSchemas(providedSchema, readerSchema);
+    TupleMetadata mergedSchema = FixedReceiver.Builder.mergeSchemas(providedSchema, readerSchema);
     assertTrue(expected.isEquivalent(mergedSchema));
     assertTrue(mergedSchema.booleanProperty("foo"));
   }

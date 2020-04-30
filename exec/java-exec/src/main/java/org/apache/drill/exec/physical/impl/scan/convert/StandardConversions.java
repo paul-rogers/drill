@@ -24,21 +24,13 @@ import java.util.Map;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueWriter;
 
 /**
  * Factory for standard conversions as outlined in the package header.
- * Can be used in two ways:
- * <ul>
- * <li>As an object with a default set of properties that apply to
- * all columns.</li>
- * <li>As a set of static functions which operate on each column
- * individually.</li>
- * </ul>
- * The object form is more typical: it allows the provided schema to
- * set general blank-handling behavior at the tuple level.
+ * Use the builder to add schema-wide properties from a provided schema,
+ * from context-specific properties or both.
  * <p>
  * The class provides two kinds of information:
  * <p>
@@ -453,39 +445,5 @@ public class StandardConversions {
   public ValueWriter converterFor(ScalarWriter scalarWriter, ColumnMetadata inputSchema) {
     return converterFor(scalarWriter, inputSchema.type(),
         inputSchema.hasProperties() ? inputSchema.properties() : null);
-  }
-
-  /**
-   * Given a desired provided schema and an actual reader schema, create a merged
-   * schema that contains the provided column where available, but the reader
-   * column otherwise. Copies provided properties to the output schema.
-   * <p>
-   * The result is the schema to use when creating column writers: it reflects
-   * the type of the target vector. The reader is responsible for converting from
-   * the (possibly different) reader column type to the provided column type.
-   * <p>
-   * Note: the provided schema should only contain types that the reader is prepared
-   * to offer: there is no requirement that the reader support every possible conversion,
-   * only those that make sense for that one reader.
-   *
-   * @param providedSchema the provided schema from {@code CREATE SCHEMA}
-   * @param readerSchema the set of column types that the reader can provide
-   * "natively"
-   * @return a merged schema to use when creating the {@code ResultSetLoader}
-   */
-  public static TupleMetadata mergeSchemas(TupleMetadata providedSchema,
-      TupleMetadata readerSchema) {
-    if (providedSchema == null) {
-      return readerSchema;
-    }
-    final TupleMetadata tableSchema = new TupleSchema();
-    for (ColumnMetadata readerCol : readerSchema) {
-      final ColumnMetadata providedCol = providedSchema.metadata(readerCol.name());
-      tableSchema.addColumn(providedCol == null ? readerCol : providedCol);
-    }
-    if (providedSchema.hasProperties()) {
-      tableSchema.properties().putAll(providedSchema.properties());
-    }
-    return tableSchema;
   }
 }

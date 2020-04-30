@@ -117,6 +117,13 @@ public interface SchemaNegotiator {
   void setErrorContext(CustomErrorContext context);
 
   /**
+   * Returns the error context to use for this reader: either the
+   * parent or the reader-specific context set in
+   * {@link #setErrorContext(CustomErrorContext)}.
+   */
+  CustomErrorContext errorContext();
+
+  /**
    * Name of the user running the query.
    */
   String userName();

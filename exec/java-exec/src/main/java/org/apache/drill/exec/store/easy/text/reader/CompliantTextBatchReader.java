@@ -29,7 +29,9 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.convert.StandardConversions;
+import org.apache.drill.exec.physical.impl.scan.v3.FixedReceiver;
 import org.apache.drill.exec.physical.impl.scan.v3.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.v3.FixedReceiver.Builder;
 import org.apache.drill.exec.physical.impl.scan.v3.file.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.v3.schema.ProjectedColumn;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
@@ -151,28 +153,23 @@ public class CompliantTextBatchReader implements ManagedReader {
    */
   private FieldVarCharOutput buildWithSchema(FileSchemaNegotiator schemaNegotiator,
       String[] fieldNames) {
-    TupleMetadata readerSchema = mergeSchemas(schemaNegotiator.providedSchema(), fieldNames);
-    schemaNegotiator.tableSchema(readerSchema, true);
-    writer = schemaNegotiator.build().writer();
-    StandardConversions conversions = conversions(schemaNegotiator.providedSchema());
-    ValueWriter[] colWriters = new ValueWriter[fieldNames.length];
-    for (int i = 0; i < fieldNames.length; i++) {
-      ScalarWriter colWriter = writer.scalar(fieldNames[i]);
-      if (writer.isProjected()) {
-        colWriters[i] = conversions.converterFor(colWriter, MinorType.VARCHAR);
-      } else {
-        colWriters[i] = colWriter;
-      }
-    }
-    return new FieldVarCharOutput(writer, colWriters);
+
+    TupleMetadata readerSchema = buildSchemaFromHeaders(fieldNames);
+
+    // Build converting column writers
+    FixedReceiver.Builder builder = FixedReceiver.builderFor(schemaNegotiator)
+        .schemaIsComplete();
+    builder.conversionBuilder().blankAs(ColumnMetadata.BLANK_AS_NULL);
+    FixedReceiver receiver = builder.build(readerSchema);
+    writer = receiver.rowWriter();
+    return new FieldVarCharOutput(receiver);
   }
 
-  private TupleMetadata mergeSchemas(TupleMetadata providedSchema,
-      String[] fieldNames) {
-    final TupleMetadata readerSchema = new TupleSchema();
-    for (String fieldName : fieldNames) {
-      final ColumnMetadata providedCol = providedSchema.metadata(fieldName);
-      readerSchema.addColumn(providedCol == null ? textColumn(fieldName) : providedCol);
+  private TupleMetadata buildSchemaFromHeaders(String[] fieldNames) {
+    // Build table schema from headers
+    TupleMetadata readerSchema = new TupleSchema();
+    for (String name : fieldNames) {
+      readerSchema.addColumn(textColumn(name));
     }
     return readerSchema;
   }
@@ -187,11 +184,8 @@ public class CompliantTextBatchReader implements ManagedReader {
    */
   private FieldVarCharOutput buildFromColumnHeaders(FileSchemaNegotiator schemaNegotiator,
       String[] fieldNames) {
-    final TupleMetadata schema = new TupleSchema();
-    for (final String colName : fieldNames) {
-      schema.addColumn(textColumn(colName));
-    }
-    schemaNegotiator.tableSchema(schema, true);
+    TupleMetadata readerSchema = buildSchemaFromHeaders(fieldNames);
+    schemaNegotiator.tableSchema(readerSchema, true);
     writer = schemaNegotiator.build().writer();
     ValueWriter[] colWriters = new ValueWriter[fieldNames.length];
     for (int i = 0; i < fieldNames.length; i++) {
@@ -216,16 +210,22 @@ public class CompliantTextBatchReader implements ManagedReader {
 
   private FieldVarCharOutput buildWithSchema(FileSchemaNegotiator schemaNegotiator) {
     validateNoColumnsProjection(schemaNegotiator);
-    TupleMetadata providedSchema = schemaNegotiator.providedSchema();
-    schemaNegotiator.tableSchema(providedSchema, true);
-    writer = schemaNegotiator.build().writer();
-    StandardConversions conversions = conversions(providedSchema);
-    ValueWriter[] colWriters = new ValueWriter[providedSchema.size()];
-    for (int i = 0; i < colWriters.length; i++) {
-      colWriters[i] = conversions.converterFor(
-          writer.scalar(providedSchema.metadata(i).name()), MinorType.VARCHAR);
+
+    // Build table schema from provided
+    TupleMetadata readerSchema = new TupleSchema();
+    for (ColumnMetadata providedCol : schemaNegotiator.providedSchema()) {
+      readerSchema.addColumn(textColumn(providedCol.name()));
     }
-    return new ConstrainedFieldOutput(writer, colWriters);
+
+    // Build converting column writers
+    FixedReceiver.Builder builder = FixedReceiver.builderFor(schemaNegotiator)
+        .schemaIsComplete();
+    builder.conversionBuilder().blankAs(ColumnMetadata.BLANK_AS_NULL);
+    FixedReceiver receiver = builder.build(readerSchema);
+
+    // Convert to format for this reader
+    writer = receiver.rowWriter();
+    return new ConstrainedFieldOutput(receiver);
   }
 
   private void validateNoColumnsProjection(FileSchemaNegotiator schemaNegotiator) {
