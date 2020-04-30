@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.v3;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
@@ -43,7 +43,7 @@ import org.junit.experimental.categories.Category;
  * defines the schema to be output from the scan operator, and forces
  * conversions between reader and output data types.
  */
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestScanOuputSchema extends BaseScanTest {
 
   private static class MockSimpleReader implements ManagedReader {

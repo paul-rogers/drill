@@ -359,9 +359,10 @@ public class ColumnExplorer {
   }
 
   /**
-   * Returns list of implicit file columns which includes all elements from {@link ImplicitFileColumns},
-   * {@link ImplicitInternalFileColumns#LAST_MODIFIED_TIME} and {@link ImplicitInternalFileColumns#USE_METADATA}
-   * columns.
+   * Returns list of implicit file columns which includes all elements from
+   * {@link ImplicitFileColumns},
+   * {@link ImplicitInternalFileColumns#LAST_MODIFIED_TIME} and
+   * {@link ImplicitInternalFileColumns#USE_METADATA} columns.
    *
    * @return list of implicit file columns
    */

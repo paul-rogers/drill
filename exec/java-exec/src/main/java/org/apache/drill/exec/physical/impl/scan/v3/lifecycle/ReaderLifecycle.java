@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetOptionBuilder;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,6 +94,8 @@ import org.slf4j.LoggerFactory;
 public class ReaderLifecycle implements RowBatchReader {
   private static final Logger logger = LoggerFactory.getLogger(ReaderLifecycle.class);
 
+  private enum State { START, DATA, FINAL, EOF }
+
   private final ScanLifecycle scanLifecycle;
   protected final TupleMetadata readerInputSchema;
   private ManagedReader reader;
@@ -102,12 +105,7 @@ public class ReaderLifecycle implements RowBatchReader {
   private StaticBatchBuilder implicitColumnsLoader;
   private StaticBatchBuilder missingColumnsHandler;
   private OutputBatchBuilder outputBuilder;
-
-  /**
-   * True once the reader reports EOF. This shim may keep going for another
-   * batch to handle any look-ahead row on the last batch.
-   */
-  private boolean eof;
+  private State state = State.START;
 
   public ReaderLifecycle(ScanLifecycle scanLifecycle) {
     this.scanLifecycle = scanLifecycle;
@@ -165,6 +163,7 @@ public class ReaderLifecycle implements RowBatchReader {
   }
 
   public ResultSetLoader buildLoader() {
+    Preconditions.checkState(state == State.START);
     ResultSetOptionBuilder options = new ResultSetOptionBuilder()
         .rowCountLimit(Math.min(schemaNegotiator.batchSize, scanOptions().scanBatchRecordLimit()))
         .vectorCache(scanLifecycle.vectorCache())
@@ -178,6 +177,7 @@ public class ReaderLifecycle implements RowBatchReader {
 
     // Create the table loader
     tableLoader = new ResultSetLoaderImpl(scanLifecycle.allocator(), options.build());
+    state = State.DATA;
     return tableLoader;
   }
 
@@ -201,12 +201,12 @@ public class ReaderLifecycle implements RowBatchReader {
 
   @Override
   public boolean defineSchema() {
-    if (!schemaNegotiator.isSchemaComplete()) {
-      return false;
+    boolean hasSchema = schemaNegotiator.isSchemaComplete() && schemaTracker().isResolved();
+    if (hasSchema) {
+      tableLoader.startBatch();
+      endBatch();
     }
-    tableLoader.startBatch();
-    endBatch();
-    return true;
+    return hasSchema;
   }
 
   @Override
@@ -214,7 +214,7 @@ public class ReaderLifecycle implements RowBatchReader {
 
     // The reader may report EOF, but the result set loader might
     // have a lookahead row.
-    if (isEof()) {
+    if (state == State.EOF) {
       return false;
     }
 
@@ -226,9 +226,11 @@ public class ReaderLifecycle implements RowBatchReader {
     // a new batch just to learn about EOF. Don't read if the reader
     // already reported EOF. In that case, we're just processing any last
     // lookahead row in the result set loader.
-    if (!eof) {
+    if (state == State.DATA) {
       try {
-        eof = !reader.next();
+        if (!reader.next()) {
+          state = State.FINAL;
+        }
       } catch (UserException e) {
         throw e;
       } catch (Exception e) {
@@ -239,13 +241,6 @@ public class ReaderLifecycle implements RowBatchReader {
       }
     }
 
-    // Let the schema negotiator finish up the batch. Needed for metadata
-    // scans on files.
-    // TODO: Modify the metadata system to handle non-file scans, then
-    // generalize the implicit columns parser, identify a new field to
-    // replace/augment fqn, and handle empty scans here.
-    schemaNegotiator.onEndBatch();
-
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
     // Having a correct row count, even if 0, is important to
@@ -255,11 +250,7 @@ public class ReaderLifecycle implements RowBatchReader {
     // Return EOF (false) only when the reader reports EOF
     // and the result set loader has drained its rows from either
     // this batch or lookahead rows.
-    return !isEof();
-  }
-
-  public boolean isEof() {
-    return eof && !tableLoader.hasRows();
+    return state != State.EOF;
   }
 
   /**
@@ -268,7 +259,44 @@ public class ReaderLifecycle implements RowBatchReader {
    * table row count. Then, merge the sources.
    */
   private void endBatch() {
+
+    // Let the schema negotiator finish up the batch. Needed for metadata
+    // scans on files.
+    // TODO: Modify the metadata system to handle non-file scans, then
+    // generalize the implicit columns parser, identify a new field to
+    // replace/augment fqn, and handle empty scans here.
+    schemaNegotiator.onEndBatch();
+
+    // Get the output batch
     VectorContainer readerOutput = tableLoader.harvest();
+
+    if (readerOutput.getRecordCount() == 0 && !returnEmptyBatch(readerOutput)) {
+      readerOutput.clear();
+      outputBuilder = null;
+      state = State.EOF;
+      return;
+    }
+
+    // If the schema changed, set up the final projection based on
+    // the new (or first) schema.
+    if (tableLoader.batchCount() == 1 || prevTableSchemaVersion < tableLoader.schemaVersion()) {
+      reviseOutputProjection(tableLoader.outputSchema());
+    }
+    buildOutputBatch(readerOutput);
+    scanLifecycle.tallyBatch();
+  }
+
+  /**
+   * The reader returned no data. Determine if this batch should be
+   * returned (return {@code true}), or if the empty batch should
+   * be returned to convey schema information. (return {@code false}).
+   */
+  private boolean returnEmptyBatch(VectorContainer readerOutput) {
+
+    // If the batch is not the first, then it conveys no new info.
+    if (scanLifecycle.batchCount() > 0) {
+      return false;
+    }
 
     // Corner case: Reader produced no rows and defined no schema.
     // There are three sub-cases. In the first, the reader is "late-schema",
@@ -282,27 +310,13 @@ public class ReaderLifecycle implements RowBatchReader {
     // A third, possible, but very obscure case occurs in which a file
     // is known to have no records and no columns. At present, there is
     // no way to differentiate an intentional empty file from a null file.
-    if (readerOutput.getRecordCount() == 0 &&
-        tableLoader.schemaVersion() == 0 &&
-        !schemaTracker().isResolved()) {
-      readerOutput.clear();
-      return;
+    if (tableLoader.schemaVersion() == 0) {
+      return schemaTracker().isResolved();
     }
 
-    // If not the first batch, and there are no rows, discard the batch
-    // as it adds no new information.
-    if (readerOutput.getRecordCount() == 0 && tableLoader.batchCount() > 1) {
-      readerOutput.clear();
-      outputBuilder = null;
-      return;
-    }
-
-    // If the schema changed, set up the final projection based on
-    // the new (or first) schema.
-    if (tableLoader.batchCount() == 1 || prevTableSchemaVersion < tableLoader.schemaVersion()) {
-      reviseOutputProjection(tableLoader.outputSchema());
-    }
-    buildOutputBatch(readerOutput);
+    // Otherwise, we did define a schema on the first batch of the scan
+    // so we need to return it.
+    return true;
   }
 
   private void reviseOutputProjection(TupleMetadata readerOutputSchema) {

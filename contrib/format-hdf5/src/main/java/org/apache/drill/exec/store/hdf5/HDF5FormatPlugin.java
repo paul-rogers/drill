@@ -65,7 +65,7 @@ public class HDF5FormatPlugin extends EasyFormatPlugin<HDF5FormatConfig> {
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
     config.readerOperatorType = UserBitShared.CoreOperatorType.HDF5_SUB_SCAN_VALUE;
-    config.useEnhancedScan = true;
+    config.scanVersion = ScanFrameworkVersion.EVF_V1;
     return config;
   }
 

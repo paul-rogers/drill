@@ -23,7 +23,7 @@ import static org.junit.Assert.assertNull;
 import java.io.IOException;
 import java.util.List;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
@@ -51,7 +51,7 @@ import org.junit.experimental.categories.Category;
  * Tests the file implicit column handler which identifies implicit columns
  * and populates them. Assumes that the implicit column parser tests pass.
  */
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestImplicitColumnLoader extends SubOperatorTest implements MockFileNames {
 
   private static final DrillFileSystem dfs;
@@ -170,8 +170,8 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
         .add(ScanTestUtils.ROW_GROUP_LENGTH_COL, MinorType.VARCHAR)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow("123456789", "false", "10", "10000", "5000")
-        .addRow("123456789", "false", "10", "10000", "5000")
+        .addRow("123456789", null, "10", "10000", "5000")
+        .addRow("123456789", null, "10", "10000", "5000")
         .build();
     RowSetUtilities.verify(expected, fixture.wrap(batchLoader.outputContainer()));
   }
@@ -195,7 +195,7 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
         .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
         .build();
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow("123456789", null)
+        .addRow("123456789", "false")
         .build();
     RowSetUtilities.verify(expected, fixture.wrap(batchLoader.outputContainer()));
   }

@@ -26,7 +26,7 @@ import static org.junit.Assert.assertTrue;
 import java.util.Collection;
 import java.util.Collections;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.EmptyErrorContext;
 import org.apache.drill.common.expression.SchemaPath;
@@ -42,7 +42,7 @@ import org.junit.experimental.categories.Category;
  * Test the first step of scan schema resolution: translating from the
  * projection parser to a dynamic schema ready for resolution.
  */
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestSchemaTrackerProjection extends BaseTest {
   private static final CustomErrorContext ERROR_CONTEXT = EmptyErrorContext.INSTANCE;
 
@@ -56,7 +56,7 @@ public class TestSchemaTrackerProjection extends BaseTest {
     ProjectionSchemaTracker tracker = schemaTracker(
         Collections.emptyList());
     assertTrue(tracker.isResolved());
-    assertEquals(0, tracker.schemaVersion());
+    assertEquals(1, tracker.schemaVersion());
     assertSame(ScanSchemaTracker.ProjectionType.NONE, tracker.projectionType());
     assertTrue(tracker.internalSchema().toSchema().isEmpty());
     ProjectionFilter filter = tracker.projectionFilter(ERROR_CONTEXT);
@@ -68,7 +68,7 @@ public class TestSchemaTrackerProjection extends BaseTest {
     ProjectionSchemaTracker tracker = schemaTracker(
         RowSetTestUtils.projectAll());
     assertFalse(tracker.isResolved());
-    assertEquals(0, tracker.schemaVersion());
+    assertEquals(1, tracker.schemaVersion());
     assertSame(ScanSchemaTracker.ProjectionType.ALL, tracker.projectionType());
     assertTrue(tracker.internalSchema().toSchema().isEmpty());
     ProjectionFilter filter = tracker.projectionFilter(ERROR_CONTEXT);

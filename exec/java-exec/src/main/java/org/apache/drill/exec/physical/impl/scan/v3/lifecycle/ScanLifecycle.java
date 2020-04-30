@@ -135,6 +135,7 @@ public class ScanLifecycle {
   private final ScanLifecycleBuilder options;
   private final ScanSchemaTracker schemaTracker;
   private final ReaderFactory<?> readerFactory;
+  private int batchCount;
 
   /**
    * Cache used to preserve the same vectors from one output batch to the
@@ -170,6 +171,8 @@ public class ScanLifecycle {
   public boolean hasOutputSchema() { return schemaTracker.isResolved(); }
   public CustomErrorContext errorContext() { return options.errorContext(); }
   public BufferAllocator allocator() { return context.getAllocator(); }
+  public void tallyBatch() { batchCount++; }
+  public int batchCount() { return batchCount; }
 
   public RowBatchReader nextReader() {
     if (readerFactory.hasNext()) {

@@ -48,7 +48,6 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
     this.allowSchemaChange = false;
     schema.copyFrom(definedSchema);
     validateProjection(parseResult.dynamicSchema, definedSchema);
-    checkResolved();
 
     ProjectionType projType;
     if (schema.size() == 0) {
@@ -58,6 +57,7 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
     }
     schema.setProjectionType(projType);
     this.implicitInsertPoint = -1;
+    checkResolved();
   }
 
   public ProjectionSchemaTracker(ProjectionParseResult parseResult, boolean allowSchemaChange,

@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.EmptyErrorContext;
 import org.apache.drill.common.exceptions.UserException;
@@ -55,7 +55,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestImplicitColumnResolver extends SubOperatorTest {
 
   private static final CustomErrorContext ERROR_CONTEXT = EmptyErrorContext.INSTANCE;
@@ -578,7 +578,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
 
     TupleMetadata expected = new SchemaBuilder()
         .add(ScanTestUtils.LAST_MODIFIED_TIME_COL, MinorType.VARCHAR)
-        .add(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_INDEX_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_START_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_LENGTH_COL, MinorType.VARCHAR)

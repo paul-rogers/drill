@@ -80,8 +80,12 @@ public class ScanTestUtils {
       builder().projection(RowSetTestUtils.projectAll());
     }
 
-    public void projectAllWithMetadata(int dirs) {
+    public void projectAllWithFileImplicit(int dirs) {
       builder().projection(ScanTestUtils.projectAllWithFileImplicit(dirs));
+    }
+
+    public void projectAllWithAllImplicit(int dirs) {
+      builder().projection(ScanTestUtils.projectAllWithAllImplicit(dirs));
     }
 
     public void setProjection(String... projCols) {
@@ -197,29 +201,32 @@ public class ScanTestUtils {
     return schema;
   }
 
-  public static List<String> expandFileImplicit(int dirCount) {
+  public static List<String> expandImplicit(boolean includeInternal, int dirCount) {
     List<String> selected = Lists.newArrayList(
         FULLY_QUALIFIED_NAME_COL,
         FILE_PATH_COL,
         FILE_NAME_COL,
         SUFFIX_COL);
 
+    if (includeInternal) {
+      selected.add(LAST_MODIFIED_TIME_COL);
+      selected.add(PROJECT_METADATA_COL);
+    }
     for (int i = 0; i < dirCount; i++) {
       selected.add(PARTITION_COL + i);
     }
     return selected;
   }
 
-  public static List<String> expandAllImplicit(int dirCount) {
-    List<String> selected = expandFileImplicit(dirCount);
-    selected.add(LAST_MODIFIED_TIME_COL);
-    selected.add(PROJECT_METADATA_COL);
-    return selected;
-  }
-
   public static List<SchemaPath> projectAllWithFileImplicit(int dirCount) {
     return RowSetTestUtils.concat(
         RowSetTestUtils.projectAll(),
-        RowSetTestUtils.projectList(expandFileImplicit(dirCount)));
+        RowSetTestUtils.projectList(expandImplicit(false, dirCount)));
+  }
+
+  public static List<SchemaPath> projectAllWithAllImplicit(int dirCount) {
+    return RowSetTestUtils.concat(
+        RowSetTestUtils.projectAll(),
+        RowSetTestUtils.projectList(expandImplicit(true, dirCount)));
   }
 }

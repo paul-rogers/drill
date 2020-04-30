@@ -23,7 +23,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.EmptyErrorContext;
 import org.apache.drill.common.exceptions.UserException;
@@ -44,7 +44,7 @@ import org.junit.experimental.categories.Category;
  * Test the scan operator schema tracker which computes the final
  * output schema from a variety of sources.
  */
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestScanSchemaTracker extends BaseTest {
   private static final CustomErrorContext ERROR_CONTEXT = EmptyErrorContext.INSTANCE;
 

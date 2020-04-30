@@ -106,7 +106,6 @@ public class ScanSchemaResolver {
 
   private final MutableTupleSchema schema;
   private final SchemaType mode;
-  private final boolean isProjectAll;
   private final boolean allowMapAdditions;
   private final String source;
   private final CustomErrorContext errorContext;
@@ -116,7 +115,6 @@ public class ScanSchemaResolver {
       boolean allowMapAdditions,
       CustomErrorContext errorContext) {
     this.schema = schema;
-    this.isProjectAll = schema.projectionType() == ProjectionType.ALL;
     this.mode = mode;
     this.errorContext = errorContext;
     this.allowMapAdditions = allowMapAdditions;
@@ -140,23 +138,24 @@ public class ScanSchemaResolver {
   public void applySchema(TupleMetadata sourceSchema) {
     switch (schema.projectionType()) {
       case ALL:
+        projectSchema(sourceSchema);
+        if (mode == SchemaType.STRICT_PROVIDED_SCHEMA) {
+          schema.setProjectionType(ScanSchemaTracker.ProjectionType.SOME);
+        }
+        break;
       case SOME:
         projectSchema(sourceSchema);
         break;
       default:
         // Do nothing
     }
-    if (mode == SchemaType.STRICT_PROVIDED_SCHEMA && isProjectAll) {
-      schema.setProjectionType(ScanSchemaTracker.ProjectionType.SOME);
-    }
   }
 
   /**
-   * A project list can contain implicit columns in
-   * addition to the wildcard. The wildcard defines the
-   * <i>insert point</i>: the point at which reader-defined
-   * columns are inserted as found. This version applies a provided
-   * schema to a projection. If we are given a query of the form
+   * A project list can contain implicit columns in addition to the wildcard.
+   * The wildcard defines the <i>insert point</i>: the point at which
+   * reader-defined columns are inserted as found. This version applies a
+   * provided schema to a projection. If we are given a query of the form
    * {@code SELECT * FROM foo ORDER BY bar}, Drill will give us a projection
    * list of the form {@code [`**`, `bar`]} and normal projection processing
    * will project all provided columns, except {@code bar}, in place of the
@@ -190,7 +189,7 @@ public class ScanSchemaResolver {
     switch (mode) {
       case FIRST_READER_SCHEMA:
       case READER_SCHEMA:
-        if (!isProjectAll) {
+        if (schema.projectionType() != ProjectionType.ALL) {
           throw new IllegalStateException(
               "Reader should not have projected an unprojected column: " + col.name());
         }
@@ -198,7 +197,7 @@ public class ScanSchemaResolver {
       case EARLY_READER_SCHEMA:
       case LENIENT_PROVIDED_SCHEMA:
       case STRICT_PROVIDED_SCHEMA:
-        if (!isProjectAll || SchemaUtils.isExcludedFromWildcard(col)) {
+        if (schema.projectionType() != ProjectionType.ALL || SchemaUtils.isExcludedFromWildcard(col)) {
           return;
         }
         break;

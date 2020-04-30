@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Iterator;
 
-import org.apache.drill.categories.EvfTests;
+import org.apache.drill.categories.EvfTest;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
@@ -60,7 +60,7 @@ import static org.junit.Assert.fail;
  *
  * @see TestHeaderBuilder
  */
-@Category(EvfTests.class)
+@Category(EvfTest.class)
 public class TestCsvWithHeaders extends BaseCsvTest {
 
   private static final String TEST_FILE_NAME = "basic.csv";
@@ -329,20 +329,20 @@ public class TestCsvWithHeaders extends BaseCsvTest {
     RowSet actual = client.queryBuilder().sql(sql, TEST_FILE_NAME).rowSet();
 
     TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
         .add("c", MinorType.VARCHAR)
-        .add("a", MinorType.VARCHAR)
         .add("d", MinorType.VARCHAR)
         .buildSchema();
 
     RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
-        .addRow("foo", "bar", "10", "10")
+        .addRow("10", "foo", "bar", "10")
         .build();
     RowSetUtilities.verify(expected, actual);
   }
 
   /**
-   * V3 allows the use of partition columns, even for a non-partitioned file.
+   * Drill allows the use of partition columns, even for a non-partitioned file.
    * The columns are null of type Nullable VARCHAR. This is area of Drill
    * is a bit murky: it seems reasonable to support partition columns consistently
    * rather than conditionally based on the structure of the input.
