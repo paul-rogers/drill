@@ -89,6 +89,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
     ParseResult result = parseFixture.parseImplicit();
     assertTrue(result.columns().isEmpty());
     assertTrue(result.schema().isEmpty());
+    assertFalse(result.isMetadataScan());
   }
 
   /**
@@ -105,6 +106,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
             ScanTestUtils.SUFFIX_COL));
     ParseResult result = parseFixture.parseImplicit();
 
+    assertFalse(result.isMetadataScan());
     assertEquals(4, result.columns().size());
 
     TupleMetadata expected = new SchemaBuilder()
@@ -134,6 +136,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
     ParserFixture parseFixture = new ParserFixture(
         RowSetTestUtils.projectList(dir2, dir1, dir0, "a"));
     ParseResult result = parseFixture.parseImplicit();
+    assertFalse(result.isMetadataScan());
     assertEquals(3, result.columns().size());
 
     TupleMetadata expected = new SchemaBuilder()
@@ -158,6 +161,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
         .maxPartitionDepth(3)
         .useLegacyWildcardExpansion(true);
     ParseResult result = parseFixture.parseImplicit();
+    assertFalse(result.isMetadataScan());
     assertEquals(3, result.columns().size());
 
     TupleMetadata expected = new SchemaBuilder()
@@ -569,6 +573,7 @@ public class TestImplicitColumnResolver extends SubOperatorTest {
     parseFixture.options.dfs(dfs);
     ParseResult result = parseFixture.parseImplicit();
 
+    assertTrue(result.isMetadataScan());
     assertEquals(5, result.columns().size());
 
     TupleMetadata expected = new SchemaBuilder()

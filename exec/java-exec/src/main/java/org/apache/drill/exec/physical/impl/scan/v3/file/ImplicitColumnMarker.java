@@ -80,9 +80,11 @@ public interface ImplicitColumnMarker {
       case ROW_GROUP_LENGTH:
         return valueOf(fileInfo.rowGroupLength);
       case PROJECT_METADATA:
-        return Boolean.FALSE.toString();
       case USE_METADATA:
-        return null;
+
+        // Per Metadata code: if file is empty (and record is a placeholder)
+        // return "false", else return null for valid rows.
+        return fileInfo.isEmpty ? Boolean.FALSE.toString() : null;
       case LAST_MODIFIED_TIME:
         return fileInfo.getModTime();
       default:

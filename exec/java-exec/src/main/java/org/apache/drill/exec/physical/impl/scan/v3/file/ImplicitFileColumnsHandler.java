@@ -81,4 +81,6 @@ public class ImplicitFileColumnsHandler {
     }
     return new RepeatedBatchBuilder(vectorCache, parseResult.schema(), values);
   }
+
+  public boolean isMetadataScan() { return parseResult.isMetadataScan(); }
 }

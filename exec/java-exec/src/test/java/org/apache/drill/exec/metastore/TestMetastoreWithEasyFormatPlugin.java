@@ -912,7 +912,6 @@ public class TestMetastoreWithEasyFormatPlugin extends ClusterTest {
         .lastModifiedTime(getMaxLastModified(tablePath))
         .build();
     try {
-      //client.queryBuilder().sql("analyze table table(dfs.`%s` (schema=>'inline=(`Description` VARCHAR not null)')) refresh metadata", tableName).print();
       testBuilder()
           .sqlQuery("analyze table table(dfs.`%s` (schema=>'inline=(`Description` VARCHAR not null)')) refresh metadata", tableName)
           .unOrdered()

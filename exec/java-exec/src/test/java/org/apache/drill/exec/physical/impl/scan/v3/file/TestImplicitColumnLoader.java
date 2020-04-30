@@ -124,7 +124,7 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
   @Test
   public void testNonInternalColumns() {
     StaticBatchBuilder batchLoader = buildHandler(
-        ScanTestUtils.projectAllWithIFilemplicit(3),
+        ScanTestUtils.projectAllWithFileImplicit(3),
         MOCK_ROOT_PATH, MOCK_FILE_PATH);
     assertNotNull(batchLoader);
     batchLoader.load(2);
@@ -164,7 +164,7 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add(ScanTestUtils.LAST_MODIFIED_TIME_COL, MinorType.VARCHAR)
-        .add(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_INDEX_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_START_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.ROW_GROUP_LENGTH_COL, MinorType.VARCHAR)
@@ -172,6 +172,30 @@ public class TestImplicitColumnLoader extends SubOperatorTest implements MockFil
     RowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow("123456789", "false", "10", "10000", "5000")
         .addRow("123456789", "false", "10", "10000", "5000")
+        .build();
+    RowSetUtilities.verify(expected, fixture.wrap(batchLoader.outputContainer()));
+  }
+
+  @Test
+  public void testInternalEmptyFile() {
+    ImplicitFixture testFixture = new ImplicitFixture(
+        RowSetTestUtils.projectList(
+            ScanTestUtils.LAST_MODIFIED_TIME_COL,
+            ScanTestUtils.PROJECT_METADATA_COL),
+        MOCK_ROOT_PATH);
+    testFixture.build(MOCK_FILE_PATH);
+    testFixture.fileDescrip.setModTime("123456789");
+    testFixture.fileDescrip.markEmpty();
+    StaticBatchBuilder batchLoader = testFixture.batchBuilder();
+    assertNotNull(batchLoader);
+    batchLoader.load(1);
+
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add(ScanTestUtils.LAST_MODIFIED_TIME_COL, MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
+        .build();
+    RowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("123456789", null)
         .build();
     RowSetUtilities.verify(expected, fixture.wrap(batchLoader.outputContainer()));
   }

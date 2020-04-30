@@ -157,4 +157,6 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
   public ManagedReader newReader(ReaderFactory<?> readerFactory) throws EarlyEofException {
     return ((ReaderFactory<SchemaNegotiator>) readerFactory).next(this);
   }
+
+  protected void onEndBatch() { }
 }

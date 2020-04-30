@@ -81,7 +81,7 @@ public class ScanTestUtils {
     }
 
     public void projectAllWithMetadata(int dirs) {
-      builder().projection(ScanTestUtils.projectAllWithIFilemplicit(dirs));
+      builder().projection(ScanTestUtils.projectAllWithFileImplicit(dirs));
     }
 
     public void setProjection(String... projCols) {
@@ -217,7 +217,7 @@ public class ScanTestUtils {
     return selected;
   }
 
-  public static List<SchemaPath> projectAllWithIFilemplicit(int dirCount) {
+  public static List<SchemaPath> projectAllWithFileImplicit(int dirCount) {
     return RowSetTestUtils.concat(
         RowSetTestUtils.projectAll(),
         RowSetTestUtils.projectList(expandFileImplicit(dirCount)));

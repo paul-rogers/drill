@@ -137,14 +137,18 @@ public class ImplicitColumnResolver {
   public static class ParseResult {
     private final List<ImplicitColumnMarker> columns;
     private final TupleMetadata schema;
+    private final boolean isMetadataScan;
 
-    protected ParseResult(List<ImplicitColumnMarker> columns, TupleMetadata schema) {
+    protected ParseResult(List<ImplicitColumnMarker> columns, TupleMetadata schema,
+        boolean isMetadataScan) {
       this.columns = columns;
       this.schema = schema;
+      this.isMetadataScan = isMetadataScan;
     }
 
     public TupleMetadata schema() { return schema; }
     public List<ImplicitColumnMarker> columns() { return columns; }
+    public boolean isMetadataScan() { return isMetadataScan; }
 
     public Object[] resolve(FileDescrip fileInfo) {
       Object values[] = new Object[columns.size()];
@@ -161,6 +165,7 @@ public class ImplicitColumnResolver {
     private final MutableTupleSchema scanSchema;
     private final List<ImplicitColumnMarker> columns = new ArrayList<>();
     private final Set<Integer> referencedPartitions = new HashSet<>();
+    private boolean isMetadataScan;
 
     protected ImplicitColumnParser(ImplicitColumnResolver parser, ScanSchemaTracker tracker) {
       this.parser = parser;
@@ -181,7 +186,7 @@ public class ImplicitColumnResolver {
       // appears out-of-order:
       // SELECT *, fileName
       // SELECT fileName, *
-      return new ParseResult(columns, tracker.applyImplicitCols());
+      return new ParseResult(columns, tracker.applyImplicitCols(), isMetadataScan);
     }
 
     private void expandWildcard() {
@@ -340,30 +345,41 @@ public class ImplicitColumnResolver {
         logger.warn("Projected column {} shadows implicit column {}",
             projCol.projectString(), col.name());
       } else if (defn instanceof ImplicitInternalFileColumns) {
-
-        // Tests may not provide the DFS, real code must
-        ImplicitInternalFileColumns internalDefn = (ImplicitInternalFileColumns) defn;
-        if (internalDefn == ImplicitInternalFileColumns.LAST_MODIFIED_TIME &&
-            parser.dfs == null) {
-          throw new IllegalStateException(
-              "Must provide a file system to use " + internalDefn.name());
-        }
-
-        // TODO: Internal columns are VARCHAR for historical reasons.
-        // Better to use a type that fits the column purposes.
-        resolve(col,
-            MetadataUtils.newScalar(col.name(), IMPLICIT_COL_TYPE),
-            new InternalColumnMarker(internalDefn));
+        resolveInternalColumn(col, (ImplicitInternalFileColumns) defn);
       } else {
         resolve(col,
             MetadataUtils.newScalar(col.name(), IMPLICIT_COL_TYPE),
             new FileImplicitMarker((ImplicitFileColumns) defn));
       }
     }
+
+    private void resolveInternalColumn(ColumnHandle col,
+        ImplicitInternalFileColumns defn) {
+
+      // Tests may not provide the DFS, real code must
+      if (defn == ImplicitInternalFileColumns.LAST_MODIFIED_TIME &&
+          parser.dfs == null) {
+        throw new IllegalStateException(
+            "Must provide a file system to use " + defn.name());
+      }
+
+      // Check if this is an implied metadata scan
+      if (defn == ImplicitInternalFileColumns.PROJECT_METADATA) {
+        isMetadataScan = true;
+      }
+
+      // TODO: Internal columns are VARCHAR for historical reasons.
+      // Better to use a type that fits the column purposes.
+      resolve(col,
+          MetadataUtils.newScalar(col.name(),
+              defn.isOptional() ? OPTIONAL_INTERNAL_COL_TYPE : IMPLICIT_COL_TYPE),
+          new InternalColumnMarker(defn));
+    }
   }
 
   public static final MajorType IMPLICIT_COL_TYPE = Types.required(MinorType.VARCHAR);
   public static final MajorType PARTITION_COL_TYPE =  Types.optional(MinorType.VARCHAR);
+  public static final MajorType OPTIONAL_INTERNAL_COL_TYPE =  Types.optional(MinorType.VARCHAR);
 
   private final int maxPartitionDepth;
   private final boolean useLegacyWildcardExpansion;

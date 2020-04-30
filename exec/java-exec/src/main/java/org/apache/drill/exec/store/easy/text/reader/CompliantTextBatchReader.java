@@ -38,7 +38,6 @@ import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
-import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueWriter;
@@ -369,7 +368,7 @@ public class CompliantTextBatchReader implements ManagedReader {
 
     try {
       boolean more = false;
-      while (! writer.isFull()) {
+      while (!writer.isFull()) {
         more = reader.parseNext();
         if (! more) {
           break;

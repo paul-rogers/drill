@@ -259,7 +259,7 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
         && aggregator.previousBatchProcessed()) {
         lastKnownOutcome = incoming.next();
         if (!first ) {
-          //Setup needs to be called again. During setup, generated code saves a reference to the vectors
+          // Setup needs to be called again. During setup, generated code saves a reference to the vectors
           // pointed to by the incoming batch so that the de-referencing of the vector wrappers to get to
           // the vectors  does not have to be done at each call to eval. However, after an EMIT is seen,
           // the vectors are replaced and the reference to the old vectors is no longer valid
@@ -290,7 +290,7 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
         ExternalSortBatch.releaseBatches(incoming);
         return returnOutcome;
       case RETURN_AND_RESET:
-        //WE could have got a string of batches, all empty, until we hit an emit
+        // We could have got a string of batches, all empty, until we hit an emit
         if (firstBatchForDataSet && getKeyExpressions().size() == 0 && recordCount == 0) {
           // if we have a straight aggregate and empty input batch, we need to handle it in a different way
           constructSpecialBatch();
@@ -437,9 +437,15 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
 
   protected StreamingAggregator createAggregatorInternal() {
     ClassGenerator<StreamingAggregator> cg = CodeGenerator.getRoot(StreamingAggTemplate.TEMPLATE_DEFINITION, context.getOptions());
-    cg.getCodeGenerator().plainJavaCapable(true);
+    // Streaming agg no longer plain Java capable. Stats generates code
+    // that fails when compiled normally.
+    //     cannot override resetValues() in org.apache.drill.exec.physical.impl.aggregate.StreamingAggTemplate
+    //     public boolean resetValues()
+    //     ^
+    //     overridden method does not throw org.apache.drill.exec.exception.SchemaChangeException (compiler.err.override.meth.doesnt.throw)
+    // cg.getCodeGenerator().plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-    //cg.getCodeGenerator().saveCodeForDebugging(true);
+    // cg.getCodeGenerator().saveCodeForDebugging(true);
     container.clear();
 
     LogicalExpression[] keyExprs = new LogicalExpression[getKeyExpressions().size()];
@@ -471,7 +477,7 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
         continue;
       }
 
-      /* Populate the complex writers for complex exprs */
+      // Populate the complex writers for complex exprs
       if (expr instanceof DrillFuncHolderExpr &&
           ((DrillFuncHolderExpr) expr).getHolder().isComplexWriterFuncHolder()) {
         // Need to process ComplexWriter function evaluation.
@@ -662,7 +668,8 @@ public class StreamingAggBatch extends AbstractRecordBatch<StreamingAggregate> {
 
   @Override
   public void dump() {
-    logger.error("StreamingAggBatch[container={}, popConfig={}, aggregator={}, incomingSchema={}]", container, popConfig, aggregator, incomingSchema);
+    logger.error("StreamingAggBatch[container={}, popConfig={}, aggregator={}, incomingSchema={}]",
+        container, popConfig, aggregator, incomingSchema);
   }
 
   @VisibleForTesting

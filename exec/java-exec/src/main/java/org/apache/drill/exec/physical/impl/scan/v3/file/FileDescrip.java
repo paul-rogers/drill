@@ -53,6 +53,10 @@ public class FileDescrip {
   // that's the odd way we return the value.
   private String modTime;
 
+  // Flag to indicate that the file turned out to be empty.
+  // Used to set one of the internal implicit columns.
+  protected boolean isEmpty;
+
   public FileDescrip(DrillFileSystem dfs, FileWork fileWork, Path selectionRoot) {
     this.dfs = dfs;
     this.fileWork = fileWork;
@@ -154,5 +158,9 @@ public class FileDescrip {
     } else {
       return dfs.open(filePath());
     }
+  }
+
+  public void markEmpty() {
+    isEmpty = true;
   }
 }

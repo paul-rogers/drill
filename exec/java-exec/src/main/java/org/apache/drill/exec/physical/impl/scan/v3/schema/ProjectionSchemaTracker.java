@@ -178,6 +178,6 @@ public class ProjectionSchemaTracker extends AbstractSchemaTracker {
 
   @Override
   public void expandImplicitCol(ColumnMetadata resolved, ImplicitColumnMarker marker) {
-    schema.insert(implicitInsertPoint++, resolved).markImplicit(marker);;
+    schema.insert(implicitInsertPoint++, resolved).markImplicit(marker);
   }
 }

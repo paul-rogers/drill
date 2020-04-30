@@ -132,6 +132,8 @@ public class ReaderLifecycle implements RowBatchReader {
     return reader.getClass().getSimpleName();
   }
 
+  public ResultSetLoader tableLoader() { return tableLoader; }
+
   @Override
   public boolean open() {
     try {
@@ -171,12 +173,11 @@ public class ReaderLifecycle implements RowBatchReader {
         .projectionFilter(schemaTracker().projectionFilter(errorContext()))
         .readerSchema(schemaNegotiator.readerSchema);
 
-    // Resolve the scan scame if possible.
+    // Resolve the scan scheme if possible.
     applyEarlySchema();
 
     // Create the table loader
     tableLoader = new ResultSetLoaderImpl(scanLifecycle.allocator(), options.build());
-    implicitColumnsLoader = schemaNegotiator.implicitColumnsLoader();
     return tableLoader;
   }
 
@@ -237,6 +238,13 @@ public class ReaderLifecycle implements RowBatchReader {
           .build(logger);
       }
     }
+
+    // Let the schema negotiator finish up the batch. Needed for metadata
+    // scans on files.
+    // TODO: Modify the metadata system to handle non-file scans, then
+    // generalize the implicit columns parser, identify a new field to
+    // replace/augment fqn, and handle empty scans here.
+    schemaNegotiator.onEndBatch();
 
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
@@ -316,6 +324,12 @@ public class ReaderLifecycle implements RowBatchReader {
   }
 
   private void buildOutputBatch(VectorContainer readerContainer) {
+
+    // Create the implicit columns loader loader after the first
+    // batch so we can report if the file is empty.
+    if (tableLoader.batchCount() == 1) {
+      implicitColumnsLoader = schemaNegotiator.implicitColumnsLoader();
+    }
 
     // Get the batch results in a container.
     int rowCount = readerContainer.getRecordCount();

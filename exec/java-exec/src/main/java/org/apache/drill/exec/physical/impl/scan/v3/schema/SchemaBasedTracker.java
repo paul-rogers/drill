@@ -40,10 +40,6 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
     super(errorContext);
     this.definedSchema = definedSchema;
     schema.copyFrom(definedSchema);
-    checkResolved();
-
-    // If not resolved, should not have used this tracker.
-    Preconditions.checkState(isResolved);
 
     ScanSchemaTracker.ProjectionType projType;
     if (schema.size() == 0) {
@@ -52,6 +48,10 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
       projType = ScanSchemaTracker.ProjectionType.SOME;
     }
     schema.setProjectionType(projType);
+    checkResolved();
+
+    // If not resolved, should not have used this tracker.
+    Preconditions.checkState(isResolved);
   }
 
   /**
@@ -63,10 +63,9 @@ public class SchemaBasedTracker extends AbstractSchemaTracker {
    * @param projection the parsed projection list
    */
   public void validateProjection(TupleMetadata projection) {
-    if (projection == null) {
-      return;
+    if (projection != null) {
+      validateProjection(projection, definedSchema);
     }
-    validateProjection(projection, definedSchema);
   }
 
   @Override

@@ -26,6 +26,7 @@ import org.apache.drill.exec.physical.impl.scan.v3.ReaderFactory;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.ReaderLifecycle;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.SchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.impl.scan.v3.lifecycle.StaticBatchBuilder;
+import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.hadoop.mapred.FileSplit;
 
@@ -84,5 +85,27 @@ public class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
 
   private FileScanLifecycle fileScan() {
     return (FileScanLifecycle) readerLifecycle.scanLifecycle();
+  }
+
+  @Override
+  protected void onEndBatch() {
+
+    // If this is is a metadata scan, and this file has no rows (this is
+    // the first batch and contains no data), then add a dummy row so
+    // we have something to aggregate upon.
+    ImplicitFileColumnsHandler handler = fileScan().implicitColumnsHandler();
+    if (!handler.isMetadataScan()) {
+      return;
+    }
+    ResultSetLoader tableLoader = readerLifecycle.tableLoader();
+    if (tableLoader.batchCount() == 0 && !tableLoader.hasRows()) {
+
+      // This is admittedly a hack. The table may contain non-nullable
+      // columns, but we are asking for null values for those columns.
+      // We'll fill in defaults, with is not ideal.
+      tableLoader.writer().start();
+      tableLoader.writer().save();
+      fileDescrip.markEmpty();
+    }
   }
 }
