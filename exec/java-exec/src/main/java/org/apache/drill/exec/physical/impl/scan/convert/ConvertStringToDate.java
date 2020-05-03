@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan.convert;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.LocalDate;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Convert a VARCHAR column to an DATE column following the Java rules

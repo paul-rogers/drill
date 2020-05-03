@@ -17,12 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan.convert;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+
 import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.Instant;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 public class ConvertTimeStampToString extends DirectConverter {
 
@@ -32,7 +31,7 @@ public class ConvertTimeStampToString extends DirectConverter {
     super(baseWriter);
     final String formatValue = baseWriter.schema().format();
     dateTimeFormatter = formatValue == null
-      ? ISODateTimeFormat.dateTime() : DateTimeFormat.forPattern(formatValue);
+      ? DateTimeFormatter.ISO_LOCAL_DATE_TIME : DateTimeFormatter.ofPattern(formatValue);
   }
 
   @Override
@@ -41,7 +40,7 @@ public class ConvertTimeStampToString extends DirectConverter {
       baseWriter.setNull();
     } else {
       try {
-        baseWriter.setString(dateTimeFormatter.print(value));
+        baseWriter.setString(dateTimeFormatter.format(value));
       }
       catch (final IllegalStateException e) {
         throw InvalidConversionError.writeError(schema(), value, e);

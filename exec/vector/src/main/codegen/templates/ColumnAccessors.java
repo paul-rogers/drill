@@ -124,6 +124,11 @@ package org.apache.drill.exec.vector.accessor;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.Types;
@@ -142,11 +147,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 
 import io.netty.buffer.DrillBuf;
 
-import org.joda.time.DateTimeZone;
 import org.joda.time.Period;
-import org.joda.time.Instant;
-import org.joda.time.LocalDate;
-import org.joda.time.LocalTime;
 
 /**
  * Basic accessors for most Drill vector types and modes. Each class has a bare-bones
@@ -163,6 +164,7 @@ import org.joda.time.LocalTime;
  */
 
 public class ColumnAccessors {
+  public static final LocalDateTime LOCAL_EPOCH = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
 
 <#list vv.types as type>
   <#list type.minor as minor>
@@ -325,25 +327,19 @@ public class ColumnAccessors {
 
     @Override
     public final LocalDate getDate() {
-      <#-- Java 8:
-        return LocalDate.ofEpochDay(getLong() / DateUtilities.daysToStandardMillis); -->
-      return new LocalDate(getLong(), DateTimeZone.UTC);
+      return LocalDate.ofEpochDay(getLong() / DateUtilities.daysToStandardMillis);
     }
     <#elseif drillType == "Time">
 
     @Override
     public final LocalTime getTime() {
-      <#-- Java 8:
-        return LocalTime.ofNanoOfDay(getInt() * 1_000_000L); -->
-      return new LocalTime(getInt(), DateTimeZone.UTC);
+      return LocalTime.ofNanoOfDay(getInt() * 1_000_000L);
     }
     <#elseif drillType == "TimeStamp">
 
     @Override
     public final Instant getTimestamp() {
-      <#-- Java 8:
-        return Instant.ofEpochMilli(getLong()); -->
-      return new Instant(getLong());
+      return Instant.ofEpochMilli(getLong());
     }
     </#if>
   }
@@ -513,25 +509,19 @@ public class ColumnAccessors {
 
     @Override
     public final void setDate(final LocalDate value) {
-      <#-- Java 8:
-        setLong(value.toEpochDay() * DateUtilities.daysToStandardMillis); -->
-      setLong(value.toDateTimeAtStartOfDay(DateTimeZone.UTC).toInstant().getMillis());
+      setLong(value.toEpochDay() * DateUtilities.daysToStandardMillis);
     }
     <#elseif drillType == "Time">
 
     @Override
     public final void setTime(final LocalTime value) {
-      <#-- Java 8:
-        setInt((int) ((value.toNanoOfDay() + 500_000) / 1_000_000L)); -->
-      setInt(value.getMillisOfDay());
+      setInt((int) ((value.toNanoOfDay() + 500_000) / 1_000_000L));
     }
     <#elseif drillType == "TimeStamp">
 
     @Override
     public final void setTimestamp(final Instant value) {
-      <#-- Java 8:
-        setLong(value.toEpochMilli()); -->
-      setLong(value.getMillis());
+      setLong(value.toEpochMilli());
     }
     </#if>
     <#if ! intType>
@@ -576,11 +566,12 @@ public class ColumnAccessors {
     <#else>
       try (DrillBuf buf = vector.getAllocator().buffer(VALUE_WIDTH)) {
       <#if drillType = "Date">
-        writeLong(buf, ((LocalDate) value).toDateTimeAtStartOfDay(DateTimeZone.UTC).toInstant().getMillis());
+        writeLong(buf, Duration.between(LOCAL_EPOCH,
+            ((LocalDate) value).atStartOfDay()).toMillis());
       <#elseif drillType = "Time">
-        writeInt(buf, ((LocalTime) value).getMillisOfDay());
+        writeInt(buf, (int) (((LocalTime) value).toNanoOfDay() + 500_000) / 1_000_000);
       <#elseif drillType = "TimeStamp">
-        writeLong(buf, ((Instant) value).getMillis());
+        writeLong(buf, ((Instant) value).toEpochMilli());
       <#elseif putArgs != "">
         throw new InvalidConversionError("Generic object not supported for type ${drillType}, "
             + "set${label}(${accessorType}${putArgs})");

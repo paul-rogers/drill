@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan.convert;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 import org.apache.drill.exec.vector.accessor.InvalidConversionError;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.joda.time.Instant;
-import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Convert a VARCHAR column to an TIMESTAMP column following the Java rules
@@ -46,7 +46,7 @@ public class ConvertStringToTimeStamp extends AbstractConvertFromString {
       return;
     }
     try {
-      baseWriter.setTimestamp(Instant.parse(prepared, dateTimeFormatter));
+      baseWriter.setTimestamp(dateTimeFormatter.parse(prepared, Instant::from));
     }
     catch (final IllegalStateException e) {
       throw InvalidConversionError.writeError(schema(), value, e);
