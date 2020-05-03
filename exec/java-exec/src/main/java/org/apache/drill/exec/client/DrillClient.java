@@ -111,7 +111,7 @@ public class DrillClient implements Closeable, ConnectionThrottle {
   private UserClient client;
   private DrillProperties properties;
   private volatile ClusterCoordinator clusterCoordinator;
-  private volatile boolean connected = false;
+  private volatile boolean connected;
   private final BufferAllocator allocator;
   private final int reconnectTimes;
   private final int reconnectDelay;
@@ -471,10 +471,10 @@ public class DrillClient implements Closeable, ConnectionThrottle {
    */
   @Override
   public void close() {
-    if (this.client != null) {
-      this.client.close();
+    if (client != null) {
+      client.close();
     }
-    if (this.ownsAllocator && allocator != null) {
+    if (ownsAllocator && allocator != null) {
       DrillAutoCloseables.closeNoChecked(allocator);
     }
     if (ownsZkConnection) {
@@ -489,15 +489,14 @@ public class DrillClient implements Closeable, ConnectionThrottle {
     }
     if (eventLoopGroup != null) {
       eventLoopGroup.shutdownGracefully();
+      eventLoopGroup = null;
     }
 
     if (executor != null) {
       executor.shutdownNow();
+      executor = null;
     }
 
-    // TODO:  Did DRILL-1735 changes cover this TODO?:
-    // TODO: fix tests that fail when this is called.
-    //allocator.close();
     connected = false;
   }
 

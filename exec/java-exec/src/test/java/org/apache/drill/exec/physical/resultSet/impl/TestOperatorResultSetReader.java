@@ -28,7 +28,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.resultSet.OperatorResultSetReader;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
-import org.apache.drill.exec.physical.resultSet.impl.OperatorResultSetReaderImpl.UpstreamSource;
+import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl.UpstreamSource;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.VectorContainer;
@@ -148,7 +148,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    OperatorResultSetReader rsReader = new OperatorResultSetReaderImpl(
+    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Start state
@@ -217,7 +217,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseAtStart() {
-    OperatorResultSetReader rsReader = new OperatorResultSetReaderImpl(
+    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Close OK in start state
@@ -229,7 +229,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseDuringRead() {
-    OperatorResultSetReader rsReader = new OperatorResultSetReaderImpl(
+    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Move to first batch
@@ -244,7 +244,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseAfterNext() {
-    OperatorResultSetReader rsReader = new OperatorResultSetReaderImpl(
+    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Move to first batch

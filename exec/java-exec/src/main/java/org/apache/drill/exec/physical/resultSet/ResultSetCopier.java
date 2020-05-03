@@ -57,8 +57,7 @@ import org.apache.drill.exec.record.VectorContainer;
  * <pre><code>
  * public IterOutcome next() {
  *   copier.startOutputBatch();
- *   while (! copier.isFull() {
- *     copier.freeInput();
+ *   while (!copier.isFull() {
  *     IterOutcome innerResult = inner.next();
  *     if (innerResult == DONE) { break; }
  *     copier.startInputBatch();
@@ -92,7 +91,6 @@ import org.apache.drill.exec.record.VectorContainer;
  * Because we wish to fill the output batch, we may be able to copy
  * part of a batch, the whole batch, or multiple batches to the output.
  */
-
 public interface ResultSetCopier {
 
   /**

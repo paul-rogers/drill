@@ -28,7 +28,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-public class OperatorResultSetReaderImpl implements OperatorResultSetReader {
+public class ResultSetReaderImpl implements OperatorResultSetReader {
 
   public interface UpstreamSource {
     boolean next();
@@ -53,7 +53,7 @@ public class OperatorResultSetReaderImpl implements OperatorResultSetReader {
   private final UpstreamSource source;
   private RowSetReader rowSetReader;
 
-  public OperatorResultSetReaderImpl(UpstreamSource source) {
+  public ResultSetReaderImpl(UpstreamSource source) {
     this.source = source;
   }
 

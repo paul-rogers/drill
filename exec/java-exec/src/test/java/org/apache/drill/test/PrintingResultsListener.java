@@ -19,9 +19,9 @@ package org.apache.drill.test;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.client.LoggingResultsListener;
 import org.apache.drill.exec.client.QuerySubmitter;
 import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.exec.query.LoggingResultsListener;
 import org.apache.drill.exec.rpc.ConnectionThrottle;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 

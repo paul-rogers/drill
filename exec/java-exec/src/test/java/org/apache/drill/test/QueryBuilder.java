@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -33,7 +35,6 @@ import java.util.regex.Pattern;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.client.LoggingResultsListener;
 import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
@@ -44,15 +45,19 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
+import org.apache.drill.exec.query.AwaitableUserResultsListener;
 import org.apache.drill.exec.query.BufferingQueryEventListener;
-import org.apache.drill.exec.query.QueryRowSetIterator;
+import org.apache.drill.exec.query.LoggingResultsListener;
 import org.apache.drill.exec.query.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.exec.query.QueryBatchIterator;
+import org.apache.drill.exec.query.QueryRowSetIterator;
+import org.apache.drill.exec.query.QueryRowSetReader;
+import org.apache.drill.exec.query.StatementParser;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.ConnectionThrottle;
 import org.apache.drill.exec.rpc.RpcException;
-import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.rpc.user.UserResultsListener;
 import org.apache.drill.exec.util.VectorUtil;
@@ -60,10 +65,7 @@ import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.test.ClientFixture.StatementParser;
 import org.joda.time.Period;
-
-import static org.junit.Assert.assertEquals;
 
 /**
  * Builder for a Drill query. Provides all types of query formats,
@@ -347,54 +349,30 @@ public class QueryBuilder {
    */
   public DirectRowSet rowSet() throws RpcException {
 
-    // Ignore all but the first non-empty batch.
-    // Always return the last batch, which may be empty.
-
-    QueryDataBatch resultBatch = null;
-    for (QueryDataBatch batch : results()) {
-      if (resultBatch == null) {
-        resultBatch = batch;
-      } else if (resultBatch.getHeader().getRowCount() == 0) {
-        resultBatch.release();
-        resultBatch = batch;
-      } else if (batch.getHeader().getRowCount() > 0) {
-        throw new IllegalStateException("rowSet() returns a single batch, but this query returned multiple batches. Consider rowSetIterator() instead.");
-      } else {
-        batch.release();
+    VectorContainer batch = null;
+    try (QueryBatchIterator iter = new QueryBatchIterator(client.allocator(), withEventListener())) {
+      while (iter.next()) {
+        batch = iter.batch();
+        if (batch.getRecordCount() != 0) {
+          iter.retainData();
+          break;
+        }
       }
+      iter.retainData();
     }
-
-    // No results?
-
-    if (resultBatch == null) {
+    if (batch == null) {
       return null;
+    } else {
+      return DirectRowSet.fromContainer(batch);
     }
-
-    // Unload the batch and convert to a row set.
-
-    RecordBatchLoader loader = new RecordBatchLoader(client.allocator());
-    loader.load(resultBatch.getHeader().getDef(), resultBatch.getData());
-    resultBatch.release();
-    VectorContainer container = loader.getContainer();
-    container.setRecordCount(loader.getRecordCount());
-
-    // Null results? Drill will return a single batch with no rows
-    // and no columns even if the scan (or other) operator returns
-    // no batches at all. For ease of testing, simply map this null
-    // result set to a null output row set that says "nothing at all
-    // was returned." Note that this is different than an empty result
-    // set which has a schema, but no rows.
-
-    if (container.getRecordCount() == 0 && container.getNumberOfColumns() == 0) {
-      container.clear();
-      return null;
-    }
-
-    return DirectRowSet.fromContainer(container);
   }
 
   public QueryRowSetIterator rowSetIterator() {
     return new QueryRowSetIterator(client.allocator(), withEventListener());
+  }
+
+  public QueryRowSetReader rowSetReader() {
+    return QueryRowSetReader.build(client.allocator(), withEventListener());
   }
 
   /**

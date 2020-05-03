@@ -28,7 +28,7 @@ import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.proto.UserBitShared.QueryProfile;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
-import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
+import org.apache.drill.exec.query.AwaitableUserResultsListener;
 import org.apache.drill.exec.store.sys.PersistentStore;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
