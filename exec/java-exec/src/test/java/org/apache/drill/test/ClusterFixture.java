@@ -139,6 +139,8 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
       allocator = RootAllocatorFactory.newRoot(config);
       startDrillbits();
       applyOptions();
+    } catch (RuntimeException e) {
+      throw e;
     } catch (Exception e) {
 
       // Translate exceptions to unchecked to avoid cluttering

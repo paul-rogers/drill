@@ -15,12 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.test.query;
 
 import ch.qos.logback.classic.Level;
-import org.apache.drill.exec.client.LoggingResultsListener;
+
 import org.apache.drill.common.util.function.CheckedSupplier;
+import org.apache.drill.exec.client.LoggingResultsListener;
 import org.apache.drill.exec.util.VectorUtil;
+import org.apache.drill.test.LogFixture;
+import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 
 import java.util.function.Supplier;
 

@@ -17,41 +17,88 @@
  */
 package org.apache.drill.exec.physical.resultSet.impl;
 
-import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
-import org.apache.drill.exec.physical.resultSet.ResultSetReader;
+import org.apache.drill.exec.physical.resultSet.OperatorResultSetReader;
+import org.apache.drill.exec.physical.rowSet.DirectRowSet;
+import org.apache.drill.exec.physical.rowSet.IndirectRowSet;
+import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
-import org.apache.drill.exec.physical.rowSet.RowSets;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-public class ResultSetReaderImpl implements ResultSetReader {
+public class ResultSetReaderImpl implements OperatorResultSetReader {
+
+  public interface UpstreamSource {
+    boolean next();
+    int schemaVersion();
+    VectorContainer batch();
+    SelectionVector2 sv2();
+    void release();
+  }
 
   @VisibleForTesting
   protected enum State {
       START,
+      PENDING,
       BATCH,
       DETACHED,
+      EOF,
       CLOSED
   }
 
   private State state = State.START;
   private int priorSchemaVersion;
-  private final BatchAccessor batch;
+  private final UpstreamSource source;
   private RowSetReader rowSetReader;
 
-  public ResultSetReaderImpl(BatchAccessor batch) {
-    this.batch = batch;
+  public ResultSetReaderImpl(UpstreamSource source) {
+    this.source = source;
   }
 
   @Override
-  public void start() {
-    Preconditions.checkState(state != State.CLOSED, "Reader is closed");
-    Preconditions.checkState(state != State.BATCH,
-        "Call detach/release before starting another batch");
-    Preconditions.checkState(state == State.START ||
-        priorSchemaVersion <= batch.schemaVersion());
-    boolean newSchema = state == State.START ||
-        priorSchemaVersion != batch.schemaVersion();
+  public TupleMetadata schema() {
+    switch (state) {
+      case CLOSED:
+        return null;
+      case START:
+        if (!next()) {
+          return null;
+        }
+        state = State.PENDING;
+        break;
+      default:
+    }
+    return rowSetReader.tupleSchema();
+  }
+
+  @Override
+  public boolean next() {
+    switch (state) {
+      case PENDING:
+        state = State.BATCH;
+        return true;
+      case BATCH:
+        source.release();
+        break;
+      case CLOSED:
+        throw new IllegalStateException("Reader is closed");
+      case EOF:
+        return false;
+      case START:
+        break;
+      default:
+        source.release();
+    }
+    if (!source.next()) {
+      state = State.EOF;
+      return false;
+    }
+
+    int sourceSchemaVersion = source.schemaVersion();
+    Preconditions.checkState(sourceSchemaVersion > 0);
+    Preconditions.checkState(priorSchemaVersion <= sourceSchemaVersion);
     state = State.BATCH;
 
     // If new schema, discard the old reader (if any, and create
@@ -59,48 +106,54 @@ public class ResultSetReaderImpl implements ResultSetReader {
     // then the old reader is reused: it points to vectors which
     // Drill requires be the same vectors as the previous batch,
     // but with different buffers.
-
+    boolean newSchema = state == State.START ||
+        priorSchemaVersion != sourceSchemaVersion;
     if (newSchema) {
-      rowSetReader = RowSets.wrap(batch).reader();
-      priorSchemaVersion = batch.schemaVersion();
+      rowSetReader = createRowSet().reader();
+      priorSchemaVersion = sourceSchemaVersion;
     } else {
       rowSetReader.newBatch();
+    }
+    return true;
+  }
+
+  // TODO: Build the reader without the need for a row set
+  private RowSet createRowSet() {
+    VectorContainer container = source.batch();
+    switch (container.getSchema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+      throw new IllegalArgumentException("Build from SV4 not yet supported");
+    case NONE:
+      return DirectRowSet.fromContainer(container);
+    case TWO_BYTE:
+      return IndirectRowSet.fromSv2(container, source.sv2());
+    default:
+      throw new IllegalStateException("Invalid selection mode");
     }
   }
 
   @Override
+  public int schemaVersion() { return source.schemaVersion(); }
+
+  @Override
   public RowSetReader reader() {
-    Preconditions.checkState(state == State.BATCH, "Call start() before requesting the reader.");
+    Preconditions.checkState(state == State.BATCH, "Not in batch-ready state.");
     return rowSetReader;
   }
 
   @Override
   public void detach() {
-    if (state != State.START) {
-      Preconditions.checkState(state == State.BATCH || state == State.DETACHED);
+    if (state == State.BATCH) {
       state = State.DETACHED;
     }
   }
 
   @Override
-  public void release() {
-    if (state != State.START && state != State.DETACHED) {
-      detach();
-      batch.release();
-    }
-  }
-
-  @Override
   public void close() {
-    if (state != State.CLOSED) {
-      release();
-      state = State.CLOSED;
-    }
+    source.release();
+    state = State.CLOSED;
   }
 
   @VisibleForTesting
   protected State state() { return state; }
-
-  @Override
-  public BatchAccessor inputBatch() { return batch; }
 }

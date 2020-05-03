@@ -30,7 +30,7 @@ import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
-import org.apache.drill.test.QueryRowSetIterator;
+import org.apache.drill.test.query.QueryRowSetIterator;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.junit.BeforeClass;

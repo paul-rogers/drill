@@ -33,7 +33,6 @@ import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.UserProtos.QueryPlanFragments;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.rpc.DrillRpcFuture;
 import org.apache.drill.exec.rpc.RpcException;
@@ -41,6 +40,7 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.testing.ControlsInjectionUtil;
 import org.apache.drill.test.ClusterFixture.FixtureTestServices;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.apache.drill.test.query.StatementParser;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,15 +51,14 @@ import org.slf4j.LoggerFactory;
  * class.
  * @see ExampleTest ExampleTest for usage examples
  */
-
 public class ClientFixture implements AutoCloseable {
 
   private static final Logger logger = LoggerFactory.getLogger(ClientFixture.class);
 
   public static class ClientBuilder {
 
-    ClusterFixture cluster;
-    Properties clientProps;
+    private final ClusterFixture cluster;
+    private Properties clientProps;
 
     protected ClientBuilder(ClusterFixture cluster) {
       this.cluster = cluster;
@@ -72,7 +71,6 @@ public class ClientFixture implements AutoCloseable {
      * @param value property value
      * @return this builder
      */
-
     public ClientBuilder property(String key, Object value) {
       if (clientProps == null) {
         clientProps = new Properties();
@@ -88,20 +86,22 @@ public class ClientFixture implements AutoCloseable {
 
         // When used in a test with an embedded Drillbit, the
         // RPC exception should not occur.
-
         throw new IllegalStateException(e);
       }
     }
   }
 
   private final ClusterFixture cluster;
+<<<<<<< HEAD
   private DrillClient client;
+=======
+  private final DrillClient client;
+>>>>>>> Refactor result set reader
 
   public ClientFixture(ClientBuilder builder) throws RpcException {
     this.cluster = builder.cluster;
 
     // Create a client.
-
     if (cluster.usesZK()) {
       client = new DrillClient(cluster.config());
     } else if (builder.clientProps != null  &&
@@ -243,13 +243,9 @@ public class ClientFixture implements AutoCloseable {
 
   @Override
   public void close() {
-    if (client == null) {
-      return;
-    }
     try {
       client.close();
     } finally {
-      client = null;
       cluster.clients.remove(this);
     }
   }
@@ -294,70 +290,8 @@ public class ClientFixture implements AutoCloseable {
     alterSession(ExecConstants.DRILLBIT_CONTROL_INJECTIONS, controls);
   }
 
-  public RowSetBuilder rowSetBuilder(BatchSchema schema) {
-    return new RowSetBuilder(allocator(), schema);
-  }
-
   public RowSetBuilder rowSetBuilder(TupleMetadata schema) {
     return new RowSetBuilder(allocator(), schema);
-  }
-
-  /**
-   * Very simple parser for semi-colon separated lists of SQL statements which
-   * handles quoted semicolons. Drill can execute only one statement at a time
-   * (without a trailing semi-colon.) This parser breaks up a statement list
-   * into single statements. Input:<code><pre>
-   * USE a.b;
-   * ALTER SESSION SET `foo` = ";";
-   * SELECT * FROM bar WHERE x = "\";";
-   * </pre><code>Output:
-   * <ul>
-   * <li><tt>USE a.b</tt></li>
-   * <li><tt>ALTER SESSION SET `foo` = ";"</tt></li>
-   * <li><tt>SELECT * FROM bar WHERE x = "\";"</tt></li>
-   */
-  public static class StatementParser {
-    private final Reader in;
-
-    public StatementParser(Reader in) {
-      this.in = in;
-    }
-
-    public String parseNext() throws IOException {
-      boolean eof = false;
-      StringBuilder buf = new StringBuilder();
-      while (true) {
-        int c = in.read();
-        if (c == -1) {
-          eof = true;
-          break;
-        }
-        if (c == ';') {
-          break;
-        }
-        buf.append((char) c);
-        if (c == '"' || c == '\'' || c == '`') {
-          int quote = c;
-          boolean escape = false;
-          while (true) {
-            c = in.read();
-            if (c == -1) {
-              throw new IllegalArgumentException("Mismatched quote: " + (char) c);
-            }
-            buf.append((char) c);
-            if (! escape && c == quote) {
-              break;
-            }
-            escape = c == '\\';
-          }
-        }
-      }
-      String stmt = buf.toString().trim();
-      if (stmt.isEmpty() && eof) {
-        return null;
-      }
-      return stmt;
-    }
   }
 
   public int exec(Reader in) throws IOException {
@@ -385,7 +319,7 @@ public class ClientFixture implements AutoCloseable {
    *
    * @param source the set of statements, separated by semicolons
    * @return the number of statements executed
-   * @throws IOException if anable to execute statements from file
+   * @throws IOException if unable to execute statements from file
    */
   public int exec(File source) throws IOException {
     try (Reader in = new BufferedReader(new FileReader(source))) {

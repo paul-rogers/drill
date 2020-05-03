@@ -44,6 +44,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.util.VectorUtil;
+import org.apache.drill.test.query.PrintingResultsListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

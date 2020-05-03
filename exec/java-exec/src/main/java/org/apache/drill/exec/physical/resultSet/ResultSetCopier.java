@@ -57,8 +57,7 @@ import org.apache.drill.exec.record.VectorContainer;
  * <pre><code>
  * public IterOutcome next() {
  *   copier.startOutputBatch();
- *   while (! copier.isFull() {
- *     copier.freeInput();
+ *   while (!copier.isFull() {
  *     IterOutcome innerResult = inner.next();
  *     if (innerResult == DONE) { break; }
  *     copier.startInputBatch();
@@ -92,7 +91,6 @@ import org.apache.drill.exec.record.VectorContainer;
  * Because we wish to fill the output batch, we may be able to copy
  * part of a batch, the whole batch, or multiple batches to the output.
  */
-
 public interface ResultSetCopier {
 
   /**
@@ -104,7 +102,7 @@ public interface ResultSetCopier {
    * Start the next input batch. The input batch must be held
    * by the VectorAccessor passed into the constructor.
    */
-  void startInputBatch();
+  boolean nextInputBatch();
 
   /**
    * If copying rows one by one, copy the next row from the
@@ -133,12 +131,6 @@ public interface ResultSetCopier {
    * copy, and {@link #isCopyPending()} will return true.
    */
   void copyAllRows();
-
-  /**
-   * Release the input. Must be called (explicitly, or via
-   * {@link #copyInput()} before loading another input batch.
-   */
-  void releaseInputBatch();
 
   /**
    * Reports if the output batch has rows. Useful after the end

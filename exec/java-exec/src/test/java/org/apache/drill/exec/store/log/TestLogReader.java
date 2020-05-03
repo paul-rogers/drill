@@ -37,7 +37,7 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.test.BaseDirTestWatcher;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
-import org.apache.drill.test.QueryRowSetIterator;
+import org.apache.drill.test.query.QueryRowSetIterator;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.BeforeClass;
@@ -147,7 +147,7 @@ public class TestLogReader extends ClusterTest {
   private static LogFormatConfig dateTimeConfig() {
     String regex = "(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}),(\\d+)\\s\\[(\\w+)\\]\\s([A-Z]+)\\s(.+)";
     List<LogFormatField> schema = Lists.newArrayList(
-        new LogFormatField("entry_date", "TIMESTAMP", "yy-MM-dd hh:mm:ss"),
+        new LogFormatField("entry_date", "TIMESTAMP", "yyyy-MM-dd HH:mm:ss"),
         new LogFormatField("pid", "INT"),
         new LogFormatField("location"),
         new LogFormatField("message_type"),

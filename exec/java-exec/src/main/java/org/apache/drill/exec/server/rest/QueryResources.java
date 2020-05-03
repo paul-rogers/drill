@@ -21,11 +21,13 @@ import org.apache.drill.shaded.guava.com.google.common.base.Joiner;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.server.rest.DrillRestServer.UserAuthEnabled;
 import org.apache.drill.exec.server.rest.QueryWrapper.RestQueryBuilder;
 import org.apache.drill.exec.server.rest.RestQueryRunner.QueryResult;
 import org.apache.drill.exec.server.rest.auth.DrillUserPrincipal;
+import org.apache.drill.exec.server.rest.query2.RestQueryRequest;
 import org.apache.drill.exec.work.WorkManager;
 import org.glassfish.jersey.server.mvc.Viewable;
 import org.slf4j.Logger;
@@ -43,6 +45,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
 import java.util.Collections;
 import java.util.HashMap;
@@ -129,6 +132,37 @@ public class QueryResources {
       logger.error("Query from Web UI Failed: {}", e);
       return ViewableWithPermissions.create(authEnabled.get(), "/rest/errorMessage.ftl", sc, e);
     }
+  }
+
+  @POST
+  @Path("/v2/query")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.TEXT_PLAIN)
+  public String submitQueryV2(Form form) throws Exception {
+    MultivaluedMap<String, String> map = form.asMap();
+    String value = map.getFirst("query");
+    if (value == null) {
+      throw new DrillRuntimeException("No query provided");
+    }
+    value = value.trim();
+    if (value.isEmpty()) {
+      throw new DrillRuntimeException("Query cannot be empty");
+    }
+    RestQueryRequest req = RestQueryRequest.builder()
+        .commands(value)
+        .build();
+    return value;
+  }
+
+  @GET
+  @Path("/v2/test")
+  @Produces(MediaType.TEXT_HTML)
+  public String tester() throws Exception {
+    return
+        "<html><body><form action=\"/query.json\" method=\"POST\">\n" +
+        "<textarea name=\"query\" rows=\"4\" cols=\"50\"></textarea>\n" +
+        "<input type=\"submit\">\n" +
+        "</form></body></html>\n";
   }
 
   /**
