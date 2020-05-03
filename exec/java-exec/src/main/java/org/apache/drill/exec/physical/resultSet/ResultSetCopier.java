@@ -104,7 +104,7 @@ public interface ResultSetCopier {
    * Start the next input batch. The input batch must be held
    * by the VectorAccessor passed into the constructor.
    */
-  void startInputBatch();
+  boolean nextInputBatch();
 
   /**
    * If copying rows one by one, copy the next row from the
@@ -133,12 +133,6 @@ public interface ResultSetCopier {
    * copy, and {@link #isCopyPending()} will return true.
    */
   void copyAllRows();
-
-  /**
-   * Release the input. Must be called (explicitly, or via
-   * {@link #copyInput()} before loading another input batch.
-   */
-  void releaseInputBatch();
 
   /**
    * Reports if the output batch has rows. Useful after the end

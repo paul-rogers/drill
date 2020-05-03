@@ -22,6 +22,9 @@ import org.apache.drill.exec.util.ValueVectorElementFormatter;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.DrillBuf;
 import io.netty.channel.ChannelFuture;
@@ -47,19 +50,21 @@ import java.util.ArrayList;
 import java.util.Set;
 
 /**
- * WebUserConnectionWrapper which represents the UserClientConnection between WebServer and Foreman, for the WebUser
- * submitting the query. It provides access to the UserSession executing the query. There is no actual physical
+ * WebUserConnectionWrapper which represents the UserClientConnection between
+ * WebServer and Foreman, for the WebUser submitting the query. It provides
+ * access to the UserSession executing the query. There is no actual physical
  * channel corresponding to this connection wrapper.
  *
- * It returns a close future with no actual underlying {@link io.netty.channel.Channel} associated with it but do have an
- * EventExecutor out of BitServer EventLoopGroup. Since there is no actual connection established using this class,
- * hence the close event will never be fired by underlying layer and close future is set only when the
+ * It returns a close future with no actual underlying
+ * {@link io.netty.channel.Channel} associated with it but do have an
+ * EventExecutor out of BitServer EventLoopGroup. Since there is no actual
+ * connection established using this class, hence the close event will never be
+ * fired by underlying layer and close future is set only when the
  * {@link WebSessionResources} are closed.
  */
 
 public class WebUserConnection extends AbstractDisposableUserClientConnection implements ConnectionThrottle {
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(WebUserConnection.class);
+  private static final Logger logger = LoggerFactory.getLogger(WebUserConnection.class);
 
   protected WebSessionResources webSessionResources;
 
@@ -177,17 +182,13 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
   }
 
   @Override
-  public void setAutoRead(boolean enableAutoRead) {
-    // no-op
-  }
+  public void setAutoRead(boolean enableAutoRead) { }
 
   /**
    * For authenticated WebUser no cleanup of {@link WebSessionResources} is done since it's re-used
    * for all the queries until lifetime of the web session.
    */
-  public void cleanupSession() {
-    // no-op
-  }
+  public void cleanupSession() { }
 
   public static class AnonWebUserConnection extends WebUserConnection {
 

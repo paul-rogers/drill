@@ -93,6 +93,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Strings;
 import org.apache.drill.shaded.guava.com.google.common.util.concurrent.SettableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.channel.EventLoopGroup;
 
@@ -101,11 +103,10 @@ import io.netty.channel.EventLoopGroup;
  * String into ByteBuf.
  */
 public class DrillClient implements Closeable, ConnectionThrottle {
+  private static Logger logger = LoggerFactory.getLogger(DrillClient.class);
   public static final String DEFAULT_CLIENT_NAME = "Apache Drill Java client";
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillClient.class);
-
   private static final ObjectMapper objectMapper = new ObjectMapper();
+
   private final DrillConfig config;
   private UserClient client;
   private DrillProperties properties;
@@ -199,10 +200,12 @@ public class DrillClient implements Closeable, ConnectionThrottle {
   }
 
   /**
-   * Sets whether the application is willing to accept complex types (Map, Arrays) in the returned result set.
-   * Default is {@code true}. If set to {@code false}, the complex types are returned as JSON encoded VARCHAR type.
+   * Sets whether the application is willing to accept complex types (Map,
+   * Arrays) in the returned result set. Default is {@code true}. If set to
+   * {@code false}, the complex types are returned as JSON encoded VARCHAR type.
    *
-   * @throws IllegalStateException if called after a connection has been established.
+   * @throws IllegalStateException
+   *           if called after a connection has been established.
    */
   public void setSupportComplexTypes(boolean supportComplexTypes) {
     if (connected) {
@@ -497,7 +500,6 @@ public class DrillClient implements Closeable, ConnectionThrottle {
     //allocator.close();
     connected = false;
   }
-
 
   /**
    * Return the server infos. Only available after connecting

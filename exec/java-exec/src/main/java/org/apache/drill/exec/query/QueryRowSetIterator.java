@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.exec.query;
 
 import java.util.Iterator;
 
@@ -25,11 +25,15 @@ import org.apache.drill.exec.physical.rowSet.RowSetFormatter;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
+import org.apache.drill.exec.query.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.test.BufferingQueryEventListener.QueryEvent;
 
+/**
+ * Converts an incoming set of record batches into an iterator over a
+ * set of row sets.
+ */
 public class QueryRowSetIterator implements Iterator<DirectRowSet>, Iterable<DirectRowSet> {
   private final BufferingQueryEventListener listener;
   private final BufferAllocator allocator;
@@ -39,7 +43,7 @@ public class QueryRowSetIterator implements Iterator<DirectRowSet>, Iterable<Dir
   private QueryDataBatch batch;
   private QueryState state;
 
-  QueryRowSetIterator(BufferAllocator allocator, BufferingQueryEventListener listener) {
+  public QueryRowSetIterator(BufferAllocator allocator, BufferingQueryEventListener listener) {
     this.allocator = allocator;
     this.listener = listener;
   }
@@ -84,7 +88,6 @@ public class QueryRowSetIterator implements Iterator<DirectRowSet>, Iterable<Dir
     }
 
     // Unload the batch and convert to a row set.
-
     final RecordBatchLoader loader = new RecordBatchLoader(allocator);
     loader.load(batch.getHeader().getDef(), batch.getData());
     batch.release();

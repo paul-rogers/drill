@@ -279,9 +279,7 @@ public class WebServer implements AutoCloseable {
     sessionManager.getSessionCookieConfig().setHttpOnly(true);
     sessionManager.addEventListener(new HttpSessionListener() {
       @Override
-      public void sessionCreated(HttpSessionEvent se) {
-
-      }
+      public void sessionCreated(HttpSessionEvent se) { }
 
       @Override
       public void sessionDestroyed(HttpSessionEvent se) {
@@ -338,8 +336,9 @@ public class WebServer implements AutoCloseable {
   }
 
   /**
-   * Create an HTTPS connector for given jetty server instance. If the admin has specified keystore/truststore settings
-   * they will be used else a self-signed certificate is generated and used.
+   * Create an HTTPS connector for given jetty server instance. If the admin has
+   * specified keystore/truststore settings they will be used else a self-signed
+   * certificate is generated and used.
    *
    * @return Initialized {@link ServerConnector} for HTTPS connections.
    */

@@ -269,6 +269,10 @@ public class RowSetUtilities {
     new RowSetComparison(expected).verifyAndClearAll(actual);
   }
 
+  public static void verify(RowSet expected, RowSet actual, int rowCount) {
+    new RowSetComparison(expected).span(rowCount).verifyAndClearAll(actual);
+  }
+
   public static BigDecimal dec(String value) {
     return new BigDecimal(value);
   }
