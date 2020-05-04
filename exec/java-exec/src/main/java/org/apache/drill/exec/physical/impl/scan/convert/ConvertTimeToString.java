@@ -42,7 +42,7 @@ public class ConvertTimeToString extends DirectConverter {
       try {
         baseWriter.setString(dateTimeFormatter.format(value));
       }
-      catch (final IllegalStateException e) {
+      catch (final Exception e) {
         throw InvalidConversionError.writeError(schema(), value, e);
       }
     }

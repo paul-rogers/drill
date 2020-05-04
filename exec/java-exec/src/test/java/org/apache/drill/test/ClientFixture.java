@@ -92,11 +92,7 @@ public class ClientFixture implements AutoCloseable {
   }
 
   private final ClusterFixture cluster;
-<<<<<<< HEAD
-  private DrillClient client;
-=======
   private final DrillClient client;
->>>>>>> Refactor result set reader
 
   public ClientFixture(ClientBuilder builder) throws RpcException {
     this.cluster = builder.cluster;

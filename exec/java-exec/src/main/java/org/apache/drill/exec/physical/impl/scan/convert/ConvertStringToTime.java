@@ -48,7 +48,7 @@ public class ConvertStringToTime extends AbstractConvertFromString {
     try {
       baseWriter.setTime(LocalTime.parse(prepared, dateTimeFormatter));
     }
-    catch (final IllegalStateException e) {
+    catch (final Exception e) {
       throw InvalidConversionError.writeError(schema(), value, e);
     }
   }
