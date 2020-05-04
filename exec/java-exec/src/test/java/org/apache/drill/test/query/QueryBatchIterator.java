@@ -68,7 +68,7 @@ public class QueryBatchIterator implements UpstreamSource, AutoCloseable {
     if (state == State.EOF) {
       return false;
     }
-    for (;;) {
+    while (true) {
       QueryEvent event = listener.get();
       queryState = event.state;
       switch (event.type) {

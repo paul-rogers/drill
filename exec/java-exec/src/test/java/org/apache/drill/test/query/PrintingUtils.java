@@ -23,7 +23,6 @@ import org.apache.drill.common.util.function.CheckedSupplier;
 import org.apache.drill.exec.client.LoggingResultsListener;
 import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.test.LogFixture;
-import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 
 import java.util.function.Supplier;
 

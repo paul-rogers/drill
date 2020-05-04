@@ -49,7 +49,7 @@ public class StatementParser {
   public String parseNext() throws IOException {
     boolean eof = false;
     StringBuilder buf = new StringBuilder();
-    for (;;) {
+    while (true) {
       int c = in.read();
       if (c == -1) {
         eof = true;
@@ -62,7 +62,7 @@ public class StatementParser {
       if (c == '"' || c == '\'' || c == '`') {
         int quote = c;
         boolean escape = false;
-        for (;;) {
+        while (true) {
           c = in.read();
           if (c == -1) {
             throw new IllegalArgumentException("Mismatched quote: " + (char) c);
