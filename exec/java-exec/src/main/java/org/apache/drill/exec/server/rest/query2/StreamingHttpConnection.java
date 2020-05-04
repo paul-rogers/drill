@@ -17,32 +17,62 @@
  */
 package org.apache.drill.exec.server.rest.query2;
 
+import java.io.OutputStream;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 
 import org.apache.drill.exec.physical.impl.materialize.QueryDataPackage;
 import org.apache.drill.exec.physical.impl.materialize.QueryWritableBatch;
+import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl;
+import org.apache.drill.exec.physical.resultSet.util.JsonWriter;
 import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
 import org.apache.drill.exec.server.rest.BaseWebUserConnection;
 import org.apache.drill.exec.server.rest.WebUserConnection;
 import org.apache.drill.shaded.guava.com.google.common.collect.Queues;
 
-public class ForwardingConnection extends BaseWebUserConnection {
+public class StreamingHttpConnection extends BaseWebUserConnection {
 
-  private final BlockingQueue<QueryWritableBatch> queue = Queues.newLinkedBlockingQueue();
+  private final CountDownLatch startSignal = new CountDownLatch(1);
+  private final CountDownLatch doneSignal = new CountDownLatch(1);
+  private int batchCount;
+  private JsonWriter writer;
+  private ResultSetReaderImpl reader;
 
-  public ForwardingConnection(WebUserConnection webConn) {
+  public StreamingHttpConnection(WebUserConnection webConn) {
     super(webConn.resources());
   }
 
+  public void outputAvailable(OutputStream out) {
+    writer = new JsonWriter(out, false, false);
+    startSignal.countDown();
+  }
+
+  /**
+   * Called from query thread, specifically from the Screen operator.
+   */
   @Override
   public void sendData(RpcOutcomeListener<Ack> listener,
       QueryDataPackage data) {
-    try {
-      queue.put(data.toWritableBatch());
-    } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+    if (batchCount == 0) {
+      startResults();
+      emitHeader();
     }
+    emitBatch();
+  }
+
+  private void startResults() {
+    startSignal.await();
+    emitHeader();
+  }
+
+  private void emitHeader() {
+
+  }
+
+  private void emitBatch() {
+    // TODO Auto-generated method stub
+
   }
 }

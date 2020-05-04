@@ -43,10 +43,15 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.StreamingOutput;
+
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -114,15 +119,20 @@ public class QueryResources {
                               @FormParam("defaultSchema") String defaultSchema,
                               Form form) throws Exception {
     try {
-      final QueryResult result = submitQueryJSON(
-          new RestQueryBuilder()
-            .query(query)
-            .queryType(queryType)
-            .rowLimit(autoLimit)
-            .userName(userName)
-            .defaultSchema(defaultSchema)
-            .sessionOptions(readOptionsFromForm(form))
-            .build());
+      // Run the query and wrap the result sets in a model to be
+      // transformed to HTML. This can be memory-intensive for larger
+      // queries.
+      QueryWrapper wrapper = new RestQueryBuilder()
+          .query(query)
+          .queryType(queryType)
+          .rowLimit(autoLimit)
+          .userName(userName)
+          .defaultSchema(defaultSchema)
+          .sessionOptions(readOptionsFromForm(form))
+          .build();
+      final QueryResult result = new RestQueryRunner(wrapper,
+              work, webUserConnection)
+        .run();
       List<Integer> rowsPerPageValues = work.getContext().getConfig().getIntList(
           ExecConstants.HTTP_WEB_CLIENT_RESULTSET_ROWS_PER_PAGE_VALUES);
       Collections.sort(rowsPerPageValues);
@@ -131,6 +141,9 @@ public class QueryResources {
     } catch (Exception | Error e) {
       logger.error("Query from Web UI Failed: {}", e);
       return ViewableWithPermissions.create(authEnabled.get(), "/rest/errorMessage.ftl", sc, e);
+    } finally {
+      // no-op for authenticated user
+      webUserConnection.cleanupSession();
     }
   }
 
@@ -157,12 +170,20 @@ public class QueryResources {
   @GET
   @Path("/v2/test")
   @Produces(MediaType.TEXT_HTML)
-  public String tester() throws Exception {
-    return
-        "<html><body><form action=\"/query.json\" method=\"POST\">\n" +
-        "<textarea name=\"query\" rows=\"4\" cols=\"50\"></textarea>\n" +
-        "<input type=\"submit\">\n" +
-        "</form></body></html>\n";
+  public StreamingOutput tester() throws Exception {
+
+    return new StreamingOutput() {
+
+      @Override
+      public void write(OutputStream output)
+          throws IOException, WebApplicationException {
+        String body = "<html><body><form action=\"/query.json\" method=\"POST\">\n" +
+            "<textarea name=\"query\" rows=\"4\" cols=\"50\"></textarea>\n" +
+            "<p><input type=\"submit\">\n" +
+            "</form></body></html>\n";
+        output.write(body.getBytes());
+      }
+    };
   }
 
   /**

@@ -56,6 +56,8 @@ public class JsonWriter {
     this.gen = gen;
   }
 
+  public JsonOutput jsonOutput() { return gen; }
+
   public void writeRow(TupleReader reader) throws IOException {
     writeObject(reader);
     gen.flush();

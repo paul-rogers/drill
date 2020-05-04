@@ -126,21 +126,18 @@ public class QueryBuilder {
    * The future used to wait for the completion of an async query. Returns
    * just the summary of the query.
    */
-
   public static class QuerySummaryFuture implements Future<QuerySummary> {
 
     /**
      * Synchronizes the listener thread and the test thread that
      * launched the query.
      */
-
     private final CountDownLatch lock = new CountDownLatch(1);
     private QuerySummary summary;
 
     /**
      * Unsupported at present.
      */
-
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
       throw new UnsupportedOperationException();
@@ -149,7 +146,6 @@ public class QueryBuilder {
     /**
      * Always returns false.
      */
-
     @Override
     public boolean isCancelled() { return false; }
 
@@ -165,7 +161,6 @@ public class QueryBuilder {
     /**
      * Not supported at present, just does a non-timeout get.
      */
-
     @Override
     public QuerySummary get(long timeout, TimeUnit unit) throws InterruptedException {
       return get();
