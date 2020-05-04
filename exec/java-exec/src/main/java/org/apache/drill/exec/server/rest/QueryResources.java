@@ -159,7 +159,7 @@ public class QueryResources {
   @Produces(MediaType.TEXT_HTML)
   public String tester() throws Exception {
     return
-        "<html><body><form action=\"/v2/query\" method=\"POST\">\n" +
+        "<html><body><form action=\"/query.json\" method=\"POST\">\n" +
         "<textarea name=\"query\" rows=\"4\" cols=\"50\"></textarea>\n" +
         "<input type=\"submit\">\n" +
         "</form></body></html>\n";
