@@ -20,9 +20,9 @@ package org.apache.drill.test;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
-import org.apache.drill.exec.query.BufferingQueryEventListener;
-import org.apache.drill.exec.query.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.record.RecordBatchLoader;
+import org.apache.drill.test.query.BufferingQueryEventListener;
+import org.apache.drill.test.query.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 

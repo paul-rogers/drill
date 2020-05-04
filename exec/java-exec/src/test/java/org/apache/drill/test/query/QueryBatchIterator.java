@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.query;
+package org.apache.drill.test.query;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -23,12 +23,12 @@ import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl.Upstrea
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
-import org.apache.drill.exec.query.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.test.query.BufferingQueryEventListener.QueryEvent;
 
 /**
  * Iterator over batches returned from a query. Uses a listener to obtain

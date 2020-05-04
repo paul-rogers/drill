@@ -3,7 +3,7 @@ package org.apache.drill.exec.server.rest.query2;
 import java.io.IOException;
 import java.util.List;
 
-import org.apache.drill.exec.query.StatementParser;
+import org.apache.drill.test.query.StatementParser;
 
 public class RestQueryRequest {
   private final List<String> cmds;
