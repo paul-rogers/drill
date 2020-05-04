@@ -75,13 +75,15 @@ public class QueryBatchIterator implements UpstreamSource, AutoCloseable {
         case BATCH:
 
           // Skip over null batches
-          if (loadBatch(event))
+          if (loadBatch(event)) {
             return true;
+          }
           break;
         case EOF:
           state = State.EOF;
           return false;
         case ERROR:
+          state = State.EOF;
           if (event.error instanceof UserException) {
             throw (UserException) event.error;
           } else {
@@ -113,7 +115,6 @@ public class QueryBatchIterator implements UpstreamSource, AutoCloseable {
     // result set to a null output row set that says "nothing at all
     // was returned." Note that this is different than an empty result
     // set which has a schema, but no rows.
-
     if (batch.getRecordCount() == 0 && batch.getNumberOfColumns() == 0) {
       release();
       return false;

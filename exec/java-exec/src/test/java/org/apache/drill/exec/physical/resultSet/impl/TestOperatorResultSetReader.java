@@ -179,12 +179,6 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
       assertEquals(1, reader.scalar("id").getInt());
       assertEquals("Row1", reader.scalar("name").getString());
     }
-    try {
-      rsReader.reader();
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected
-    }
 
     // Second batch, same schema.
     assertTrue(rsReader.next());

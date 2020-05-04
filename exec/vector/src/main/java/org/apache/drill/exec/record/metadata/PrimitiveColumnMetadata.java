@@ -21,7 +21,9 @@ import java.math.BigDecimal;
 import java.util.Objects;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import org.apache.drill.common.types.BooleanType;
@@ -262,7 +264,7 @@ public class PrimitiveColumnMetadata extends AbstractColumnMetadata {
         case DATE:
           return LocalDate.parse(value, dateTimeFormatter());
         case TIMESTAMP:
-          return dateTimeFormatter().parse(value, Instant::from);
+          return LocalDateTime.parse(value, dateTimeFormatter()).toInstant(ZoneOffset.UTC);
         case INTERVAL:
         case INTERVALDAY:
         case INTERVALYEAR:

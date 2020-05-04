@@ -19,6 +19,7 @@ package org.apache.drill.exec.query;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 
 /**
  * Very simple parser for semi-colon separated lists of SQL statements which
@@ -39,6 +40,10 @@ public class StatementParser {
 
   public StatementParser(Reader in) {
     this.in = in;
+  }
+
+  public StatementParser(String text) {
+    this(new StringReader(text));
   }
 
   public String parseNext() throws IOException {

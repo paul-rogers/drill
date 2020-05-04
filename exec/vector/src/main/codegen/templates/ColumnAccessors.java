@@ -127,7 +127,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -327,19 +326,19 @@ public class ColumnAccessors {
 
     @Override
     public final LocalDate getDate() {
-      return LocalDate.ofEpochDay(getLong() / DateUtilities.daysToStandardMillis);
+      return DateUtilities.fromDrillDate(getLong());
     }
     <#elseif drillType == "Time">
 
     @Override
     public final LocalTime getTime() {
-      return LocalTime.ofNanoOfDay(getInt() * 1_000_000L);
+      return DateUtilities.fromDrillTime(getInt());
     }
     <#elseif drillType == "TimeStamp">
 
     @Override
     public final Instant getTimestamp() {
-      return Instant.ofEpochMilli(getLong());
+      return DateUtilities.fromDrillTimestamp(getLong());
     }
     </#if>
   }
@@ -411,8 +410,8 @@ public class ColumnAccessors {
       buf.writerIndex(VALUE_WIDTH);
     }
     </#if>
-
     <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+
     @Override
     public final void appendBytes(final byte[] value, final int len) {
       vectorIndex.prevElement();
@@ -509,19 +508,19 @@ public class ColumnAccessors {
 
     @Override
     public final void setDate(final LocalDate value) {
-      setLong(value.toEpochDay() * DateUtilities.daysToStandardMillis);
+      setLong(DateUtilities.toDrillDate(value));
     }
     <#elseif drillType == "Time">
 
     @Override
     public final void setTime(final LocalTime value) {
-      setInt((int) ((value.toNanoOfDay() + 500_000) / 1_000_000L));
+      setInt(DateUtilities.toDrillTime(value));
     }
     <#elseif drillType == "TimeStamp">
 
     @Override
     public final void setTimestamp(final Instant value) {
-      setLong(value.toEpochMilli());
+      setLong(DateUtilities.toDrillTimestamp(value));
     }
     </#if>
     <#if ! intType>
@@ -566,12 +565,11 @@ public class ColumnAccessors {
     <#else>
       try (DrillBuf buf = vector.getAllocator().buffer(VALUE_WIDTH)) {
       <#if drillType = "Date">
-        writeLong(buf, Duration.between(LOCAL_EPOCH,
-            ((LocalDate) value).atStartOfDay()).toMillis());
+        writeLong(buf, DateUtilities.toDrillDate((LocalDate) value));
       <#elseif drillType = "Time">
-        writeInt(buf, (int) (((LocalTime) value).toNanoOfDay() + 500_000) / 1_000_000);
+        writeInt(buf, DateUtilities.toDrillTime((LocalTime) value));
       <#elseif drillType = "TimeStamp">
-        writeLong(buf, ((Instant) value).toEpochMilli());
+        writeLong(buf, DateUtilities.toDrillTimestamp((Instant) value));
       <#elseif putArgs != "">
         throw new InvalidConversionError("Generic object not supported for type ${drillType}, "
             + "set${label}(${accessorType}${putArgs})");

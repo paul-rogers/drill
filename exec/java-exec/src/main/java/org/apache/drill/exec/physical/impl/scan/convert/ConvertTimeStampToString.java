@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.convert;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import org.apache.drill.exec.vector.accessor.InvalidConversionError;
@@ -30,8 +31,9 @@ public class ConvertTimeStampToString extends DirectConverter {
   public ConvertTimeStampToString(ScalarWriter baseWriter) {
     super(baseWriter);
     final String formatValue = baseWriter.schema().format();
-    dateTimeFormatter = formatValue == null
-      ? DateTimeFormatter.ISO_LOCAL_DATE_TIME : DateTimeFormatter.ofPattern(formatValue);
+    dateTimeFormatter = (formatValue == null
+      ? DateTimeFormatter.ISO_LOCAL_DATE_TIME : DateTimeFormatter.ofPattern(formatValue))
+        .withZone(ZoneId.systemDefault());
   }
 
   @Override
@@ -42,7 +44,7 @@ public class ConvertTimeStampToString extends DirectConverter {
       try {
         baseWriter.setString(dateTimeFormatter.format(value));
       }
-      catch (final IllegalStateException e) {
+      catch (final Exception e) {
         throw InvalidConversionError.writeError(schema(), value, e);
       }
     }

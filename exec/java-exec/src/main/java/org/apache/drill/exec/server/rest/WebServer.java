@@ -262,12 +262,11 @@ public class WebServer implements AutoCloseable {
     responseHeadersSettingFilter.setInitParameters(ResponseHeadersSettingFilter.retrieveResponseHeaders(config));
     servletContextHandler.addFilter(responseHeadersSettingFilter, "/*", EnumSet.of(DispatcherType.REQUEST));
 
-
     return servletContextHandler;
   }
 
   /**
-   * It creates A {@link SessionHandler} which contains a {@link HashSessionManager}
+   * Create a {@link SessionHandler} which contains a {@link HashSessionManager}
    *
    * @param securityHandler Set of init parameters that are used by the Authentication
    * @return session handler

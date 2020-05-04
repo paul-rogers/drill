@@ -15,31 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.ops;
+package org.apache.drill.exec.server.rest.query2;
+
+import java.util.concurrent.BlockingQueue;
 
 import org.apache.drill.exec.physical.impl.materialize.QueryDataPackage;
+import org.apache.drill.exec.physical.impl.materialize.QueryWritableBatch;
 import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
-import org.apache.drill.exec.rpc.UserClientConnection;
+import org.apache.drill.exec.server.rest.BaseWebUserConnection;
+import org.apache.drill.exec.server.rest.WebUserConnection;
+import org.apache.drill.shaded.guava.com.google.common.collect.Queues;
 
-/**
- * Wrapper around a {@link UserClientConnection} that tracks the status of batches
- * sent to User.
- */
-public class AccountingUserConnection {
-  private final UserClientConnection connection;
-  private final SendingAccountor sendingAccountor;
-  private final RpcOutcomeListener<Ack> statusHandler;
+public class ForwardingConnection extends BaseWebUserConnection {
 
-  public AccountingUserConnection(UserClientConnection connection, SendingAccountor sendingAccountor,
-      RpcOutcomeListener<Ack> statusHandler) {
-    this.connection = connection;
-    this.sendingAccountor = sendingAccountor;
-    this.statusHandler = statusHandler;
+  private final BlockingQueue<QueryWritableBatch> queue = Queues.newLinkedBlockingQueue();
+
+  public ForwardingConnection(WebUserConnection webConn) {
+    super(webConn.resources());
   }
 
-  public void sendData(QueryDataPackage data) {
-    sendingAccountor.increment();
-    connection.sendData(statusHandler, data);
+  @Override
+  public void sendData(RpcOutcomeListener<Ack> listener,
+      QueryDataPackage data) {
+    try {
+      queue.put(data.toWritableBatch());
+    } catch (InterruptedException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
   }
 }

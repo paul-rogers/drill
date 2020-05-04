@@ -48,7 +48,7 @@ public class ConvertStringToDate extends AbstractConvertFromString {
     try {
       baseWriter.setDate(LocalDate.parse(prepared, dateTimeFormatter));
     }
-    catch (final IllegalStateException e) {
+    catch (final Exception e) {
       throw InvalidConversionError.writeError(schema(), value, e);
     }
   }

@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.resultSet;
 
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
-import org.apache.drill.exec.physical.rowSet.RowSetReader;
 
 /**
  * Iterates over the set of batches in a result set, providing

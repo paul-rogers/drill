@@ -27,46 +27,39 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.DrillBuf;
-import io.netty.channel.ChannelFuture;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.impl.materialize.QueryDataPackage;
 import org.apache.drill.exec.physical.impl.materialize.QueryWritableBatch;
 import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.rpc.AbstractDisposableUserClientConnection;
 import org.apache.drill.exec.rpc.Acks;
-import org.apache.drill.exec.rpc.ConnectionThrottle;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
-import org.apache.drill.exec.rpc.user.UserSession;
 import org.apache.drill.exec.vector.ValueVector.Accessor;
 import org.apache.drill.exec.record.MaterializedField;
 
-import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Set;
 
 /**
- * WebUserConnectionWrapper which represents the UserClientConnection between
+ * {@code WebUserConnectionWrapper} which represents the {@code UserClientConnection} between
  * WebServer and Foreman, for the WebUser submitting the query. It provides
- * access to the UserSession executing the query. There is no actual physical
+ * access to the {@code UserSession} executing the query. There is no actual physical
  * channel corresponding to this connection wrapper.
  *
  * It returns a close future with no actual underlying
  * {@link io.netty.channel.Channel} associated with it but do have an
- * EventExecutor out of BitServer EventLoopGroup. Since there is no actual
+ * {@code EventExecutor} out of BitServer EventLoopGroup. Since there is no actual
  * connection established using this class, hence the close event will never be
  * fired by underlying layer and close future is set only when the
  * {@link WebSessionResources} are closed.
  */
-
-public class WebUserConnection extends AbstractDisposableUserClientConnection implements ConnectionThrottle {
+public class WebUserConnection extends BaseWebUserConnection {
   private static final Logger logger = LoggerFactory.getLogger(WebUserConnection.class);
-
-  protected WebSessionResources webSessionResources;
 
   public final List<Map<String, String>> results = Lists.newArrayList();
 
@@ -77,16 +70,13 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
   private int autoLimitRowCount;
 
   WebUserConnection(WebSessionResources webSessionResources) {
-    this.webSessionResources = webSessionResources;
+    super(webSessionResources);
   }
 
   @Override
-  public UserSession getSession() {
-    return webSessionResources.getSession();
-  }
-
-  @Override
-  public void sendData(RpcOutcomeListener<Ack> listener, QueryWritableBatch result) {
+  public void sendData(RpcOutcomeListener<Ack> listener, QueryDataPackage data) {
+    // TODO: Use the underlying batch
+    QueryWritableBatch result = data.toWritableBatch();
     // There can be overflow here but DrillBuf doesn't support allocating with
     // bytes in long. Hence we are just preserving the earlier behavior and logging debug log for the case.
     final int dataByteCount = (int) result.getByteCount();
@@ -170,19 +160,6 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
       listener.success(Acks.OK, null);
     }
   }
-
-  @Override
-  public ChannelFuture getChannelClosureFuture() {
-    return webSessionResources.getCloseFuture();
-  }
-
-  @Override
-  public SocketAddress getRemoteAddress() {
-    return webSessionResources.getRemoteAddress();
-  }
-
-  @Override
-  public void setAutoRead(boolean enableAutoRead) { }
 
   /**
    * For authenticated WebUser no cleanup of {@link WebSessionResources} is done since it's re-used

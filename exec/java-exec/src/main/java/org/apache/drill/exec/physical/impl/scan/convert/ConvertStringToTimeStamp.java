@@ -17,7 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan.convert;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
@@ -46,9 +47,10 @@ public class ConvertStringToTimeStamp extends AbstractConvertFromString {
       return;
     }
     try {
-      baseWriter.setTimestamp(dateTimeFormatter.parse(prepared, Instant::from));
+      baseWriter.setTimestamp(LocalDateTime.parse(value, dateTimeFormatter)
+          .toInstant(ZoneOffset.UTC));
     }
-    catch (final IllegalStateException e) {
+    catch (final Exception e) {
       throw InvalidConversionError.writeError(schema(), value, e);
     }
   }
