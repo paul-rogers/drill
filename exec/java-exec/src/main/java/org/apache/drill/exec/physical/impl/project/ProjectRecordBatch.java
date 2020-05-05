@@ -214,7 +214,6 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   }
 
   // Called from generated code.
-
   public void addComplexWriter(ComplexWriter writer) {
     complexWriters.add(writer);
   }

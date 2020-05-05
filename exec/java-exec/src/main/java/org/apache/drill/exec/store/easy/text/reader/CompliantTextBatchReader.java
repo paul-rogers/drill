@@ -306,9 +306,9 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
     try {
       boolean more = false;
-      while (! writer.isFull()) {
+      while (!writer.isFull()) {
         more = reader.parseNext();
-        if (! more) {
+        if (!more) {
           break;
         }
       }

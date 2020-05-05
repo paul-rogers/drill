@@ -27,7 +27,7 @@ import org.apache.drill.exec.server.rest.DrillRestServer.UserAuthEnabled;
 import org.apache.drill.exec.server.rest.QueryWrapper.RestQueryBuilder;
 import org.apache.drill.exec.server.rest.RestQueryRunner.QueryResult;
 import org.apache.drill.exec.server.rest.auth.DrillUserPrincipal;
-import org.apache.drill.exec.server.rest.query2.RestQueryRequest;
+import org.apache.drill.exec.server.rest.query2.QueryRunner;
 import org.apache.drill.exec.work.WorkManager;
 import org.glassfish.jersey.server.mvc.Viewable;
 import org.slf4j.Logger;
@@ -98,14 +98,27 @@ public class QueryResources {
   @Path("/query.json")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public QueryResult submitQueryJSON(QueryWrapper query) throws Exception {
+  public StreamingOutput submitQueryJSON(QueryWrapper query) throws Exception {
+
+    QueryRunner runner = new QueryRunner(work, webUserConnection);
     try {
-      // Run the query
-      return new RestQueryRunner(query, work, webUserConnection).run();
-    } finally {
-      // no-op for authenticated user
-      webUserConnection.cleanupSession();
+      runner.start(query);
+    } catch (Exception e) {
+      throw new WebApplicationException("Query submission failed", e);
     }
+    return new StreamingOutput() {
+      @Override
+      public void write(OutputStream output)
+          throws IOException, WebApplicationException {
+        try {
+          runner.sendResults(output);
+        } catch (IOException e) {
+          throw e;
+        } catch (Exception e) {
+          throw new WebApplicationException("JSON query failed", e);
+        }
+      }
+    };
   }
 
   @POST
@@ -161,9 +174,9 @@ public class QueryResources {
     if (value.isEmpty()) {
       throw new DrillRuntimeException("Query cannot be empty");
     }
-    RestQueryRequest req = RestQueryRequest.builder()
-        .commands(value)
-        .build();
+//    RestQueryRequest req = RestQueryRequest.builder()
+//        .commands(value)
+//        .build();
     return value;
   }
 

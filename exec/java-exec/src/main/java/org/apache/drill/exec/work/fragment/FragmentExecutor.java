@@ -143,8 +143,10 @@ public class FragmentExecutor implements Runnable {
   private final AtomicReference<FragmentState> fragmentState = new AtomicReference<>(FragmentState.AWAITING_ALLOCATION);
 
   /**
-   * Holds all of the messages sent by downstream receivers that have finished. The {@link FragmentExecutor#run()} thread reads from this queue and passes the
-   * finished messages to the fragment's {@link RootExec} via the {@link RootExec#receivingFragmentFinished(FragmentHandle)} method.
+   * Holds all of the messages sent by downstream receivers that have finished.
+   * The {@link FragmentExecutor#run()} thread reads from this queue and passes
+   * the finished messages to the fragment's {@link RootExec} via the
+   * {@link RootExec#receivingFragmentFinished(FragmentHandle)} method.
    */
   private final Queue<FragmentHandle> receiverFinishedQueue = new ConcurrentLinkedQueue<>();
   private final FragmentEventProcessor eventProcessor = new FragmentEventProcessor();

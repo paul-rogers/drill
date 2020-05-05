@@ -122,7 +122,10 @@ message QueryPlanFragments {
 }
 
 enum QueryResultsMode {
-  STREAM_FULL = 1; // Server will inform the client regularly on the status of the query. Once the query is completed, service will inform the client as each query chunk is made available.
+  // Server will inform the client regularly on the status of the query.
+  // Once the query is completed, service will inform the client as each
+  // query chunk is made available.
+  STREAM_FULL = 1;
   // STREAM_FIRST = 2; // Server will inform the client regularly on the status of the query.  Once the query is completed, server will inform the client of the first query chunk.
   // QUERY_FOR_STATUS = 3; // Client will need to query for status of query.
 }

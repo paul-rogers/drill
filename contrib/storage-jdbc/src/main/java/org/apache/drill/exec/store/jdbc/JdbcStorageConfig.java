@@ -47,13 +47,15 @@ public class JdbcStorageConfig extends StoragePluginConfig {
       @JsonProperty("url") String url,
       @JsonProperty("username") String username,
       @JsonProperty("password") String password,
-      @JsonProperty("caseInsensitiveTableNames") boolean caseInsensitiveTableNames,
+      // An object, else it trips up new users who omit the value.
+      @JsonProperty("caseInsensitiveTableNames") Boolean caseInsensitiveTableNames,
       @JsonProperty("sourceParameters") Map<String, Object> sourceParameters) {
     this.driver = driver;
     this.url = url;
     this.username = username;
     this.password = password;
-    this.caseInsensitiveTableNames = caseInsensitiveTableNames;
+    this.caseInsensitiveTableNames = caseInsensitiveTableNames == null ?
+        false : caseInsensitiveTableNames;
     this.sourceParameters = sourceParameters == null ? Collections.emptyMap() : sourceParameters;
   }
 

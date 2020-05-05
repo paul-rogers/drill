@@ -34,6 +34,33 @@ public class PushResultSetReaderImpl implements PushResultSetReader {
     SelectionVector2 sv2();
   }
 
+  public static class BatchHolder implements UpstreamSource {
+
+    private final VectorContainer container;
+    private int schemaVersion;
+
+    public BatchHolder(VectorContainer container) {
+      this.container = container;
+    }
+
+    public void newBatch() {
+      if (schemaVersion == 0) {
+        schemaVersion = 1;
+      } else if (container.isSchemaChanged()) {
+        schemaVersion++;
+      }
+    }
+
+    @Override
+    public int schemaVersion() { return schemaVersion; }
+
+    @Override
+    public VectorContainer batch() { return container; }
+
+    @Override
+    public SelectionVector2 sv2() { return null; }
+  }
+
   private final UpstreamSource source;
   private int priorSchemaVersion;
   private RowSetReader rowSetReader;
