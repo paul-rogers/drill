@@ -25,10 +25,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.resultSet.OperatorResultSetReader;
+import org.apache.drill.exec.physical.resultSet.PullResultSetReader;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
-import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl.UpstreamSource;
+import org.apache.drill.exec.physical.resultSet.impl.PullResultSetReaderImpl.UpstreamSource;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.VectorContainer;
@@ -39,7 +39,7 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
-public class TestOperatorResultSetReader extends SubOperatorTest {
+public class TestPullResultSetReader extends SubOperatorTest {
 
   private static final TupleMetadata SCHEMA1 = new SchemaBuilder()
       .add("id", MinorType.INT)
@@ -148,7 +148,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
+    PullResultSetReader rsReader = new PullResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Start state
@@ -158,9 +158,6 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
     } catch (IllegalStateException e) {
       // Expected
     }
-
-    // OK to detach with no input
-    rsReader.detach();
 
     // Ask for schema. Does an implicit next.
     assertEquals(SCHEMA1, rsReader.schema());
@@ -211,7 +208,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseAtStart() {
-    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
+    PullResultSetReader rsReader = new PullResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Close OK in start state
@@ -223,7 +220,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseDuringRead() {
-    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
+    PullResultSetReader rsReader = new PullResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Move to first batch
@@ -238,7 +235,7 @@ public class TestOperatorResultSetReader extends SubOperatorTest {
 
   @Test
   public void testCloseAfterNext() {
-    OperatorResultSetReader rsReader = new ResultSetReaderImpl(
+    PullResultSetReader rsReader = new PullResultSetReaderImpl(
         new BatchGenerator(10, 2, 1));
 
     // Move to first batch

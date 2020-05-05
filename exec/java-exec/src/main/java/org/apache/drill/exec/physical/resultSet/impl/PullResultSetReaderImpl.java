@@ -17,24 +17,36 @@
  */
 package org.apache.drill.exec.physical.resultSet.impl;
 
-import org.apache.drill.exec.physical.resultSet.OperatorResultSetReader;
-import org.apache.drill.exec.physical.rowSet.DirectRowSet;
-import org.apache.drill.exec.physical.rowSet.IndirectRowSet;
-import org.apache.drill.exec.physical.rowSet.RowSet;
+import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
+import org.apache.drill.exec.physical.resultSet.PullResultSetReader;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
-import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
-public class ResultSetReaderImpl implements OperatorResultSetReader {
+/**
+ * <h4>Protocol</h4>
+ * <ol>
+ * <li>Create an instance, passing in a
+ *     {@link UpstreamSource} to provide batches and optional
+ *     selection vector.</li>
+ * <li>For each incoming batch:
+ *   <ol>
+ *   <li>Call {@link #start()} to attach the batch. The associated
+ *       {@link BatchAccessor} reports if the schema has changed.</li>
+ *   <li>Call {@link #reader()} to obtain a reader.</li>
+ *   <li>Iterate over the batch using the reader.</li>
+ *   <li>Call {@link #release()} to free the memory for the
+ *       incoming batch. Or, to call {@link #detach()} to keep
+ *       the batch memory.</li>
+ *   </ol>
+ * <li>Call {@link #close()} after all batches are read.</li>
+ * </ol>
+ */
+public class PullResultSetReaderImpl implements PullResultSetReader {
 
-  public interface UpstreamSource {
+  public interface UpstreamSource  extends PushResultSetReaderImpl.UpstreamSource {
     boolean next();
-    int schemaVersion();
-    VectorContainer batch();
-    SelectionVector2 sv2();
     void release();
   }
 
@@ -48,12 +60,13 @@ public class ResultSetReaderImpl implements OperatorResultSetReader {
       CLOSED
   }
 
-  private State state = State.START;
-  private int priorSchemaVersion;
+  private final PushResultSetReaderImpl baseReader;
   private final UpstreamSource source;
+  private State state = State.START;
   private RowSetReader rowSetReader;
 
-  public ResultSetReaderImpl(UpstreamSource source) {
+  public PullResultSetReaderImpl(UpstreamSource source) {
+    this.baseReader = new PushResultSetReaderImpl(source);
     this.source = source;
   }
 
@@ -96,40 +109,9 @@ public class ResultSetReaderImpl implements OperatorResultSetReader {
       return false;
     }
 
-    int sourceSchemaVersion = source.schemaVersion();
-    Preconditions.checkState(sourceSchemaVersion > 0);
-    Preconditions.checkState(priorSchemaVersion <= sourceSchemaVersion);
+    rowSetReader = baseReader.start();
     state = State.BATCH;
-
-    // If new schema, discard the old reader (if any, and create
-    // a new one that matches the new schema. If not a new schema,
-    // then the old reader is reused: it points to vectors which
-    // Drill requires be the same vectors as the previous batch,
-    // but with different buffers.
-    boolean newSchema = state == State.START ||
-        priorSchemaVersion != sourceSchemaVersion;
-    if (newSchema) {
-      rowSetReader = createRowSet().reader();
-      priorSchemaVersion = sourceSchemaVersion;
-    } else {
-      rowSetReader.newBatch();
-    }
     return true;
-  }
-
-  // TODO: Build the reader without the need for a row set
-  private RowSet createRowSet() {
-    VectorContainer container = source.batch();
-    switch (container.getSchema().getSelectionVectorMode()) {
-    case FOUR_BYTE:
-      throw new IllegalArgumentException("Build from SV4 not yet supported");
-    case NONE:
-      return DirectRowSet.fromContainer(container);
-    case TWO_BYTE:
-      return IndirectRowSet.fromSv2(container, source.sv2());
-    default:
-      throw new IllegalStateException("Invalid selection mode");
-    }
   }
 
   @Override
@@ -139,13 +121,6 @@ public class ResultSetReaderImpl implements OperatorResultSetReader {
   public RowSetReader reader() {
     Preconditions.checkState(state == State.BATCH, "Not in batch-ready state.");
     return rowSetReader;
-  }
-
-  @Override
-  public void detach() {
-    if (state == State.BATCH) {
-      state = State.DETACHED;
-    }
   }
 
   @Override

@@ -17,13 +17,31 @@
  */
 package org.apache.drill.exec.physical.resultSet;
 
+import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
- * Iterates over a query result set as a set of batches,
- * each of which is iterated over via a row set reader.
- * Protocol:
+ * Iterates over the set of batches in a result set, providing
+ * a row set reader to iterate over the rows within each batch.
+ * Handles schema changes between batches. A typical use is to
+ * iterate over batches from an upstream operator. Protocol:
+ *
+ * <h4>Protocol</h4>
+ * <ol>
+ * <li>Create an instance.</li>
+ * <li>For each incoming batch:
+ *   <ol>
+ *   <li>Call {@link #start()} to attach the batch. The associated
+ *       {@link BatchAccessor} reports if the schema has changed.</li>
+ *   <li>Call {@link #reader()} to obtain a reader.</li>
+ *   <li>Iterate over the batch using the reader.</li>
+ *   <li>Call {@link #release()} to free the memory for the
+ *       incoming batch. Or, to call {@link #detach()} to keep
+ *       the batch memory.</li>
+ *   </ol>
+ * <li>Call {@link #close()} after all batches are read.</li>
+ * </ol>
  * <ul>
  * <li>Create the result set reader via a specific subclass.
  * If a query has a null result (no rows,
@@ -43,27 +61,17 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
  * <p>
  * The implementation may perform complex tasks behind the scenes:
  * coordinate with the query runner (if remote), drive an operator
- * (if within a DAG), etc.
+ * (if within a DAG), etc. The implementation takes an interface
+ * that interfaces with the source of batches.
  * <p>
- * This version <i>does not</i> handle schema changes: it assumes
- * that either the query returns a uniform result set or that schema
- * changes can occur "silently". If a query can return multiple
- * schemas, then another iterator should iterate over the disjoint
- * sub-sets, and use this iterator for spans of batches with the
- * same schema.
- * <p>
- * Depending on context, the underlying mechanism may hold resources
- * which must be released. That is the responsibility of a
- * context-specific mechanism as it differs between a client consuming
- * query output and an operator consuming batches from its upstream
- * child.
+ * Designed to handle batches arriving from a single upstream
+ * operator. Uses Drill's strict form of schema identity: that
+ * not only must the column definitions match; the vectors must
+ * be identical from one batch to the next. If the vectors differ,
+ * then this class assumes a new schema has occurred, and will
+ * rebuild all the underlying readers, which can be costly.
  */
-public interface ResultSetReader {
-
-  /**
-   * Return the schema for this result set.
-   */
-  TupleMetadata schema();
+public interface PullResultSetReader {
 
   /**
    * Advance to the next batch of data. The iterator starts
@@ -75,9 +83,23 @@ public interface ResultSetReader {
   boolean next();
 
   /**
+   * Return the schema for this result set.
+   */
+  TupleMetadata schema();
+
+  int schemaVersion();
+
+  /**
    * Obtain a reader to iterate over the rows of the batch. The return
    * value will likely be the same reader each time, so that this call
    * is optional after the first batch.
    */
   RowSetReader reader();
+
+  /**
+   * Close this reader. Releases any memory still assigned
+   * to any attached batch. Call {@link #detach()} first if
+   * you want to preserve the batch memory.
+   */
+  void close();
 }

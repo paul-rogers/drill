@@ -18,11 +18,10 @@
 package org.apache.drill.exec.physical.resultSet.impl;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.resultSet.OperatorResultSetReader;
+import org.apache.drill.exec.physical.resultSet.PullResultSetReader;
 import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
-import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl.UpstreamSource;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -69,7 +68,7 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   // Input state
 
   private int currentSchemaVersion = -1;
-  private final OperatorResultSetReader resultSetReader;
+  private final PullResultSetReader resultSetReader;
   protected RowSetReader rowReader;
 
   // Output state
@@ -85,14 +84,14 @@ public class ResultSetCopierImpl implements ResultSetCopier {
   private CopyPair[] projection;
   private CopyAll activeCopy;
 
-  public ResultSetCopierImpl(BufferAllocator allocator, UpstreamSource source) {
+  public ResultSetCopierImpl(BufferAllocator allocator, PullResultSetReader source) {
     this(allocator, source, new ResultSetOptionBuilder());
   }
 
-  public ResultSetCopierImpl(BufferAllocator allocator, UpstreamSource source,
+  public ResultSetCopierImpl(BufferAllocator allocator, PullResultSetReader source,
       ResultSetOptionBuilder outputOptions) {
     this.allocator = allocator;
-    resultSetReader = new ResultSetReaderImpl(source);
+    resultSetReader = source;
     writerOptions = outputOptions;
     writerOptions.vectorCache(new ResultVectorCacheImpl(allocator));
     state = State.START;

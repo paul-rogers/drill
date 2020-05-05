@@ -24,10 +24,11 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.resultSet.PullResultSetReader;
 import org.apache.drill.exec.physical.resultSet.ResultSetCopier;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
-import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl.UpstreamSource;
+import org.apache.drill.exec.physical.resultSet.impl.PullResultSetReaderImpl.UpstreamSource;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetBuilder;
@@ -309,12 +310,21 @@ public class TestResultSetCopier extends SubOperatorTest {
     public SelectionVector2 sv2() { return sv2; }
   }
 
+  private ResultSetCopierImpl newCopier(UpstreamSource source) {
+    PullResultSetReader reader = new PullResultSetReaderImpl(source);
+    return new ResultSetCopierImpl(fixture.allocator(), reader);
+  }
+
+  private ResultSetCopierImpl newCopier(UpstreamSource source, ResultSetOptionBuilder outputOptions) {
+    PullResultSetReader reader = new PullResultSetReaderImpl(source);
+    return new ResultSetCopierImpl(fixture.allocator(), reader, outputOptions);
+  }
+
   @Test
   public void testBasics() {
 
     DataGen dataGen = new DataGen();
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen);
+    ResultSetCopier copier = newCopier(dataGen);
 
     // Nothing should work yet
     try {
@@ -376,8 +386,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   @Test
   public void testImmediateClose() {
 
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(),  new DataGen());
+    ResultSetCopier copier = newCopier(new DataGen());
 
     // Close OK before things got started
     copier.close();
@@ -389,8 +398,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   @Test
   public void testCloseBeforeSchema() {
 
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(),  new DataGen());
+    ResultSetCopier copier = newCopier(new DataGen());
 
     // Start batch, no data yet.
     copier.startOutputBatch();
@@ -405,8 +413,7 @@ public class TestResultSetCopier extends SubOperatorTest {
   @Test
   public void testCloseWithData() {
 
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new DataGen());
+    ResultSetCopier copier = newCopier(new DataGen());
 
     // Start batch, with data.
     copier.startOutputBatch();
@@ -430,8 +437,7 @@ public class TestResultSetCopier extends SubOperatorTest {
    */
   @Test
   public void testMerge() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(),  new DataGen(3, 5));
+    ResultSetCopier copier = newCopier(new DataGen(3, 5));
     copier.startOutputBatch();
 
     for (int i = 0; i < 5; i++) {
@@ -460,8 +466,7 @@ public class TestResultSetCopier extends SubOperatorTest {
     DataGen dataGen = new DataGen(15, 2);
     ResultSetOptionBuilder options = new ResultSetOptionBuilder()
         .rowCountLimit(12);
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), dataGen, options);
+    ResultSetCopier copier = newCopier(dataGen, options);
 
     // Equivalent of an entire operator run
     DataGen validatorGen = new DataGen(12, 2);
@@ -501,8 +506,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testCopyRecord() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new DataGen(3, 2));
+    ResultSetCopier copier = newCopier(new DataGen(3, 2));
     copier.startOutputBatch();
 
     copier.nextInputBatch();
@@ -532,8 +536,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testSchemaChange() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new SchemaChangeGen(3, 4, 2));
+    ResultSetCopier copier = newCopier(new SchemaChangeGen(3, 4, 2));
 
     // Copy first batch with first schema
     copier.startOutputBatch();
@@ -580,8 +583,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testSV2() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new FilteredGen());
+    ResultSetCopier copier = newCopier(new FilteredGen());
 
     copier.startOutputBatch();
     assertTrue(copier.nextInputBatch());
@@ -607,8 +609,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testNullable() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new NullableGen());
+    ResultSetCopier copier = newCopier(new NullableGen());
     copier.startOutputBatch();
 
     copier.nextInputBatch();
@@ -625,8 +626,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testArrays() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new ArrayGen());
+    ResultSetCopier copier = newCopier(new ArrayGen());
     copier.startOutputBatch();
 
     copier.nextInputBatch();
@@ -643,8 +643,7 @@ public class TestResultSetCopier extends SubOperatorTest {
 
   @Test
   public void testMaps() {
-    ResultSetCopier copier = new ResultSetCopierImpl(
-        fixture.allocator(), new MapGen());
+    ResultSetCopier copier = newCopier(new MapGen());
     copier.startOutputBatch();
 
     copier.nextInputBatch();

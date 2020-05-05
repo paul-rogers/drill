@@ -24,7 +24,7 @@ import java.util.concurrent.Semaphore;
 
 import org.apache.drill.exec.physical.impl.materialize.QueryDataPackage;
 import org.apache.drill.exec.physical.impl.materialize.QueryWritableBatch;
-import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl;
+import org.apache.drill.exec.physical.resultSet.impl.PullResultSetReaderImpl;
 import org.apache.drill.exec.physical.resultSet.util.JsonWriter;
 import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
@@ -38,7 +38,7 @@ public class StreamingHttpConnection extends BaseWebUserConnection {
   private final CountDownLatch doneSignal = new CountDownLatch(1);
   private int batchCount;
   private JsonWriter writer;
-  private ResultSetReaderImpl reader;
+  private PullResultSetReaderImpl reader;
 
   public StreamingHttpConnection(WebUserConnection webConn) {
     super(webConn.resources());

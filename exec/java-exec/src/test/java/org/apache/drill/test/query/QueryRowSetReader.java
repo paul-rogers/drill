@@ -18,10 +18,10 @@
 package org.apache.drill.test.query;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.resultSet.impl.ResultSetReaderImpl;
+import org.apache.drill.exec.physical.resultSet.impl.PullResultSetReaderImpl;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 
-public class QueryRowSetReader extends ResultSetReaderImpl {
+public class QueryRowSetReader extends PullResultSetReaderImpl {
 
   private final QueryBatchIterator batchIter;
 

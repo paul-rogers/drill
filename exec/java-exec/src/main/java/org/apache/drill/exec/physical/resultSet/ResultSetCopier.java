@@ -40,12 +40,13 @@ import org.apache.drill.exec.record.VectorContainer;
  * each non-schema-change batch.
  *
  * <h4>Protocol</h4>
+ *
  * Overall lifecycle:
  * <ol>
  * <li>Create an instance of the
  *     {@link org.apache.drill.exec.physical.resultSet.impl.ResultSetCopierImpl
- *      ResultSetCopierImpl} class, passing the input batch
- *      accessor to the constructor.</li>
+ *      ResultSetCopierImpl} class, passing the input row set reader
+ *      to the constructor.</li>
  * <li>Loop to process each output batch as shown below. That is, continually
  *     process calls to the {@link BatchIterator#next()} method.</li>
  * <li>Call {@link #close()}.</li>
@@ -100,7 +101,7 @@ public interface ResultSetCopier {
 
   /**
    * Start the next input batch. The input batch must be held
-   * by the VectorAccessor passed into the constructor.
+   * by the {@code ResultSetReader} passed into the constructor.
    */
   boolean nextInputBatch();
 
