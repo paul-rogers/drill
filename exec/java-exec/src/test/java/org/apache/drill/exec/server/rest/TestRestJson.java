@@ -81,6 +81,8 @@ public class TestRestJson extends ClusterTest {
         );
 
     testDir = cluster.makeDataDir("data", "csv", csvFormat);
+//    File dir = new File("/tmp");
+//    cluster.defineWorkspace("dfs", "data", dir.getAbsolutePath(), "csv", csvFormat);
   }
 
   @Test
@@ -113,14 +115,15 @@ public class TestRestJson extends ClusterTest {
     verifier.verifyFileWithResource(outFile, "failed.json");
   }
 
+  @SuppressWarnings("unused")
   @Test
   @Ignore("Manual test")
   public void testLargeQuery() throws Exception {
     String tableName = writeBigFile();
-    {
+//    String tableName = "big.csv";
+    if (false) {
       // Time COUNT(*) which reads and discards data. Establishes
       // a minimum query run time.
-
       long start = System.currentTimeMillis();
       String sql = String.format(
           "SELECT COUNT(*) FROM dfs.data.`%s`", tableName);
@@ -134,7 +137,7 @@ public class TestRestJson extends ClusterTest {
     // to see if all results appear.
     String sql = String.format(
         "SELECT * FROM dfs.data.`%s`", tableName);
-    {
+    if (true) {
       File outFile = new File(dirTestWatcher.getTmpDir(), "big.json");
       QueryWrapper query = new QueryWrapper(sql, QueryType.SQL.name(),
           null, null, null, null);
@@ -150,7 +153,7 @@ public class TestRestJson extends ClusterTest {
     // Run the query and discard results. Determines the overhead, relative
     // to COUNT(*) of serializing to JSON and sending results. Avoids he above
     // cost of writing to a file.
-    {
+    if (false) {
       QueryWrapper query = new QueryWrapper(sql, QueryType.SQL.name(),
           null, null, null, null);
       long start = System.currentTimeMillis();
@@ -162,7 +165,7 @@ public class TestRestJson extends ClusterTest {
 
   private static final int LINE_COUNT = 1_000_000;
   private static final int FIELD_COUNT = 20; // Limited to 26
-  private static final int FIELD_WIDTH = 50;
+  private static final int FIELD_WIDTH = 100;
 
   private String writeBigFile() throws IOException {
     File dataFile = new File(testDir, "big.csv");

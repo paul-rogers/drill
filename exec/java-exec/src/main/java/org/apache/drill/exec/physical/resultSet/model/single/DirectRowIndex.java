@@ -23,14 +23,13 @@ import org.apache.drill.exec.record.VectorContainer;
 /**
  * Reader index that points directly to each row in the row set.
  * This index starts with pointing to the -1st row, so that the
- * reader can require a <tt>next()</tt> for every row, including
- * the first. (This is the JDBC <tt>RecordSet</tt> convention.)
+ * reader can require a {@code next()} for every row, including
+ * the first. (This is the JDBC {@code RecordSet} convention.)
  */
-
 public class DirectRowIndex extends ReaderIndex {
 
   public DirectRowIndex(VectorContainer container) {
-    super(container.getRecordCount());
+    reset(container.getRecordCount());
   }
 
   @Override

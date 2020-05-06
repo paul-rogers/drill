@@ -91,8 +91,8 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
   public void rewind() { setPosition(-1); }
 
   @Override
-  public void newBatch() {
+  public void newBatch(int rowCount) {
+    readerIndex.reset(rowCount);
     bindBuffer();
-    rewind();
   }
 }

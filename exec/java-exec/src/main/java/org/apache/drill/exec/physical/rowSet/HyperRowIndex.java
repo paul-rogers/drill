@@ -25,13 +25,12 @@ import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
  * Read-only row index into the hyper row set with batch and index
  * values mapping via an SV4.
  */
-
 public class HyperRowIndex extends ReaderIndex {
 
   private final SelectionVector4 sv4;
 
   public HyperRowIndex(SelectionVector4 sv4) {
-    super(sv4.getCount());
+    reset(sv4.getCount());
     this.sv4 = sv4;
   }
 

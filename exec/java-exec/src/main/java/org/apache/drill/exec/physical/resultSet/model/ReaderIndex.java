@@ -29,10 +29,11 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 public abstract class ReaderIndex implements ColumnReaderIndex {
 
   protected int position = -1;
-  protected final int rowCount;
+  protected int rowCount;
 
-  public ReaderIndex(int rowCount) {
+  public void reset(int rowCount) {
     this.rowCount = rowCount;
+    this.position = -1;
   }
 
   public void set(int index) {

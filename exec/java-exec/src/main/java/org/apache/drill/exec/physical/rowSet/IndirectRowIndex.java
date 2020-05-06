@@ -28,13 +28,12 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
  * the position increases monotonically, but the index jumps
  * around as specified by the indirection vector.
  */
-
 public class IndirectRowIndex extends ReaderIndex {
 
   private final SelectionVector2 sv2;
 
   public IndirectRowIndex(SelectionVector2 sv2) {
-    super(sv2.getCount());
+    reset(sv2.getCount());
     this.sv2 = sv2;
   }
 

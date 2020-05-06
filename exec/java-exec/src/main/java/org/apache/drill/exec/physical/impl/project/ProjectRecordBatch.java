@@ -34,6 +34,7 @@ import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchIOType;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,16 +46,49 @@ import static org.apache.drill.exec.record.RecordBatch.IterOutcome.EMIT;
 public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   private static final Logger logger = LoggerFactory.getLogger(ProjectRecordBatch.class);
 
+  private enum State {
+
+    /**
+     * Awaiting the first batch. More precisely, the base class will
+     * read the first batch, this operator is waiting to see that
+     * first batch.
+     */
+    FIRST,
+
+    /**
+     * The project is a simple mapping of input vectors to output
+     * vectors. We only shuffle buffers from input to output,
+     * no computation is involved. Allows a "fast path" through
+     * the operator.
+     */
+    TRANSFER,
+
+    /**
+     * Operator must do a full project and is ready for the next
+     * batch to process.
+     */
+    READY,
+
+    /**
+     * Rows were left over from the current input batch. Process
+     * those. Note that remainder batches can be as small as a single
+     * row, resulting in inefficiencies.
+     */
+    REMAINDER,
+
+    /**
+     * All rows are processed, saw {@code NONE} from upstream.
+     */
+    DONE
+  }
+
   protected List<ValueVector> allocationVectors;
   protected List<ComplexWriter> complexWriters;
   protected List<FieldReference> complexFieldReferencesList;
   protected ProjectMemoryManager memoryManager;
   private Projector projector;
-  private boolean hasRemainder;
+  private State state = State.FIRST;
   private int remainderIndex;
-  private int recordCount;
-  private boolean first = true;
-  private boolean wasNone; // whether a NONE iter outcome was already seen
 
   public ProjectRecordBatch(Project pop, RecordBatch incoming, FragmentContext context) {
     super(pop, context, incoming);
@@ -62,27 +96,28 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   @Override
   public int getRecordCount() {
-    return recordCount;
+    return container.getRecordCount();
   }
 
   @Override
   protected void cancelIncoming() {
     super.cancelIncoming();
-    hasRemainder = false;
+    state = State.DONE;
+    incoming.getContainer().zeroVectors();
   }
 
   @Override
   public IterOutcome innerNext() {
-    if (wasNone) {
-      return IterOutcome.NONE;
+    switch (state) {
+      case DONE:
+        return IterOutcome.NONE;
+      case REMAINDER:
+        handleRemainder();
+        // Check if we are supposed to return EMIT outcome and have consumed entire batch
+        return getFinalOutcome(state == State.REMAINDER);
+      default:
+        return super.innerNext();
     }
-    recordCount = 0;
-    if (hasRemainder) {
-      handleRemainder();
-      // Check if we are supposed to return EMIT outcome and have consumed entire batch
-      return getFinalOutcome(hasRemainder);
-    }
-    return super.innerNext();
   }
 
   @Override
@@ -92,17 +127,20 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   @Override
   protected IterOutcome doWork() {
-    if (wasNone) {
+    if (state == State.DONE) {
       return IterOutcome.NONE;
     }
 
-    int incomingRecordCount = incoming.getRecordCount();
+    if (state == State.TRANSFER) {
+      return doTransfers();
+    }
 
+    int incomingRecordCount = incoming.getRecordCount();
     logger.trace("doWork(): incoming rc {}, incoming {}, Project {}", incomingRecordCount, incoming, this);
     //calculate the output row count
     memoryManager.update();
 
-    if (first && incomingRecordCount == 0) {
+    if (state == State.FIRST && incomingRecordCount == 0) {
       if (complexWriters != null) {
         IterOutcome next = null;
         while (incomingRecordCount == 0) {
@@ -114,16 +152,20 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
           next = next(incoming);
           setLastKnownOutcome(next);
-          if (next == IterOutcome.NONE) {
-            // since this is first batch and we already got a NONE, need to set up the schema
-            doAlloc(0);
-            setValueCount(0);
-            wasNone = true;
-            return IterOutcome.NONE;
-          } else if (next != IterOutcome.OK && next != IterOutcome.OK_NEW_SCHEMA && next != EMIT) {
-            return next;
-          } else if (next == IterOutcome.OK_NEW_SCHEMA) {
-            setupNewSchema();
+          switch (next) {
+            case NONE:
+              // since this is first batch and we already got a NONE, no need to set up the schema
+              setValueCount(0);
+              state = State.DONE;
+              return IterOutcome.NONE;
+            case OK_NEW_SCHEMA:
+              setupNewSchema();
+              break;
+            case OK:
+            case EMIT:
+              break;
+            default:
+              return next;
           }
           incomingRecordCount = incoming.getRecordCount();
           memoryManager.update();
@@ -141,23 +183,21 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
           .build(logger);
     }
 
-    first = false;
-    container.zeroVectors();
+    state = State.READY;
 
-    int maxOuputRecordCount = memoryManager.getOutputRowCount();
+    int outputRecords = memoryManager.getOutputRowCount();
     logger.trace("doWork():[2] memMgr RC {}, incoming rc {}, incoming {}, project {}",
                  memoryManager.getOutputRowCount(), incomingRecordCount, incoming, this);
 
-    doAlloc(maxOuputRecordCount);
+    doAlloc(outputRecords);
     long projectStartTime = System.currentTimeMillis();
-    int outputRecords = projector.projectRecords(incoming, 0, maxOuputRecordCount, 0);
+    projector.projectRecords(incoming, 0, outputRecords);
     long projectEndTime = System.currentTimeMillis();
     logger.trace("doWork(): projection: records {}, time {} ms", outputRecords, (projectEndTime - projectStartTime));
 
     setValueCount(outputRecords);
-    recordCount = outputRecords;
     if (outputRecords < incomingRecordCount) {
-      hasRemainder = true;
+      state = State.REMAINDER;
       remainderIndex = outputRecords;
     } else {
       assert outputRecords == incomingRecordCount;
@@ -174,34 +214,49 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     // Get the final outcome based on hasRemainder since that will determine if all the incoming records were
     // consumed in current output batch or not
-    return getFinalOutcome(hasRemainder);
+    return getFinalOutcome(state == State.REMAINDER);
+  }
+
+  /**
+   * For a projection that simply maps input to output columns, but does no
+   * calculation, we can just transfer data from incoming to outgoing vectors.
+   * No need to allocate memory: all outgoing vectors must be populated via
+   * transfer. We do need to release incoming memory for any vectors that were
+   * not transferred (no harm in releasing memory for all.)
+   * <p>
+   * This mode does not do any batch sizing: the outgoing batch will be no
+   * larger than the incoming batch which, presumably, was correctly sized
+   * by the upstream operator.
+   */
+  private IterOutcome doTransfers() {
+    projector.transferOnly();
+    container.setRecordCount(incoming.getRecordCount());
+    incoming.getContainer().zeroVectors();
+    return getFinalOutcome(false);
   }
 
   private void handleRemainder() {
     int remainingRecordCount = incoming.getRecordCount() - remainderIndex;
     assert memoryManager.incomingBatch() == incoming;
-    int recordsToProcess = Math.min(remainingRecordCount, memoryManager.getOutputRowCount());
-    doAlloc(recordsToProcess);
+    int projRecords = Math.min(remainingRecordCount, memoryManager.getOutputRowCount());
+    doAlloc(projRecords);
 
     logger.trace("handleRemainder: remaining RC {}, toProcess {}, remainder index {}, incoming {}, Project {}",
-                 remainingRecordCount, recordsToProcess, remainderIndex, incoming, this);
+                 remainingRecordCount, projRecords, remainderIndex, incoming, this);
 
     long projectStartTime = System.currentTimeMillis();
-    int projRecords = projector.projectRecords(this.incoming, remainderIndex, recordsToProcess, 0);
+    projector.projectRecords(incoming, remainderIndex, projRecords);
     long projectEndTime = System.currentTimeMillis();
 
     logger.trace("handleRemainder: projection: records {}, time {} ms", projRecords,(projectEndTime - projectStartTime));
 
+    setValueCount(projRecords);
     if (projRecords < remainingRecordCount) {
-      setValueCount(projRecords);
-      recordCount = projRecords;
       remainderIndex += projRecords;
     } else {
-      setValueCount(remainingRecordCount);
-      hasRemainder = false;
+      state = State.READY;
       remainderIndex = 0;
       incoming.getContainer().zeroVectors();
-      recordCount = remainingRecordCount;
     }
     // In case of complex writer expression, vectors would be added to batch run-time.
     // We have to re-build the schema.
@@ -219,7 +274,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   }
 
   private void doAlloc(int recordCount) {
-    // Allocate vv in the allocationVectors.
+    // Allocate memory to those vectors that hold computed
+    // columns. Not done for transfer columns.
     for (ValueVector v : allocationVectors) {
       AllocationHelper.allocateNew(v, recordCount);
     }
@@ -237,13 +293,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       container.setEmpty();
       return;
     }
-    for (ValueVector v : allocationVectors) {
-      v.getMutator().setValueCount(count);
-    }
-
-    // Value counts for vectors should have been set via
-    // the transfer pairs or vector copies.
-    container.setRecordCount(count);
+    container.setValueCount(count);
 
     if (complexWriters == null) {
       return;
@@ -257,12 +307,11 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   @Override
   protected boolean setupNewSchema() {
     setupNewSchemaFromInput(incoming);
-    if (container.isSchemaChanged() || callBack.getSchemaChangedAndReset()) {
+    boolean newSchema = container.isSchemaChanged() || callBack.getSchemaChangedAndReset();
+    if (newSchema) {
       container.buildSchema(SelectionVectorMode.NONE);
-      return true;
-    } else {
-      return false;
     }
+    return newSchema;
   }
 
   private void setupNewSchemaFromInput(RecordBatch incomingBatch) {
@@ -277,7 +326,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         batchBuilder, unionTypeEnabled);
     boolean saveCode = false;
     // Uncomment this line to debug the generated code.
-    // saveCode = true;
+    saveCode = true;
     projector = em.generateProjector(context, saveCode);
     try {
       projector.setup(context, incomingBatch, this, batchBuilder.transfers());
@@ -285,6 +334,17 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       throw UserException.schemaChangeError(e)
           .addContext("Unexpected schema change in the Project operator")
           .build(logger);
+    }
+
+    // Handle the simplest case: transfer-only vectors, no computation. Drill
+    // inserts many of these into each query, and so this is a worthwhile
+    // optimization.
+    if (incoming.getContainer().getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE &&
+        complexWriters == null && allocationVectors.isEmpty()) {
+      Preconditions.checkState(container.getNumberOfColumns() == batchBuilder.transfers().size());
+      state = State.TRANSFER;
+    } else {
+      state = State.READY;
     }
   }
 
@@ -318,16 +378,17 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       return super.handleNullInput();
     }
 
+    // TODO: Not clear the next four lines are needed.
+    // If input is empty, a 0-column, 0-row container is all that
+    // downstream needs to see.
     VectorContainer emptyVC = new VectorContainer();
     emptyVC.buildSchema(SelectionVectorMode.NONE);
     RecordBatch emptyIncomingBatch = new SimpleRecordBatch(emptyVC, context);
-
     setupNewSchemaFromInput(emptyIncomingBatch);
 
-    doAlloc(0);
     container.buildSchema(SelectionVectorMode.NONE);
     container.setEmpty();
-    wasNone = true;
+    state = State.DONE;
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
@@ -358,7 +419,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   @Override
   public void dump() {
-    logger.error("ProjectRecordBatch[projector={}, hasRemainder={}, remainderIndex={}, recordCount={}, container={}]",
-        projector, hasRemainder, remainderIndex, recordCount, container);
+    logger.error(
+        "ProjectRecordBatch[projector={}, hasRemainder={}, remainderIndex={}, recordCount={}, container={}]",
+        projector, state == State.REMAINDER, remainderIndex, getRecordCount(), container);
   }
 }

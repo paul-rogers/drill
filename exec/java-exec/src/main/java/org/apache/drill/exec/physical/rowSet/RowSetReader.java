@@ -102,5 +102,5 @@ public interface RowSetReader extends TupleReader {
    * unchanged; only the buffers changed. If the schema changes,
    * discard this reader and rebuild a new one.
    */
-  void newBatch();
+  void newBatch(int rowCount);
 }

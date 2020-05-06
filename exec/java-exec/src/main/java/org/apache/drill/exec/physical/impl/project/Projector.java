@@ -27,9 +27,12 @@ import java.util.List;
 
 public interface Projector {
 
-  public abstract void setup(FragmentContext context, RecordBatch incoming,  RecordBatch outgoing, List<TransferPair> transfers)  throws SchemaChangeException;
-  public abstract int projectRecords(RecordBatch incomingBatch, int startIndex, int recordCount, int firstOutputIndex);
+  void setup(FragmentContext context, RecordBatch incoming,
+      RecordBatch outgoing, List<TransferPair> transfers)  throws SchemaChangeException;
+  void projectRecords(RecordBatch incomingBatch,
+      int startIndex, int recordCount);
+  void transferOnly();
 
-  public static TemplateClassDefinition<Projector> TEMPLATE_DEFINITION = new TemplateClassDefinition<Projector>(Projector.class, ProjectorTemplate.class);
-
+  public static TemplateClassDefinition<Projector> TEMPLATE_DEFINITION =
+      new TemplateClassDefinition<Projector>(Projector.class, ProjectorTemplate.class);
 }

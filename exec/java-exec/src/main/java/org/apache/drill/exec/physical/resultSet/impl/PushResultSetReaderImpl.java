@@ -85,7 +85,7 @@ public class PushResultSetReaderImpl implements PushResultSetReader {
       rowSetReader = createRowSet().reader();
       priorSchemaVersion = sourceSchemaVersion;
     } else {
-      rowSetReader.newBatch();
+      rowSetReader.newBatch(source.batch().getRecordCount());
     }
     return rowSetReader;
   }
@@ -94,14 +94,14 @@ public class PushResultSetReaderImpl implements PushResultSetReader {
   private RowSet createRowSet() {
     VectorContainer container = source.batch();
     switch (container.getSchema().getSelectionVectorMode()) {
-    case FOUR_BYTE:
-      throw new IllegalArgumentException("Build from SV4 not yet supported");
-    case NONE:
-      return DirectRowSet.fromContainer(container);
-    case TWO_BYTE:
-      return IndirectRowSet.fromSv2(container, source.sv2());
-    default:
-      throw new IllegalStateException("Invalid selection mode");
+      case FOUR_BYTE:
+        throw new IllegalArgumentException("Build from SV4 not yet supported");
+      case NONE:
+        return DirectRowSet.fromContainer(container);
+      case TWO_BYTE:
+        return IndirectRowSet.fromSv2(container, source.sv2());
+      default:
+        throw new IllegalStateException("Invalid selection mode");
     }
   }
 }
