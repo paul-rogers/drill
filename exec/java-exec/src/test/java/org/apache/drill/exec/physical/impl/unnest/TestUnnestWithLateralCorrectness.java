@@ -326,8 +326,8 @@ public class TestUnnestWithLateralCorrectness extends SubOperatorTest {
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-      .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitOutputBatchSizeBytes);
 
     try {
@@ -418,8 +418,8 @@ public class TestUnnestWithLateralCorrectness extends SubOperatorTest {
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-        .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitedOutputBatchSizeBytes);
 
     try {
@@ -475,8 +475,8 @@ public class TestUnnestWithLateralCorrectness extends SubOperatorTest {
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-        .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitedOutputBatchSizeBytes);
 
     try {

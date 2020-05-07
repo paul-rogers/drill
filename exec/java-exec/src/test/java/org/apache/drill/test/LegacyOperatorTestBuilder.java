@@ -22,6 +22,7 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.BatchCreator;
@@ -41,7 +42,7 @@ import java.util.TreeMap;
 @Deprecated
 public class LegacyOperatorTestBuilder {
 
-  private PhysicalOpUnitTestBase physicalOpUnitTestBase;
+  private final PhysicalOpUnitTestBase physicalOpUnitTestBase;
 
   private PhysicalOperator popConfig;
   private String[] baselineColumns;
@@ -50,6 +51,7 @@ public class LegacyOperatorTestBuilder {
   private long initReservation = AbstractBase.INIT_ALLOCATION;
   private long maxAllocation = AbstractBase.MAX_ALLOCATION;
   private boolean expectNoRows;
+  private Long outputBatchSize;
   private Long expectedBatchSize;
   private Integer expectedNumBatches;
   private Integer expectedTotalRows;
@@ -62,11 +64,15 @@ public class LegacyOperatorTestBuilder {
   public void go() {
     BatchCreator<PhysicalOperator> opCreator;
     RecordBatch testOperator;
+    long origOutputBatchSize =  physicalOpUnitTestBase.fragContext.getOptions().getLong(ExecConstants.OUTPUT_BATCH_SIZE);
     try {
+      if (outputBatchSize != null) {
+        physicalOpUnitTestBase.fragContext.getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, outputBatchSize);
+      }
       physicalOpUnitTestBase.mockOpContext(popConfig, initReservation, maxAllocation);
 
       opCreator = (BatchCreator<PhysicalOperator>) physicalOpUnitTestBase.opCreatorReg.getOperatorCreator(popConfig.getClass());
-      List<RecordBatch> incomingStreams = Lists.newArrayList();
+      List<RecordBatch> incomingStreams = new ArrayList<>();
       if (inputStreamsJSON != null) {
         for (List<String> batchesJson : inputStreamsJSON) {
           incomingStreams.add(new ScanBatch(popConfig, physicalOpUnitTestBase.fragContext,
@@ -76,8 +82,10 @@ public class LegacyOperatorTestBuilder {
 
       testOperator = opCreator.getBatch(physicalOpUnitTestBase.fragContext, popConfig, incomingStreams);
 
-      Map<String, List<Object>> actualSuperVectors = DrillTestWrapper.addToCombinedVectorResults(new PhysicalOpUnitTestBase.BatchIterator(testOperator), expectedBatchSize, expectedNumBatches, expectedTotalRows);
-      if ( expectedTotalRows != null ) { return; } // when checking total rows, don't compare actual results
+      Map<String, List<Object>> actualSuperVectors = DrillTestWrapper.addToCombinedVectorResults(
+          new PhysicalOpUnitTestBase.BatchIterator(testOperator), expectedBatchSize,
+          expectedNumBatches, expectedTotalRows);
+      if (expectedTotalRows != null) { return; } // when checking total rows, don't compare actual results
 
       Map<String, List<Object>> expectedSuperVectors;
 
@@ -92,12 +100,11 @@ public class LegacyOperatorTestBuilder {
 
       DrillTestWrapper.compareMergedVectors(expectedSuperVectors, actualSuperVectors);
 
-    } catch (ExecutionSetupException e) {
-      throw new RuntimeException(e);
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException(e);
     } catch (Exception e) {
       throw new RuntimeException(e);
+    } finally {
+      physicalOpUnitTestBase.fragContext.getOptions().setLocalOption(
+          ExecConstants.OUTPUT_BATCH_SIZE, origOutputBatchSize);
     }
   }
 
@@ -124,6 +131,11 @@ public class LegacyOperatorTestBuilder {
 
   public LegacyOperatorTestBuilder inputDataStreamsJson(List<List<String>> childStreams) {
     this.inputStreamsJSON = childStreams;
+    return this;
+  }
+
+  public LegacyOperatorTestBuilder outputBatchSize(long outputBatchSize) {
+    this.outputBatchSize = outputBatchSize;
     return this;
   }
 

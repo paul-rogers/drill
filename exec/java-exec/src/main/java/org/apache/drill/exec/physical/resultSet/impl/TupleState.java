@@ -311,7 +311,7 @@ public abstract class TupleState extends ContainerState
      * <li>As a result, the output schema is a subset of the internal input
      * schema.</li>
      * </ul>
-     * @return <tt>true</tt> if this map is versioned as described above
+     * @return {@code true} if this map is versioned as described above
      */
     public boolean isVersioned() { return isVersioned; }
 
@@ -420,7 +420,7 @@ public abstract class TupleState extends ContainerState
     /**
      * The row as a whole is versioned.
      *
-     * @return <tt>true</tt>
+     * @return {@code true}
      */
     @Override
     protected boolean isVersioned() { return true; }

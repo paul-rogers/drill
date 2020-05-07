@@ -162,7 +162,7 @@ public interface SchemaNegotiator {
    *
    * @param maxRecordsPerBatch preferred number of record per batch
    */
-  void batchSize(int maxRecordsPerBatch);
+  void batchRowLimit(int maxRecordsPerBatch);
 
   /**
    * Build the schema, plan the required projections and static

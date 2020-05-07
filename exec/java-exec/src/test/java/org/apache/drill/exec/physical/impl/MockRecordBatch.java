@@ -222,8 +222,8 @@ public class MockRecordBatch implements CloseableRecordBatch {
           } else {
             sv2 = inputSv2;
           }
-
           break;
+
         case FOUR_BYTE:
           // TODO find a clean way to transfer in for this case.
           container.clear();

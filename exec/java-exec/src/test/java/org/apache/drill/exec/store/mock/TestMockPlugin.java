@@ -44,7 +44,6 @@ import org.junit.experimental.categories.Category;
  * This is mostly just a sanity tests: details are added, and
  * tested, where needed in unit tests.
  */
-
 @Category({RowSetTests.class, UnlikelyTest.class})
 public class TestMockPlugin extends ClusterTest {
 
@@ -137,7 +136,6 @@ public class TestMockPlugin extends ClusterTest {
       iter.next().clear();
     }
   }
-
 
   @Test
   public void testExtendedSqlMultiBatch() throws Exception {

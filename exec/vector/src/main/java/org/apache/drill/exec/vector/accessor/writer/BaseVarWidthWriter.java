@@ -39,9 +39,8 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  * the offset vector; checking for resize and overflow on each step.
  * Also, when filling empties, we cannot use the normal "set" functions
  * as they are what trigger the empty filling. Instead, we have to
- * write to the "last write" position, not the current row positon.
+ * write to the "last write" position, not the current row position.
  */
-
 public abstract class BaseVarWidthWriter extends BaseScalarWriter {
   protected final OffsetVectorWriterImpl offsetsWriter;
 
@@ -73,7 +72,6 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
 
     // This is performance critical code; every operation counts.
     // Please be thoughtful when making changes.
-
     final int writeOffset = offsetsWriter.nextOffset;
     if (writeOffset + width < capacity) {
       return writeOffset;
@@ -81,14 +79,13 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
     resize(writeOffset + width);
 
     // Offset will change if overflow occurred on resize.
-
     return offsetsWriter.nextOffset;
   }
 
   protected final int prepareAppend(final int width) {
+
     // No fill empties needed: must have been done
     // on previous setBytes() call.
-
     return writeOffset(width);
   }
 
@@ -105,7 +102,6 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
 
     // Since some vectors start off as 0 length, set a
     // minimum size to avoid silly thrashing on early rows.
-
     if (size < MIN_BUFFER_SIZE) {
       size = MIN_BUFFER_SIZE;
     }
@@ -117,11 +113,9 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
     // a new set of vectors. Internal fragmentation will result, but this
     // approach (along with proper initial vector sizing), minimizes that
     // fragmentation.
-
     size = BaseAllocator.nextPowerOfTwo(size);
 
     // Two cases: grow this vector or allocate a new one.
-
     if (size <= ValueVector.MAX_BUFFER_SIZE && canExpand(size - capacity)) {
 
       // Optimized form of reAlloc() which does not zero memory, does not do
@@ -136,7 +130,6 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
       // endWrite(), which will set the final writer index for the current
       // vector. Then, bindVector() will be called to provide the new vector.
       // The write index changes with the new vector.
-
       overflowed();
     }
   }

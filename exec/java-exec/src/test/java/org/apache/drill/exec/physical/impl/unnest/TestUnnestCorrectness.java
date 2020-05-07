@@ -281,7 +281,6 @@ import static org.junit.Assert.assertTrue;
     } catch (Exception e) {
       fail("Failed due to exception: " + e.getMessage());
     }
-
   }
 
   @Test
@@ -326,8 +325,8 @@ import static org.junit.Assert.assertTrue;
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-        .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitedOutputBatchSizeBytes);
 
     try {
@@ -387,8 +386,8 @@ import static org.junit.Assert.assertTrue;
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-        .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitedOutputBatchSizeBytes);
 
     try {
@@ -398,7 +397,6 @@ import static org.junit.Assert.assertTrue;
     } finally {
       fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, outputBatchSize);
     }
-
   }
 
   @Test
@@ -444,8 +442,8 @@ import static org.junit.Assert.assertTrue;
 
     RecordBatch.IterOutcome[] iterOutcomes = {RecordBatch.IterOutcome.OK};
 
-    final long outputBatchSize = fixture.getFragmentContext().getOptions().getOption(ExecConstants
-        .OUTPUT_BATCH_SIZE_VALIDATOR);
+    final long outputBatchSize = fixture.getFragmentContext().getOptions().getLong(
+        ExecConstants.OUTPUT_BATCH_SIZE);
     fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, limitedOutputBatchSizeBytes);
 
     try {
@@ -455,9 +453,7 @@ import static org.junit.Assert.assertTrue;
     } finally {
       fixture.getFragmentContext().getOptions().setLocalOption(ExecConstants.OUTPUT_BATCH_SIZE, outputBatchSize);
     }
-
   }
-
 
   @Test
   public void testUnnestNonArrayColumn() {

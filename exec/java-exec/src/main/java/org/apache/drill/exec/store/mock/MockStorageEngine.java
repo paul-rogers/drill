@@ -90,7 +90,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
   /**
    * Resolves table names within the mock data source. Tables can be of two forms:
    * <p>
-   * <tt><name>_<n><unit></tt>
+   * {@code <name>_<n><unit>}
    * <p>
    * Where the "name" can be anything, "n" is the number of rows, and "unit" is
    * the units for the row count: non, K (thousand) or M (million).
@@ -98,7 +98,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
    * The above form generates a table directly with no other information needed.
    * Column names must be provided, and must be of the form:
    * <p>
-   * <tt><name>_<type><size></tt>
+   * {@code <name>_<type><size>}
    * <p>
    * Where the name can be anything, the type must be i (integer), d (double),
    * b (boolean)
@@ -107,12 +107,11 @@ public class MockStorageEngine extends AbstractStoragePlugin {
    * Direct tables are quick, but limited. The other option is to provide the
    * name of a definition file:
    * <p>
-   * <tt><fileName>.json</tt>
+   * {@code <fileName>.json}
    * <p>
    * In this case, the JSON file must be a resource visible on the class path.
    * Omit the leading slash in the resource path name.
    */
-
   private static class MockSchema extends AbstractSchema {
 
     private final MockStorageEngine engine;

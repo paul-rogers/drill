@@ -128,7 +128,6 @@ import org.slf4j.LoggerFactory;
  * think about how to preserve the clean separation that this class
  * attempts to provide.
  */
-
 class ReaderState {
   static final Logger logger = LoggerFactory.getLogger(ReaderState.class);
 
@@ -137,7 +136,6 @@ class ReaderState {
     /**
      * Initial state before opening the reader.
      */
-
     START,
 
     /**
@@ -157,7 +155,6 @@ class ReaderState {
      * the next call to {@link ReaderState#next()} will return this look-ahead
      * batch rather than reading a new one.
      */
-
     LOOK_AHEAD,
 
     /**
@@ -173,26 +170,22 @@ class ReaderState {
      * row in the result set loader. That look-ahead is handled by the
      * (shim) reader which this class manages.
      */
-
     LOOK_AHEAD_WITH_EOF,
 
     /**
      * Normal state: the reader has supplied data but not yet reported EOF.
      */
-
     ACTIVE,
 
     /**
      * The reader has reported EOF. No look-ahead batch is active. The
      * reader's next() method will no longer be called.
      */
-
     EOF,
 
     /**
      * The reader is closed: no further operations are allowed.
      */
-
     CLOSED
   };
 
@@ -214,18 +207,15 @@ class ReaderState {
    * open
    * @throws UserException for all errors
    */
-
   boolean open() {
 
     // Open the reader. This can fail. if it does, clean up.
-
     try {
 
       // The reader can return a "soft" failure: the open worked, but
       // the file is empty, non-existent or some other form of "no data."
       // Handle this by immediately moving to EOF. The scanner will quietly
       // pass over this reader and move onto the next, if any.
-
       if (!reader.open()) {
         state = State.EOF;
         return false;
@@ -233,11 +223,9 @@ class ReaderState {
 
     // When catching errors, leave the reader member set;
     // we must close it on close() later.
-
     } catch (UserException e) {
 
       // Throw user exceptions as-is
-
       throw e;
     } catch (UnsupportedConversionError e) {
 
@@ -246,14 +234,12 @@ class ReaderState {
       // Example: implicit conversion of a float to an INTERVAL
       // In such a case, there are no "natural" rules, a reader would have
       // to provide ad-hoc rules or no conversion is possible.
-
       throw UserException.validationError(e)
         .message("Invalid runtime type conversion")
         .build(logger);
     } catch (Throwable t) {
 
       // Wrap all others in a user exception.
-
       throw UserException.executionError(t)
         .addContext("Open failed for reader", reader.name())
         .build(logger);

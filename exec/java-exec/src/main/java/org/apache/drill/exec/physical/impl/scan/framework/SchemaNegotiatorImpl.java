@@ -63,7 +63,8 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
   protected TupleMetadata providedSchema;
   protected TupleMetadata tableSchema;
   protected boolean isSchemaComplete;
-  protected int batchSize = ValueVector.MAX_ROW_COUNT;
+  protected int batchRowLimit = ValueVector.MAX_ROW_COUNT;
+  protected int batchSizeLimit;
 
   public SchemaNegotiatorImpl(ManagedScanFramework framework) {
     this.framework = framework;
@@ -129,8 +130,8 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
   public boolean isSchemaComplete() { return tableSchema != null && isSchemaComplete; }
 
   @Override
-  public void batchSize(int maxRecordsPerBatch) {
-    batchSize = maxRecordsPerBatch;
+  public void batchRowLimit(int maxRecordsPerBatch) {
+    batchRowLimit = maxRecordsPerBatch;
   }
 
   @Override

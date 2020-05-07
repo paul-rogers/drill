@@ -257,26 +257,26 @@ public class ProjectMemoryManager extends RecordBatchMemoryManager {
     rowWidth += totalFixedWidthColumnWidth;
     rowWidth += totalComplexColumnWidth;
     rowWidth += totalVariableColumnWidth;
-    int outPutRowCount;
+    int outputRowCount;
     if (rowWidth != 0) {
       // if rowWidth is not zero, set the output row count in the sizer
       setOutputRowCount(getOutputBatchSize(), rowWidth);
       // if more rows can be allowed than the incoming row count, then set the
       // output row count to the incoming row count.
-      outPutRowCount = Math.min(getOutputRowCount(), batchSizer.rowCount());
+      outputRowCount = Math.min(getOutputRowCount(), batchSizer.rowCount());
     } else {
       // if rowWidth == 0 then the memory manager does
       // not have sufficient information to size the batch
       // let the entire batch pass through.
       // If incoming rc == 0, all RB Sizer look-ups will have
       // 0 width and so total width can be 0
-      outPutRowCount = incomingBatch.getRecordCount();
+      outputRowCount = incomingBatch.getRecordCount();
     }
-    setOutputRowCount(outPutRowCount);
+    setOutputRowCount(outputRowCount);
     long updateEndTime = System.currentTimeMillis();
     logger.trace("update() : Output RC {}, BatchSizer RC {}, incoming RC {}, width {}, total fixed width {}"
                 + ", total variable width {}, total complex width {}, batchSizer time {} ms, update time {}  ms"
-                + ", manager {}, incoming {}",outPutRowCount, batchSizer.rowCount(), incomingBatch.getRecordCount(),
+                + ", manager {}, incoming {}",outputRowCount, batchSizer.rowCount(), incomingBatch.getRecordCount(),
                 rowWidth, totalFixedWidthColumnWidth, totalVariableColumnWidth, totalComplexColumnWidth,
                 (batchSizerEndTime - updateStartTime),(updateEndTime - updateStartTime), this, incomingBatch);
 

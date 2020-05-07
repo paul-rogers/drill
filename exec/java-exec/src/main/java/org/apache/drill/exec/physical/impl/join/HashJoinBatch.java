@@ -1341,7 +1341,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP>
     this.allocator = oContext.getAllocator();
 
     numPartitions = (int) context.getOptions()
-        .getOption(ExecConstants.HASHJOIN_NUM_PARTITIONS_VALIDATOR);
+        .getLong(ExecConstants.HASHJOIN_NUM_PARTITIONS_KEY);
     if (numPartitions == 1) { //
       disableSpilling(
           "Spilling is disabled due to configuration setting of num_partitions to 1");
@@ -1351,16 +1351,16 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP>
                                                                  // a power of 2
 
     long memLimit = context.getOptions()
-        .getOption(ExecConstants.HASHJOIN_MAX_MEMORY_VALIDATOR);
+        .getLong(ExecConstants.HASHJOIN_MAX_MEMORY_KEY);
 
     if (memLimit != 0) {
       allocator.setLimit(memLimit);
     }
 
     RECORDS_PER_BATCH = (int) context.getOptions()
-        .getOption(ExecConstants.HASHJOIN_NUM_ROWS_IN_BATCH_VALIDATOR);
+        .getLong(ExecConstants.HASHJOIN_NUM_ROWS_IN_BATCH_KEY);
     maxBatchesInMemory = (int) context.getOptions()
-        .getOption(ExecConstants.HASHJOIN_MAX_BATCHES_IN_MEMORY_VALIDATOR);
+        .getLong(ExecConstants.HASHJOIN_MAX_BATCHES_IN_MEMORY_KEY);
 
     logger.info("Memory limit {} bytes",
         FileUtils.byteCountToDisplaySize(allocator.getLimit()));
@@ -1372,9 +1372,9 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP>
 
     // get the output batch size from config.
     int configuredBatchSize = (int) context.getOptions()
-        .getOption(ExecConstants.OUTPUT_BATCH_SIZE_VALIDATOR);
+        .getLong(ExecConstants.OUTPUT_BATCH_SIZE);
     double avail_mem_factor = context.getOptions()
-        .getOption(ExecConstants.OUTPUT_BATCH_SIZE_AVAIL_MEM_FACTOR_VALIDATOR);
+        .getDouble(ExecConstants.OUTPUT_BATCH_SIZE_AVAIL_MEM_FACTOR);
     int outputBatchSize = Math.min(configuredBatchSize,
         Integer.highestOneBit((int) (allocator.getLimit() * avail_mem_factor)));
 

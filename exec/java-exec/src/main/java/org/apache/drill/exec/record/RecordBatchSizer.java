@@ -57,8 +57,7 @@ public class RecordBatchSizer {
   private static final int OFFSET_VECTOR_WIDTH = UInt4Vector.VALUE_WIDTH;
   private static final int BIT_VECTOR_WIDTH = UInt1Vector.VALUE_WIDTH;
 
-  public static long multiplyByFactors(long size, double... factors)
-  {
+  public static long multiplyByFactors(long size, double... factors) {
     double doubleSize = size;
 
     for (double factor: factors) {
@@ -68,8 +67,7 @@ public class RecordBatchSizer {
     return (long) doubleSize;
   }
 
-  public static long multiplyByFactor(long size, double factor)
-  {
+  public static long multiplyByFactor(long size, double factor) {
     return (long) ((size) * factor);
   }
 
@@ -103,7 +101,6 @@ public class RecordBatchSizer {
      * total number of values across all maps, and may be less than,
      * greater than (but unlikely) same as the row count.
      */
-
     private final int valueCount;
 
     /**
@@ -112,7 +109,6 @@ public class RecordBatchSizer {
      * of 100 rows may have an array with 10 elements per row.
      * In this case, the element count is 1000.
      */
-
     private int elementCount;
 
     /**
@@ -120,7 +116,6 @@ public class RecordBatchSizer {
      * Always 1 for a non-repeated type. For a repeated type,
      * this is the average entries per array (per repeated element).
      */
-
     private float cardinality;
 
     /**
@@ -128,13 +123,11 @@ public class RecordBatchSizer {
      * For map columns, this is true if any of the children is variable
      * width column.
      */
-
     private boolean isVariableWidth;
 
     /**
      * Indicates if cardinality is repeated(top level only).
      */
-
     private boolean isRepeated;
 
     /**
@@ -540,7 +533,6 @@ public class RecordBatchSizer {
      * @param initializer the vector initializer to hold the hints
      * for this column
      */
-
     public void buildVectorInitializer(VectorInitializer initializer) {
       int width = 0;
       switch(metadata.getType().getMinorType()) {
@@ -577,7 +569,6 @@ public class RecordBatchSizer {
         columnSize.buildVectorInitializer(initializer);
       }
     }
-
   }
 
    public static int getStdNetSizePerEntryCommon(TypeProtos.MajorType majorType, boolean isOptional, boolean isRepeated,
@@ -673,7 +664,7 @@ public class RecordBatchSizer {
   private int rowAllocWidth;
   private int stdRowWidth;
 
-  public SelectionVector2 sv2 = null;
+  public SelectionVector2 sv2;
   private int sv2Size;
 
   private int avgDensity;
@@ -685,15 +676,12 @@ public class RecordBatchSizer {
   /**
    *  Maximum width of a column; used for memory estimation in case of Varchars
    */
-
   public int maxSize;
 
   /**
    *  Count the nullable columns; used for memory estimation
    */
-
   public int nullableCount;
-
 
   public RecordBatchSizer(RecordBatch batch) {
     this(batch,
@@ -706,7 +694,6 @@ public class RecordBatchSizer {
    *
    * @param va iterator over the batch's vectors
    */
-
   public RecordBatchSizer(VectorAccessible va) {
     this(va, null);
   }
@@ -722,7 +709,6 @@ public class RecordBatchSizer {
    * @param va iterator over the batch's vectors
    * @param sv2 selection vector associated with this batch
    */
-
   public RecordBatchSizer(VectorAccessible va, SelectionVector2 sv2) {
     rowCount = va.getRecordCount();
     for (VectorWrapper<?> vw : va) {
@@ -1059,6 +1045,5 @@ public class RecordBatchSizer {
       }
       throw new IllegalArgumentException();
     }
-
   }
 }

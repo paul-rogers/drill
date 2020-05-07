@@ -135,11 +135,11 @@ public class HashJoinProbeTemplate implements HashJoinProbe {
     this.numberOfBuildSideColumns = semiJoin ? 0 : rightHVColPosition; // position (0 based) of added column == #columns
     this.semiJoin = semiJoin;
 
-    partitionMask = numPartitions - 1; // e.g. 32 --> 0x1F
-    bitsInMask = Integer.bitCount(partitionMask); // e.g. 0x1F -> 5
-    joinControl = new JoinControl(outgoingJoinBatch.getPopConfig().getJoinControl());
+    this.partitionMask = numPartitions - 1; // e.g. 32 --> 0x1F
+    this.bitsInMask = Integer.bitCount(partitionMask); // e.g. 0x1F -> 5
+    this.joinControl = new JoinControl(outgoingJoinBatch.getPopConfig().getJoinControl());
 
-    probeState = ProbeState.PROBE_PROJECT;
+    this.probeState = ProbeState.PROBE_PROJECT;
     this.recordsToProcess = 0;
     this.recordsProcessed = 0;
 
@@ -156,13 +156,13 @@ public class HashJoinProbeTemplate implements HashJoinProbe {
       partn.allocateNewCurrentBatchAndHV();
     }
 
-    currRightPartition = 0; // In case it's a Right/Full outer join
+    this.currRightPartition = 0; // In case it's a Right/Full outer join
 
     // Initialize the HV vector for the first (already read) left batch
     if (this.cycleNum > 0) {
       if (read_left_HV_vector != null) { read_left_HV_vector.clear();}
       if (leftStartState != IterOutcome.NONE) { // Skip when outer spill was empty
-        read_left_HV_vector = (IntVector) probeBatch.getContainer().getLast();
+        this.read_left_HV_vector = (IntVector) probeBatch.getContainer().getLast();
       }
     }
   }
@@ -444,7 +444,7 @@ public class HashJoinProbeTemplate implements HashJoinProbe {
           unmatchedBuildIndexes = null;
         }
 
-      }   while (currRightPartition < numPartitions);
+      } while (currRightPartition < numPartitions);
 
       probeState = ProbeState.DONE; // last right partition was handled; we are done now
     }

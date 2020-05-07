@@ -105,7 +105,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
     readBuffer = context.getAllocator().buffer(READ_BUFFER);
     whitespaceBuffer = context.getAllocator().buffer(WHITE_SPACE_BUFFER);
-    schemaNegotiator.batchSize(MAX_RECORDS_PER_BATCH);
+    schemaNegotiator.batchRowLimit(MAX_RECORDS_PER_BATCH);
 
     // setup Output, Input, and Reader
     try {

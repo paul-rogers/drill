@@ -19,12 +19,15 @@ package org.apache.drill.exec.record;
 
 import java.util.Set;
 
-public class JoinBatchMemoryManager extends RecordBatchMemoryManager {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JoinBatchMemoryManager.class);
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-  private int rowWidth[];
-  private RecordBatch recordBatch[];
-  private Set<String> columnsToExclude;
+public class JoinBatchMemoryManager extends RecordBatchMemoryManager {
+  private static final Logger logger = LoggerFactory.getLogger(JoinBatchMemoryManager.class);
+
+  private final int rowWidth[];
+  private final RecordBatch recordBatch[];
+  private final Set<String> columnsToExclude;
 
   private static final int numInputs = 2;
   public static final int LEFT_INDEX = 0;

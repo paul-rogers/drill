@@ -42,7 +42,7 @@ import java.util.List;
 public class ReaderSchemaOrchestrator implements VectorSource {
 
   private final ScanSchemaOrchestrator scanOrchestrator;
-  private int readerBatchSize;
+  private int readerBatchRowLimit;
   private ResultSetLoaderImpl tableLoader;
   private int prevTableSchemaVersion = -1;
 
@@ -57,12 +57,12 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   public ReaderSchemaOrchestrator(ScanSchemaOrchestrator scanSchemaOrchestrator) {
     scanOrchestrator = scanSchemaOrchestrator;
-    readerBatchSize = scanOrchestrator.options.scanBatchRecordLimit;
+    readerBatchRowLimit = scanOrchestrator.options.scanBatchRecordLimit;
   }
 
-  public void setBatchSize(int size) {
-    if (size > 0) {
-      readerBatchSize = size;
+  public void setBatchRowLimit(int maxRowsPerBatch) {
+    if (maxRowsPerBatch > 0) {
+      readerBatchRowLimit = maxRowsPerBatch;
     }
   }
 
@@ -73,7 +73,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
 
   public ResultSetLoader makeTableLoader(CustomErrorContext errorContext, TupleMetadata readerSchema) {
     ResultSetOptionBuilder options = new ResultSetOptionBuilder();
-    options.rowCountLimit(Math.min(readerBatchSize, scanOrchestrator.options.scanBatchRecordLimit));
+    options.rowCountLimit(Math.min(readerBatchRowLimit, scanOrchestrator.options.scanBatchRecordLimit));
     options.vectorCache(scanOrchestrator.vectorCache);
     options.batchSizeLimit(scanOrchestrator.options.scanBatchByteLimit);
     options.errorContext(errorContext);

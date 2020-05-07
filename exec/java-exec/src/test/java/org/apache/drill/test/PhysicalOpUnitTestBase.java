@@ -359,7 +359,7 @@ public class PhysicalOpUnitTestBase extends ExecTest {
   public List<RecordReader> getReaderListForJsonBatches(List<String> jsonBatches, FragmentContext fragContext) {
     Iterator<RecordReader> readers = getRecordReadersForJsonBatches(jsonBatches, fragContext);
     List<RecordReader> readerList = new LinkedList<>();
-    while(readers.hasNext()) {
+    while (readers.hasNext()) {
       readerList.add(readers.next());
     }
     return readerList;
@@ -373,7 +373,8 @@ public class PhysicalOpUnitTestBase extends ExecTest {
    * @param columnsToRead : list of schema paths to read from JSON reader.
    * @return The {@link org.apache.drill.exec.store.easy.json.JSONRecordReader} corresponding to each given jsonBatch.
    */
-  public static Iterator<RecordReader> getJsonReadersFromBatchString(List<String> jsonBatches, FragmentContext fragContext, List<SchemaPath> columnsToRead) {
+  public static Iterator<RecordReader> getJsonReadersFromBatchString(List<String> jsonBatches,
+      FragmentContext fragContext, List<SchemaPath> columnsToRead) {
     ObjectMapper mapper = new ObjectMapper();
     List<RecordReader> readers = new ArrayList<>();
     for (String batchJason : jsonBatches) {

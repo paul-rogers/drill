@@ -39,11 +39,9 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
    * Test that if empty input batch is received with OK_NEW_SCHEMA or EMIT
    * outcome, then Project doesn't ignores these empty batches and instead
    * return them downstream with correct outcomes.
-   *
-   * @throws Throwable
    */
   @Test
-  public void testProjectEmptyBatchEmitOutcome() throws Throwable {
+  public void testProjectEmptyBatchEmitOutcome() throws Exception {
     inputContainer.add(emptyInputRowSet.container());
     inputContainer.add(emptyInputRowSet.container());
     inputOutcomes.add(RecordBatch.IterOutcome.OK_NEW_SCHEMA);
@@ -68,11 +66,9 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
    * Test to show if a non-empty batch is accompanied with EMIT outcome then
    * Project operator produces output for that batch and return the output using
    * EMIT outcome.
-   *
-   * @throws Throwable
    */
   @Test
-  public void testProjectNonEmptyBatchEmitOutcome() throws Throwable {
+  public void testProjectNonEmptyBatchEmitOutcome() throws Exception {
     inputContainer.add(emptyInputRowSet.container());
     inputContainer.add(nonEmptyInputRowSet.container());
     inputOutcomes.add(RecordBatch.IterOutcome.OK_NEW_SCHEMA);
@@ -96,10 +92,9 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
   /**
    * Test to show that non-empty first batch produces output for that batch with OK_NEW_SCHEMA and later empty batch
    * with EMIT outcome is also passed through rather than getting ignored.
-   * @throws Throwable
    */
   @Test
-  public void testProjectNonEmptyFirst_EmptyBatchEmitOutcome() throws Throwable {
+  public void testProjectNonEmptyFirst_EmptyBatchEmitOutcome() throws Exception {
     inputContainer.add(nonEmptyInputRowSet.container());
     inputContainer.add(emptyInputRowSet.container());
     inputOutcomes.add(RecordBatch.IterOutcome.OK_NEW_SCHEMA);
@@ -125,10 +120,9 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
    * it doesn't return anything instead call's next() to get another batch. If the subsequent next() call returns empty
    * batch with EMIT outcome then Project returns the EMIT outcome correctly rather than ignoring it because of empty
    * batch.
-   * @throws Throwable
    */
   @Test
-  public void testProjectNonEmptyFirst_EmptyOK_EmptyBatchEmitOutcome() throws Throwable {
+  public void testProjectNonEmptyFirst_EmptyOK_EmptyBatchEmitOutcome() throws Exception {
     inputContainer.add(nonEmptyInputRowSet.container());
     inputContainer.add(emptyInputRowSet.container());
     inputContainer.add(emptyInputRowSet.container());
@@ -157,15 +151,17 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
   }
 
   /**
-   * Test to show that in cases with functions in project list whose output is complex types, if Project sees an EMIT
-   * outcome then it fails. This scenario can happen when complex functions are used in subquery between LATERAL and
-   * UNNEST. In which case guidance is to use those functions in project list of outermost query.
-   * Below test passes first batch as non-empty with OK_NEW_SCHEMA during which complex writers are cached for
-   * projected columns and later when an empty batch arrives with EMIT outcome the exception is thrown.
-   * @throws Throwable
+   * Test to show that in cases with functions in project list whose output is
+   * complex types, if Project sees an EMIT outcome then it fails. This scenario
+   * can happen when complex functions are used in subquery between LATERAL and
+   * UNNEST. In which case guidance is to use those functions in project list of
+   * outermost query. Below test passes first batch as non-empty with
+   * OK_NEW_SCHEMA during which complex writers are cached for projected columns
+   * and later when an empty batch arrives with EMIT outcome the exception is
+   * thrown.
    */
   @Test
-  public void testProjectWithComplexWritersAndEmitOutcome_NonEmptyFirstBatch() throws Throwable {
+  public void testProjectWithComplexWritersAndEmitOutcome_NonEmptyFirstBatch() throws Exception {
     final RowSet.SingleRowSet nonEmptyInputRowSet2 = operatorFixture.rowSetBuilder(inputSchema)
       .addRow(2, 20, "{ \"a\" : 1 }")
       .build();
@@ -193,21 +189,25 @@ public class TestProjectEmitOutcome extends BaseTestOpBatchEmitOutcome {
   }
 
   /**
-   * Test to show that in cases with functions in project list whose output is complex types, if Project sees an EMIT
-   * outcome then it fails. This scenario can happen when complex functions are used in subquery between LATERAL and
-   * UNNEST. In which case guidance is to use those functions in project list of outermost query.
-   *
-   * Below test passes first batch as empty with OK_NEW_SCHEMA during which complex writers are not known so far
-   * and Project calls next() on upstream to get a batch with data. But later when an empty batch arrives with EMIT
+   * Test to show that in cases with functions in project list whose output is
+   * complex types, if Project sees an EMIT outcome then it fails. This scenario
+   * can happen when complex functions are used in a subquery between LATERAL and
+   * UNNEST. In which case guidance is to use those functions in project list of
+   * outermost query.
+   * <p>
+   * Below test passes first batch as empty with OK_NEW_SCHEMA during which
+   * complex writers are not known so far and Project calls next() on upstream
+   * to get a batch with data. But later when an empty batch arrives with EMIT
    * outcome the exception is thrown as the scenario is not supported
-   * @throws Throwable
    */
   @Test
-  public void testProjectWithComplexWritersAndEmitOutcome_EmptyFirstBatch() throws Throwable {
-    final RowSet.SingleRowSet nonEmptyInputRowSet2 = operatorFixture.rowSetBuilder(inputSchema)
+  public void testProjectWithComplexWritersAndEmitOutcome_EmptyFirstBatch() throws Exception {
+    final RowSet nonEmptyInputRowSet2 = operatorFixture.rowSetBuilder(inputSchema)
       .addRow(2, 20, "{ \"a\" : 1 }")
       .build();
 
+    // TODO: The semantics of this are wrong: an operator expects "container continuity"
+    // from its upstream operator.
     inputContainer.add(emptyInputRowSet.container());
     inputContainer.add(nonEmptyInputRowSet2.container());
 

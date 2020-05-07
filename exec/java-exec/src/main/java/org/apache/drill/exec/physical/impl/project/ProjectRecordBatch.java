@@ -24,7 +24,6 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.Project;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleRecordBatch;
@@ -96,7 +95,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   @Override
   public int getRecordCount() {
-    return container.getRecordCount();
+    return container.hasRecordCount() ? container.getRecordCount() : 0;
   }
 
   @Override
@@ -137,7 +136,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     int incomingRecordCount = incoming.getRecordCount();
     logger.trace("doWork(): incoming rc {}, incoming {}, Project {}", incomingRecordCount, incoming, this);
-    //calculate the output row count
+    // Calculate the output row count
     memoryManager.update();
 
     if (state == State.FIRST && incomingRecordCount == 0) {
@@ -154,7 +153,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
           setLastKnownOutcome(next);
           switch (next) {
             case NONE:
-              // since this is first batch and we already got a NONE, no need to set up the schema
+              // Since this is first batch and we already got a NONE, no need to set up the schema
               setValueCount(0);
               state = State.DONE;
               return IterOutcome.NONE;
@@ -185,7 +184,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     state = State.READY;
 
-    int outputRecords = memoryManager.getOutputRowCount();
+    int outputRecords = Math.min(incomingRecordCount, memoryManager.getOutputRowCount());
     logger.trace("doWork():[2] memMgr RC {}, incoming rc {}, incoming {}, project {}",
                  memoryManager.getOutputRowCount(), incomingRecordCount, incoming, this);
 
@@ -336,15 +335,24 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
           .build(logger);
     }
 
-    // Handle the simplest case: transfer-only vectors, no computation. Drill
-    // inserts many of these into each query, and so this is a worthwhile
-    // optimization.
-    if (incoming.getContainer().getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE &&
-        complexWriters == null && allocationVectors.isEmpty()) {
-      Preconditions.checkState(container.getNumberOfColumns() == batchBuilder.transfers().size());
-      state = State.TRANSFER;
-    } else {
+    // Reset to default mode if we were in the short-cut mode.
+    if (state == State.TRANSFER) {
       state = State.READY;
+    }
+
+    // When called for the initial NONE case, there is no upstream batch.
+    // But, there is also no reason to use the transfer mode, since there
+    // is no data to transfer.
+    if (getLastKnownOutcome() != IterOutcome.NONE) {
+
+        // Handle the simplest case: transfer-only vectors, no computation. Drill
+        // inserts many of these into each query, and so this is a worthwhile
+        // optimization.
+       if (incoming.getContainer().getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE &&
+          complexWriters == null && allocationVectors.isEmpty()) {
+        Preconditions.checkState(container.getNumberOfColumns() == batchBuilder.transfers().size());
+        state = State.TRANSFER;
+      }
     }
   }
 
@@ -362,7 +370,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
    *           Once the expression is materialized without error, use the output type of materialized
    *           expression. </li>
    * </ul>
-   *
+   * <p>
+   * Note that case 1 is moot for an empty input: there are no columns to expand.
    * <p>
    * The batch is constructed with the above rules, and recordCount = 0.
    * Returned with {@code OK_NEW_SCHEMA} to down-stream operator.
@@ -371,16 +380,15 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   @Override
   protected IterOutcome handleNullInput() {
     if (!popConfig.isOutputProj()) {
-      BatchSchema incomingSchema = incoming.getSchema();
-      if (incomingSchema != null && incomingSchema.getFieldCount() > 0) {
-        setupNewSchemaFromInput(incoming);
-      }
+//      BatchSchema incomingSchema = incoming.getSchema();
+//      if (incomingSchema != null && incomingSchema.getFieldCount() > 0) {
+//        setupNewSchemaFromInput(incoming);
+//      }
       return super.handleNullInput();
     }
 
-    // TODO: Not clear the next four lines are needed.
-    // If input is empty, a 0-column, 0-row container is all that
-    // downstream needs to see.
+    // This is a NONE state, so the incoming batch has no batch
+    // or schema. Make up one to allow us to compute output columns.
     VectorContainer emptyVC = new VectorContainer();
     emptyVC.buildSchema(SelectionVectorMode.NONE);
     RecordBatch emptyIncomingBatch = new SimpleRecordBatch(emptyVC, context);
@@ -389,6 +397,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     container.buildSchema(SelectionVectorMode.NONE);
     container.setEmpty();
     state = State.DONE;
+
+    // Return an empty schema batch.
     return IterOutcome.OK_NEW_SCHEMA;
   }
 

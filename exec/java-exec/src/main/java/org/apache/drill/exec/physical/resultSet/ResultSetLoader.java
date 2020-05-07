@@ -114,8 +114,8 @@ public interface ResultSetLoader {
 
   /**
    * Writer for the top-level tuple (the entire row). Valid only when
-   * the mutator is actively writing a batch (after <tt>startBatch()</tt>
-   * but before </tt>harvest()</tt>.)
+   * the mutator is actively writing a batch (after {@code startBatch()}
+   * but before }harvest()}.)
    *
    * @return writer for the top-level columns
    */
@@ -135,14 +135,14 @@ public interface ResultSetLoader {
    * Load a row using column values passed as variable-length arguments. Expects
    * map values to represented as an array.
    * A schema of (a:int, b:map(c:varchar)) would be>
-   * set as <br><tt>loadRow(10, new Object[] {"foo"});</tt><br>
+   * set as <br>{@code loadRow(10, new Object[] {"foo"});}<br>
    * Values of arrays can be expressed as a Java
    * array. A schema of (a:int, b:int[]) can be set as<br>
-   * <tt>loadRow(10, new int[] {100, 200});</tt><br>.
+   * {@code loadRow(10, new int[] {100, 200});}<br>.
    * Primarily for testing, too slow for production code.
    * <p>
    * If the row consists of a single map or list, then the one value will be an
-   * <tt>Object</tt> array, creating an ambiguity. Use <tt>writer().set(0, value);</tt>
+   * {@code Object} array, creating an ambiguity. Use {@code writer().set(0, value);}
    * in this case.
    *
    * @param values column values in column index order
@@ -154,7 +154,7 @@ public interface ResultSetLoader {
    * Requests to skip the given number of rows. Returns the number of rows
    * actually skipped (which is limited by batch count.)
    * <p>
-   * Used in <tt>SELECT COUNT(*)</tt> style queries when the downstream
+   * Used in {@code SELECT COUNT(*)} style queries when the downstream
    * operators want just record count, but no actual rows.
    * <p>
    * Also used to fill in a batch of only null values (such a filling
@@ -170,7 +170,7 @@ public interface ResultSetLoader {
 
   /**
    * Reports if this is an empty projection such as occurs in a
-   * <tt>SELECT COUNT(*)</tt> query. If the projection is empty, then
+   * {@code SELECT COUNT(*)} query. If the projection is empty, then
    * the downstream needs only the row count set in each batch, but no
    * actual vectors will be created. In this case, the client can do
    * the work to populate rows (the data will be discarded), or can call
@@ -178,9 +178,9 @@ public interface ResultSetLoader {
    * have been read if any data had been projected.
    * <p>
    * Note that the empty schema case can also occur if the project list
-   * from the <tt>SELECT</tt> clause is disjoint from the table schema.
-   * For example, <tt>SELECT a, b</tt> from a table with schema
-   * <tt>(c, d)</tt>.
+   * from the {@code SELECT} clause is disjoint from the table schema.
+   * For example, {@code SELECT a, b} from a table with schema
+   * {@code (c, d)}.
    *
    * @return true if no columns are actually projected, false if at
    * least one column is projected

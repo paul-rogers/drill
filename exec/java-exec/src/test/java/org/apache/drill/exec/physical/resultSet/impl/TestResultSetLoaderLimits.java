@@ -46,7 +46,6 @@ import org.junit.experimental.categories.Category;
  * in fact, depend on the row count) and vector overflow (which an occur when
  * the row limit turns out to be too large.)
  */
-
 @Category(RowSetTests.class)
 public class TestResultSetLoaderLimits extends SubOperatorTest {
 
@@ -54,7 +53,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
    * Verify that the writer stops when reaching the row limit.
    * In this case there is no look-ahead row.
    */
-
   @Test
   public void testRowLimit() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
@@ -78,7 +76,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     rsLoader.harvest().clear();
 
     // Do it again, a different way.
-
     count = 0;
     rsLoader.startBatch();
     assertEquals(0, rootWriter.rowCount());
@@ -100,13 +97,11 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
   /**
    * Verify that the caller can set a row limit lower than the default.
    */
-
   @Test
   public void testCustomRowLimit() {
 
     // Try to set a default value larger than the hard limit. Value
     // is truncated to the limit.
-
     ResultSetOptions options = new ResultSetOptionBuilder()
         .rowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .build();
@@ -114,7 +109,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
 
     // Just a bit of paranoia that we check against the vector limit,
     // not any previous value...
-
     options = new ResultSetOptionBuilder()
         .rowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .rowCountLimit(TEST_ROW_LIMIT)
@@ -128,14 +122,12 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     assertEquals(ValueVector.MAX_ROW_COUNT, options.rowCountLimit);
 
     // Can't set the limit lower than 1
-
     options = new ResultSetOptionBuilder()
         .rowCountLimit(0)
         .build();
     assertEquals(1, options.rowCountLimit);
 
     // Do load with a (valid) limit lower than the default.
-
     options = new ResultSetOptionBuilder()
         .rowCountLimit(TEST_ROW_LIMIT)
         .build();
@@ -151,7 +143,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     assertEquals(count, rootWriter.rowCount());
 
     // Should fail to write beyond the row limit
-
     assertFalse(rootWriter.start());
     try {
       rootWriter.save();
@@ -183,12 +174,10 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
   /**
    * Test that the row limit can change between batches.
    */
-
   @Test
   public void testDynamicLimit() {
 
     // Start with a small limit.
-
     ResultSetOptions options = new ResultSetOptionBuilder()
         .rowCountLimit(TEST_ROW_LIMIT)
         .build();
@@ -205,7 +194,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     rsLoader.harvest().clear();
 
     // Reset the batch size larger and fill a second batch
-
     int newLimit = 8000;
     rsLoader.setTargetRowCount(newLimit);
     rsLoader.startBatch();
@@ -215,7 +203,6 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     rsLoader.harvest().clear();
 
     // Put the limit back to a lower number.
-
     newLimit = 1000;
     rsLoader.setTargetRowCount(newLimit);
     rsLoader.startBatch();

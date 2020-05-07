@@ -50,7 +50,6 @@ import org.junit.experimental.categories.Category;
 /**
  * Exercise the vector overflow functionality for the result set loader.
  */
-
 @Category(RowSetTests.class)
 public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
@@ -58,7 +57,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * Test that the writer detects a vector overflow. The offending column
    * value should be moved to the next batch.
    */
-
   @Test
   public void testVectorSizeLimit() {
     TupleMetadata schema = new SchemaBuilder()
@@ -77,7 +75,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     // Number of rows should be driven by vector size.
     // Our row count should include the overflow row
-
     int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
     {
       int count = 0;
@@ -91,15 +88,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
       assertEquals(expectedCount + 1, count);
 
       // Loader's row count should include only "visible" rows
-
       assertEquals(expectedCount, rootWriter.rowCount());
 
       // Total count should include invisible and look-ahead rows.
-
       assertEquals(expectedCount + 1, rsLoader.totalRowCount());
 
       // Result should exclude the overflow row
-
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
       RowSet result = fixture.wrap(container);
@@ -108,7 +102,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Next batch should start with the overflow row
-
     {
       rsLoader.startBatch();
       assertEquals(1, rootWriter.rowCount());
@@ -127,7 +120,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * Test that the writer detects a vector overflow. The offending column
    * value should be moved to the next batch.
    */
-
   @Test
   public void testBatchSizeLimit() {
     TupleMetadata schema = new SchemaBuilder()
@@ -148,11 +140,9 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     Arrays.fill(value, (byte) 'X');
 
     // Our row count should include the overflow row
-
     int expectedCount = 8 * 1024 * 1024 / value.length;
 
     // First batch, with overflow
-
     {
       int count = 0;
       while (! rootWriter.isFull()) {
@@ -164,15 +154,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
       assertEquals(expectedCount + 1, count);
 
       // Loader's row count should include only "visible" rows
-
       assertEquals(expectedCount, rootWriter.rowCount());
 
       // Total count should include invisible and look-ahead rows.
-
       assertEquals(expectedCount + 1, rsLoader.totalRowCount());
 
       // Result should exclude the overflow row
-
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
       RowSet result = fixture.wrap(container);
@@ -181,7 +168,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Next batch should start with the overflow row
-
     {
       rsLoader.startBatch();
       assertEquals(1, rootWriter.rowCount());
@@ -201,7 +187,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * batch unharvested. The Loader should release the memory allocated
    * to the unused overflow vectors.
    */
-
   @Test
   public void testCloseWithOverflow() {
     TupleMetadata schema = new SchemaBuilder()
@@ -228,14 +213,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     assertTrue(count < ValueVector.MAX_ROW_COUNT);
 
     // Harvest the full batch
-
     VectorContainer container = rsLoader.harvest();
     BatchValidator.validate(container);
     RowSet result = fixture.wrap(container);
     result.clear();
 
     // Close without harvesting the overflow batch.
-
     rsLoader.close();
   }
 
@@ -244,7 +227,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * limit. Overflow won't work here; the attempt will fail with a user
    * exception.
    */
-
   @Test
   public void testOversizeArray() {
     TupleMetadata schema = new SchemaBuilder()
@@ -259,7 +241,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     // Create a single array as the column value in the first row. When
     // this overflows, an exception is thrown since overflow is not possible.
-
     rsLoader.startBatch();
     byte[] value = new byte[473];
     Arrays.fill(value, (byte) 'X');
@@ -282,7 +263,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * correctly. Run this test (the simplest case) if you change anything
    * about the array handling code.
    */
-
   @Test
   public void testSizeLimitOnArray() {
     TupleMetadata schema = new SchemaBuilder()
@@ -298,7 +278,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Fill batch with rows of with a single array, three values each. Tack on
     // a suffix to each so we can be sure the proper data is written and moved
     // to the overflow batch.
-
     rsLoader.startBatch();
     byte[] value = new byte[473];
     Arrays.fill(value, (byte) 'X');
@@ -323,18 +302,15 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
       }
 
       // Row count should include the overflow row.
-
       int expectedCount = count - 1;
 
       // Size without overflow row should fit in the vector, size
       // with overflow should not.
-
       assertTrue(totalSize <= ValueVector.MAX_BUFFER_SIZE);
       assertTrue(totalSize + rowSize > ValueVector.MAX_BUFFER_SIZE);
 
       // Result should exclude the overflow row. Last row
       // should hold the last full array.
-
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
       RowSet result = fixture.wrap(container);
@@ -355,7 +331,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Next batch should start with the overflow row.
     // The only row in this next batch should be the whole
     // array being written at the time of overflow.
-
     {
       rsLoader.startBatch();
       assertEquals(1, rootWriter.rowCount());
@@ -393,7 +368,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * <li>Column e is like d, but is not written in the overflow
    * row.</li>
    */
-
   @Test
   public void testArrayOverflowWithOtherArrays() {
     TupleMetadata schema = new SchemaBuilder()
@@ -412,7 +386,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Fill batch with rows of with a single array, three values each. Tack on
     // a suffix to each so we can be sure the proper data is written and moved
     // to the overflow batch.
-
     byte[] value = new byte[512];
     Arrays.fill(value, (byte) 'X');
     String strValue = new String(value, Charsets.UTF_8);
@@ -447,7 +420,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
       // Relies on fact that isFull becomes true right after
       // a vector overflows; don't have to wait for saveRow().
-
       if (count < cCutoff || rootWriter.isFull()) {
         for (int i = 0; i < dCount; i++) {
           dWriter.setInt(count * dCount + i);
@@ -458,7 +430,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Verify
-
     {
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
@@ -510,7 +481,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // One row is in the batch. Write more, skipping over the
     // initial few values for columns c and d. Column d has a
     // roll-over value, c has an empty roll-over.
-
     rsLoader.startBatch();
     for (int j = 0; j < 5; j++) {
       rootWriter.start();
@@ -593,7 +563,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    * limit on array lengths. (Well, it does, but the limit is about 2 billion
    * which, even for bytes, is too large to fit into a vector...)
    */
-
   @Test
   public void testLargeArray() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
@@ -603,7 +572,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     // Create a single array as the column value in the first row. When
     // this overflows, an exception is thrown since overflow is not possible.
-
     rsLoader.startBatch();
     rootWriter.start();
     ScalarWriter array = rootWriter.array(0).scalar();
@@ -710,7 +678,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Result should exclude the overflow row
-
     {
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
@@ -728,7 +695,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Next batch should start with the overflow row
-
     rsLoader.startBatch();
     {
       VectorContainer container = rsLoader.harvest();
@@ -781,21 +747,17 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     // Number of rows should be driven by vector size.
     // Our row count should include the overflow row
-
     int valueLength = head.length + 2 * tail.length;
     int expectedCount = ValueVector.MAX_BUFFER_SIZE / valueLength;
     assertEquals(expectedCount + 1, count);
 
     // Loader's row count should include only "visible" rows
-
     assertEquals(expectedCount, rootWriter.rowCount());
 
     // Total count should include invisible and look-ahead rows.
-
     assertEquals(expectedCount + 1, rsLoader.totalRowCount());
 
     // Result should exclude the overflow row
-
     {
       VectorContainer container = rsLoader.harvest();
       BatchValidator.validate(container);
@@ -803,7 +765,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
       assertEquals(expectedCount, result.rowCount());
 
       // Verify that the values were, in fact, appended.
-
       RowSetReader reader = result.reader();
       while (reader.next()) {
         assertEquals(expected, reader.scalar(0).getString());
@@ -812,7 +773,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     }
 
     // Next batch should start with the overflow row
-
     rsLoader.startBatch();
     assertEquals(1, rootWriter.rowCount());
     assertEquals(expectedCount + 1, rsLoader.totalRowCount());

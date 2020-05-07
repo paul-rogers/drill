@@ -80,7 +80,6 @@ public class RecordBatchMemoryManager {
     public void incTotalRecords(long numRecords) {
       totalRecords += numRecords;
     }
-
   }
 
   public long getNumOutgoingBatches() {
@@ -138,25 +137,23 @@ public class RecordBatchMemoryManager {
   public RecordBatchMemoryManager(int numInputs, int configuredOutputSize) {
     this.numInputs = numInputs;
     this.outputBatchSize = configuredOutputSize;
-    sizer = new RecordBatchSizer[numInputs];
-    inputBatchStats = new BatchStats[numInputs];
-    outputBatchStats = new BatchStats();
+    this.sizer = new RecordBatchSizer[numInputs];
+    this.inputBatchStats = new BatchStats[numInputs];
+    this.outputBatchStats = new BatchStats();
   }
 
   public RecordBatchMemoryManager(int configuredOutputSize) {
     this.outputBatchSize = configuredOutputSize;
-    sizer = new RecordBatchSizer[numInputs];
-    inputBatchStats = new BatchStats[numInputs];
-    outputBatchStats = new BatchStats();
+    this.sizer = new RecordBatchSizer[numInputs];
+    this.inputBatchStats = new BatchStats[numInputs];
+    this.outputBatchStats = new BatchStats();
   }
 
-  public void update(int inputIndex) {
-  }
+  public void update(int inputIndex) { }
 
-  public void update() {};
+  public void update() { }
 
-  public void update(RecordBatch recordBatch) {
-  }
+  public void update(RecordBatch recordBatch) { }
 
   public void update(RecordBatch recordBatch, int index) {
     // Get sizing information for the batch.
@@ -200,8 +197,10 @@ public class RecordBatchMemoryManager {
   }
 
   /**
-   * Should be used as maximum output row count that can be filled in output batch when a new output batch is
-   * allocated after calling update on BatchMemoryManager.
+   * Should be used as maximum output row count that can be filled in output
+   * batch when a new output batch is allocated after calling update on
+   * BatchMemoryManager.
+   *
    * @return outputRowCount max output row count
    */
   public int getOutputRowCount() {
@@ -209,10 +208,14 @@ public class RecordBatchMemoryManager {
   }
 
   /**
-   * Should be used as maximum output row count that can be filled in output batch which is already allocated.
-   * @return currentOutgoingMaxRowCount max output row count for current output batch
+   * Should be used as maximum output row count that can be filled in output
+   * batch which is already allocated.
+   *
+   * @return currentOutgoingMaxRowCount max output row count for current output
+   *         batch
    */
   public int getCurrentOutgoingMaxRowCount() { return currentOutgoingMaxRowCount; }
+
   /**
    * Given batchSize and rowWidth, this will set output rowCount taking into account
    * the min and max that is allowed.
@@ -252,9 +255,7 @@ public class RecordBatchMemoryManager {
     this.outgoingRowWidth = outgoingRowWidth;
   }
 
-  public int getOutgoingRowWidth() {
-    return outgoingRowWidth;
-  }
+  public int getOutgoingRowWidth() { return outgoingRowWidth; }
 
   public void setRecordBatchSizer(int index, RecordBatchSizer sizer) {
     Preconditions.checkArgument(index >= 0 && index < numInputs);

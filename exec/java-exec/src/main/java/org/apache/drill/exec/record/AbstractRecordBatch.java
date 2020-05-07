@@ -31,13 +31,23 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.aggregate.SpilledRecordBatch;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
-import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.util.record.RecordBatchStats.RecordBatchStatsContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements CloseableRecordBatch {
   private static final Logger logger = LoggerFactory.getLogger(AbstractRecordBatch.class);
+
+  public enum BatchState {
+    /** Need to build schema and return. */
+    BUILD_SCHEMA,
+    /** This is still the first data batch. */
+    FIRST,
+    /** The first data batch has already been returned. */
+    NOT_FIRST,
+    /** All work is done, no more data to be sent. */
+    DONE
+  }
 
   protected final VectorContainer container;
   protected final T popConfig;
@@ -66,30 +76,14 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     this.popConfig = popConfig;
     this.oContext = oContext;
     this.batchStatsContext = new RecordBatchStatsContext(context, oContext);
-    stats = oContext.getStats();
-    container = new VectorContainer(this.oContext.getAllocator());
+    this.stats = oContext.getStats();
+    this.container = new VectorContainer(this.oContext.getAllocator());
     if (buildSchema) {
-      state = BatchState.BUILD_SCHEMA;
+      this.state = BatchState.BUILD_SCHEMA;
     } else {
-      state = BatchState.FIRST;
+      this.state = BatchState.FIRST;
     }
-    OptionValue option = context.getOptions().getOption(ExecConstants.ENABLE_UNION_TYPE.getOptionName());
-    if (option != null) {
-      unionTypeEnabled = option.bool_val;
-    } else {
-      unionTypeEnabled = false;
-    }
-  }
-
-  public enum BatchState {
-    /** Need to build schema and return. */
-    BUILD_SCHEMA,
-    /** This is still the first data batch. */
-    FIRST,
-    /** The first data batch has already been returned. */
-    NOT_FIRST,
-    /** All work is done, no more data to be sent. */
-    DONE
+    this.unionTypeEnabled = context.getOptions().getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);
   }
 
   @Override
@@ -98,13 +92,9 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
   }
 
   @Override
-  public FragmentContext getContext() {
-    return context;
-  }
+  public FragmentContext getContext() { return context; }
 
-  public T getPopConfig() {
-    return popConfig;
-  }
+  public T getPopConfig() { return popConfig; }
 
   public final IterOutcome next(RecordBatch b) {
     checkContinue();

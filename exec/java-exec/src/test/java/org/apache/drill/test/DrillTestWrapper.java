@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Array;
@@ -341,7 +342,7 @@ public class DrillTestWrapper {
    * @throws UnsupportedEncodingException
    */
   public static Map<String, List<Object>> addToCombinedVectorResults(Iterable<VectorAccessible> batches,
-                                                                     Long expectedBatchSize, Integer expectedNumBatches, Integer expectedTotalRecords)
+          Long expectedBatchSize, Integer expectedNumBatches, Integer expectedTotalRecords)
       throws SchemaChangeException, UnsupportedEncodingException {
     Map<String, List<Object>> combinedVectors = new TreeMap<>();
     addToCombinedVectorResults(batches, null, expectedBatchSize, expectedNumBatches, combinedVectors, expectedTotalRecords);
@@ -368,10 +369,10 @@ public class DrillTestWrapper {
     long totalRecords = 0;
     BatchSchema schema = null;
 
-    for (VectorAccessible loader : batches)  {
+    for (VectorAccessible loader : batches) {
       numBatch++;
       if (expectedSchema != null) {
-        if (! expectedSchema.isEquivalent(loader.getSchema())) {
+        if (!expectedSchema.isEquivalent(loader.getSchema())) {
           throw new SchemaChangeException(String.format("Batch schema does not match expected schema\n" +
                   "Actual schema: %s.  Expected schema : %s",
               loader.getSchema(), expectedSchema));
@@ -382,7 +383,7 @@ public class DrillTestWrapper {
         RecordBatchSizer sizer = new RecordBatchSizer(loader);
         // Not checking actualSize as accounting is not correct when we do
         // split and transfer ownership across operators.
-        Assert.assertTrue(sizer.getNetBatchSize() <= expectedBatchSize);
+        assertTrue(sizer.getNetBatchSize() <= expectedBatchSize);
       }
 
       // TODO:  Clean:  DRILL-2933:  That load(...) no longer throws

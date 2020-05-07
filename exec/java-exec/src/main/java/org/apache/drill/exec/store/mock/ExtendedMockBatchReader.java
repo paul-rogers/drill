@@ -43,7 +43,6 @@ import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
  * The definition is provided inside the sub scan used to create the
  * {@link ScanBatch} used to create this record reader.
  */
-
 public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> {
 
   private final MockScanEntry config;
@@ -63,7 +62,6 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     // appears twice. We must do this here because some tests create
     // a physical plan directly, meaning that this is the first
     // opportunity to review the column definitions.
-
     final Set<String> names = new HashSet<>();
     final MockColumn cols[] = config.getTypes();
     for (int i = 0; i < cols.length; i++) {
@@ -103,10 +101,9 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     // tests. If the operator definition specifies a size, use that.
 
     // TODO: Defer batch size to framework, update tests accordingly.
-
     final int batchSize = config.getBatchSize();
     if (batchSize > 0) {
-      schemaNegotiator.batchSize(batchSize);
+      schemaNegotiator.batchRowLimit(batchSize);
     }
 
     loader = schemaNegotiator.build();

@@ -264,12 +264,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
-    targetRowCount = options.rowCountLimit;
-    writerIndex = new WriterIndexImpl(this);
-    columnBuilder = new ColumnBuilder();
+    this.targetRowCount = options.rowCountLimit;
+    this.writerIndex = new WriterIndexImpl(this);
+    this.columnBuilder = new ColumnBuilder();
 
     // Determine the root vector cache
-
     ResultVectorCache vectorCache;
     if (options.vectorCache == null) {
       vectorCache = new NullResultVectorCacheImpl(allocator);
@@ -278,19 +277,16 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     }
 
     // Build the row set model depending on whether a schema is provided.
-
-    rootState = new RowState(this, vectorCache);
-    rootWriter = rootState.rootWriter();
+    this.rootState = new RowState(this, vectorCache);
+    this.rootWriter = rootState.rootWriter();
 
     // If no schema, columns will be added incrementally as they
     // are discovered. Start with an empty model.
-
     if (options.schema != null) {
 
       // Schema provided. Populate a model (and create vectors) for the
       // provided schema. The schema can be extended later, but normally
       // won't be if known up front.
-
       logger.debug("Schema: " + options.schema.toString());
       BuildFromSchema.instance().buildTuple(rootWriter, options.schema);
     }
@@ -329,7 +325,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     // row might cause overflow, and any new columns in this row will
     // be hidden until a later batch. But, if we are between batches,
     // then it is fine to add the column to the schema.
-
     activeSchemaVersion++;
     switch (state) {
       case HARVESTED:
@@ -605,7 +600,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     // overflowed during the overflow row -- that indicates that that one
     // column can't fit in an empty vector. That is, this check is for a
     // second-order overflow.
-
     if (state == State.OVERFLOW) {
       throw UserException
           .memoryError("A single column value is larger than the maximum allowed size of 16 MB")

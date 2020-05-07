@@ -90,7 +90,7 @@ public final class ExecConstants {
   // Output Batch Size in Bytes. We have a small lower bound so we can test with unit tests without the
   // need to produce very large batches that take up lot of memory.
   public static final LongValidator OUTPUT_BATCH_SIZE_VALIDATOR = new RangeLongValidator(OUTPUT_BATCH_SIZE, 128, 512 * 1024 * 1024,
-      new OptionDescription("Available as of Drill 1.13. Limits the amount of memory that the Flatten, Merge Join, and External Sort operators allocate to outgoing batches."));
+      new OptionDescription("Limits the amount of memory that the Flatten, Merge Join, and External Sort operators allocate to outgoing batches. Since Drill 1.13."));
 
   // Based on available memory, adjust output batch size for buffered operators by this factor.
   public static final String OUTPUT_BATCH_SIZE_AVAIL_MEM_FACTOR = "drill.exec.memory.operator.output_batch_size_avail_mem_factor";

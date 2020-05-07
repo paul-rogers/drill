@@ -89,7 +89,6 @@ public class TestUntypedNull extends ClusterTest {
     testTableCreation("csv");
   }
 
-
   private void testTableCreation(String format) throws Exception {
     String tableName = "table_" + format;
     try {
